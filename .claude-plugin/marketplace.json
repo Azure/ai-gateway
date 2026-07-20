@@ -5,13 +5,10 @@
   "owner": {
     "name": "Microsoft"
   },
-  "metadata": {
-    "pluginRoot": "./"
-  },
   "plugins": [
     {
       "name": "ai-gateway",
-      "source": "./ai-gateway",
+      "source": "./",
       "description": "Discover the models and MCP tools registered in an AI Gateway and integrate them into any application — call a model, connect MCP tools, or scaffold a runnable agent. Adds /ai-gateway:discover and /ai-gateway:build.",
       "version": "2.0.0",
       "category": "development",

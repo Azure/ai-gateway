@@ -8,7 +8,8 @@ passthrough, connect MCP tools, or scaffold a runnable agent — all from your
 coding agent.
 
 The plugin follows the [Claude Code plugin spec](https://code.claude.com/docs/en/plugins)
-and installs in any compatible coding agent (Claude Code, GitHub Copilot CLI, and
+and the [GitHub Copilot / awesome-copilot plugin convention](https://github.com/github/awesome-copilot/blob/main/CONTRIBUTING.md#adding-plugins),
+so it installs in any compatible coding agent (Claude Code, GitHub Copilot CLI, and
 other agents that support the plugin standard).
 
 > **Consumption only.** The plugin is read-only against the gateway — it never
@@ -34,6 +35,27 @@ In Claude Code (or any agent that speaks the plugin marketplace protocol):
 /plugin marketplace add Azure/ai-gateway
 /plugin install ai-gateway@ai-gateway
 ```
+
+## Repository layout
+
+The plugin is single-sourced and exposed through both plugin conventions:
+
+```
+.claude-plugin/
+  marketplace.json     # Claude Code marketplace catalog (direct install)
+  plugin.json          # Claude Code plugin manifest
+.github/plugin/
+  plugin.json          # GitHub Copilot / awesome-copilot plugin manifest
+commands/
+  discover.md          # /ai-gateway:discover
+  build.md             # /ai-gateway:build
+skills/
+  use-ai-gateway/
+    SKILL.md           # /ai-gateway:use-ai-gateway
+```
+
+Both manifests point at the same top-level `commands/` and `skills/` — there is a
+single source of truth for the plugin's content.
 
 ## Usage
 
