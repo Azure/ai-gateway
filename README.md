@@ -7,10 +7,11 @@ them into whatever you're building — call a model over the OpenAI-compatible
 passthrough, connect MCP tools, or scaffold a runnable agent — all from your
 coding agent.
 
-The plugin follows the [Claude Code plugin spec](https://code.claude.com/docs/en/plugins)
-and the [GitHub Copilot / awesome-copilot plugin convention](https://github.com/github/awesome-copilot/blob/main/CONTRIBUTING.md#adding-plugins),
-so it installs in any compatible coding agent (Claude Code, GitHub Copilot CLI, and
-other agents that support the plugin standard).
+The plugin follows the [Claude Code plugin spec](https://code.claude.com/docs/en/plugins),
+the [GitHub Copilot / awesome-copilot plugin convention](https://github.com/github/awesome-copilot/blob/main/CONTRIBUTING.md#adding-plugins),
+the [Cursor plugin format](https://cursor.com/docs/plugins), and the
+[Gemini CLI extension format](https://geminicli.com/docs/extensions/), so it installs
+in any of those coding agents (and other agents that support the plugin standard).
 
 > **Consumption only.** The plugin is read-only against the gateway — it never
 > provisions, updates, or deletes resources. Creating gateways, models, or tools
@@ -27,35 +28,54 @@ other agents that support the plugin standard).
 ## Install
 
 The plugin is hosted in this repository, so your coding agent can install it
-directly from Git — no manual file downloads.
+directly from Git — no manual file downloads. Pick the tab for your agent:
 
-In Claude Code (or any agent that speaks the plugin marketplace protocol):
+**Claude Code / GitHub Copilot CLI** (plugin marketplace protocol):
 
 ```
 /plugin marketplace add Azure/ai-gateway
 /plugin install ai-gateway@ai-gateway
 ```
 
+**Cursor** — add this repository as a team marketplace from **Dashboard → Plugins →
+Add Marketplace → Import from Repo** (`https://github.com/Azure/ai-gateway`), then
+install **ai-gateway** from **Customize**. For local testing, symlink the repo into
+`~/.cursor/plugins/local/ai-gateway` and reload the window.
+
+**Gemini CLI**:
+
+```
+gemini extensions install https://github.com/Azure/ai-gateway
+```
+
 ## Repository layout
 
-The plugin is single-sourced and exposed through both plugin conventions:
+The plugin is single-sourced and exposed through every supported plugin convention —
+all manifests point at the same top-level `commands/` and `skills/`:
 
 ```
 .claude-plugin/
   marketplace.json     # Claude Code marketplace catalog (direct install)
   plugin.json          # Claude Code plugin manifest
+.cursor-plugin/
+  plugin.json          # Cursor plugin manifest
 .github/plugin/
   plugin.json          # GitHub Copilot / awesome-copilot plugin manifest
+gemini-extension.json  # Gemini CLI extension manifest
 commands/
-  discover.md          # /ai-gateway:discover
-  build.md             # /ai-gateway:build
+  discover.md          # /ai-gateway:discover  (Claude, Copilot, Cursor)
+  build.md             # /ai-gateway:build     (Claude, Copilot, Cursor)
+  ai-gateway/
+    discover.toml      # /ai-gateway:discover  (Gemini CLI — TOML commands)
+    build.toml         # /ai-gateway:build     (Gemini CLI — TOML commands)
 skills/
   use-ai-gateway/
-    SKILL.md           # /ai-gateway:use-ai-gateway
+    SKILL.md           # /ai-gateway:use-ai-gateway  (all agents)
 ```
 
-Both manifests point at the same top-level `commands/` and `skills/` — there is a
-single source of truth for the plugin's content.
+The `skills/use-ai-gateway/SKILL.md` workflow is shared by every agent. Command files
+are duplicated only where formats differ (Markdown for Claude/Copilot/Cursor, TOML for
+Gemini CLI); the underlying behavior is identical.
 
 ## Usage
 
