@@ -79,17 +79,17 @@ Gemini CLI); the underlying behavior is identical.
 
 ## Usage
 
-Point the plugin at your gateway (an ARM resource id or the gateway host) and
-describe what you want to build:
+Point the plugin at your gateway's **ARM resource id** (required to list its models and
+tools) and describe what you want to build:
 
 ```
-/ai-gateway:build /subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.ApiManagement/aigateways/<gateway> a service that summarizes support tickets
+/ai-gateway:build /subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.ApiManagement/service/<gateway> a service that summarizes support tickets
 ```
 
 Or explore first, then integrate:
 
 ```
-/ai-gateway:discover <gateway-host>
+/ai-gateway:discover /subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.ApiManagement/service/<gateway>
 ```
 
 ## Security

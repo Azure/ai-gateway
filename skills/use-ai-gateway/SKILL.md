@@ -1,13 +1,13 @@
 ---
 name: use-ai-gateway
-version: 2.0.0
-updated: 2026-07-20
+version: 2.1.0
+updated: 2026-07-21
 description: Discover the models and MCP tool servers registered in an AI Gateway, retrieve a credential, and integrate them into any application — call a model over the OpenAI-compatible passthrough, connect to MCP tool servers, or scaffold a standalone agent. Use this whenever a developer wants to use an AI Gateway's models and/or tools from the app they are building.
 ---
 
 # Use an AI Gateway (models & MCP tools)
 
-<!-- Skill version 2.0.0 (2026-07-20). Canonical copy shipped by the `ai-gateway` plugin. Works with any coding agent that can read this file. -->
+<!-- Skill version 2.1.0 (2026-07-21). Canonical copy shipped by the `ai-gateway` plugin. Works with any coding agent that can read this file. -->
 
 > Invoked as `/ai-gateway:use-ai-gateway` when installed via the plugin. It is also invoked automatically by the `/ai-gateway:discover` and `/ai-gateway:build` commands.
 
@@ -38,8 +38,9 @@ This skill is **strictly for developers consuming an existing AI Gateway**. It i
 
 Ask the user for (or confirm) these before calling the API:
 
-- **gatewayResourceId** — the ARM resource ID of the user's gateway, e.g.
-  `/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.ApiManagement/aigateways/<gateway-name>`. Keep the **leading `/`** exactly as ARM returns the `id`. The URL templates below append it directly to `https://management.azure.com` (no slash in between), so the full URL resolves to `https://management.azure.com/subscriptions/...`. Don't add a slash before a leading-slash id — that produces a doubled `//subscriptions/...` and the call fails.
+- **gatewayResourceId** — the ARM resource ID of the user's gateway. It is one of two APIM resource types:
+  `/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.ApiManagement/service/<gateway-name>` **or** `.../Microsoft.ApiManagement/aigateways/<gateway-name>`. Both expose the same sub-resources (`workspaces/default/models`, `workspaces/default/toolServers`, and `apiKeys` at the resource root), so every template below works for either type. Keep the **leading `/`** exactly as ARM returns the `id`. The URL templates append it directly to `https://management.azure.com` (no slash in between), so the full URL resolves to `https://management.azure.com/subscriptions/...`. Don't add a slash before a leading-slash id — that produces a doubled `//subscriptions/...` and the call fails.
+  > **Discovery needs the resource id, not just a host.** Listing models/tools/keys goes through the ARM control plane, which is keyed by `gatewayResourceId`. If the user gives you only a runtime host, resolve the id first (e.g. `az resource list --name <name>` or the Azure Portal) or ask for it — you cannot list assets from a host alone.
 - **apiVersion** — `2025-09-01-preview`
 
 Every ARM call must be authenticated with an Azure Resource Manager bearer token:
@@ -54,6 +55,50 @@ Retrieve the token with:
 az account get-access-token --query accessToken -o tsv
 ```
 
+### 0. Resolve the runtime host
+
+Discovery uses the ARM control plane (keyed by `gatewayResourceId`), but the model passthrough and MCP endpoints are called on the gateway's **runtime host**. Read the host from the resource itself rather than guessing it from the name:
+
+```
+GET https://management.azure.com{gatewayResourceId}?api-version={apiVersion}
+```
+
+Use `properties.gatewayUrl` (e.g. `https://<name>.<region>.ai.gateway-current.azure.com`) as `<ai-gateway-host>` for every runtime URL below. **All runtime paths are served under the workspace segment `/default/`** (the Default workspace — the only one today). So the model passthrough base is `<ai-gateway-host>/default/models/openai/v1` and each MCP endpoint is `<ai-gateway-host>/default/toolservers/<tool-server-name>/mcp`. Omitting the `/default/` segment returns `404 Resource not found`.
+
+### One-shot discovery (copy-paste)
+
+This performs the whole of Part 1 in one block. Set `RID` to the `gatewayResourceId` (keep its leading `/`); requires `az` and `jq`:
+
+```bash
+RID="/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.ApiManagement/service/<name>"
+VER="2025-09-01-preview"
+TOKEN=$(az account get-access-token --resource https://management.azure.com --query accessToken -o tsv)
+B="https://management.azure.com$RID"
+AUTH=(-H "Authorization: Bearer $TOKEN")
+
+# Runtime host (used for every model/MCP call below)
+HOST=$(curl -s "${AUTH[@]}" "$B?api-version=$VER" | jq -r '.properties.gatewayUrl')
+
+# Models -> use .properties.deployment.modelName as the model id (exact dots/casing)
+curl -s "${AUTH[@]}" "$B/workspaces/default/models?api-version=$VER" \
+  | jq -r '.value[] | "\(.properties.deployment.modelName)\t\(.properties.supportedEndpoints | join(","))"'
+
+# MCP tool servers
+curl -s "${AUTH[@]}" "$B/workspaces/default/toolServers?api-version=$VER" | jq -r '.value[].name'
+
+# API key: list keys, then read the first active key's secret (name is commonly "master" or "default")
+KEYNAME=$(curl -s "${AUTH[@]}" "$B/apiKeys?api-version=$VER" | jq -r '.value[0].name')
+KEY=$(curl -s -X POST "${AUTH[@]}" -H "Content-Length: 0" \
+  "$B/apiKeys/$KEYNAME/listSecrets?api-version=$VER" | jq -r '.primaryKey')
+
+# Smoke-test a model over the passthrough — note the /default/ workspace segment and the Api-Key header
+curl -s "$HOST/default/models/openai/v1/chat/completions" \
+  -H "Api-Key: $KEY" -H "Content-Type: application/json" \
+  -d '{"model":"<modelName>","messages":[{"role":"user","content":"ping"}],"max_tokens":5}'
+```
+
+The individual steps and their gotchas are documented below.
+
 ### 1. Discover models
 
 List the models registered in the gateway workspace:
@@ -65,10 +110,10 @@ GET https://management.azure.com{gatewayResourceId}/workspaces/default/models?ap
 **Use `properties.deployment.modelName` as the model identifier** in every gateway call — **not** the ARM resource `name` and **not** `properties.displayName`. This is the single most common cause of failures, so get it right:
 
 - `properties.deployment.modelName` is the exact string the OpenAI passthrough accepts in the request body, e.g. `gpt-5.4-nano` or `DeepSeek-V3.2`. It preserves dots and original casing.
-- The ARM resource `name` is a **sanitized** version of that value with dots and other characters replaced by dashes (e.g. `gpt-5-4-nano`). Sending the ARM `name` to the passthrough is rejected with a misleading **`unknown_model`** error.
+- The ARM resource `name` is a **sanitized** version of that value with dots and other characters replaced by dashes (e.g. `gpt-5-4-nano`). Some gateways accept the sanitized `name` too, but others reject it with a misleading **`unknown_model`** error — so always send `properties.deployment.modelName` to be safe, and don't "correct" a working call back to the ARM `name`.
 - `properties.displayName` is a human-friendly label and is also rejected by the passthrough.
 
-For each model, read `properties.deployment.modelName` and carry that exact string (same dots, same casing, same punctuation) through to the agent's `model=` parameter. If `properties.deployment.modelName` is missing for some reason, fall back to confirming the accepted ID by probing `POST {gateway-host}/models/openai/v1/chat/completions` with a tiny payload rather than guessing from the ARM `name`.
+For each model, read `properties.deployment.modelName` and carry that exact string (same dots, same casing, same punctuation) through to the agent's `model=` parameter. If `properties.deployment.modelName` is missing for some reason, fall back to confirming the accepted ID by probing `POST {gateway-host}/default/models/openai/v1/chat/completions` with a tiny payload rather than guessing from the ARM `name`.
 
 Match models to the user's use case based on the model name/description (e.g. a GPT-class model for chat, an embedding model for RAG). Suggest the best match as the default but let the user pick another.
 
@@ -80,9 +125,9 @@ Tools are registered as **tool servers** in the gateway workspace. Each tool ser
 GET https://management.azure.com{gatewayResourceId}/workspaces/default/toolServers?api-version={apiVersion}
 ```
 
-Each item's `name` is the tool server name. Build its MCP endpoint URL as `https://{gateway-host}/toolservers/{toolServerName}/mcp`. **`properties.mcpEndpointUrl` is frequently empty** in the ARM response, so do not rely on it — construct the URL from the host and tool server name, and only use `properties.mcpEndpointUrl` if it is non-empty. Filter to the tools relevant to the user's request (examine names and descriptions for keywords — e.g. for shipping, look for a "calculator" tool). Then **stop and ask the user**: "I found these tools for your use case. Which would you like to use?" List them clearly with brief descriptions and endpoints, and allow selecting all, some, or none.
+Each item's `name` is the tool server name. Build its MCP endpoint URL as `https://{gateway-host}/default/toolservers/{toolServerName}/mcp` (note the `/default/` workspace segment — without it the gateway returns `404`). **`properties.mcpEndpointUrl` is frequently empty** in the ARM response, so do not rely on it — construct the URL from the host and tool server name, and only use `properties.mcpEndpointUrl` if it is non-empty. Filter to the tools relevant to the user's request (examine names and descriptions for keywords — e.g. for shipping, look for a "calculator" tool). Then **stop and ask the user**: "I found these tools for your use case. Which would you like to use?" List them clearly with brief descriptions and endpoints, and allow selecting all, some, or none.
 
-> **Verify the tool server actually exposes tools before wiring it in.** A tool server can be registered but expose **zero** tools (e.g. a federated OpenAPI/MCP source that failed to sync). Confirm by doing a quick MCP handshake against the constructed URL — `POST` an `initialize` request, then a `tools/list` request, both with the `Api-Key` header and `Accept: application/json, text/event-stream`. If `tools/list` returns an empty array, tell the user that server has no usable tools right now (a gateway-side configuration issue, not a client bug) and let them pick a different one rather than scaffolding an agent that can't call anything.
+> **Verify the tool server actually exposes tools before wiring it in.** A tool server can be registered but expose **zero** tools (e.g. a federated OpenAPI/MCP source that failed to sync). Confirm with an MCP handshake against the constructed URL, using the `Api-Key` header and `Accept: application/json, text/event-stream` on every request: `POST` an `initialize` request, capture the **`Mcp-Session-Id`** response header, `POST` a `notifications/initialized` message with that session id, then `POST` a `tools/list` request (also carrying the session id). If `tools/list` returns an empty array, tell the user that server has no usable tools right now (a gateway-side configuration issue, not a client bug) and let them pick a different one rather than scaffolding an agent that can't call anything.
 
 ### 3. Retrieve a credential
 
@@ -92,7 +137,7 @@ The model passthrough and MCP tool servers are called with a gateway **API key**
    ```
    GET https://management.azure.com{gatewayResourceId}/apiKeys?api-version={apiVersion}
    ```
-2. Pick a key (there is usually one named `default`).
+2. Pick a key — use the first key whose `properties.state` is `active`. The name is commonly `master` or `default`; don't hardcode it, read it from the list response.
 3. Retrieve the secret:
    ```
    POST https://management.azure.com{gatewayResourceId}/apiKeys/{keyName}/listSecrets?api-version={apiVersion}
@@ -131,14 +176,14 @@ Whichever path you take, integrate into the user's **existing** project when the
 
 The AI Gateway exposes an **OpenAI-compatible** endpoint. Point any OpenAI-style client (or plain HTTP) at it:
 
-- **Base URL:** `<ai-gateway-host>/models/openai/v1` — e.g. `https://my-gateway.westus2-01.ai.gateway-current.azure.com/models/openai/v1`. This is the same endpoint the AI Gateway Portal advertises to consumers; clients append `/chat/completions`.
-- **Auth header:** `Api-Key: <gateway key>`. **Do not** rely on `Authorization: Bearer` — the gateway model passthrough rejects bearer-only auth with a misleading **`unknown_model`** error. If your client insists on an `api_key` field (many do), still set the `Api-Key` header explicitly.
-- **Model identifier:** use the selected model's **`properties.deployment.modelName`** (e.g. `gpt-5.4-nano`) exactly — same dots, casing, and punctuation. **Never** use the ARM resource `name` (e.g. `gpt-5-4-nano`) or `displayName`; those return `unknown_model`.
+- **Base URL:** `<ai-gateway-host>/default/models/openai/v1` — e.g. `https://my-gateway.westus2-01.ai.gateway-current.azure.com/default/models/openai/v1`. This is the same endpoint the AI Gateway Portal advertises to consumers; clients append `/chat/completions`. The `/default/` segment (the workspace) is required — dropping it returns `404`.
+- **Auth header:** `Api-Key: <gateway key>`. **Do not** rely on `Authorization: Bearer` — the gateway model passthrough rejects bearer-only auth, typically with a `401` ("missing subscription key") or a misleading **`unknown_model`** error. If your client insists on an `api_key` field (many do), still set the `Api-Key` header explicitly.
+- **Model identifier:** use the selected model's **`properties.deployment.modelName`** (e.g. `gpt-5.4-nano`) exactly — same dots, casing, and punctuation. Prefer it over the ARM resource `name` (e.g. `gpt-5-4-nano`) or `displayName`, which may be rejected with `unknown_model` on some gateways.
 
 #### curl
 
 ```bash
-curl "$AI_GATEWAY_HOST/models/openai/v1/chat/completions" \
+curl "$AI_GATEWAY_HOST/default/models/openai/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -H "Api-Key: $AI_GATEWAY_API_KEY" \
   -d '{
@@ -154,7 +199,7 @@ import os
 from openai import OpenAI
 
 client = OpenAI(
-    base_url=f"{os.environ['AI_GATEWAY_HOST']}/models/openai/v1",
+    base_url=f"{os.environ['AI_GATEWAY_HOST']}/default/models/openai/v1",
     api_key=os.environ["AI_GATEWAY_API_KEY"],
     # The gateway authenticates via the Api-Key header, not Authorization: Bearer.
     default_headers={"Api-Key": os.environ["AI_GATEWAY_API_KEY"]},
@@ -173,7 +218,7 @@ print(resp.choices[0].message.content)
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  baseURL: `${process.env.AI_GATEWAY_HOST}/models/openai/v1`,
+  baseURL: `${process.env.AI_GATEWAY_HOST}/default/models/openai/v1`,
   apiKey: process.env.AI_GATEWAY_API_KEY!,
   // The gateway authenticates via the Api-Key header, not Authorization: Bearer.
   defaultHeaders: { "Api-Key": process.env.AI_GATEWAY_API_KEY! },
@@ -194,18 +239,31 @@ console.log(resp.choices[0].message.content);
 
 Each registered MCP tool server is reachable at its own MCP endpoint (captured during discovery), authenticated with the same gateway key via the **`Api-Key`** header. Use it from any MCP client:
 
-- **Endpoint:** the tool server's MCP URL from discovery (e.g. `<ai-gateway-host>/toolservers/<name>/mcp`).
+- **Endpoint:** the tool server's MCP URL from discovery (e.g. `<ai-gateway-host>/default/toolservers/<name>/mcp`).
 - **Transport:** streamable HTTP (`type: "http"`).
 - **Auth header:** `Api-Key: <gateway key>`.
 
-To sanity-check a tool server manually, run the MCP `initialize` + `tools/list` handshake:
+To sanity-check a tool server manually, run the full MCP handshake — `initialize`, then `notifications/initialized`, then `tools/list` — carrying the `Mcp-Session-Id` returned by `initialize` on the follow-up calls:
 
 ```bash
-curl "$TOOL_ENDPOINT" \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
+# 1. initialize — capture the Mcp-Session-Id response header
+SID=$(curl -s -D - -o /dev/null "$TOOL_ENDPOINT" \
+  -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" \
   -H "Api-Key: $AI_GATEWAY_API_KEY" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"probe","version":"1.0"}}}' \
+  | awk -F': ' 'tolower($1)=="mcp-session-id"{print $2}' | tr -d '\r')
+
+# 2. notifications/initialized
+curl -s "$TOOL_ENDPOINT" -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" -H "Api-Key: $AI_GATEWAY_API_KEY" \
+  ${SID:+-H "Mcp-Session-Id: $SID"} \
+  -d '{"jsonrpc":"2.0","method":"notifications/initialized"}' >/dev/null
+
+# 3. tools/list — an empty "tools" array means the server exposes no usable tools
+curl -s "$TOOL_ENDPOINT" -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" -H "Api-Key: $AI_GATEWAY_API_KEY" \
+  ${SID:+-H "Mcp-Session-Id: $SID"} \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
 ```
 
 To wire it into an application, configure your MCP client with the endpoint URL, `http` transport, and the `Api-Key` header — for example, in a client that reads an `mcp.json`/`mcpServers` map:
@@ -251,8 +309,8 @@ The generated code must:
 - Configure model access through a BYOK `provider` in the session config
 - Authenticate models with the **same** gateway API key passed in the **`Api-Key`** header via the provider's `headers` config — **not** the `api_key` field alone. The SDK sends `api_key` as an `Authorization: Bearer` header, which the AI Gateway model passthrough rejects with a misleading **`unknown_model`** error. Set the `Api-Key` header explicitly (keep `api_key` too, since the SDK requires a non-empty value)
 - Use model provider `type: "openai"` (the AI Gateway exposes an OpenAI-compatible passthrough, where the model is selected by name in the request body)
-- Construct the model `base_url` as the AI Gateway's unified model passthrough: `<ai-gateway-host>/models/openai/v1` — for example `https://my-gateway.westus2-01.ai.gateway-current.azure.com/models/openai/v1`. This is the same endpoint the AI Gateway Portal advertises to consumers (the SDK appends `/chat/completions`)
-- Precisely specify the model parameter and match it exactly to the selected model's **`properties.deployment.modelName`** (e.g. `gpt-5.4-nano`) — same dots, same casing, same punctuation. Never use the ARM resource `name` (e.g. `gpt-5-4-nano`) or `displayName`; those are rejected with `unknown_model`
+- Construct the model `base_url` as the AI Gateway's unified model passthrough: `<ai-gateway-host>/default/models/openai/v1` — for example `https://my-gateway.westus2-01.ai.gateway-current.azure.com/default/models/openai/v1`. This is the same endpoint the AI Gateway Portal advertises to consumers (the SDK appends `/chat/completions`). The `/default/` workspace segment is required — dropping it returns `404`
+- Precisely specify the model parameter and match it exactly to the selected model's **`properties.deployment.modelName`** (e.g. `gpt-5.4-nano`) — same dots, same casing, same punctuation. Prefer it over the ARM resource `name` (e.g. `gpt-5-4-nano`) or `displayName`, which may be rejected with `unknown_model` on some gateways
 - Include `"on_permission_request": PermissionHandler.approve_all` in the session config (import `PermissionHandler` from `copilot`)
 - Pass the session config to `create_session` as keyword arguments (e.g. `create_session(model=..., provider=..., mcp_servers=...)`), like in the example below
 - Read all credentials from environment variables — never hardcode secrets
@@ -287,7 +345,7 @@ async def main():
             # `unknown_model`.
             provider={
                 "type": "openai",
-                "base_url": "<ai-gateway-host>/models/openai/v1",
+                "base_url": "<ai-gateway-host>/default/models/openai/v1",
                 "api_key": os.environ["AI_GATEWAY_API_KEY"],
                 "headers": {
                     "Api-Key": os.environ["AI_GATEWAY_API_KEY"],

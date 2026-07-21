@@ -13,15 +13,21 @@ anything, and it does **not** scaffold code (use `/ai-gateway:build` for that).
 Follow the discovery workflow defined in the bundled skill
 `skills/use-ai-gateway/SKILL.md` — specifically **Part 1 — Discover & select assets**:
 
-1. Determine the target gateway from `$ARGUMENTS` if provided (an ARM
-   `gatewayResourceId` or a gateway host). If it is missing or ambiguous, ask the user
-   for it before making any call.
+1. Determine the target gateway from `$ARGUMENTS` if provided. Discovery goes through the
+   ARM control plane, so you need the gateway's **ARM `gatewayResourceId`** — a runtime host
+   alone is not enough to list assets. If only a host is given, resolve the id
+   (`az resource list --name <name>`) or ask the user. If the target is missing or
+   ambiguous, ask before making any call. The gateway is a `Microsoft.ApiManagement/service`
+   or `Microsoft.ApiManagement/aigateways` resource; both work identically.
 2. List the **models** in the gateway workspace and read each model's
    `properties.deployment.modelName` (the exact identifier accepted by the OpenAI
-   passthrough — never the ARM `name` or `displayName`).
+   passthrough — prefer it over the ARM `name` or `displayName`).
 3. List the **MCP tool servers**, build each MCP endpoint URL as
-   `https://{gateway-host}/toolservers/{toolServerName}/mcp`, and verify each server
-   actually exposes tools via a quick `initialize` + `tools/list` MCP handshake.
+   `https://{gateway-host}/default/toolservers/{toolServerName}/mcp` (the `/default/`
+   workspace segment is required), and verify each server actually exposes tools via a
+   full `initialize` → `notifications/initialized` → `tools/list` MCP handshake (carry the
+   `Mcp-Session-Id` from `initialize`). Read the runtime host from the resource's
+   `properties.gatewayUrl`.
 4. Present a clear, grouped summary: models (id + description) and tool servers
    (name + endpoint + tool count), highlighting the best matches for the user's stated
    use case. Then ask which assets they want to use.

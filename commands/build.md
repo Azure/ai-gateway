@@ -11,7 +11,9 @@ the **full** workflow in the bundled skill `skills/use-ai-gateway/SKILL.md` end 
 
 1. **Discover & select** the models and MCP tool servers in the gateway
    (Part 1 of the skill). Use `$ARGUMENTS` for the target gateway (ARM
-   `gatewayResourceId` or host) and, if present, the desired use case. Ask the user to
+   `gatewayResourceId` — required to list assets; a host alone is not enough, so resolve
+   or ask for the id if only a host is given) and, if present, the desired use case. Ask
+   the user to
    confirm the selected assets before continuing.
 2. **Retrieve a credential** — list the gateway API keys and read the secret of the
    chosen key. The **same** gateway key authenticates both the model passthrough and the
@@ -41,6 +43,10 @@ the **full** workflow in the bundled skill `skills/use-ai-gateway/SKILL.md` end 
   `.env` out of source control. Warn the user that the written `.env` holds a live key
   and to rotate it in the portal if it is ever exposed.
 - Use `properties.deployment.modelName` (exact dots/casing) as the model identifier —
-  never the ARM `name` or `displayName`.
+  prefer it over the ARM `name` or `displayName` (which some gateways reject with
+  `unknown_model`). Runtime calls use the gateway's `properties.gatewayUrl` host and the
+  `/default/` workspace segment: `<host>/default/models/openai/v1/...` and
+  `<host>/default/toolservers/<name>/mcp` (omitting `/default/` returns `404`).
 - Authenticate models and MCP tool servers with the `Api-Key` header — not
-  `Authorization: Bearer` (bearer-only auth returns a misleading `unknown_model`).
+  `Authorization: Bearer` (bearer-only auth is rejected, typically with a `401` or a
+  misleading `unknown_model`).
