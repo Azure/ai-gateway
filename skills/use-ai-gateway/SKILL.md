@@ -1,13 +1,14 @@
 ---
 name: use-ai-gateway
-version: 2.1.0
+version: 2.2.0
 updated: 2026-07-21
-description: Discover the models and MCP tool servers registered in an AI Gateway, retrieve a credential, and integrate them into any application — call a model over the OpenAI-compatible passthrough, connect to MCP tool servers, or scaffold a standalone agent. Use this whenever a developer wants to use an AI Gateway's models and/or tools from the app they are building.
+description: Discover the models and MCP tool servers registered in an AI Gateway, retrieve a credential, and integrate them into any application — call a model over its exact runtime protocol (OpenAI Chat Completions, OpenAI Responses, or Anthropic Messages), connect to MCP tool servers, or scaffold a standalone agent. Use this whenever a developer wants to use an AI Gateway's models and/or tools from the app they are building.
 ---
 
 # Use an AI Gateway (models & MCP tools)
 
-<!-- Skill version 2.1.0 (2026-07-21). Canonical copy shipped by the `ai-gateway` plugin. Works with any coding agent that can read this file. -->
+<!-- Skill version 2.2.0 (2026-07-21). Canonical copy shipped by the `ai-gateway` plugin. Works with any coding agent that can read this file. -->
+<!-- 2.2.0: select the model's exact runtime protocol from properties.supportedEndpoints (Chat Completions / Responses / Anthropic Messages) instead of assuming OpenAI chat; robust listSecrets key parsing; skip non-agent (embeddings/image) models; native Claude Code / Codex MCP config; managed-identity vs runtime-key clarification. -->
 
 > Invoked as `/ai-gateway:use-ai-gateway` when installed via the plugin. It is also invoked automatically by the `/ai-gateway:discover` and `/ai-gateway:build` commands.
 
@@ -63,7 +64,9 @@ Discovery uses the ARM control plane (keyed by `gatewayResourceId`), but the mod
 GET https://management.azure.com{gatewayResourceId}?api-version={apiVersion}
 ```
 
-Use `properties.gatewayUrl` (e.g. `https://<name>.<region>.ai.gateway-current.azure.com`) as `<ai-gateway-host>` for every runtime URL below. **All runtime paths are served under the workspace segment `/default/`** (the Default workspace — the only one today). So the model passthrough base is `<ai-gateway-host>/default/models/openai/v1` and each MCP endpoint is `<ai-gateway-host>/default/toolservers/<tool-server-name>/mcp`. Omitting the `/default/` segment returns `404 Resource not found`.
+Use `properties.gatewayUrl` (e.g. `https://<name>.<region>.ai.gateway-current.azure.com`) as `<ai-gateway-host>` for every runtime URL below. If `properties.gatewayUrl` is empty, fall back to `https://<properties.frontend.defaultHostname>`; never fabricate `<name>.azure-api.net` from the resource name. **All runtime paths are served under the workspace segment `/default/`** (the Default workspace — the only one today). So the model runtime base is `<ai-gateway-host>/default/models` and each MCP endpoint is `<ai-gateway-host>/default/toolservers/<tool-server-name>/mcp`. Omitting the `/default/` segment returns `404 Resource not found`.
+
+The exact suffix after `/default/models` depends on the **model's protocol**, which you read from each model's `properties.supportedEndpoints` (see §1) — most commonly the OpenAI-compatible `/openai/v1/chat/completions`, but a model may instead expose `/openai/v1/responses` (OpenAI Responses) or `/anthropic/v1/messages` (Anthropic Messages). Build the runtime URL as `<ai-gateway-host>/default/models{supportedEndpoint}` — don't assume every model is OpenAI Chat Completions.
 
 ### One-shot discovery (copy-paste)
 
@@ -89,7 +92,8 @@ curl -s "${AUTH[@]}" "$B/workspaces/default/toolServers?api-version=$VER" | jq -
 # API key: list keys, then read the first active key's secret (name is commonly "master" or "default")
 KEYNAME=$(curl -s "${AUTH[@]}" "$B/apiKeys?api-version=$VER" | jq -r '.value[0].name')
 KEY=$(curl -s -X POST "${AUTH[@]}" -H "Content-Length: 0" \
-  "$B/apiKeys/$KEYNAME/listSecrets?api-version=$VER" | jq -r '.primaryKey')
+  "$B/apiKeys/$KEYNAME/listSecrets?api-version=$VER" \
+  | jq -r '.primaryKey // .properties.primaryKey // .primaryValue // .properties.primaryValue // .value')
 
 # Smoke-test a model over the passthrough — note the /default/ workspace segment and the Api-Key header
 curl -s "$HOST/default/models/openai/v1/chat/completions" \
@@ -117,6 +121,16 @@ For each model, read `properties.deployment.modelName` and carry that exact stri
 
 Match models to the user's use case based on the model name/description (e.g. a GPT-class model for chat, an embedding model for RAG). Suggest the best match as the default but let the user pick another.
 
+**Read each model's protocol from `properties.supportedEndpoints`** — don't assume every model is OpenAI Chat Completions. This array holds the exact runtime operation path(s) the model accepts; select the one matching your integration and build the runtime URL as `<ai-gateway-host>/default/models{supportedEndpoint}` (preserve the returned value exactly, including any provider prefix like `/openai/v1` or `/anthropic/v1`). The recognized agent/chat protocols are:
+
+| Endpoint suffix     | Protocol                | Client                                            |
+| ------------------- | ----------------------- | ------------------------------------------------- |
+| `/chat/completions` | OpenAI Chat Completions | OpenAI-compatible client (Chat Completions mode)  |
+| `/responses`        | OpenAI Responses        | OpenAI-compatible client (Responses mode)         |
+| `/messages`         | Anthropic Messages      | Anthropic-compatible client (Messages mode)       |
+
+Most gateways today expose `/openai/v1/chat/completions`, which is why the examples below default to it — but if the selected model's `supportedEndpoints` shows `/responses` or `/messages` instead, use that protocol's client and request shape (see _Path A_). If a model exposes **only** non-agent endpoints (embeddings, images, audio, etc.), don't scaffold a chat agent against it — explain the mismatch and let the user pick a different model.
+
 ### 2. Discover tools (MCP tool servers)
 
 Tools are registered as **tool servers** in the gateway workspace. Each tool server is a federated MCP host exposed at a single MCP endpoint on the gateway. List them:
@@ -142,10 +156,11 @@ The model passthrough and MCP tool servers are called with a gateway **API key**
    ```
    POST https://management.azure.com{gatewayResourceId}/apiKeys/{keyName}/listSecrets?api-version={apiVersion}
    ```
-   The key is in `primaryKey`:
+   The key is normally in `primaryKey`:
    ```json
    { "primaryKey": "2e41...", "secondaryKey": "365..." }
    ```
+   Backend versions have returned a few response shapes, so read the first non-empty value from, in order: `primaryKey`, `properties.primaryKey`, `primaryValue`, `properties.primaryValue`, then `value` (when `target == "Primary"`), falling back to the equivalent `secondary*` fields. If none is present, the caller likely isn't authorized to `listSecrets` — stop and direct them to an administrator rather than creating or rotating a key.
 
 The credential is passed in the **`Api-Key`** header for both the model passthrough and the MCP tool servers.
 
@@ -169,14 +184,23 @@ Whichever path you take, integrate into the user's **existing** project when the
 
 - Read every credential from environment variables (e.g. `AI_GATEWAY_API_KEY`) — never hardcode secrets. See _Shared: credentials & project hygiene_ below.
 - The gateway authenticates **both** models and MCP tool servers with the same key, passed in the **`Api-Key`** request header.
+- **Client key vs. backend managed identity are different things.** A model provider or tool server may use the gateway's managed identity to authenticate to *its* upstream (that's gateway-to-backend auth, transparent to your app). Don't try to fetch or supply that upstream credential, and don't replace your `Api-Key` header with a managed-identity/bearer token — your app always authenticates to the gateway runtime with the gateway `Api-Key`.
 
 ---
 
-### Path A — Call a model (OpenAI-compatible passthrough)
+### Path A — Call a model
 
-The AI Gateway exposes an **OpenAI-compatible** endpoint. Point any OpenAI-style client (or plain HTTP) at it:
+Most AI Gateway models expose an **OpenAI-compatible** endpoint, so the examples below default to it. First confirm the selected model's protocol from its `properties.supportedEndpoints` (see §1) and derive the client **base URL** from the exact endpoint by stripping the operation suffix:
 
-- **Base URL:** `<ai-gateway-host>/default/models/openai/v1` — e.g. `https://my-gateway.westus2-01.ai.gateway-current.azure.com/default/models/openai/v1`. This is the same endpoint the [AI Gateway Portal](https://ai.gateway.azure.com) advertises to consumers; clients append `/chat/completions`. The `/default/` segment (the workspace) is required — dropping it returns `404`.
+| Protocol (endpoint suffix)         | Client base URL = `<ai-gateway-host>/default/models` + …          | Client appends       |
+| ---------------------------------- | ----------------------------------------------------------------- | -------------------- |
+| OpenAI Chat Completions (`/chat/completions`) | `/openai/v1` (drop `/chat/completions`)                | `/chat/completions`  |
+| OpenAI Responses (`/responses`)    | `/openai/v1` (drop `/responses`)                                  | `/responses`         |
+| Anthropic Messages (`/v1/messages`)| the endpoint with `/v1/messages` removed (Anthropic SDK re-adds it) | `/v1/messages`     |
+
+Common case — OpenAI-compatible. Point any OpenAI-style client (or plain HTTP) at it:
+
+- **Base URL:** `<ai-gateway-host>/default/models/openai/v1` — e.g. `https://my-gateway.westus2-01.ai.gateway-current.azure.com/default/models/openai/v1`. This is the same endpoint the [AI Gateway Portal](https://ai.gateway.azure.com) advertises to consumers; clients append `/chat/completions` (or `/responses` for a Responses model). The `/default/` segment (the workspace) is required — dropping it returns `404`.
 - **Auth header:** `Api-Key: <gateway key>`. **Do not** rely on `Authorization: Bearer` — the gateway model passthrough rejects bearer-only auth, typically with a `401` ("missing subscription key") or a misleading **`unknown_model`** error. If your client insists on an `api_key` field (many do), still set the `Api-Key` header explicitly.
 - **Model identifier:** use the selected model's **`properties.deployment.modelName`** (e.g. `gpt-5.4-nano`) exactly — same dots, casing, and punctuation. Prefer it over the ARM resource `name` (e.g. `gpt-5-4-nano`) or `displayName`, which may be rejected with `unknown_model` on some gateways.
 
@@ -233,6 +257,25 @@ console.log(resp.choices[0].message.content);
 
 > The passthrough is OpenAI-compatible, so streaming, tools/function-calling, and other OpenAI request fields work as usual — just keep the `Api-Key` header and the exact `modelName`.
 
+#### Other protocols (only when the model's `supportedEndpoints` says so)
+
+If the selected model exposes `/responses` or `/anthropic/v1/messages` instead of `/chat/completions`, use that protocol's request shape (same `Api-Key` header, same exact `modelName`, same `/default/models` prefix):
+
+```bash
+# OpenAI Responses model (supportedEndpoints contains /openai/v1/responses)
+curl "$AI_GATEWAY_HOST/default/models/openai/v1/responses" \
+  -H "Content-Type: application/json" -H "Api-Key: $AI_GATEWAY_API_KEY" \
+  -d '{"model":"<properties.deployment.modelName>","input":"Hello!"}'
+
+# Anthropic Messages model (supportedEndpoints contains /anthropic/v1/messages)
+curl "$AI_GATEWAY_HOST/default/models/anthropic/v1/messages" \
+  -H "Content-Type: application/json" -H "Api-Key: $AI_GATEWAY_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -d '{"model":"<properties.deployment.modelName>","max_tokens":16,"messages":[{"role":"user","content":"Hello!"}]}'
+```
+
+For SDKs, set the base URL per the derivation table above and keep the `Api-Key` header: the OpenAI SDK's `responses.create(...)` targets a Responses model, and the Anthropic SDK with `base_url = <messages endpoint minus /v1/messages>` plus `default_headers={"Api-Key": ...}` targets a Messages model. Don't point an OpenAI Chat Completions client at a `/responses`- or `/messages`-only model (and vice versa) — the protocol must match the endpoint.
+
 ---
 
 ### Path B — Connect to MCP tool servers
@@ -280,7 +323,19 @@ To wire it into an application, configure your MCP client with the endpoint URL,
 }
 ```
 
-Adapt the exact shape to whatever MCP client/library the user's app uses (the essentials are always: endpoint URL, HTTP transport, and the `Api-Key` header). If the user is building an agent that needs these tools, prefer **Path C**, which wires models and MCP tools together.
+Adapt the exact shape to whatever MCP client/library the user's app uses (the essentials are always: endpoint URL, HTTP transport, and the `Api-Key` header). Native config locations for common coding agents:
+
+- **Claude Code** — the `mcpServers` JSON above is exactly the shape of a project-scoped `.mcp.json`. Claude Code expands `${AI_GATEWAY_API_KEY}` from the environment in HTTP `headers`. Run `claude mcp list` (or `/mcp`) and approve the project server when prompted.
+- **OpenAI Codex** — add to `~/.codex/config.toml` (or a trusted project `.codex/config.toml`), passing the key by env-var reference so the secret isn't written into config:
+  ```toml
+  [mcp_servers.<tool-server-name>]
+  url = "<ai-gateway-host>/default/toolservers/<tool-server-name>/mcp"
+  env_http_headers = { "Api-Key" = "AI_GATEWAY_API_KEY" }
+  ```
+  Verify with `codex mcp list` or `/mcp`.
+- **Other MCP-capable agents** — consult the agent's current CLI help or config schema for its remote/HTTP MCP entry rather than guessing field names; the essentials are the same three: endpoint URL, HTTP transport, `Api-Key` header.
+
+If the user is building an agent that needs these tools, prefer **Path C**, which wires models and MCP tools together.
 
 ---
 
@@ -435,7 +490,7 @@ Don't stop at "here's the code." Run the agent once and confirm the wiring actua
   - `429 ... exceeded rate limit` or quota errors from the model
   - empty/slow responses caused by the upstream model, not the client
 - **Treat these as real bugs to fix before handing off:**
-  - `unknown_model` → wrong model identifier (used ARM `name`/`displayName` instead of `properties.deployment.modelName`) **or** an SDK older than `1.0.0` dropping the `Api-Key` header
+  - `unknown_model` → wrong model identifier (used ARM `name`/`displayName` instead of `properties.deployment.modelName`), a protocol mismatch (e.g. a Chat Completions client pointed at a `/responses`- or `/messages`-only model), **or** an SDK older than `1.0.0` dropping the `Api-Key` header
   - `KeyError: 'AI_GATEWAY_API_KEY'` → `.env` not loaded, usually a BOM (see the `.env` note below)
   - `401`/`403` → wrong or missing `Api-Key` header
 - If you can't get a clean model response because of a backend `429`/quota, say so explicitly and note that everything up to the model was validated, rather than implying the full round-trip succeeded.
