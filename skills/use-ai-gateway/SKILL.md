@@ -28,7 +28,7 @@ Use this skill when a developer wants to **use the models and/or MCP tools regis
 This skill is **strictly for developers consuming an existing AI Gateway**. It is **read-only** against the gateway and only generates client code that calls already-registered models and tools.
 
 - ✅ Allowed: list models, list tools/MCP servers, read an existing API key, generate integration/client/agent code.
-- ❌ Not allowed: creating, provisioning, updating, or deleting gateways, models, tools, connections, products, or any other resource. Never issue ARM `PUT`/`PATCH`/`DELETE` calls. If a user asks to create or provision a gateway or model, tell them that is an administrator task done in the AI Gateway Portal and is out of scope for this skill.
+- ❌ Not allowed: creating, provisioning, updating, or deleting gateways, models, tools, connections, products, or any other resource. Never issue ARM `PUT`/`PATCH`/`DELETE` calls. If a user asks to create or provision a gateway or model, tell them that is an administrator task done in the [AI Gateway Portal](https://ai.gateway.azure.com) and is out of scope for this skill.
 
 ---
 
@@ -176,7 +176,7 @@ Whichever path you take, integrate into the user's **existing** project when the
 
 The AI Gateway exposes an **OpenAI-compatible** endpoint. Point any OpenAI-style client (or plain HTTP) at it:
 
-- **Base URL:** `<ai-gateway-host>/default/models/openai/v1` — e.g. `https://my-gateway.westus2-01.ai.gateway-current.azure.com/default/models/openai/v1`. This is the same endpoint the AI Gateway Portal advertises to consumers; clients append `/chat/completions`. The `/default/` segment (the workspace) is required — dropping it returns `404`.
+- **Base URL:** `<ai-gateway-host>/default/models/openai/v1` — e.g. `https://my-gateway.westus2-01.ai.gateway-current.azure.com/default/models/openai/v1`. This is the same endpoint the [AI Gateway Portal](https://ai.gateway.azure.com) advertises to consumers; clients append `/chat/completions`. The `/default/` segment (the workspace) is required — dropping it returns `404`.
 - **Auth header:** `Api-Key: <gateway key>`. **Do not** rely on `Authorization: Bearer` — the gateway model passthrough rejects bearer-only auth, typically with a `401` ("missing subscription key") or a misleading **`unknown_model`** error. If your client insists on an `api_key` field (many do), still set the `Api-Key` header explicitly.
 - **Model identifier:** use the selected model's **`properties.deployment.modelName`** (e.g. `gpt-5.4-nano`) exactly — same dots, casing, and punctuation. Prefer it over the ARM resource `name` (e.g. `gpt-5-4-nano`) or `displayName`, which may be rejected with `unknown_model` on some gateways.
 
@@ -309,7 +309,7 @@ The generated code must:
 - Configure model access through a BYOK `provider` in the session config
 - Authenticate models with the **same** gateway API key passed in the **`Api-Key`** header via the provider's `headers` config — **not** the `api_key` field alone. The SDK sends `api_key` as an `Authorization: Bearer` header, which the AI Gateway model passthrough rejects with a misleading **`unknown_model`** error. Set the `Api-Key` header explicitly (keep `api_key` too, since the SDK requires a non-empty value)
 - Use model provider `type: "openai"` (the AI Gateway exposes an OpenAI-compatible passthrough, where the model is selected by name in the request body)
-- Construct the model `base_url` as the AI Gateway's unified model passthrough: `<ai-gateway-host>/default/models/openai/v1` — for example `https://my-gateway.westus2-01.ai.gateway-current.azure.com/default/models/openai/v1`. This is the same endpoint the AI Gateway Portal advertises to consumers (the SDK appends `/chat/completions`). The `/default/` workspace segment is required — dropping it returns `404`
+- Construct the model `base_url` as the AI Gateway's unified model passthrough: `<ai-gateway-host>/default/models/openai/v1` — for example `https://my-gateway.westus2-01.ai.gateway-current.azure.com/default/models/openai/v1`. This is the same endpoint the [AI Gateway Portal](https://ai.gateway.azure.com) advertises to consumers (the SDK appends `/chat/completions`). The `/default/` workspace segment is required — dropping it returns `404`
 - Precisely specify the model parameter and match it exactly to the selected model's **`properties.deployment.modelName`** (e.g. `gpt-5.4-nano`) — same dots, same casing, same punctuation. Prefer it over the ARM resource `name` (e.g. `gpt-5-4-nano`) or `displayName`, which may be rejected with `unknown_model` on some gateways
 - Include `"on_permission_request": PermissionHandler.approve_all` in the session config (import `PermissionHandler` from `copilot`)
 - Pass the session config to `create_session` as keyword arguments (e.g. `create_session(model=..., provider=..., mcp_servers=...)`), like in the example below
@@ -452,7 +452,7 @@ Whenever you write credentials or scaffold files into the user's project (any pa
    AI_GATEWAY_API_KEY=<actual gateway API key from discovery>
    ```
 
-   > **Security note:** this writes a **live gateway secret in cleartext** to disk. The `.gitignore` (below) keeps it out of source control, but warn the user that the file holds a real key and to **rotate it in the AI Gateway Portal if it is ever exposed or shared**.
+   > **Security note:** this writes a **live gateway secret in cleartext** to disk. The `.gitignore` (below) keeps it out of source control, but warn the user that the file holds a real key and to **rotate it in the [AI Gateway Portal](https://ai.gateway.azure.com) if it is ever exposed or shared**.
 
    > **Write `.env` as UTF-8 _without_ a BOM.** `python-dotenv` (and `dotenv` for Node) does **not** strip a leading byte-order mark, so a BOM makes the first variable load as `\ufeffAI_GATEWAY_API_KEY` and the app crashes with `KeyError: 'AI_GATEWAY_API_KEY'`. This bites on Windows specifically: PowerShell's `Set-Content -Encoding utf8` and `Out-File` **add a BOM**. Write the file with a BOM-free encoder instead, e.g.:
    >

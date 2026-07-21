@@ -11,14 +11,6 @@ platform teams enforce security, policy, networking, and observability.
 - **Observe AI traffic** — token usage, latency, errors, and policy outcomes in dashboards and logs.
 - **Run on a trusted platform** — the Azure API Management platform, with Private Link, virtual network integration, and managed identity.
 
-Call a governed model with any OpenAI-compatible client:
-
-```bash
-curl https://<your-gateway>.<region>.ai.gateway.azure.com/default/models/openai/v1/chat/completions \
-  -H "Api-Key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
-  -d '{"model": "<model-name>", "messages": [{"role": "user", "content": "Hello!"}]}'
-```
-
 > AI Gateway is in **public preview**, available free of charge in East US 2 and Sweden
 > Central. See the **[documentation](https://aka.ms/aigateway/docs)** to get started.
 
@@ -40,7 +32,7 @@ in any of those coding agents (and other agents that support the plugin standard
 
 > **Consumption only.** The plugin is read-only against the gateway — it never
 > provisions, updates, or deletes resources. Creating gateways, models, or tools
-> is an administrator task done in the AI Gateway Portal.
+> is an administrator task done in the [AI Gateway Portal](https://ai.gateway.azure.com).
 
 ### What's inside
 
@@ -73,35 +65,6 @@ install **ai-gateway** from **Customize**. For local testing, symlink the repo i
 gemini extensions install https://github.com/Azure/ai-gateway
 ```
 
-### Repository layout
-
-The plugin is single-sourced and exposed through every supported plugin convention —
-all manifests point at the same top-level `commands/` and `skills/`:
-
-```
-.claude-plugin/
-  marketplace.json     # Claude Code marketplace catalog (direct install)
-  plugin.json          # Claude Code plugin manifest
-.cursor-plugin/
-  plugin.json          # Cursor plugin manifest
-.github/plugin/
-  plugin.json          # GitHub Copilot / awesome-copilot plugin manifest
-gemini-extension.json  # Gemini CLI extension manifest
-commands/
-  discover.md          # /ai-gateway:discover  (Claude, Copilot, Cursor)
-  build.md             # /ai-gateway:build     (Claude, Copilot, Cursor)
-  ai-gateway/
-    discover.toml      # /ai-gateway:discover  (Gemini CLI — TOML commands)
-    build.toml         # /ai-gateway:build     (Gemini CLI — TOML commands)
-skills/
-  use-ai-gateway/
-    SKILL.md           # /ai-gateway:use-ai-gateway  (all agents)
-```
-
-The `skills/use-ai-gateway/SKILL.md` workflow is shared by every agent. Command files
-are duplicated only where formats differ (Markdown for Claude/Copilot/Cursor, TOML for
-Gemini CLI); the underlying behavior is identical.
-
 ### Usage
 
 Point the plugin at your gateway's **ARM resource id** (required to list its models and
@@ -122,7 +85,7 @@ Or explore first, then integrate:
 The generated code authenticates the model passthrough and the MCP tool servers
 with a gateway **API key**, read from an environment variable
 (`AI_GATEWAY_API_KEY`) and never hardcoded. Scaffolded projects keep `.env` out of
-source control. If a key is ever exposed, rotate it in the AI Gateway Portal.
+source control. If a key is ever exposed, rotate it in the [AI Gateway Portal](https://ai.gateway.azure.com).
 
 To report a security issue, see [SECURITY.md](SECURITY.md).
 

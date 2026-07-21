@@ -38,7 +38,7 @@ the **full** workflow in the bundled skill `skills/use-ai-gateway/SKILL.md` end 
 - **Consumption only.** This is strictly read-only against the gateway. Never issue ARM
   `PUT`/`PATCH`/`DELETE` calls and never create, provision, or delete gateways, models,
   tools, connections, or products. If the user asks to provision anything, tell them
-  that is an administrator task done in the AI Gateway Portal.
+  that is an administrator task done in the [AI Gateway Portal](https://ai.gateway.azure.com).
 - **Never hardcode secrets.** Read the gateway key from an environment variable and keep
   `.env` out of source control. Warn the user that the written `.env` holds a live key
   and to rotate it in the portal if it is ever exposed.

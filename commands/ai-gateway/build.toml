@@ -29,7 +29,7 @@ Guardrails:
 - Consumption only. Strictly read-only against the gateway — never issue ARM
   `PUT`/`PATCH`/`DELETE` and never create, provision, or delete gateways, models, tools,
   connections, or products. Provisioning is an administrator task done in the AI Gateway
-  Portal.
+  Portal (https://ai.gateway.azure.com).
 - Never hardcode secrets. Read the gateway key from an environment variable and keep
   `.env` out of source control. Warn the user the written `.env` holds a live key to
   rotate in the portal if exposed.
