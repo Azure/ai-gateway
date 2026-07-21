@@ -1,0 +1,36 @@
+---
+description: Discover the models and MCP tool servers registered in an AI Gateway and summarize which ones fit your use case.
+argument-hint: [gateway resource id or host]
+---
+
+# /ai-gateway:discover
+
+Discover — and only discover — the AI assets registered in an AI Gateway. This is a
+**read-only** exploration command: it lists models and MCP tool servers and helps the
+user pick the ones that match their intent. It never provisions, updates, or deletes
+anything, and it does **not** scaffold code (use `/ai-gateway:build` for that).
+
+Follow the discovery workflow defined in the bundled skill
+`skills/use-ai-gateway/SKILL.md` — specifically **Part 1 — Discover & select assets**:
+
+1. Determine the target gateway from `$ARGUMENTS` if provided. Discovery goes through the
+   ARM control plane, so you need the gateway's **ARM `gatewayResourceId`** — a runtime host
+   alone is not enough to list assets. If only a host is given, resolve the id
+   (`az resource list --name <name>`) or ask the user. If the target is missing or
+   ambiguous, ask before making any call. The gateway is a `Microsoft.ApiManagement/service`
+   or `Microsoft.ApiManagement/aigateways` resource; both work identically.
+2. List the **models** in the gateway workspace and read each model's
+   `properties.deployment.modelName` (the exact identifier accepted by the OpenAI
+   passthrough — prefer it over the ARM `name` or `displayName`).
+3. List the **MCP tool servers**, build each MCP endpoint URL as
+   `https://{gateway-host}/default/toolservers/{toolServerName}/mcp` (the `/default/`
+   workspace segment is required), and verify each server actually exposes tools via a
+   full `initialize` → `notifications/initialized` → `tools/list` MCP handshake (carry the
+   `Mcp-Session-Id` from `initialize`). Read the runtime host from the resource's
+   `properties.gatewayUrl`.
+4. Present a clear, grouped summary: models (id + description) and tool servers
+   (name + endpoint + tool count), highlighting the best matches for the user's stated
+   use case. Then ask which assets they want to use.
+
+Stop after presenting the assets. Do not retrieve credentials or generate code unless
+the user explicitly asks to continue (or runs `/ai-gateway:build`).

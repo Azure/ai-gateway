@@ -1,0 +1,5 @@
+{
+  "name": "ai-gateway",
+  "version": "2.0.0",
+  "description": "Discover the models and MCP tool servers registered in an AI Gateway and integrate them into any application — call a model over the OpenAI-compatible passthrough, connect MCP tools, or scaffold a runnable agent. Read-only against the gateway — consumption only."
+}
