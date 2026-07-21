@@ -1,7 +1,7 @@
-# AI Gateway — Azure API Management
+# AI Gateway tier in Azure API Management
 
 **One gateway for every model and tool.**
-[AI Gateway](https://aka.ms/aigateway/docs) is the AI-focused tier of Azure API
+[AI Gateway tier in Azure API Management](https://aka.ms/aigateway/docs) is the AI-focused tier of Azure API
 Management. It gives developers one familiar way to call model APIs and MCP tools, while
 platform teams enforce security, policy, networking, and observability.
 
@@ -11,15 +11,14 @@ platform teams enforce security, policy, networking, and observability.
 - **Observe AI traffic** — token usage, latency, errors, and policy outcomes in dashboards and logs.
 - **Run on a trusted platform** — the Azure API Management platform, with Private Link, virtual network integration, and managed identity.
 
-> AI Gateway is in **public preview**, available free of charge in East US 2 and Sweden
-> Central. See the **[documentation](https://aka.ms/aigateway/docs)** to get started.
+> AI Gateway is in **public preview**, available free of charge. See the **[documentation](https://aka.ms/aigateway/docs)** to get started.
 
 ---
 
 ## Coding-agent plugin
 
-This repository hosts the official **AI Gateway plugin** for coding agents. It helps
-developers **build applications on top of an existing AI Gateway**: it discovers the
+This repository hosts the official **plugin** for coding agents. It helps
+developers **build applications on top of an existing AI Gateway tier in Azure API Management resources**: it discovers the
 models and MCP tool servers registered in a gateway and integrates them into whatever
 you're building — call a model over the OpenAI-compatible passthrough, connect MCP
 tools, or scaffold a runnable agent — all from your coding agent.
