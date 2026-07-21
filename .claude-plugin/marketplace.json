@@ -1,5 +1,5 @@
 {
-  "name": "ai-gateway",
+  "name": "azure",
   "description": "Plugins for building applications on top of the AI Gateway — discover its models and MCP tool servers and integrate them into any app.",
   "version": "1.0.0",
   "owner": {

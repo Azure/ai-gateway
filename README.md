@@ -34,7 +34,7 @@ directly from Git — no manual file downloads. Pick the tab for your agent:
 
 ```
 /plugin marketplace add Azure/ai-gateway
-/plugin install ai-gateway@ai-gateway
+/plugin install ai-gateway@azure
 ```
 
 **Cursor** — add this repository as a team marketplace from **Dashboard → Plugins →
