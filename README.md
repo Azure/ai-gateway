@@ -88,6 +88,11 @@ source control. If a key is ever exposed, rotate it in the [AI Gateway Portal](h
 
 To report a security issue, see [SECURITY.md](SECURITY.md).
 
+## Samples
+
+Looking for working examples? The [samples catalog](samples/README.md) curates end-to-end
+samples and infrastructure that build on the AI Gateway tier in Azure API Management.
+
 ## Contributing
 
 This project welcomes contributions and suggestions. Most contributions require you
