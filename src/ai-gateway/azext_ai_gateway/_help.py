@@ -109,24 +109,28 @@ helps["ai-gateway delete"] = """
 
 helps["ai-gateway import"] = """
     type: command
-    short-summary: Import configuration from an Azure API Management service.
+    short-summary: Discover or import configuration from API Management.
     long-summary: >
-        Copy selected models, agents, and tools into an AI Gateway without
-        changing the source API Management service. This command contract is
-        scaffolded for preview; execution will be enabled with the service API.
+        Discover models, agents, and tools in a classic Azure API Management
+        service and assess whether each asset can be imported. The dry-run
+        inventory includes complete source API properties, resolved backends,
+        operations, policy compatibility, destination mappings, and conflicts
+        without exposing credential values.
+        Import execution is not available yet, so --dry-run is required.
     examples:
-      - name: Preview importing all supported configuration.
+      - name: Inventory all assets and assess import compatibility.
         text: >-
           az ai-gateway import --name my-ai-gateway
           --resource-group my-resource-group
           --source-apim-id /subscriptions/sub/resourceGroups/rg/providers/Microsoft.ApiManagement/service/apim
           --dry-run
-      - name: Import models and tools while skipping conflicts.
+      - name: Inventory models and tools while planning to skip conflicts.
         text: >-
           az ai-gateway import --name my-ai-gateway
           --resource-group my-resource-group
           --source-apim-id /subscriptions/sub/resourceGroups/rg/providers/Microsoft.ApiManagement/service/apim
-          --include models tools --conflict-policy skip
+          --include models tools --conflict-policy skip --dry-run
+          --output table
 """
 
 helps["ai-gateway identity"] = """
@@ -405,6 +409,38 @@ helps["ai-gateway policy update"] = """
           az ai-gateway policy update --gateway-name my-ai-gateway
           --resource-group my-resource-group --policy-id policy-id
           --policy @policy.json
+"""
+
+helps["ai-gateway policy import-support"] = """
+    type: group
+    short-summary: Inspect APIM-to-AI-Gateway policy translation capabilities.
+"""
+
+helps["ai-gateway policy import-support list"] = """
+    type: command
+    short-summary: List known APIM policy translation capabilities.
+    long-summary: >
+        Returns the same declarative capability registry used by
+        az ai-gateway import. The output identifies supported fields,
+        unsupported fields, destination policy types, valid sections, and
+        scope behavior.
+    examples:
+      - name: List all known policy capabilities.
+        text: az ai-gateway policy import-support list --output table
+      - name: List policies that currently have no destination mapping.
+        text: >-
+          az ai-gateway policy import-support list
+          --support-level unsupported --output table
+"""
+
+helps["ai-gateway policy import-support show"] = """
+    type: command
+    short-summary: Show one APIM policy translation capability.
+    examples:
+      - name: Inspect token-limit translation support.
+        text: >-
+          az ai-gateway policy import-support show
+          --name llm-token-limit --output json
 """
 
 helps["ai-gateway show"] = """

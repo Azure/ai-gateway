@@ -3,6 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------------------------
 
+from azext_ai_gateway._import import format_import_table
+from azext_ai_gateway._policy_translation import (
+    format_policy_translation_table,
+)
+
 
 def load_command_table(loader, _):
     with loader.command_group("ai-gateway") as group:
@@ -22,6 +27,7 @@ def load_command_table(loader, _):
             "import_from_apim",
             is_preview=True,
             supports_no_wait=True,
+            table_transformer=format_import_table,
         )
         group.custom_command("list", "list_gateways")
         group.custom_show_command("show", "show_gateway")
@@ -79,3 +85,15 @@ def load_command_table(loader, _):
         group.custom_command("list", "list_policies")
         group.custom_show_command("show", "show_policy")
         group.custom_command("update", "update_policy")
+
+    with loader.command_group("ai-gateway policy import-support") as group:
+        group.custom_command(
+            "list",
+            "list_policy_translation_support",
+            table_transformer=format_policy_translation_table,
+        )
+        group.custom_show_command(
+            "show",
+            "show_policy_translation_support",
+            table_transformer=format_policy_translation_table,
+        )

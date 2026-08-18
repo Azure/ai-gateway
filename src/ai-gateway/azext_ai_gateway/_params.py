@@ -422,6 +422,24 @@ def load_arguments(loader, _):
                 help="Model provider name. Required for a model target.",
             )
 
+    with loader.argument_context(
+        "ai-gateway policy import-support list"
+    ) as context:
+        context.argument(
+            "support_level",
+            arg_type=get_enum_type(["partial", "consumed", "unsupported"]),
+            help="Only list capabilities at this support level.",
+        )
+
+    with loader.argument_context(
+        "ai-gateway policy import-support show"
+    ) as context:
+        context.argument(
+            "name",
+            options_list=["--name", "-n"],
+            help="Source APIM policy statement name.",
+        )
+
     with loader.argument_context("ai-gateway import") as context:
         context.argument(
             "name",
@@ -453,10 +471,16 @@ def load_arguments(loader, _):
         context.argument(
             "mapping_file",
             type=file_type,
-            help="Path to a JSON file containing source-to-destination mappings.",
+            help=(
+                "Path to a JSON file containing models, agents, and tools "
+                "source-to-destination mappings."
+            ),
         )
         context.argument(
             "dry_run",
             action="store_true",
-            help="Create and display an import plan without changing resources.",
+            help=(
+                "Discover assets and display a compatibility inventory without "
+                "changing either resource. Currently required."
+            ),
         )

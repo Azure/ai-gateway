@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------------------------
 
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -11,9 +12,11 @@ from azure.cli.core.azclierror import AzCLIError
 from azext_ai_gateway.custom import import_from_apim, show_version
 
 
-def test_import_from_apim_fails_explicitly_until_service_is_wired():
-    with pytest.raises(AzCLIError, match="not implemented yet"):
+def test_import_from_apim_requires_dry_run_until_writes_are_implemented():
+    cmd = SimpleNamespace(cli_ctx=SimpleNamespace(data={"subscription_id": "sub"}))
+    with pytest.raises(AzCLIError, match="execution is not implemented"):
         import_from_apim(
+            cmd=cmd,
             name="destination",
             resource_group_name="destination-rg",
             source_apim_id=(

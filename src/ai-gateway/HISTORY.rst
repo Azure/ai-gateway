@@ -10,3 +10,6 @@ Release History
 * Added CRUD and OAuth authorization commands for MCP tool servers.
 * Added API key lifecycle and managed identity commands.
 * Added inline policy CRUD across models and MCP tool servers.
+* Added APIM asset discovery and compatibility inventory for import dry runs.
+* Added APIM policy translation and scoped-policy compatibility warnings.
+* Added a queryable policy capability registry and compatibility guide.

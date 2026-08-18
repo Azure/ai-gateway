@@ -5,8 +5,6 @@
 
 from importlib.metadata import version
 
-from azure.cli.core.azclierror import AzCLIError
-
 from azext_ai_gateway._gateway import (
     create_gateway,
     delete_gateway,
@@ -49,26 +47,13 @@ from azext_ai_gateway._policy import (
     show_policy,
     update_policy,
 )
+from azext_ai_gateway._import import import_from_apim
+from azext_ai_gateway._policy_translation import (
+    list_policy_translation_support,
+    show_policy_translation_support,
+)
 
 # pylint: disable=unused-argument,unused-import
-
-
-def import_from_apim(
-    name,
-    resource_group_name,
-    source_apim_id,
-    include=None,
-    conflict_policy="fail",
-    mapping_file=None,
-    dry_run=False,
-    no_wait=False,
-):
-    raise AzCLIError(
-        "Import from Azure API Management is not implemented yet.",
-        recommendation=(
-            "Use 'az ai-gateway import --help' to review the planned command contract."
-        ),
-    )
 
 
 def show_version():

@@ -1,9 +1,6 @@
 # AI Gateway Azure CLI extension
 
-This package provides the `ai-gateway` extension for the Azure CLI. The current
-scaffold includes a smoke-test command and the contract for importing existing
-Azure API Management configuration. Resource operations will be wired to the
-service API after its OpenAPI description is available.
+This package provides the `ai-gateway` extension for the Azure CLI.
 
 Implemented gateway commands:
 
@@ -89,6 +86,79 @@ az ai-gateway policy update --gateway-name <gateway> --resource-group <group> \
 Policy updates replace the complete inline object. MCP policy mutations preserve
 endpoint secrets internally and never include them in command output.
 Policy IDs contain `#`; quote them when passing a literal ID to a shell.
+
+## Assess an import from API Management
+
+Use `--dry-run` to discover service-level and workspace APIs in a classic API
+Management service. The result classifies model, agent, MCP, and REST tool
+assets; inventories operations, backends, and policy statement types; checks
+destination conflicts; and reports each asset as `ready`, `blocked`, or
+`skipped`. Credential values and URL query values are not included in output.
+
+```bash
+az ai-gateway import --name <gateway> --resource-group <group> \
+  --source-apim-id /subscriptions/<sub>/resourceGroups/<group>/providers/Microsoft.ApiManagement/service/<apim> \
+  --dry-run --output table
+```
+
+Use `--include models tools` to limit the inventory and `--conflict-policy
+fail|skip|overwrite` to preview conflict handling. Import writes are not
+implemented yet, so omitting `--dry-run` fails explicitly. Use `--output json`
+for the complete nested configuration and `--output table` for a compact
+compatibility summary. Both formats retain the complete source API property bag;
+the table serializes it in the `Properties` column. Related operation and
+backend property bags are included in JSON. Credential values, embedded URL
+credentials, and URL query values are redacted.
+
+Supported APIM AI policies are projected in each asset's
+`configuration.destinationPolicies`:
+
+- `llm-token-limit` and `azure-openai-token-limit` rate limits become
+  `tokenLimit` policies with a `minute` period. Hourly and daily quotas map to
+  `hour` and `day`. Longer quota periods, arbitrary expressions, estimation,
+  and response headers or variables produce warnings.
+- `llm-content-safety` category thresholds become `contentSafety` severities.
+  Backend selection, prompt shielding, completion enforcement, windows, and
+  blocklists produce warnings because the inline contract has no equivalent.
+
+Conditional policies and operation- or product-scoped policies are inventoried
+but not promoted to asset scope. Unsupported policy statements are also
+retained in the inventory and reported as omitted instead of being silently
+dropped.
+
+Query the executable compatibility registry directly:
+
+```bash
+az ai-gateway policy import-support list --output table
+az ai-gateway policy import-support show --name llm-content-safety
+```
+
+See [APIM policy translation](docs/apim-policy-translation.md) for the complete
+mapping contract, warning behavior, scope rules, and required workflow for
+adding future policy capabilities.
+
+Optional mappings can supply destination names and model metadata that cannot
+be derived from APIM:
+
+```json
+{
+  "models": {
+    "source-api-name": {
+      "name": "destination-model",
+      "providerName": "foundry",
+      "deploymentResourceId": "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.CognitiveServices/accounts/account/deployments/deployment",
+      "modelName": "gpt-4o",
+      "modelVersion": "2024-11-20"
+    }
+  },
+  "tools": {
+    "source-tool-api": {
+      "name": "destination-tool",
+      "namespace": "orders"
+    }
+  }
+}
+```
 
 ## Install from a local build
 
