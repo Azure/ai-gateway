@@ -1,0 +1,54 @@
+name: Release Azure CLI extension
+
+on:
+  push:
+    tags:
+      - "azure-cli-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+      - name: Install build tool
+        run: python -m pip install --disable-pip-version-check build
+      - name: Build wheel
+        run: python -m build --wheel --outdir dist src/ai-gateway
+      - name: Verify tag and package versions
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import os
+          import pathlib
+          import tomllib
+
+          project = tomllib.loads(
+              pathlib.Path("src/ai-gateway/pyproject.toml").read_text(encoding="utf-8")
+          )["project"]
+          expected_tag = f"azure-cli-v{project['version']}"
+          if os.environ["RELEASE_TAG"] != expected_tag:
+              raise SystemExit(
+                  f"Tag {os.environ['RELEASE_TAG']!r} must equal {expected_tag!r}"
+              )
+
+          wheels = list(pathlib.Path("dist").glob("*.whl"))
+          if len(wheels) != 1:
+              raise SystemExit(f"Expected one wheel, found {len(wheels)}")
+          PY
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "${GITHUB_REF_NAME}" dist/*.whl
+          --verify-tag
+          --title "Azure CLI extension ${GITHUB_REF_NAME#azure-cli-v}"
+          --generate-notes
+

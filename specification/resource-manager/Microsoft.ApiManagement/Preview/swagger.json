@@ -1,0 +1,3173 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Azure AI Gateway",
+    "description": "Focused Azure CLI contract for AI Gateway resources hosted on Microsoft.ApiManagement/service. The broader API Management surface is intentionally excluded.",
+    "version": "2025-09-01-preview"
+  },
+  "host": "management.azure.com",
+  "schemes": [
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "security": [
+    {
+      "azure_auth": [
+        "user_impersonation"
+      ]
+    }
+  ],
+  "securityDefinitions": {
+    "azure_auth": {
+      "type": "oauth2",
+      "authorizationUrl": "https://login.microsoftonline.com/common/oauth2/authorize",
+      "flow": "implicit",
+      "scopes": {
+        "user_impersonation": "Impersonate your user account"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "AI Gateways",
+      "description": "Create and manage AI Gateway resources."
+    },
+    {
+      "name": "Model Providers",
+      "description": "Create and manage Foundry and custom model providers."
+    },
+    {
+      "name": "Models",
+      "description": "Create and manage models exposed through AI Gateway."
+    },
+    {
+      "name": "MCP Tool Servers",
+      "description": "Create and manage MCP tool servers and their inline sources."
+    },
+    {
+      "name": "Networking",
+      "description": "Configure gateway networking and manage service-side private endpoint connections."
+    },
+    {
+      "name": "API Keys",
+      "description": "Manage gateway-wide data-plane API keys."
+    }
+  ],
+  "paths": {
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ApiManagement/service/{gatewayName}/workspaces/{workspaceName}/modelProviders": {
+      "get": {
+        "operationId": "AIGatewayModelProvider_List",
+        "summary": "List model providers",
+        "tags": [
+          "Model Providers"
+        ],
+        "description": "Lists model providers registered in an AI Gateway workspace.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/ApiVersionParameter"
+          },
+          {
+            "$ref": "#/parameters/SubscriptionIdParameter"
+          },
+          {
+            "$ref": "#/parameters/ResourceGroupNameParameter"
+          },
+          {
+            "$ref": "#/parameters/GatewayNameParameter"
+          },
+          {
+            "$ref": "#/parameters/WorkspaceNameParameter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Registered model providers.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayModelProviderListResult"
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        },
+        "x-ms-pageable": {
+          "nextLinkName": "nextLink"
+        }
+      }
+    },
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ApiManagement/service/{gatewayName}/workspaces/{workspaceName}/modelProviders/{providerName}": {
+      "get": {
+        "operationId": "AIGatewayModelProvider_Get",
+        "summary": "Get a model provider",
+        "tags": [
+          "Model Providers"
+        ],
+        "description": "Gets a registered model provider.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/ApiVersionParameter"
+          },
+          {
+            "$ref": "#/parameters/SubscriptionIdParameter"
+          },
+          {
+            "$ref": "#/parameters/ResourceGroupNameParameter"
+          },
+          {
+            "$ref": "#/parameters/GatewayNameParameter"
+          },
+          {
+            "$ref": "#/parameters/WorkspaceNameParameter"
+          },
+          {
+            "$ref": "#/parameters/ProviderNameParameter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The registered model provider.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayModelProviderResource"
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "AIGatewayModelProvider_CreateOrUpdate",
+        "summary": "Create or replace a model provider",
+        "tags": [
+          "Model Providers"
+        ],
+        "description": "Creates or replaces a Foundry or custom model provider registration.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/ApiVersionParameter"
+          },
+          {
+            "$ref": "#/parameters/SubscriptionIdParameter"
+          },
+          {
+            "$ref": "#/parameters/ResourceGroupNameParameter"
+          },
+          {
+            "$ref": "#/parameters/GatewayNameParameter"
+          },
+          {
+            "$ref": "#/parameters/WorkspaceNameParameter"
+          },
+          {
+            "$ref": "#/parameters/ProviderNameParameter"
+          },
+          {
+            "name": "parameters",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AIGatewayModelProviderWriteResource"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The model provider was replaced.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayModelProviderResource"
+            }
+          },
+          "201": {
+            "description": "The model provider was created.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayModelProviderResource"
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "AIGatewayModelProvider_Update",
+        "summary": "Update a model provider",
+        "tags": [
+          "Model Providers"
+        ],
+        "description": "Updates a model provider registration.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/ApiVersionParameter"
+          },
+          {
+            "$ref": "#/parameters/SubscriptionIdParameter"
+          },
+          {
+            "$ref": "#/parameters/ResourceGroupNameParameter"
+          },
+          {
+            "$ref": "#/parameters/GatewayNameParameter"
+          },
+          {
+            "$ref": "#/parameters/WorkspaceNameParameter"
+          },
+          {
+            "$ref": "#/parameters/ProviderNameParameter"
+          },
+          {
+            "name": "parameters",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AIGatewayModelProviderUpdateResource"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The model provider was updated.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayModelProviderResource"
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "AIGatewayModelProvider_Delete",
+        "summary": "Delete a model provider",
+        "tags": [
+          "Model Providers"
+        ],
+        "description": "Deletes a model provider registration.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/ApiVersionParameter"
+          },
+          {
+            "$ref": "#/parameters/SubscriptionIdParameter"
+          },
+          {
+            "$ref": "#/parameters/ResourceGroupNameParameter"
+          },
+          {
+            "$ref": "#/parameters/GatewayNameParameter"
+          },
+          {
+            "$ref": "#/parameters/WorkspaceNameParameter"
+          },
+          {
+            "$ref": "#/parameters/ProviderNameParameter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The model provider was deleted."
+          },
+          "204": {
+            "description": "The model provider does not exist."
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/subscriptions/{subscriptionId}/providers/Microsoft.ApiManagement/service": {
+      "get": {
+        "operationId": "AIGateway_List",
+        "summary": "List AI gateways by subscription",
+        "tags": [
+          "AI Gateways"
+        ],
+        "description": "Lists AI Gateway resources in a subscription. The CLI must filter the ARM response before returning output because the backing operation also returns other API Management SKUs.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/ApiVersionParameter"
+          },
+          {
+            "$ref": "#/parameters/SubscriptionIdParameter"
+          },
+          {
+            "$ref": "#/parameters/TopParameter"
+          },
+          {
+            "$ref": "#/parameters/SkipTokenParameter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "AI Gateway resources.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayListResult"
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        },
+        "x-ms-pageable": {
+          "nextLinkName": "nextLink"
+        }
+      }
+    },
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ApiManagement/service": {
+      "get": {
+        "operationId": "AIGateway_ListByResourceGroup",
+        "summary": "List AI gateways by resource group",
+        "tags": [
+          "AI Gateways"
+        ],
+        "description": "Lists AI Gateway resources in a resource group. The CLI must filter the ARM response before returning output because the backing operation also returns other API Management SKUs.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/ApiVersionParameter"
+          },
+          {
+            "$ref": "#/parameters/SubscriptionIdParameter"
+          },
+          {
+            "$ref": "#/parameters/ResourceGroupNameParameter"
+          },
+          {
+            "$ref": "#/parameters/TopParameter"
+          },
+          {
+            "$ref": "#/parameters/SkipTokenParameter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "AI Gateway resources.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayListResult"
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        },
+        "x-ms-pageable": {
+          "nextLinkName": "nextLink"
+        }
+      }
+    },
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ApiManagement/service/{gatewayName}": {
+      "get": {
+        "operationId": "AIGateway_Get",
+        "summary": "Get an AI gateway",
+        "tags": [
+          "AI Gateways"
+        ],
+        "description": "Gets an AI Gateway resource.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/ApiVersionParameter"
+          },
+          {
+            "$ref": "#/parameters/SubscriptionIdParameter"
+          },
+          {
+            "$ref": "#/parameters/ResourceGroupNameParameter"
+          },
+          {
+            "$ref": "#/parameters/GatewayNameParameter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The AI Gateway resource.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayResource"
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "AIGateway_CreateOrUpdate",
+        "summary": "Create or replace an AI gateway",
+        "tags": [
+          "AI Gateways"
+        ],
+        "description": "Creates an AI Gateway using the fixed AIGateway SKU.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/ApiVersionParameter"
+          },
+          {
+            "$ref": "#/parameters/SubscriptionIdParameter"
+          },
+          {
+            "$ref": "#/parameters/ResourceGroupNameParameter"
+          },
+          {
+            "$ref": "#/parameters/GatewayNameParameter"
+          },
+          {
+            "name": "parameters",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AIGatewayCreateParameters"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The AI Gateway was updated.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayResource"
+            }
+          },
+          "201": {
+            "description": "The AI Gateway was created.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayResource"
+            },
+            "headers": {
+              "Retry-After": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "location": {
+                "type": "string"
+              }
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        },
+        "x-ms-long-running-operation": true
+      },
+      "patch": {
+        "operationId": "AIGateway_Update",
+        "summary": "Update an AI gateway",
+        "tags": [
+          "AI Gateways"
+        ],
+        "description": "Updates AI Gateway tags or managed identity.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/ApiVersionParameter"
+          },
+          {
+            "$ref": "#/parameters/SubscriptionIdParameter"
+          },
+          {
+            "$ref": "#/parameters/ResourceGroupNameParameter"
+          },
+          {
+            "$ref": "#/parameters/GatewayNameParameter"
+          },
+          {
+            "name": "parameters",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AIGatewayUpdateParameters"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The AI Gateway was updated.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayResource"
+            }
+          },
+          "202": {
+            "description": "The update was accepted.",
+            "headers": {
+              "Retry-After": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "location": {
+                "type": "string"
+              }
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        },
+        "x-ms-long-running-operation": true
+      },
+      "delete": {
+        "operationId": "AIGateway_Delete",
+        "summary": "Delete an AI gateway",
+        "tags": [
+          "AI Gateways"
+        ],
+        "description": "Deletes an AI Gateway.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/ApiVersionParameter"
+          },
+          {
+            "$ref": "#/parameters/SubscriptionIdParameter"
+          },
+          {
+            "$ref": "#/parameters/ResourceGroupNameParameter"
+          },
+          {
+            "$ref": "#/parameters/GatewayNameParameter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The AI Gateway was deleted."
+          },
+          "202": {
+            "description": "The deletion was accepted.",
+            "headers": {
+              "Retry-After": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "location": {
+                "type": "string"
+              }
+            }
+          },
+          "204": {
+            "description": "The AI Gateway does not exist."
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        },
+        "x-ms-long-running-operation": true
+      }
+    },
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ApiManagement/service/{gatewayName}/apiKeys": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/ApiVersionParameter"
+        },
+        {
+          "$ref": "#/parameters/SubscriptionIdParameter"
+        },
+        {
+          "$ref": "#/parameters/ResourceGroupNameParameter"
+        },
+        {
+          "$ref": "#/parameters/GatewayNameParameter"
+        }
+      ],
+      "get": {
+        "operationId": "AIGatewayApiKey_List",
+        "summary": "List API keys",
+        "tags": [
+          "API Keys"
+        ],
+        "description": "Lists API key metadata without returning key values.",
+        "responses": {
+          "200": {
+            "description": "Gateway API key metadata.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayApiKeyListResult"
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        },
+        "x-ms-pageable": {
+          "nextLinkName": "nextLink"
+        }
+      }
+    },
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ApiManagement/service/{gatewayName}/apiKeys/{apiKeyName}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/ApiVersionParameter"
+        },
+        {
+          "$ref": "#/parameters/SubscriptionIdParameter"
+        },
+        {
+          "$ref": "#/parameters/ResourceGroupNameParameter"
+        },
+        {
+          "$ref": "#/parameters/GatewayNameParameter"
+        },
+        {
+          "$ref": "#/parameters/ApiKeyNameParameter"
+        }
+      ],
+      "get": {
+        "operationId": "AIGatewayApiKey_Get",
+        "summary": "Get API key metadata",
+        "tags": [
+          "API Keys"
+        ],
+        "description": "Gets metadata for one API key without returning key values.",
+        "responses": {
+          "200": {
+            "description": "The API key metadata.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayApiKeyResource"
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "AIGatewayApiKey_CreateOrUpdate",
+        "summary": "Create an API key",
+        "tags": [
+          "API Keys"
+        ],
+        "description": "Creates a gateway-wide data-plane API key. Retrieve its generated values through listSecrets.",
+        "parameters": [
+          {
+            "name": "parameters",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AIGatewayApiKeyCreateParameters"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The API key was updated.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayApiKeyResource"
+            }
+          },
+          "201": {
+            "description": "The API key was created.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayApiKeyResource"
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "AIGatewayApiKey_Delete",
+        "summary": "Delete an API key",
+        "tags": [
+          "API Keys"
+        ],
+        "description": "Deletes a gateway-wide data-plane API key.",
+        "responses": {
+          "200": {
+            "description": "The API key was deleted."
+          },
+          "204": {
+            "description": "The API key does not exist."
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ApiManagement/service/{gatewayName}/apiKeys/{apiKeyName}/listSecrets": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/ApiVersionParameter"
+        },
+        {
+          "$ref": "#/parameters/SubscriptionIdParameter"
+        },
+        {
+          "$ref": "#/parameters/ResourceGroupNameParameter"
+        },
+        {
+          "$ref": "#/parameters/GatewayNameParameter"
+        },
+        {
+          "$ref": "#/parameters/ApiKeyNameParameter"
+        }
+      ],
+      "post": {
+        "operationId": "AIGatewayApiKey_ListSecrets",
+        "summary": "List API key secrets",
+        "tags": [
+          "API Keys"
+        ],
+        "description": "Returns the primary and secondary data-plane key values. Treat the response as secret material.",
+        "responses": {
+          "200": {
+            "description": "The primary and secondary key values.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayApiKeySecrets"
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ApiManagement/service/{gatewayName}/apiKeys/{apiKeyName}/regeneratePrimaryKey": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/ApiVersionParameter"
+        },
+        {
+          "$ref": "#/parameters/SubscriptionIdParameter"
+        },
+        {
+          "$ref": "#/parameters/ResourceGroupNameParameter"
+        },
+        {
+          "$ref": "#/parameters/GatewayNameParameter"
+        },
+        {
+          "$ref": "#/parameters/ApiKeyNameParameter"
+        }
+      ],
+      "post": {
+        "operationId": "AIGatewayApiKey_RegeneratePrimaryKey",
+        "summary": "Regenerate the primary API key",
+        "tags": [
+          "API Keys"
+        ],
+        "description": "Rotates the primary data-plane key value. Call list-secrets to retrieve the new value.",
+        "responses": {
+          "200": {
+            "description": "The primary key was regenerated."
+          },
+          "204": {
+            "description": "The primary key was regenerated."
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ApiManagement/service/{gatewayName}/apiKeys/{apiKeyName}/regenerateSecondaryKey": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/ApiVersionParameter"
+        },
+        {
+          "$ref": "#/parameters/SubscriptionIdParameter"
+        },
+        {
+          "$ref": "#/parameters/ResourceGroupNameParameter"
+        },
+        {
+          "$ref": "#/parameters/GatewayNameParameter"
+        },
+        {
+          "$ref": "#/parameters/ApiKeyNameParameter"
+        }
+      ],
+      "post": {
+        "operationId": "AIGatewayApiKey_RegenerateSecondaryKey",
+        "summary": "Regenerate the secondary API key",
+        "tags": [
+          "API Keys"
+        ],
+        "description": "Rotates the secondary data-plane key value. Call list-secrets to retrieve the new value.",
+        "responses": {
+          "200": {
+            "description": "The secondary key was regenerated."
+          },
+          "204": {
+            "description": "The secondary key was regenerated."
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ApiManagement/service/{gatewayName}/privateEndpointConnections": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/ApiVersionParameter"
+        },
+        {
+          "$ref": "#/parameters/SubscriptionIdParameter"
+        },
+        {
+          "$ref": "#/parameters/ResourceGroupNameParameter"
+        },
+        {
+          "$ref": "#/parameters/GatewayNameParameter"
+        }
+      ],
+      "get": {
+        "operationId": "AIGatewayPrivateEndpointConnection_List",
+        "summary": "List private endpoint connections",
+        "tags": [
+          "Networking"
+        ],
+        "description": "Lists the service-side private endpoint connections of an AI Gateway. Create the backing private endpoint with az network private-endpoint.",
+        "responses": {
+          "200": {
+            "description": "Private endpoint connections.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayPrivateEndpointConnectionListResult"
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        },
+        "x-ms-pageable": {
+          "nextLinkName": "nextLink"
+        }
+      }
+    },
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ApiManagement/service/{gatewayName}/privateEndpointConnections/{connectionName}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/ApiVersionParameter"
+        },
+        {
+          "$ref": "#/parameters/SubscriptionIdParameter"
+        },
+        {
+          "$ref": "#/parameters/ResourceGroupNameParameter"
+        },
+        {
+          "$ref": "#/parameters/GatewayNameParameter"
+        },
+        {
+          "$ref": "#/parameters/ConnectionNameParameter"
+        }
+      ],
+      "get": {
+        "operationId": "AIGatewayPrivateEndpointConnection_Get",
+        "summary": "Get a private endpoint connection",
+        "tags": [
+          "Networking"
+        ],
+        "description": "Gets one service-side private endpoint connection of an AI Gateway.",
+        "responses": {
+          "200": {
+            "description": "The private endpoint connection.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayPrivateEndpointConnectionResource"
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "AIGatewayPrivateEndpointConnection_CreateOrUpdate",
+        "summary": "Approve or reject a private endpoint connection",
+        "tags": [
+          "Networking"
+        ],
+        "description": "Sets the approval state of a service-side private endpoint connection. The request must include the connection resource ID and privateLinkServiceConnectionState; the backing private endpoint is a separate resource created with az network private-endpoint.",
+        "parameters": [
+          {
+            "name": "parameters",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AIGatewayPrivateEndpointConnectionUpdateParameters"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The private endpoint connection was updated.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayPrivateEndpointConnectionResource"
+            }
+          },
+          "202": {
+            "description": "The update was accepted.",
+            "headers": {
+              "Retry-After": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "location": {
+                "type": "string"
+              }
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        },
+        "x-ms-long-running-operation": true
+      },
+      "delete": {
+        "operationId": "AIGatewayPrivateEndpointConnection_Delete",
+        "summary": "Delete a private endpoint connection",
+        "tags": [
+          "Networking"
+        ],
+        "description": "Removes a service-side private endpoint connection. The backing Microsoft.Network private endpoint is a separate resource and is not deleted.",
+        "responses": {
+          "200": {
+            "description": "The private endpoint connection was deleted."
+          },
+          "202": {
+            "description": "The deletion was accepted.",
+            "headers": {
+              "Retry-After": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "location": {
+                "type": "string"
+              }
+            }
+          },
+          "204": {
+            "description": "The private endpoint connection does not exist."
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        },
+        "x-ms-long-running-operation": true
+      }
+    },
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ApiManagement/service/{gatewayName}/workspaces/{workspaceName}/models": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/ApiVersionParameter"
+        },
+        {
+          "$ref": "#/parameters/SubscriptionIdParameter"
+        },
+        {
+          "$ref": "#/parameters/ResourceGroupNameParameter"
+        },
+        {
+          "$ref": "#/parameters/GatewayNameParameter"
+        },
+        {
+          "$ref": "#/parameters/WorkspaceNameParameter"
+        }
+      ],
+      "get": {
+        "operationId": "AIGatewayModel_List",
+        "summary": "List models",
+        "tags": [
+          "Models"
+        ],
+        "description": "Lists registered models across every provider in an AI Gateway workspace.",
+        "responses": {
+          "200": {
+            "description": "Registered models.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayModelListResult"
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        },
+        "x-ms-pageable": {
+          "nextLinkName": "nextLink"
+        }
+      }
+    },
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ApiManagement/service/{gatewayName}/workspaces/{workspaceName}/modelProviders/{providerName}/models": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/ApiVersionParameter"
+        },
+        {
+          "$ref": "#/parameters/SubscriptionIdParameter"
+        },
+        {
+          "$ref": "#/parameters/ResourceGroupNameParameter"
+        },
+        {
+          "$ref": "#/parameters/GatewayNameParameter"
+        },
+        {
+          "$ref": "#/parameters/WorkspaceNameParameter"
+        },
+        {
+          "$ref": "#/parameters/ProviderNameParameter"
+        }
+      ],
+      "get": {
+        "operationId": "AIGatewayModel_ListByProvider",
+        "summary": "List models by provider",
+        "tags": [
+          "Models"
+        ],
+        "description": "Lists registered models under one model provider.",
+        "responses": {
+          "200": {
+            "description": "Registered models.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayModelListResult"
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        },
+        "x-ms-pageable": {
+          "nextLinkName": "nextLink"
+        }
+      }
+    },
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ApiManagement/service/{gatewayName}/workspaces/{workspaceName}/modelProviders/{providerName}/models/{modelName}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/ApiVersionParameter"
+        },
+        {
+          "$ref": "#/parameters/SubscriptionIdParameter"
+        },
+        {
+          "$ref": "#/parameters/ResourceGroupNameParameter"
+        },
+        {
+          "$ref": "#/parameters/GatewayNameParameter"
+        },
+        {
+          "$ref": "#/parameters/WorkspaceNameParameter"
+        },
+        {
+          "$ref": "#/parameters/ProviderNameParameter"
+        },
+        {
+          "$ref": "#/parameters/ModelNameParameter"
+        }
+      ],
+      "get": {
+        "operationId": "AIGatewayModel_Get",
+        "summary": "Get a model",
+        "tags": [
+          "Models"
+        ],
+        "description": "Gets a registered model.",
+        "responses": {
+          "200": {
+            "description": "The registered model.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayModelResource"
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "AIGatewayModel_CreateOrUpdate",
+        "summary": "Create or replace a model",
+        "tags": [
+          "Models"
+        ],
+        "description": "Creates or replaces a model registration under a model provider.",
+        "parameters": [
+          {
+            "name": "parameters",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AIGatewayModelWriteResource"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The model registration was replaced.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayModelResource"
+            }
+          },
+          "201": {
+            "description": "The model registration was created.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayModelResource"
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "AIGatewayModel_Update",
+        "summary": "Update a model",
+        "tags": [
+          "Models"
+        ],
+        "description": "Updates mutable model registration fields, including inline policies. Send If-Match with the ETag from a prior get to reject stale policy updates.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/IfMatchParameter"
+          },
+          {
+            "name": "parameters",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AIGatewayModelWriteResource"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The model registration was updated.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayModelResource"
+            }
+          },
+          "412": {
+            "description": "The resource changed after it was read.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "AIGatewayModel_Delete",
+        "summary": "Delete a model",
+        "tags": [
+          "Models"
+        ],
+        "description": "Deletes a model registration.",
+        "responses": {
+          "200": {
+            "description": "The model registration was deleted."
+          },
+          "204": {
+            "description": "The model registration does not exist."
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ApiManagement/service/{gatewayName}/workspaces/{workspaceName}/toolServers": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/ApiVersionParameter"
+        },
+        {
+          "$ref": "#/parameters/SubscriptionIdParameter"
+        },
+        {
+          "$ref": "#/parameters/ResourceGroupNameParameter"
+        },
+        {
+          "$ref": "#/parameters/GatewayNameParameter"
+        },
+        {
+          "$ref": "#/parameters/WorkspaceNameParameter"
+        }
+      ],
+      "get": {
+        "operationId": "AIGatewayToolServer_List",
+        "summary": "List MCP tool servers",
+        "tags": [
+          "MCP Tool Servers"
+        ],
+        "description": "Lists MCP tool server registrations in an AI Gateway workspace.",
+        "responses": {
+          "200": {
+            "description": "Registered MCP tool servers.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayToolServerListResult"
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        },
+        "x-ms-pageable": {
+          "nextLinkName": "nextLink"
+        }
+      }
+    },
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ApiManagement/service/{gatewayName}/workspaces/{workspaceName}/toolServers/{toolServerName}": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/ApiVersionParameter"
+        },
+        {
+          "$ref": "#/parameters/SubscriptionIdParameter"
+        },
+        {
+          "$ref": "#/parameters/ResourceGroupNameParameter"
+        },
+        {
+          "$ref": "#/parameters/GatewayNameParameter"
+        },
+        {
+          "$ref": "#/parameters/WorkspaceNameParameter"
+        },
+        {
+          "$ref": "#/parameters/ToolServerNameParameter"
+        }
+      ],
+      "get": {
+        "operationId": "AIGatewayToolServer_Get",
+        "summary": "Get an MCP tool server",
+        "tags": [
+          "MCP Tool Servers"
+        ],
+        "description": "Gets an MCP tool server registration. Secret-bearing endpoint fields are redacted.",
+        "responses": {
+          "200": {
+            "description": "The MCP tool server registration.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayToolServerResource"
+            },
+            "headers": {
+              "ETag": {
+                "type": "string",
+                "description": "Resource version for concurrency-safe updates."
+              }
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "AIGatewayToolServer_CreateOrUpdate",
+        "summary": "Create or replace an MCP tool server",
+        "tags": [
+          "MCP Tool Servers"
+        ],
+        "description": "Creates or replaces an MCP tool server registration and its inline sources.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/IfMatchParameter"
+          },
+          {
+            "name": "parameters",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AIGatewayToolServerWriteResource"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The MCP tool server was replaced.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayToolServerResource"
+            }
+          },
+          "201": {
+            "description": "The MCP tool server registration was created.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayToolServerResource"
+            }
+          },
+          "412": {
+            "description": "The resource changed after it was read.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "AIGatewayToolServer_Update",
+        "summary": "Update an MCP tool server",
+        "tags": [
+          "MCP Tool Servers"
+        ],
+        "description": "Updates an MCP tool server. Source array updates must preserve redacted secrets. Send If-Match with the ETag from a prior get to reject stale source updates.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/IfMatchParameter"
+          },
+          {
+            "name": "parameters",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AIGatewayToolServerUpdateResource"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The MCP tool server was updated.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayToolServerResource"
+            }
+          },
+          "412": {
+            "description": "The resource changed after it was read.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "AIGatewayToolServer_Delete",
+        "summary": "Delete an MCP tool server",
+        "tags": [
+          "MCP Tool Servers"
+        ],
+        "description": "Deletes an MCP tool server registration.",
+        "responses": {
+          "200": {
+            "description": "The MCP tool server registration was deleted."
+          },
+          "204": {
+            "description": "The MCP tool server registration does not exist."
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ApiManagement/service/{gatewayName}/workspaces/{workspaceName}/toolServers/{toolServerName}/listSecrets": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/ApiVersionParameter"
+        },
+        {
+          "$ref": "#/parameters/SubscriptionIdParameter"
+        },
+        {
+          "$ref": "#/parameters/ResourceGroupNameParameter"
+        },
+        {
+          "$ref": "#/parameters/GatewayNameParameter"
+        },
+        {
+          "$ref": "#/parameters/WorkspaceNameParameter"
+        },
+        {
+          "$ref": "#/parameters/ToolServerNameParameter"
+        }
+      ],
+      "post": {
+        "operationId": "AIGatewayToolServer_ListSecrets",
+        "summary": "Get MCP tool server secrets for safe updates",
+        "tags": [
+          "MCP Tool Servers"
+        ],
+        "description": "Returns secret-bearing endpoint fragments for a concurrency-safe source update. CLI output must remain suppressed unless a future explicit secret-output command is approved.",
+        "responses": {
+          "200": {
+            "description": "Secret-bearing endpoint fragments.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayToolServerSecrets"
+            },
+            "headers": {
+              "ETag": {
+                "type": "string",
+                "description": "Resource version that must match the companion GET."
+              }
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ApiManagement/service/{gatewayName}/workspaces/{workspaceName}/toolServers/{toolServerName}/endpoints/{endpointId}/oauth2/getLoginLinks": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/ApiVersionParameter"
+        },
+        {
+          "$ref": "#/parameters/SubscriptionIdParameter"
+        },
+        {
+          "$ref": "#/parameters/ResourceGroupNameParameter"
+        },
+        {
+          "$ref": "#/parameters/GatewayNameParameter"
+        },
+        {
+          "$ref": "#/parameters/WorkspaceNameParameter"
+        },
+        {
+          "$ref": "#/parameters/ToolServerNameParameter"
+        },
+        {
+          "$ref": "#/parameters/EndpointIdParameter"
+        }
+      ],
+      "post": {
+        "operationId": "AIGatewayToolServer_GetOAuthLoginLinks",
+        "summary": "Get OAuth login links for an MCP source",
+        "tags": [
+          "MCP Tool Servers"
+        ],
+        "description": "Starts an OAuth authorization-code connection for one persisted MCP source.",
+        "parameters": [
+          {
+            "name": "parameters",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/EmptyObject"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OAuth login and redirect URLs.",
+            "schema": {
+              "$ref": "#/definitions/AIGatewayToolServerOAuthLoginLinks"
+            }
+          },
+          "default": {
+            "description": "ARM error response.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    }
+  },
+  "parameters": {
+    "ApiVersionParameter": {
+      "name": "api-version",
+      "in": "query",
+      "required": true,
+      "type": "string",
+      "enum": [
+        "2025-09-01-preview"
+      ],
+      "default": "2025-09-01-preview"
+    },
+    "SubscriptionIdParameter": {
+      "name": "subscriptionId",
+      "in": "path",
+      "required": true,
+      "type": "string",
+      "minLength": 1
+    },
+    "ResourceGroupNameParameter": {
+      "name": "resourceGroupName",
+      "in": "path",
+      "required": true,
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 90
+    },
+    "GatewayNameParameter": {
+      "name": "gatewayName",
+      "in": "path",
+      "required": true,
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 50,
+      "pattern": "^[a-zA-Z](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$"
+    },
+    "ApiKeyNameParameter": {
+      "name": "apiKeyName",
+      "in": "path",
+      "description": "Gateway API key resource name.",
+      "required": true,
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$"
+    },
+    "WorkspaceNameParameter": {
+      "name": "workspaceName",
+      "in": "path",
+      "description": "AI Gateway workspace name.",
+      "required": true,
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^(?!\\.{1,2}$)[a-zA-Z0-9_.()-]+$",
+      "default": "default"
+    },
+    "ProviderNameParameter": {
+      "name": "providerName",
+      "in": "path",
+      "description": "Model provider registration name.",
+      "required": true,
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^(?!\\.{1,2}$)[a-zA-Z0-9_.()-]+$"
+    },
+    "ModelNameParameter": {
+      "name": "modelName",
+      "in": "path",
+      "description": "Gateway-visible model registration name.",
+      "required": true,
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^(?!\\.{1,2}$)[a-zA-Z0-9_.()-]+$"
+    },
+    "ToolServerNameParameter": {
+      "name": "toolServerName",
+      "in": "path",
+      "description": "MCP tool server registration name.",
+      "required": true,
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^(?!\\.{1,2}$)[a-zA-Z0-9_.()-]+$"
+    },
+    "EndpointIdParameter": {
+      "name": "endpointId",
+      "in": "path",
+      "description": "Server-generated identifier of a persisted MCP source.",
+      "required": true,
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^(?!\\.{1,2}$)[a-zA-Z0-9_.()-]+$"
+    },
+    "ConnectionNameParameter": {
+      "name": "connectionName",
+      "in": "path",
+      "description": "Service-side private endpoint connection name.",
+      "required": true,
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^(?!\\.{1,2}$)[a-zA-Z0-9_.()-]+$"
+    },
+    "IfMatchParameter": {
+      "name": "If-Match",
+      "in": "header",
+      "description": "Resource ETag used to reject stale updates.",
+      "required": false,
+      "type": "string"
+    },
+    "TopParameter": {
+      "name": "$top",
+      "in": "query",
+      "required": false,
+      "type": "integer",
+      "format": "int32",
+      "minimum": 1
+    },
+    "SkipTokenParameter": {
+      "name": "$skipToken",
+      "in": "query",
+      "required": false,
+      "type": "string"
+    }
+  },
+  "definitions": {
+    "AIGatewayCreateParameters": {
+      "type": "object",
+      "properties": {
+        "location": {
+          "type": "string"
+        },
+        "tags": {
+          "$ref": "#/definitions/Tags"
+        },
+        "sku": {
+          "$ref": "#/definitions/AIGatewaySkuProperties"
+        },
+        "identity": {
+          "$ref": "#/definitions/AIGatewayIdentity"
+        },
+        "properties": {
+          "$ref": "#/definitions/AIGatewayCreateProperties"
+        }
+      },
+      "required": [
+        "location",
+        "sku",
+        "properties"
+      ]
+    },
+    "AIGatewayUpdateParameters": {
+      "type": "object",
+      "properties": {
+        "tags": {
+          "$ref": "#/definitions/Tags"
+        },
+        "identity": {
+          "$ref": "#/definitions/AIGatewayIdentity"
+        },
+        "properties": {
+          "$ref": "#/definitions/AIGatewayUpdateProperties"
+        }
+      }
+    },
+    "AIGatewayUpdateProperties": {
+      "type": "object",
+      "description": "The networking properties that can be PATCHed on an AI Gateway. Other properties are immutable after create or are read-only.",
+      "properties": {
+        "publicNetworkAccess": {
+          "$ref": "#/definitions/PublicNetworkAccess"
+        },
+        "virtualNetworkType": {
+          "$ref": "#/definitions/VirtualNetworkType"
+        },
+        "virtualNetworkConfiguration": {
+          "$ref": "#/definitions/VirtualNetworkConfiguration",
+          "x-nullable": true
+        }
+      }
+    },
+    "AIGatewayResource": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "readOnly": true
+        },
+        "name": {
+          "type": "string",
+          "readOnly": true
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Microsoft.ApiManagement/service"
+          ],
+          "readOnly": true
+        },
+        "location": {
+          "type": "string"
+        },
+        "tags": {
+          "$ref": "#/definitions/Tags"
+        },
+        "sku": {
+          "$ref": "#/definitions/AIGatewaySkuProperties"
+        },
+        "identity": {
+          "$ref": "#/definitions/AIGatewayIdentity"
+        },
+        "properties": {
+          "$ref": "#/definitions/AIGatewayResourceProperties"
+        },
+        "etag": {
+          "type": "string",
+          "readOnly": true
+        }
+      },
+      "required": [
+        "location",
+        "sku",
+        "properties"
+      ],
+      "additionalProperties": true
+    },
+    "AIGatewayListResult": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AIGatewayResource"
+          }
+        },
+        "nextLink": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "value"
+      ]
+    },
+    "AIGatewaySkuProperties": {
+      "type": "object",
+      "description": "Fixed AI Gateway SKU. Other API Management SKUs are excluded.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": [
+            "AIGateway"
+          ],
+          "default": "AIGateway"
+        },
+        "capacity": {
+          "type": "integer",
+          "format": "int32",
+          "enum": [
+            1
+          ],
+          "default": 1
+        }
+      },
+      "required": [
+        "name",
+        "capacity"
+      ]
+    },
+    "AIGatewayCreateProperties": {
+      "type": "object",
+      "properties": {
+        "publisherEmail": {
+          "type": "string",
+          "default": "noreply@aigateway.azure.com"
+        },
+        "publisherName": {
+          "type": "string",
+          "default": "AI Gateway Administrator"
+        }
+      },
+      "required": [
+        "publisherEmail",
+        "publisherName"
+      ]
+    },
+    "AIGatewayResourceProperties": {
+      "type": "object",
+      "properties": {
+        "publisherEmail": {
+          "type": "string"
+        },
+        "publisherName": {
+          "type": "string"
+        },
+        "provisioningState": {
+          "type": "string",
+          "readOnly": true
+        },
+        "gatewayUrl": {
+          "type": "string",
+          "readOnly": true
+        },
+        "publicNetworkAccess": {
+          "$ref": "#/definitions/PublicNetworkAccess"
+        },
+        "virtualNetworkType": {
+          "$ref": "#/definitions/VirtualNetworkType"
+        },
+        "virtualNetworkConfiguration": {
+          "$ref": "#/definitions/VirtualNetworkConfiguration"
+        }
+      },
+      "additionalProperties": true
+    },
+    "AIGatewayIdentity": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "None",
+            "SystemAssigned",
+            "UserAssigned",
+            "SystemAssigned, UserAssigned"
+          ]
+        },
+        "principalId": {
+          "type": "string",
+          "format": "uuid",
+          "readOnly": true
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid",
+          "readOnly": true
+        },
+        "userAssignedIdentities": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/AIGatewayUserAssignedIdentity"
+          }
+        }
+      },
+      "required": [
+        "type"
+      ]
+    },
+    "AIGatewayUserAssignedIdentity": {
+      "type": "object",
+      "properties": {
+        "principalId": {
+          "type": "string",
+          "format": "uuid",
+          "readOnly": true
+        },
+        "clientId": {
+          "type": "string",
+          "format": "uuid",
+          "readOnly": true
+        }
+      }
+    },
+    "PublicNetworkAccess": {
+      "type": "string",
+      "description": "Whether public network access is allowed for the gateway. If 'Disabled', private endpoints are the exclusive access method. Default value is 'Enabled'.",
+      "enum": [
+        "Enabled",
+        "Disabled"
+      ],
+      "default": "Enabled",
+      "x-ms-enum": {
+        "name": "PublicNetworkAccess",
+        "modelAsString": true
+      }
+    },
+    "VirtualNetworkType": {
+      "type": "string",
+      "description": "Outbound VNet integration mode for the gateway. 'None' means the gateway is not joined to a virtual network. 'External' joins the gateway to the delegated subnet in virtualNetworkConfiguration so it can reach private backends; the gateway remains reachable on its public and private endpoints. 'Internal' is a service-managed value this extension does not set.",
+      "enum": [
+        "None",
+        "External",
+        "Internal"
+      ],
+      "default": "None",
+      "x-ms-enum": {
+        "name": "VirtualNetworkType",
+        "modelAsString": true
+      }
+    },
+    "VirtualNetworkConfiguration": {
+      "type": "object",
+      "description": "Delegated subnet used for outbound VNet integration. subnetResourceId is the only writable field.",
+      "properties": {
+        "subnetResourceId": {
+          "type": "string",
+          "description": "Full resource ID of the delegated integration subnet."
+        },
+        "vnetid": {
+          "type": "string",
+          "readOnly": true
+        },
+        "subnetname": {
+          "type": "string",
+          "readOnly": true
+        }
+      }
+    },
+    "PrivateEndpointConnectionStatus": {
+      "type": "string",
+      "description": "Approval status of a private endpoint connection.",
+      "enum": [
+        "Pending",
+        "Approved",
+        "Rejected"
+      ],
+      "x-ms-enum": {
+        "name": "PrivateEndpointConnectionStatus",
+        "modelAsString": true
+      }
+    },
+    "PrivateLinkServiceConnectionState": {
+      "type": "object",
+      "description": "Approval state of the connection between the private endpoint and the gateway.",
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/PrivateEndpointConnectionStatus"
+        },
+        "description": {
+          "type": "string",
+          "description": "Reason for approval or rejection of the connection."
+        },
+        "actionsRequired": {
+          "type": "string",
+          "readOnly": true
+        }
+      },
+      "required": [
+        "status"
+      ]
+    },
+    "AIGatewayPrivateEndpoint": {
+      "type": "object",
+      "description": "Reference to the backing Microsoft.Network/privateEndpoints resource. Created and deleted separately with az network private-endpoint.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "readOnly": true
+        }
+      }
+    },
+    "AIGatewayPrivateEndpointConnectionProperties": {
+      "type": "object",
+      "properties": {
+        "privateEndpoint": {
+          "$ref": "#/definitions/AIGatewayPrivateEndpoint"
+        },
+        "privateLinkServiceConnectionState": {
+          "$ref": "#/definitions/PrivateLinkServiceConnectionState"
+        },
+        "provisioningState": {
+          "type": "string",
+          "readOnly": true
+        },
+        "groupIds": {
+          "type": "array",
+          "readOnly": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "privateLinkServiceConnectionState"
+      ]
+    },
+    "AIGatewayPrivateEndpointConnectionResource": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "readOnly": true
+        },
+        "name": {
+          "type": "string",
+          "readOnly": true
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Microsoft.ApiManagement/service/privateEndpointConnections"
+          ],
+          "readOnly": true
+        },
+        "properties": {
+          "$ref": "#/definitions/AIGatewayPrivateEndpointConnectionProperties"
+        }
+      }
+    },
+    "AIGatewayPrivateEndpointConnectionListResult": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AIGatewayPrivateEndpointConnectionResource"
+          }
+        },
+        "nextLink": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "value"
+      ]
+    },
+    "AIGatewayPrivateEndpointConnectionUpdateProperties": {
+      "type": "object",
+      "description": "The only property a caller can set when approving or rejecting a private endpoint connection.",
+      "properties": {
+        "privateLinkServiceConnectionState": {
+          "$ref": "#/definitions/PrivateLinkServiceConnectionState"
+        }
+      },
+      "required": [
+        "privateLinkServiceConnectionState"
+      ]
+    },
+    "AIGatewayPrivateEndpointConnectionUpdateParameters": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Private endpoint connection resource ID."
+        },
+        "properties": {
+          "$ref": "#/definitions/AIGatewayPrivateEndpointConnectionUpdateProperties"
+        }
+      },
+      "required": [
+        "id",
+        "properties"
+      ]
+    },
+    "AIGatewayApiKeyCreateParameters": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/AIGatewayApiKeyCreateProperties"
+        }
+      },
+      "required": [
+        "properties"
+      ]
+    },
+    "AIGatewayApiKeyCreateProperties": {
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string",
+          "description": "Human-friendly label for the API key."
+        }
+      },
+      "required": [
+        "displayName"
+      ]
+    },
+    "AIGatewayApiKeyResource": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "readOnly": true
+        },
+        "name": {
+          "type": "string",
+          "readOnly": true
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Microsoft.ApiManagement/service/apiKeys"
+          ],
+          "readOnly": true
+        },
+        "properties": {
+          "$ref": "#/definitions/AIGatewayApiKeyProperties"
+        }
+      }
+    },
+    "AIGatewayApiKeyProperties": {
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string",
+          "readOnly": true
+        },
+        "state": {
+          "type": "string",
+          "readOnly": true
+        },
+        "createdDate": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "expirationDate": {
+          "type": "string",
+          "format": "date-time",
+          "x-nullable": true,
+          "readOnly": true
+        }
+      }
+    },
+    "AIGatewayApiKeyListResult": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AIGatewayApiKeyResource"
+          }
+        },
+        "count": {
+          "type": "integer",
+          "format": "int32",
+          "readOnly": true
+        },
+        "nextLink": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "value"
+      ]
+    },
+    "AIGatewayApiKeySecrets": {
+      "type": "object",
+      "properties": {
+        "primaryKey": {
+          "type": "string",
+          "x-ms-secret": true
+        },
+        "secondaryKey": {
+          "type": "string",
+          "x-ms-secret": true
+        }
+      },
+      "required": [
+        "primaryKey",
+        "secondaryKey"
+      ]
+    },
+    "Tags": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "AIGatewayModelProviderWriteResource": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/AIGatewayModelProviderWriteProperties"
+        }
+      },
+      "required": [
+        "properties"
+      ]
+    },
+    "AIGatewayModelProviderUpdateResource": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/AIGatewayModelProviderUpdateProperties"
+        }
+      },
+      "required": [
+        "properties"
+      ]
+    },
+    "AIGatewayModelProviderResource": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "readOnly": true
+        },
+        "name": {
+          "type": "string",
+          "readOnly": true
+        },
+        "type": {
+          "type": "string",
+          "readOnly": true
+        },
+        "systemData": {
+          "$ref": "#/definitions/SystemData"
+        },
+        "properties": {
+          "$ref": "#/definitions/AIGatewayModelProviderProperties"
+        }
+      },
+      "required": [
+        "properties"
+      ]
+    },
+    "AIGatewayModelProviderListResult": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AIGatewayModelProviderResource"
+          }
+        },
+        "nextLink": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "value"
+      ]
+    },
+    "AIGatewayModelProviderWriteProperties": {
+      "type": "object",
+      "description": "Model provider settings. Foundry providers use foundry; custom providers use custom.",
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/AIGatewayModelProviderKind"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string",
+          "x-nullable": true
+        },
+        "foundry": {
+          "$ref": "#/definitions/AIGatewayFoundryProviderConfig"
+        },
+        "custom": {
+          "$ref": "#/definitions/AIGatewayCustomProviderConfig"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "AIGatewayModelProviderUpdateProperties": {
+      "type": "object",
+      "description": "Mutable model provider settings. Provider kind is immutable.",
+      "properties": {
+        "displayName": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string",
+          "x-nullable": true
+        },
+        "foundry": {
+          "$ref": "#/definitions/AIGatewayFoundryProviderConfig"
+        },
+        "custom": {
+          "$ref": "#/definitions/AIGatewayCustomProviderConfig"
+        }
+      }
+    },
+    "AIGatewayModelProviderProperties": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/AIGatewayModelProviderKind"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string",
+          "x-nullable": true
+        },
+        "foundry": {
+          "$ref": "#/definitions/AIGatewayFoundryProviderConfig"
+        },
+        "custom": {
+          "$ref": "#/definitions/AIGatewayCustomProviderConfig"
+        },
+        "provisioningState": {
+          "type": "string",
+          "readOnly": true
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "AIGatewayModelProviderKind": {
+      "type": "string",
+      "enum": [
+        "Foundry",
+        "Custom"
+      ]
+    },
+    "AIGatewayFoundryProviderConfig": {
+      "type": "object",
+      "properties": {
+        "endpoint": {
+          "type": "string",
+          "format": "uri"
+        },
+        "resourceIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "authentication": {
+          "$ref": "#/definitions/AIGatewayFoundryProviderAuthentication"
+        }
+      },
+      "required": [
+        "endpoint",
+        "resourceIds",
+        "authentication"
+      ]
+    },
+    "AIGatewayFoundryProviderAuthentication": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "ManagedIdentity",
+            "ApiKey"
+          ]
+        },
+        "managedIdentity": {
+          "$ref": "#/definitions/AIGatewayManagedIdentityCredentials"
+        },
+        "apiKey": {
+          "$ref": "#/definitions/AIGatewayProviderApiKey"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "AIGatewayCustomProviderConfig": {
+      "type": "object",
+      "properties": {
+        "endpoint": {
+          "type": "string",
+          "format": "uri"
+        },
+        "authentication": {
+          "$ref": "#/definitions/AIGatewayCustomProviderAuthentication"
+        }
+      },
+      "required": [
+        "endpoint",
+        "authentication"
+      ]
+    },
+    "AIGatewayCustomProviderAuthentication": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "ApiKey"
+          ]
+        },
+        "apiKey": {
+          "$ref": "#/definitions/AIGatewayProviderApiKey"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "AIGatewayManagedIdentityCredentials": {
+      "type": "object",
+      "properties": {
+        "resource": {
+          "type": "string"
+        },
+        "clientId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "resource"
+      ]
+    },
+    "AIGatewayProviderApiKey": {
+      "type": "object",
+      "properties": {
+        "headerName": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string",
+          "x-ms-secret": true
+        }
+      },
+      "required": [
+        "headerName"
+      ]
+    },
+    "AIGatewayModelWriteResource": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/AIGatewayModelWriteProperties"
+        }
+      },
+      "required": [
+        "properties"
+      ]
+    },
+    "AIGatewayModelResource": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "readOnly": true
+        },
+        "name": {
+          "type": "string",
+          "readOnly": true
+        },
+        "type": {
+          "type": "string",
+          "readOnly": true
+        },
+        "systemData": {
+          "$ref": "#/definitions/SystemData"
+        },
+        "properties": {
+          "$ref": "#/definitions/AIGatewayModelProperties"
+        },
+        "etag": {
+          "type": "string",
+          "readOnly": true
+        }
+      },
+      "required": [
+        "properties"
+      ]
+    },
+    "AIGatewayModelListResult": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AIGatewayModelResource"
+          }
+        },
+        "nextLink": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "value"
+      ]
+    },
+    "AIGatewayModelWriteProperties": {
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string",
+          "x-nullable": true
+        },
+        "apiFormat": {
+          "$ref": "#/definitions/AIGatewayModelApiFormat"
+        },
+        "deployment": {
+          "$ref": "#/definitions/AIGatewayModelDeployment"
+        },
+        "supportedEndpoints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "policies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AIGatewayInlinePolicy"
+          }
+        }
+      }
+    },
+    "AIGatewayModelProperties": {
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string",
+          "x-nullable": true
+        },
+        "providerKind": {
+          "type": "string",
+          "readOnly": true
+        },
+        "apiFormat": {
+          "$ref": "#/definitions/AIGatewayModelApiFormat"
+        },
+        "deployment": {
+          "$ref": "#/definitions/AIGatewayModelDeployment"
+        },
+        "supportedEndpoints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "policies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AIGatewayInlinePolicy"
+          }
+        },
+        "provisioningState": {
+          "type": "string",
+          "readOnly": true
+        }
+      }
+    },
+    "AIGatewayModelApiFormat": {
+      "type": "string",
+      "enum": [
+        "OpenAIChatCompletions",
+        "AnthropicMessages",
+        "ResponsesApi"
+      ]
+    },
+    "AIGatewayModelDeployment": {
+      "type": "object",
+      "properties": {
+        "resourceId": {
+          "type": "string"
+        },
+        "modelName": {
+          "type": "string"
+        },
+        "modelVersion": {
+          "type": "string",
+          "x-nullable": true
+        }
+      },
+      "required": [
+        "modelName"
+      ]
+    },
+    "AIGatewayInlinePolicy": {
+      "type": "object",
+      "description": "Inline AI Gateway policy. Fields other than type depend on the selected policy type. Documented first-class types are tokenLimit (period, count, counterKey) and contentSafety (hateSeverity, selfHarmSeverity, sexualSeverity, violenceSeverity). This schema stays open-ended so other policy types pass through unchanged.",
+      "properties": {
+        "type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": true
+    },
+    "AIGatewayToolServerWriteResource": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/AIGatewayToolServerWriteProperties"
+        }
+      },
+      "required": [
+        "properties"
+      ]
+    },
+    "AIGatewayToolServerUpdateResource": {
+      "type": "object",
+      "properties": {
+        "properties": {
+          "$ref": "#/definitions/AIGatewayToolServerUpdateProperties"
+        }
+      },
+      "required": [
+        "properties"
+      ]
+    },
+    "AIGatewayToolServerResource": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "readOnly": true
+        },
+        "name": {
+          "type": "string",
+          "readOnly": true
+        },
+        "type": {
+          "type": "string",
+          "readOnly": true
+        },
+        "systemData": {
+          "$ref": "#/definitions/SystemData"
+        },
+        "properties": {
+          "$ref": "#/definitions/AIGatewayToolServerProperties"
+        },
+        "etag": {
+          "type": "string",
+          "readOnly": true
+        }
+      },
+      "required": [
+        "properties"
+      ]
+    },
+    "AIGatewayToolServerListResult": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AIGatewayToolServerResource"
+          }
+        },
+        "nextLink": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "value"
+      ]
+    },
+    "AIGatewayToolServerWriteProperties": {
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "mcp"
+          ],
+          "default": "mcp"
+        },
+        "endpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AIGatewayToolServerEndpoint"
+          },
+          "minItems": 1
+        },
+        "failureMode": {
+          "$ref": "#/definitions/AIGatewayToolServerFailureMode"
+        },
+        "policies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AIGatewayInlinePolicy"
+          }
+        }
+      },
+      "required": [
+        "endpoints"
+      ]
+    },
+    "AIGatewayToolServerUpdateProperties": {
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "mcp"
+          ]
+        },
+        "endpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AIGatewayToolServerEndpoint"
+          },
+          "minItems": 1
+        },
+        "failureMode": {
+          "$ref": "#/definitions/AIGatewayToolServerFailureMode"
+        },
+        "policies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AIGatewayInlinePolicy"
+          }
+        }
+      }
+    },
+    "AIGatewayToolServerProperties": {
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "mcp"
+          ]
+        },
+        "endpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AIGatewayToolServerEndpoint"
+          }
+        },
+        "failureMode": {
+          "$ref": "#/definitions/AIGatewayToolServerFailureMode"
+        },
+        "policies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AIGatewayInlinePolicy"
+          }
+        },
+        "mcpEndpointUrl": {
+          "type": "string",
+          "format": "uri",
+          "readOnly": true
+        },
+        "state": {
+          "type": "string",
+          "readOnly": true
+        },
+        "provisioningState": {
+          "type": "string",
+          "readOnly": true
+        }
+      }
+    },
+    "AIGatewayToolServerFailureMode": {
+      "type": "string",
+      "enum": [
+        "failOpen",
+        "failClosed"
+      ]
+    },
+    "AIGatewayToolServerEndpoint": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "readOnly": true
+        },
+        "namespace": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "mcp",
+            "openApi",
+            "http"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "mcp": {
+          "$ref": "#/definitions/AIGatewayToolServerMcpEndpoint"
+        },
+        "openApi": {
+          "$ref": "#/definitions/AIGatewayToolServerOpenApiEndpoint"
+        },
+        "credentials": {
+          "$ref": "#/definitions/AIGatewayToolServerEndpointCredentials"
+        }
+      },
+      "required": [
+        "namespace",
+        "kind"
+      ]
+    },
+    "AIGatewayToolServerMcpEndpoint": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "transport": {
+          "type": "string",
+          "enum": [
+            "streamableHttp",
+            "sse"
+          ],
+          "default": "streamableHttp"
+        }
+      },
+      "required": [
+        "url"
+      ]
+    },
+    "AIGatewayToolServerOpenApiEndpoint": {
+      "type": "object",
+      "properties": {
+        "specSource": {
+          "$ref": "#/definitions/AIGatewayToolServerOpenApiSpecSource"
+        }
+      },
+      "required": [
+        "specSource"
+      ]
+    },
+    "AIGatewayToolServerOpenApiSpecSource": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "url",
+            "inline"
+          ]
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "contentBase64": {
+          "type": "string",
+          "format": "byte",
+          "x-ms-secret": true
+        }
+      },
+      "required": [
+        "type"
+      ]
+    },
+    "AIGatewayToolServerEndpointCredentials": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "none",
+            "header",
+            "oauth2",
+            "managedIdentity"
+          ]
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "x-ms-secret": true
+        },
+        "oauth2": {
+          "$ref": "#/definitions/AIGatewayToolServerOAuth2Config"
+        },
+        "managedIdentity": {
+          "$ref": "#/definitions/AIGatewayToolServerManagedIdentityConfig"
+        }
+      },
+      "required": [
+        "type"
+      ]
+    },
+    "AIGatewayToolServerOAuth2Config": {
+      "type": "object",
+      "properties": {
+        "grantType": {
+          "type": "string",
+          "enum": [
+            "authorizationCode"
+          ]
+        },
+        "authorizationUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "tokenUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "clientId": {
+          "type": "string"
+        },
+        "clientSecret": {
+          "type": "string",
+          "x-ms-secret": true
+        },
+        "scopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "notConnected",
+            "connected",
+            "failed"
+          ],
+          "readOnly": true
+        },
+        "statusUpdatedUtc": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "tokenKind": {
+          "type": "string",
+          "enum": [
+            "refreshToken",
+            "accessToken"
+          ],
+          "readOnly": true
+        },
+        "tokenExpiresUtc": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        }
+      },
+      "required": [
+        "grantType",
+        "authorizationUrl",
+        "tokenUrl",
+        "clientId"
+      ]
+    },
+    "AIGatewayToolServerManagedIdentityConfig": {
+      "type": "object",
+      "properties": {
+        "resource": {
+          "type": "string"
+        },
+        "clientId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "AIGatewayToolServerSecrets": {
+      "type": "object",
+      "properties": {
+        "endpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AIGatewayToolServerEndpointSecret"
+          }
+        }
+      },
+      "required": [
+        "endpoints"
+      ]
+    },
+    "AIGatewayToolServerEndpointSecret": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "credentials": {
+          "$ref": "#/definitions/AIGatewayToolServerEndpointCredentials"
+        },
+        "openApi": {
+          "$ref": "#/definitions/AIGatewayToolServerOpenApiEndpoint"
+        }
+      }
+    },
+    "AIGatewayToolServerOAuthLoginLinks": {
+      "type": "object",
+      "properties": {
+        "loginLink": {
+          "type": "string",
+          "format": "uri"
+        },
+        "redirectUri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "expiresUtc": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "loginLink",
+        "redirectUri",
+        "expiresUtc"
+      ]
+    },
+    "SystemData": {
+      "type": "object",
+      "properties": {
+        "createdBy": {
+          "type": "string",
+          "readOnly": true
+        },
+        "createdByType": {
+          "type": "string",
+          "readOnly": true
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "lastModifiedBy": {
+          "type": "string",
+          "readOnly": true
+        },
+        "lastModifiedByType": {
+          "type": "string",
+          "readOnly": true
+        },
+        "lastModifiedAt": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true
+        }
+      },
+      "readOnly": true
+    },
+    "EmptyObject": {
+      "type": "object",
+      "additionalProperties": false
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "$ref": "#/definitions/ErrorDetail"
+        }
+      },
+      "required": [
+        "error"
+      ]
+    },
+    "ErrorDetail": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ErrorDetail"
+          }
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ]
+    }
+  }
+}

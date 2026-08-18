@@ -1,0 +1,42 @@
+name: Azure CLI extension CI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/azure-cli-extension-*.yml"
+      - "src/ai-gateway/**"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/azure-cli-extension-*.yml"
+      - "src/ai-gateway/**"
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+      - name: Install build and test tools
+        run: python -m pip install --disable-pip-version-check build pytest
+      - name: Build wheel
+        run: python -m build --wheel --outdir dist src/ai-gateway
+      - name: Run unit tests
+        run: |
+          python -m pip install dist/*.whl
+          python -m pytest src/ai-gateway/azext_ai_gateway/tests/unittests
+      - name: Install and load with Azure CLI
+        env:
+          AZURE_EXTENSION_DIR: ${{ runner.temp }}/azure-cli-extensions
+        run: |
+          az extension add --source dist/*.whl --yes
+          az extension show --name ai-gateway --query name --output tsv
+          az ai-gateway version --output json
+

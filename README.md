@@ -93,6 +93,29 @@ To report a security issue, see [SECURITY.md](SECURITY.md).
 Looking for working examples? The [samples catalog](samples/README.md) curates end-to-end
 samples and infrastructure that build on the AI Gateway tier in Azure API Management.
 
+## Azure CLI extension
+
+Install the preview extension from GitHub Releases:
+
+```bash
+az extension add \
+  --source https://github.com/Azure/ai-gateway/releases/download/azure-cli-v1.0.0b1/ai_gateway-1.0.0b1-py3-none-any.whl
+az ai-gateway version
+```
+
+Use it to manage gateways and their models, MCP tool servers, policies, API keys,
+and managed identities:
+
+```bash
+az ai-gateway list
+az ai-gateway create --name my-gateway --resource-group my-rg --location eastus2
+az ai-gateway model list --gateway-name my-gateway --resource-group my-rg
+az ai-gateway mcp list --gateway-name my-gateway --resource-group my-rg
+```
+
+See the [extension guide](src/ai-gateway/README.md) for all commands and local
+installation.
+
 ## Contributing
 
 This project welcomes contributions and suggestions. Most contributions require you

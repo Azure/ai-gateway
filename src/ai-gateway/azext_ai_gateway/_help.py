@@ -1,0 +1,444 @@
+# --------------------------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------------------------
+
+from knack.help_files import helps
+
+
+helps["ai-gateway"] = """
+    type: group
+    short-summary: Manage and use Azure AI Gateway resources.
+"""
+
+helps["ai-gateway api-key"] = """
+    type: group
+    short-summary: Manage gateway-wide data-plane API keys.
+"""
+
+helps["ai-gateway api-key create"] = """
+    type: command
+    short-summary: Create an API key.
+    examples:
+      - name: Create an API key.
+        text: >-
+          az ai-gateway api-key create --gateway-name my-ai-gateway
+          --resource-group my-resource-group --name production
+          --display-name "Production applications"
+"""
+
+helps["ai-gateway api-key delete"] = """
+    type: command
+    short-summary: Delete an API key.
+    examples:
+      - name: Delete an API key.
+        text: >-
+          az ai-gateway api-key delete --gateway-name my-ai-gateway
+          --resource-group my-resource-group --name production
+"""
+
+helps["ai-gateway api-key list"] = """
+    type: command
+    short-summary: List API key metadata without secret values.
+    examples:
+      - name: List API keys.
+        text: >-
+          az ai-gateway api-key list --gateway-name my-ai-gateway
+          --resource-group my-resource-group
+"""
+
+helps["ai-gateway api-key list-secrets"] = """
+    type: command
+    short-summary: List the primary and secondary values of an API key.
+    long-summary: Treat the output as secret material. Do not persist it in logs.
+    examples:
+      - name: List API key values.
+        text: >-
+          az ai-gateway api-key list-secrets --gateway-name my-ai-gateway
+          --resource-group my-resource-group --name production
+"""
+
+helps["ai-gateway api-key regenerate"] = """
+    type: command
+    short-summary: Regenerate one value of an API key.
+    examples:
+      - name: Regenerate the secondary key value.
+        text: >-
+          az ai-gateway api-key regenerate --gateway-name my-ai-gateway
+          --resource-group my-resource-group --name production
+          --key-type secondary
+"""
+
+helps["ai-gateway api-key show"] = """
+    type: command
+    short-summary: Show API key metadata without secret values.
+    examples:
+      - name: Show an API key.
+        text: >-
+          az ai-gateway api-key show --gateway-name my-ai-gateway
+          --resource-group my-resource-group --name production
+"""
+
+helps["ai-gateway create"] = """
+    type: command
+    short-summary: Create an AI Gateway.
+    examples:
+      - name: Create an AI Gateway with the fixed AI Gateway SKU.
+        text: >-
+          az ai-gateway create --name my-ai-gateway
+          --resource-group my-resource-group --location eastus2
+      - name: Create an AI Gateway with managed identities and tags.
+        text: >-
+          az ai-gateway create --name my-ai-gateway
+          --resource-group my-resource-group --location eastus2
+          --mi-system-assigned true
+          --mi-user-assigned
+          /subscriptions/s/resourceGroups/r/providers/Microsoft.ManagedIdentity/userAssignedIdentities/i
+          --tags environment=production
+"""
+
+helps["ai-gateway delete"] = """
+    type: command
+    short-summary: Delete an AI Gateway.
+    examples:
+      - name: Delete an AI Gateway.
+        text: >-
+          az ai-gateway delete --name my-ai-gateway
+          --resource-group my-resource-group
+"""
+
+helps["ai-gateway import"] = """
+    type: command
+    short-summary: Import configuration from an Azure API Management service.
+    long-summary: >
+        Copy selected models, agents, and tools into an AI Gateway without
+        changing the source API Management service. This command contract is
+        scaffolded for preview; execution will be enabled with the service API.
+    examples:
+      - name: Preview importing all supported configuration.
+        text: >-
+          az ai-gateway import --name my-ai-gateway
+          --resource-group my-resource-group
+          --source-apim-id /subscriptions/sub/resourceGroups/rg/providers/Microsoft.ApiManagement/service/apim
+          --dry-run
+      - name: Import models and tools while skipping conflicts.
+        text: >-
+          az ai-gateway import --name my-ai-gateway
+          --resource-group my-resource-group
+          --source-apim-id /subscriptions/sub/resourceGroups/rg/providers/Microsoft.ApiManagement/service/apim
+          --include models tools --conflict-policy skip
+"""
+
+helps["ai-gateway identity"] = """
+    type: group
+    short-summary: Manage AI Gateway managed identities.
+"""
+
+helps["ai-gateway identity assign"] = """
+    type: command
+    short-summary: Assign managed identities to an AI Gateway.
+    examples:
+      - name: Enable the system-assigned identity.
+        text: >-
+          az ai-gateway identity assign --gateway-name my-ai-gateway
+          --resource-group my-resource-group --system-assigned
+      - name: Attach a user-assigned identity.
+        text: >-
+          az ai-gateway identity assign --gateway-name my-ai-gateway
+          --resource-group my-resource-group --user-assigned
+          /subscriptions/s/resourceGroups/r/providers/Microsoft.ManagedIdentity/userAssignedIdentities/i
+"""
+
+helps["ai-gateway identity remove"] = """
+    type: command
+    short-summary: Remove managed identities from an AI Gateway.
+    examples:
+      - name: Disable the system-assigned identity.
+        text: >-
+          az ai-gateway identity remove --gateway-name my-ai-gateway
+          --resource-group my-resource-group --system-assigned
+      - name: Detach all user-assigned identities.
+        text: >-
+          az ai-gateway identity remove --gateway-name my-ai-gateway
+          --resource-group my-resource-group --user-assigned
+"""
+
+helps["ai-gateway identity show"] = """
+    type: command
+    short-summary: Show managed identities assigned to an AI Gateway.
+    examples:
+      - name: Show managed identities.
+        text: >-
+          az ai-gateway identity show --gateway-name my-ai-gateway
+          --resource-group my-resource-group
+"""
+
+helps["ai-gateway list"] = """
+    type: command
+    short-summary: List AI Gateways.
+    examples:
+      - name: List AI Gateways in the current subscription.
+        text: az ai-gateway list
+      - name: List AI Gateways in a resource group.
+        text: az ai-gateway list --resource-group my-resource-group
+"""
+
+helps["ai-gateway model"] = """
+    type: group
+    short-summary: Manage models registered in an AI Gateway.
+"""
+
+helps["ai-gateway model create"] = """
+    type: command
+    short-summary: Create or replace a model registration.
+    examples:
+      - name: Create a model backed by a Foundry deployment.
+        text: >-
+          az ai-gateway model create --gateway-name my-ai-gateway
+          --resource-group my-resource-group --provider-name foundry
+          --name gpt-4o --display-name "GPT-4o"
+          --deployment-model-name gpt-4o
+          --deployment-resource-id
+          /subscriptions/s/resourceGroups/r/providers/Microsoft.CognitiveServices/accounts/a/deployments/d
+      - name: Create a custom-provider model.
+        text: >-
+          az ai-gateway model create --gateway-name my-ai-gateway
+          --resource-group my-resource-group --provider-name custom
+          --name llama --api-format OpenAIChatCompletions
+          --supported-endpoints /v1/chat/completions
+"""
+
+helps["ai-gateway model delete"] = """
+    type: command
+    short-summary: Delete a model registration.
+    examples:
+      - name: Delete a model.
+        text: >-
+          az ai-gateway model delete --gateway-name my-ai-gateway
+          --resource-group my-resource-group --provider-name foundry
+          --name gpt-4o
+"""
+
+helps["ai-gateway model list"] = """
+    type: command
+    short-summary: List model registrations.
+    examples:
+      - name: List models across every provider.
+        text: >-
+          az ai-gateway model list --gateway-name my-ai-gateway
+          --resource-group my-resource-group
+      - name: List models belonging to one provider.
+        text: >-
+          az ai-gateway model list --gateway-name my-ai-gateway
+          --resource-group my-resource-group --provider-name foundry
+"""
+
+helps["ai-gateway model show"] = """
+    type: command
+    short-summary: Show a model registration.
+    examples:
+      - name: Show a model.
+        text: >-
+          az ai-gateway model show --gateway-name my-ai-gateway
+          --resource-group my-resource-group --provider-name foundry
+          --name gpt-4o
+"""
+
+helps["ai-gateway model update"] = """
+    type: command
+    short-summary: Update a model registration.
+    examples:
+      - name: Update model metadata and supported endpoints.
+        text: >-
+          az ai-gateway model update --gateway-name my-ai-gateway
+          --resource-group my-resource-group --provider-name custom
+          --name llama --description "Production model"
+          --supported-endpoints /v1/chat/completions /v1/responses
+      - name: Replace inline policies from a JSON file.
+        text: >-
+          az ai-gateway model update --gateway-name my-ai-gateway
+          --resource-group my-resource-group --provider-name foundry
+          --name gpt-4o --policies @policies.json
+"""
+
+helps["ai-gateway mcp"] = """
+    type: group
+    short-summary: Manage MCP tool servers registered in an AI Gateway.
+"""
+
+helps["ai-gateway mcp authorize"] = """
+    type: command
+    short-summary: Get OAuth login links for an MCP tool server endpoint.
+    examples:
+      - name: Start OAuth authorization for an endpoint.
+        text: >-
+          az ai-gateway mcp authorize --gateway-name my-ai-gateway
+          --resource-group my-resource-group --name tools
+          --endpoint-id endpoint-id
+"""
+
+helps["ai-gateway mcp create"] = """
+    type: command
+    short-summary: Create or replace an MCP tool server.
+    examples:
+      - name: Create an MCP tool server from an endpoint definition file.
+        text: >-
+          az ai-gateway mcp create --gateway-name my-ai-gateway
+          --resource-group my-resource-group --name tools
+          --display-name "Team tools" --failure-mode failClosed
+          --endpoints @endpoints.json
+"""
+
+helps["ai-gateway mcp delete"] = """
+    type: command
+    short-summary: Delete an MCP tool server.
+    examples:
+      - name: Delete an MCP tool server.
+        text: >-
+          az ai-gateway mcp delete --gateway-name my-ai-gateway
+          --resource-group my-resource-group --name tools
+"""
+
+helps["ai-gateway mcp list"] = """
+    type: command
+    short-summary: List MCP tool servers.
+    examples:
+      - name: List MCP tool servers in the default workspace.
+        text: >-
+          az ai-gateway mcp list --gateway-name my-ai-gateway
+          --resource-group my-resource-group
+"""
+
+helps["ai-gateway mcp show"] = """
+    type: command
+    short-summary: Show an MCP tool server with secret fields redacted.
+    examples:
+      - name: Show an MCP tool server.
+        text: >-
+          az ai-gateway mcp show --gateway-name my-ai-gateway
+          --resource-group my-resource-group --name tools
+"""
+
+helps["ai-gateway mcp update"] = """
+    type: command
+    short-summary: Update an MCP tool server.
+    long-summary: >
+        Endpoint updates preserve stored secrets by reading them internally
+        and use ETags to reject concurrent writes. Secrets are never emitted.
+    examples:
+      - name: Update metadata without replacing endpoints.
+        text: >-
+          az ai-gateway mcp update --gateway-name my-ai-gateway
+          --resource-group my-resource-group --name tools
+          --description "Production tool federation"
+      - name: Replace endpoints from a definition file.
+        text: >-
+          az ai-gateway mcp update --gateway-name my-ai-gateway
+          --resource-group my-resource-group --name tools
+          --endpoints @endpoints.json
+"""
+
+helps["ai-gateway policy"] = """
+    type: group
+    short-summary: Manage inline policies on models and MCP tool servers.
+"""
+
+helps["ai-gateway policy create"] = """
+    type: command
+    short-summary: Add an inline policy to a model or MCP tool server.
+    examples:
+      - name: Add a token-limit policy to a model.
+        text: >-
+          az ai-gateway policy create --gateway-name my-ai-gateway
+          --resource-group my-resource-group --scope-type model
+          --scope-name gpt-4o --provider-name foundry
+          --policy @policy.json
+      - name: Add a content-safety policy to an MCP tool server.
+        text: >-
+          az ai-gateway policy create --gateway-name my-ai-gateway
+          --resource-group my-resource-group --scope-type mcp
+          --scope-name tools --policy @policy.json
+"""
+
+helps["ai-gateway policy delete"] = """
+    type: command
+    short-summary: Delete an inline policy.
+    examples:
+      - name: Delete a policy returned by policy list.
+        text: >-
+          az ai-gateway policy delete --gateway-name my-ai-gateway
+          --resource-group my-resource-group --policy-id policy-id
+"""
+
+helps["ai-gateway policy list"] = """
+    type: command
+    short-summary: List inline policies across models and MCP tool servers.
+    examples:
+      - name: List every policy in the default workspace.
+        text: >-
+          az ai-gateway policy list --gateway-name my-ai-gateway
+          --resource-group my-resource-group
+      - name: List policies on one model.
+        text: >-
+          az ai-gateway policy list --gateway-name my-ai-gateway
+          --resource-group my-resource-group --scope-type model
+          --scope-name gpt-4o --provider-name foundry
+"""
+
+helps["ai-gateway policy show"] = """
+    type: command
+    short-summary: Show an inline policy.
+    examples:
+      - name: Show a policy returned by policy list.
+        text: >-
+          az ai-gateway policy show --gateway-name my-ai-gateway
+          --resource-group my-resource-group --policy-id policy-id
+"""
+
+helps["ai-gateway policy update"] = """
+    type: command
+    short-summary: Replace an inline policy.
+    long-summary: The supplied JSON object replaces the complete policy.
+    examples:
+      - name: Replace a policy from a JSON file.
+        text: >-
+          az ai-gateway policy update --gateway-name my-ai-gateway
+          --resource-group my-resource-group --policy-id policy-id
+          --policy @policy.json
+"""
+
+helps["ai-gateway show"] = """
+    type: command
+    short-summary: Show an AI Gateway.
+    examples:
+      - name: Show an AI Gateway.
+        text: >-
+          az ai-gateway show --name my-ai-gateway
+          --resource-group my-resource-group
+"""
+
+helps["ai-gateway update"] = """
+    type: command
+    short-summary: Update an AI Gateway.
+    examples:
+      - name: Update gateway tags and public network access.
+        text: >-
+          az ai-gateway update --name my-ai-gateway
+          --resource-group my-resource-group
+          --tags environment=production
+          --public-network-access Disabled
+      - name: Configure outbound virtual network integration.
+        text: >-
+          az ai-gateway update --name my-ai-gateway
+          --resource-group my-resource-group
+          --virtual-network-type External
+          --subnet-resource-id /subscriptions/s/resourceGroups/r/providers/Microsoft.Network/virtualNetworks/v/subnets/s
+"""
+
+helps["ai-gateway version"] = """
+    type: command
+    short-summary: Show the installed AI Gateway extension version.
+    examples:
+      - name: Show the extension version.
+        text: az ai-gateway version
+"""

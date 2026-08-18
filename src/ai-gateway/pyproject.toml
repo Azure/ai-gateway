@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-gateway"
+version = "1.0.0b1"
+description = "Microsoft Azure CLI extension for AI Gateway"
+authors = [
+    { name = "Microsoft Corporation", email = "azpycli@microsoft.com" },
+]
+license = "MIT"
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+dependencies = []
+dynamic = ["readme"]
+
+[project.urls]
+Home = "https://github.com/Azure/ai-gateway"
+
+[tool.setuptools.dynamic]
+readme = { file = ["README.md", "HISTORY.rst"], content-type = "text/markdown" }
+
+[tool.setuptools.packages.find]
+include = ["azext_ai_gateway*"]
+
+[tool.setuptools.package-data]
+azext_ai_gateway = ["azext_metadata.json"]

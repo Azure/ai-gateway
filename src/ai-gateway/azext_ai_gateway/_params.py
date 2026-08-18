@@ -1,0 +1,462 @@
+# --------------------------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------------------------
+
+from azure.cli.core.commands.parameters import (
+    file_type,
+    get_enum_type,
+    get_location_type,
+    get_three_state_flag,
+    resource_group_name_type,
+    tags_type,
+)
+
+from azext_ai_gateway._validators import (
+    validate_endpoints,
+    validate_policies,
+    validate_policy,
+)
+
+
+def load_arguments(loader, _):
+    for command in [
+        "ai-gateway create",
+        "ai-gateway delete",
+        "ai-gateway show",
+        "ai-gateway update",
+    ]:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "name",
+                options_list=["--name", "-n"],
+                help="Name of the AI Gateway.",
+            )
+            context.argument("resource_group_name", resource_group_name_type)
+
+    with loader.argument_context("ai-gateway create") as context:
+        context.argument(
+            "location",
+            options_list=["--location", "-l"],
+            arg_type=get_location_type(loader.cli_ctx),
+            help="Azure region in which to create the gateway.",
+        )
+        context.argument(
+            "publisher_email",
+            help="Publisher email used by the underlying API Management service.",
+        )
+        context.argument(
+            "publisher_name",
+            help="Publisher name used by the underlying API Management service.",
+        )
+
+    with loader.argument_context("ai-gateway list") as context:
+        context.argument(
+            "resource_group_name",
+            resource_group_name_type,
+            required=False,
+        )
+
+    for command in ["ai-gateway create", "ai-gateway update"]:
+        with loader.argument_context(command) as context:
+            context.argument("tags", tags_type)
+            context.argument(
+                "mi_system_assigned",
+                options_list=["--mi-system-assigned"],
+                arg_type=get_three_state_flag(),
+                arg_group="Managed Identity",
+                help="Enable or disable the system-assigned managed identity.",
+            )
+            context.argument(
+                "mi_user_assigned",
+                options_list=["--mi-user-assigned"],
+                nargs="*",
+                arg_group="Managed Identity",
+                help=(
+                    "Space-separated user-assigned managed identity resource IDs. "
+                    "Pass the option without values on update to remove all."
+                ),
+            )
+
+    with loader.argument_context("ai-gateway update") as context:
+        context.argument(
+            "public_network_access",
+            arg_type=get_enum_type(["Enabled", "Disabled"]),
+            arg_group="Networking",
+            help="Allow or deny public network access.",
+        )
+        context.argument(
+            "virtual_network_type",
+            arg_type=get_enum_type(["None", "External"]),
+            arg_group="Networking",
+            help="Outbound virtual network integration mode.",
+        )
+        context.argument(
+            "subnet_resource_id",
+            arg_group="Networking",
+            help=(
+                "Resource ID of the delegated integration subnet. "
+                "Pass an empty string to clear the configuration."
+            ),
+        )
+
+    model_commands = [
+        "ai-gateway model create",
+        "ai-gateway model delete",
+        "ai-gateway model list",
+        "ai-gateway model show",
+        "ai-gateway model update",
+    ]
+    for command in model_commands:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "gateway_name",
+                help="Name of the parent AI Gateway.",
+            )
+            context.argument("resource_group_name", resource_group_name_type)
+            context.argument(
+                "workspace_name",
+                default="default",
+                help="Workspace name.",
+            )
+
+    for command in [
+        "ai-gateway model create",
+        "ai-gateway model delete",
+        "ai-gateway model show",
+        "ai-gateway model update",
+    ]:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "name",
+                options_list=["--name", "-n"],
+                help="Name of the model registration.",
+            )
+            context.argument(
+                "provider_name",
+                help="Name of the parent model provider.",
+            )
+
+    with loader.argument_context("ai-gateway model list") as context:
+        context.argument(
+            "provider_name",
+            required=False,
+            help="Only list models belonging to this provider.",
+        )
+
+    for command in [
+        "ai-gateway model create",
+        "ai-gateway model update",
+    ]:
+        with loader.argument_context(command) as context:
+            context.argument("display_name", help="Display name of the model.")
+            context.argument("description", help="Description of the model.")
+            context.argument(
+                "api_format",
+                arg_type=get_enum_type(
+                    [
+                        "OpenAIChatCompletions",
+                        "AnthropicMessages",
+                        "ResponsesApi",
+                    ]
+                ),
+                help="API format exposed by the model.",
+            )
+            context.argument(
+                "deployment_resource_id",
+                arg_group="Deployment",
+                help="Resource ID of the backing Foundry deployment.",
+            )
+            context.argument(
+                "deployment_model_name",
+                arg_group="Deployment",
+                help="Model name reported by the backing deployment.",
+            )
+            context.argument(
+                "deployment_model_version",
+                arg_group="Deployment",
+                help="Model version reported by the backing deployment.",
+            )
+            context.argument(
+                "supported_endpoints",
+                nargs="+",
+                help="Space-separated data-plane endpoint paths.",
+            )
+            context.argument(
+                "policies",
+                type=validate_policies,
+                help="Inline policy JSON array or path prefixed with '@'.",
+            )
+
+    with loader.argument_context("ai-gateway model update") as context:
+        context.argument(
+            "if_match",
+            help=(
+                "ETag used to reject stale updates. By default, the current "
+                "ETag is retrieved automatically."
+            ),
+        )
+
+    mcp_commands = [
+        "ai-gateway mcp authorize",
+        "ai-gateway mcp create",
+        "ai-gateway mcp delete",
+        "ai-gateway mcp list",
+        "ai-gateway mcp show",
+        "ai-gateway mcp update",
+    ]
+    for command in mcp_commands:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "gateway_name",
+                help="Name of the parent AI Gateway.",
+            )
+            context.argument("resource_group_name", resource_group_name_type)
+            context.argument(
+                "workspace_name",
+                default="default",
+                help="Workspace name.",
+            )
+
+    for command in [
+        "ai-gateway mcp authorize",
+        "ai-gateway mcp create",
+        "ai-gateway mcp delete",
+        "ai-gateway mcp show",
+        "ai-gateway mcp update",
+    ]:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "name",
+                options_list=["--name", "-n"],
+                help="Name of the MCP tool server.",
+            )
+
+    for command in ["ai-gateway mcp create", "ai-gateway mcp update"]:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "endpoints",
+                type=validate_endpoints,
+                help=(
+                    "Non-empty endpoint JSON array or path prefixed with '@'. "
+                    "Use a file when the definition contains secrets."
+                ),
+            )
+            context.argument(
+                "display_name",
+                help="Display name of the MCP tool server.",
+            )
+            context.argument(
+                "description",
+                help="Description of the MCP tool server.",
+            )
+            context.argument(
+                "failure_mode",
+                arg_type=get_enum_type(["failOpen", "failClosed"]),
+                help="Behavior when one or more endpoints are unavailable.",
+            )
+            context.argument(
+                "policies",
+                type=validate_policies,
+                help="Inline policy JSON array or path prefixed with '@'.",
+            )
+
+    with loader.argument_context("ai-gateway mcp update") as context:
+        context.argument(
+            "if_match",
+            help=(
+                "ETag used to reject stale updates. By default, the current "
+                "ETag is retrieved automatically."
+            ),
+        )
+
+    with loader.argument_context("ai-gateway mcp authorize") as context:
+        context.argument(
+            "endpoint_id",
+            help="Server-generated ID of the OAuth endpoint.",
+        )
+
+    api_key_commands = [
+        "ai-gateway api-key create",
+        "ai-gateway api-key delete",
+        "ai-gateway api-key list",
+        "ai-gateway api-key list-secrets",
+        "ai-gateway api-key regenerate",
+        "ai-gateway api-key show",
+    ]
+    for command in api_key_commands:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "gateway_name",
+                help="Name of the parent AI Gateway.",
+            )
+            context.argument("resource_group_name", resource_group_name_type)
+
+    for command in [
+        "ai-gateway api-key create",
+        "ai-gateway api-key delete",
+        "ai-gateway api-key list-secrets",
+        "ai-gateway api-key regenerate",
+        "ai-gateway api-key show",
+    ]:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "name",
+                options_list=["--name", "-n"],
+                help="Name of the API key resource.",
+            )
+
+    with loader.argument_context("ai-gateway api-key create") as context:
+        context.argument(
+            "display_name",
+            help="Human-readable API key name. Defaults to the resource name.",
+        )
+
+    with loader.argument_context("ai-gateway api-key regenerate") as context:
+        context.argument(
+            "key_type",
+            arg_type=get_enum_type(["primary", "secondary"]),
+            help="Key value to regenerate.",
+        )
+
+    identity_commands = [
+        "ai-gateway identity assign",
+        "ai-gateway identity remove",
+        "ai-gateway identity show",
+    ]
+    for command in identity_commands:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "gateway_name",
+                help="Name of the AI Gateway.",
+            )
+            context.argument("resource_group_name", resource_group_name_type)
+
+    for command in [
+        "ai-gateway identity assign",
+        "ai-gateway identity remove",
+    ]:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "system_assigned",
+                action="store_true",
+                help="Assign or remove the system-assigned managed identity.",
+            )
+
+    with loader.argument_context("ai-gateway identity assign") as context:
+        context.argument(
+            "user_assigned",
+            nargs="+",
+            help="User-assigned managed identity resource IDs to attach.",
+        )
+
+    with loader.argument_context("ai-gateway identity remove") as context:
+        context.argument(
+            "user_assigned",
+            nargs="*",
+            help=(
+                "User-assigned managed identity resource IDs to detach. "
+                "Pass the option without values to detach all."
+            ),
+        )
+
+    policy_commands = [
+        "ai-gateway policy create",
+        "ai-gateway policy delete",
+        "ai-gateway policy list",
+        "ai-gateway policy show",
+        "ai-gateway policy update",
+    ]
+    for command in policy_commands:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "gateway_name",
+                help="Name of the parent AI Gateway.",
+            )
+            context.argument("resource_group_name", resource_group_name_type)
+
+    for command in [
+        "ai-gateway policy delete",
+        "ai-gateway policy show",
+        "ai-gateway policy update",
+    ]:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "policy_id",
+                options_list=["--policy-id"],
+                help="Synthesized policy ID returned by policy list or create.",
+            )
+
+    for command in [
+        "ai-gateway policy create",
+        "ai-gateway policy update",
+    ]:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "policy",
+                type=validate_policy,
+                help="Policy JSON object or path prefixed with '@'.",
+            )
+
+    for command in [
+        "ai-gateway policy create",
+        "ai-gateway policy list",
+    ]:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "workspace_name",
+                default="default",
+                help="Workspace name.",
+            )
+            context.argument(
+                "scope_type",
+                arg_type=get_enum_type(["model", "mcp"]),
+                help="Type of resource that hosts the inline policy.",
+            )
+            context.argument(
+                "scope_name",
+                help="Name of the model or MCP tool server.",
+            )
+            context.argument(
+                "provider_name",
+                help="Model provider name. Required for a model target.",
+            )
+
+    with loader.argument_context("ai-gateway import") as context:
+        context.argument(
+            "name",
+            options_list=["--name", "-n"],
+            help="Name of the destination AI Gateway.",
+        )
+        context.argument(
+            "resource_group_name",
+            resource_group_name_type,
+        )
+        context.argument(
+            "source_apim_id",
+            options_list=["--source-apim-id"],
+            help="Resource ID of the source Azure API Management service.",
+        )
+        context.argument(
+            "include",
+            nargs="+",
+            arg_type=get_enum_type(["models", "agents", "tools"]),
+            default=["models", "agents", "tools"],
+            help="Configuration types to import.",
+        )
+        context.argument(
+            "conflict_policy",
+            arg_type=get_enum_type(["fail", "skip", "overwrite"]),
+            default="fail",
+            help="Action to take when a destination resource already exists.",
+        )
+        context.argument(
+            "mapping_file",
+            type=file_type,
+            help="Path to a JSON file containing source-to-destination mappings.",
+        )
+        context.argument(
+            "dry_run",
+            action="store_true",
+            help="Create and display an import plan without changing resources.",
+        )
