@@ -119,8 +119,8 @@ def load_command_table(loader, _):
         )
         group.custom_show_command("show", "show_identity")
 
-    with loader.command_group("ai-gateway monitoring") as group:
-        group.custom_command("configure", "configure_monitoring")
+    with loader.command_group("ai-gateway telemetry-exporter") as group:
+        group.custom_command("create", "create_telemetry_exporter")
 
     with loader.command_group("ai-gateway policy") as group:
         group.custom_command("create", "create_policy")

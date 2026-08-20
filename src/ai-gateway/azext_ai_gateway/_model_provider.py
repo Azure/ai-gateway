@@ -850,11 +850,6 @@ def _build_provider_config(
     managed_identity_resource,
     managed_identity_client_id,
 ):
-    if not endpoint:
-        raise RequiredArgumentMissingError(
-            "Specify --endpoint when configuring a model provider."
-        )
-    endpoint = _validate_provider_endpoint(endpoint)
     if kind == "Foundry":
         if not resource_ids:
             raise RequiredArgumentMissingError(
@@ -867,12 +862,18 @@ def _build_provider_config(
             managed_identity_resource,
             managed_identity_client_id,
         )
-        return "foundry", {
-            "endpoint": endpoint,
+        config = {
             "resourceIds": resource_ids,
             "authentication": authentication,
         }
+        if endpoint:
+            config["endpoint"] = _validate_provider_endpoint(endpoint)
+        return "foundry", config
     if kind == "Custom":
+        if not endpoint:
+            raise RequiredArgumentMissingError(
+                "Specify --endpoint for a custom model provider."
+            )
         if resource_ids is not None:
             raise InvalidArgumentValueError(
                 "--resource-ids is only valid for a Foundry model provider."
@@ -889,7 +890,7 @@ def _build_provider_config(
             managed_identity_client_id,
         )
         return "custom", {
-            "endpoint": endpoint,
+            "endpoint": _validate_provider_endpoint(endpoint),
             "authentication": authentication,
         }
     raise InvalidArgumentValueError(
@@ -1072,7 +1073,7 @@ def create_model_provider(
     gateway_name,
     resource_group_name,
     kind,
-    endpoint,
+    endpoint=None,
     workspace_name=DEFAULT_WORKSPACE,
     display_name=None,
     description=None,

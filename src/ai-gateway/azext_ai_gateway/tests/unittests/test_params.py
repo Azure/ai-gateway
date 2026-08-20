@@ -99,7 +99,7 @@ def test_gateway_arguments_use_ai_gateway_configured_default():
             f"ai-gateway identity {operation}"
             for operation in ["assign", "remove", "show"]
         ],
-        "ai-gateway monitoring configure",
+        "ai-gateway telemetry-exporter create",
         *[
             f"ai-gateway policy {operation}"
             for operation in ["create", "delete", "list", "show", "update"]
@@ -150,10 +150,21 @@ def test_model_provider_sync_accepts_api_key_value():
     assert "sent exactly as entered" in argument["help"]
 
 
-def test_monitoring_configure_accepts_custom_otlp_options():
+def test_telemetry_exporter_create_accepts_custom_otlp_options():
     loader = _Loader()
     with patch.object(_params, "get_location_type", return_value=object()):
         _params.load_arguments(loader, None)
+
+    command = "ai-gateway telemetry-exporter create"
+    application_insights = _get_argument(
+        loader,
+        command,
+        "application_insights",
+    )
+    assert application_insights["options_list"] == ["--application-insights"]
+
+    name_argument = _get_argument(loader, command, "name")
+    assert name_argument["options_list"] == ["--name", "-n"]
 
     for name in [
         "metrics_endpoint",
@@ -163,7 +174,7 @@ def test_monitoring_configure_accepts_custom_otlp_options():
     ]:
         argument = _get_argument(
             loader,
-            "ai-gateway monitoring configure",
+            command,
             name,
         )
         assert argument["arg_group"] in {
@@ -173,7 +184,7 @@ def test_monitoring_configure_accepts_custom_otlp_options():
 
     headers = _get_argument(
         loader,
-        "ai-gateway monitoring configure",
+        command,
         "headers",
     )
     assert headers["type"] is _params.validate_headers

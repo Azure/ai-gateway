@@ -55,7 +55,7 @@ def _validate_app_insights_id(resource_id):
     match = APP_INSIGHTS_ID_PATTERN.fullmatch(resource_id)
     if not match:
         raise InvalidArgumentValueError(
-            "--application-insights-id must be a complete Azure Application "
+            "--application-insights must be a complete Azure Application "
             "Insights component resource ID."
         )
     return resource_id, match.group("subscription")
@@ -437,13 +437,13 @@ def _exporter_path(
     )
 
 
-def configure_monitoring(
+def create_telemetry_exporter(
     cmd,
     gateway_name,
     resource_group_name,
-    application_insights_id=None,
+    application_insights=None,
     workspace_name=DEFAULT_WORKSPACE,
-    exporter_name=DEFAULT_EXPORTER_NAME,
+    name=DEFAULT_EXPORTER_NAME,
     identity_client_id=None,
     metrics_endpoint=None,
     logs_endpoint=None,
@@ -463,9 +463,9 @@ def configure_monitoring(
         logs_endpoint,
         traces_endpoint,
     )
-    if bool(application_insights_id) == bool(custom_configuration):
+    if bool(application_insights) == bool(custom_configuration):
         raise InvalidArgumentValueError(
-            "Specify either --application-insights-id or all three custom "
+            "Specify either --application-insights or all three custom "
             "OpenTelemetry endpoint options."
         )
     headers = _validate_headers(headers)
@@ -473,10 +473,10 @@ def configure_monitoring(
         raise InvalidArgumentValueError(
             "--headers and --managed-identity-resource cannot be used together."
         )
-    if application_insights_id and (headers is not None or managed_identity_resource):
+    if application_insights and (headers is not None or managed_identity_resource):
         raise InvalidArgumentValueError(
             "Custom --headers and --managed-identity-resource options cannot "
-            "be used with --application-insights-id."
+            "be used with --application-insights."
         )
     if custom_configuration and identity_client_id and not managed_identity_resource:
         raise InvalidArgumentValueError(
@@ -494,9 +494,9 @@ def configure_monitoring(
             "--managed-identity-resource",
         )
     insights_subscription = None
-    if application_insights_id:
-        application_insights_id, insights_subscription = (
-            _validate_app_insights_id(application_insights_id)
+    if application_insights:
+        application_insights, insights_subscription = (
+            _validate_app_insights_id(application_insights)
         )
 
     gateway_subscription = get_subscription_id(cmd.cli_ctx)
@@ -505,9 +505,9 @@ def configure_monitoring(
         resource_group_name,
         gateway_name,
     )
-    application_insights = None
+    application_insights_properties = None
     managed_identity = None
-    if application_insights_id:
+    if application_insights:
         identity = _resolve_identity(
             cmd,
             gateway_path,
@@ -516,7 +516,7 @@ def configure_monitoring(
         )
         resource, configuration = _resolve_otlp_configuration(
             cmd,
-            application_insights_id,
+            application_insights,
         )
         _assign_monitoring_role(
             cmd,
@@ -524,8 +524,8 @@ def configure_monitoring(
             insights_subscription,
             identity["principal_id"],
         )
-        application_insights = {
-            "resourceId": resource.get("id") or application_insights_id
+        application_insights_properties = {
+            "resourceId": resource.get("id") or application_insights
         }
         managed_identity = {"resource": MONITOR_AUDIENCE}
         if identity["client_id"]:
@@ -558,13 +558,13 @@ def configure_monitoring(
         "payloadCapture": payload_capture,
         "openTelemetry": open_telemetry,
     }
-    if application_insights:
-        properties["applicationInsights"] = application_insights
+    if application_insights_properties:
+        properties["applicationInsights"] = application_insights_properties
     exporter = _response_json(
         _request(
             cmd,
             "PUT",
-            _exporter_path(gateway_path, workspace_name, exporter_name),
+            _exporter_path(gateway_path, workspace_name, name),
             {"properties": properties},
         )
     )
@@ -572,6 +572,3 @@ def configure_monitoring(
     if exporter_properties.get("kind") == "OpenTelemetry":
         exporter_properties["kind"] = "openTelemetry"
     return exporter
-
-
-configure_application_insights = configure_monitoring

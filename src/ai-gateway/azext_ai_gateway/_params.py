@@ -266,7 +266,10 @@ def load_arguments(loader, _):
                 "resource_ids",
                 nargs="+",
                 arg_group="Provider",
-                help="Foundry resource IDs available through this provider.",
+                help=(
+                    "One or more space-separated Foundry resource IDs "
+                    "available through this provider."
+                ),
             )
             context.argument(
                 "auth_kind",
@@ -517,7 +520,7 @@ def load_arguments(loader, _):
             ),
         )
 
-    with loader.argument_context("ai-gateway monitoring configure") as context:
+    with loader.argument_context("ai-gateway telemetry-exporter create") as context:
         context.argument(
             "gateway_name",
             options_list=["--resource-name"],
@@ -526,11 +529,8 @@ def load_arguments(loader, _):
         )
         context.argument("resource_group_name", resource_group_name_type)
         context.argument(
-            "application_insights_id",
-            options_list=[
-                "--application-insights-id",
-                "--app-insights-id",
-            ],
+            "application_insights",
+            options_list=["--application-insights"],
             help="Resource ID of an existing Application Insights component.",
         )
         context.argument(
@@ -539,7 +539,8 @@ def load_arguments(loader, _):
             help="Gateway workspace name.",
         )
         context.argument(
-            "exporter_name",
+            "name",
+            options_list=["--name", "-n"],
             default="appinsights",
             help="Telemetry exporter name.",
         )

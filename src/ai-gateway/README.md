@@ -62,7 +62,7 @@ Manage Foundry and custom model provider registrations.
 
 | Command | Syntax |
 | --- | --- |
-| `create` | `az ai-gateway model-provider create -n <provider> --kind <Foundry-or-Custom> --endpoint <url> [--no-sync] [options] --resource-name <gateway> -g <group>` |
+| `create` | `az ai-gateway model-provider create -n <provider> --kind <Foundry-or-Custom> [--no-sync] [options] --resource-name <gateway> -g <group>` |
 | `delete` | `az ai-gateway model-provider delete -n <provider> --resource-name <gateway> -g <group>` |
 | `list` | `az ai-gateway model-provider list --resource-name <gateway> -g <group>` |
 | `show` | `az ai-gateway model-provider show -n <provider> --resource-name <gateway> -g <group>` |
@@ -78,8 +78,8 @@ Create a Foundry or custom provider and import its available models.
 | Option | Description |
 | --- | --- |
 | `--kind` | Provider kind: `Foundry` or `Custom`. |
-| `--endpoint` | Provider base endpoint. |
-| `--resource-ids` | Foundry account resource IDs. Required for Foundry providers. |
+| `--endpoint` | Provider base endpoint. Required for custom providers; optional for Foundry providers. |
+| `--resource-ids` | One or more space-separated Foundry account resource IDs. Required for Foundry providers. |
 | `--auth-kind` | `ManagedIdentity` or `ApiKey`. Defaults to managed identity for Foundry and API key for custom providers. |
 | `--api-key-header-name` | Header used by API-key authentication. |
 | `--api-key-value` | Exact value sent in the API-key header. Add an authentication scheme only when required by the provider. |
@@ -93,14 +93,16 @@ Create a Foundry provider and import its deployments:
 az ai-gateway model-provider create \
   --name foundry \
   --kind Foundry \
-  --endpoint https://account.openai.azure.com \
-  --resource-ids /subscriptions/<sub>/resourceGroups/<group>/providers/Microsoft.CognitiveServices/accounts/<account> \
+  --resource-ids \
+    /subscriptions/<sub>/resourceGroups/<group>/providers/Microsoft.CognitiveServices/accounts/<account-1> \
+    /subscriptions/<sub>/resourceGroups/<group>/providers/Microsoft.CognitiveServices/accounts/<account-2> \
   --managed-identity-resource https://cognitiveservices.azure.com \
   --resource-name my-ai-gateway \
   --resource-group my-resource-group
 ```
 
-Create a custom OpenAI-compatible provider and import its models:
+Create a custom provider and import its models. It supports OpenAI-compatible APIs
+and Anthropic Messages API:
 
 ```bash
 az ai-gateway model-provider create \
@@ -113,11 +115,10 @@ az ai-gateway model-provider create \
   --resource-group my-resource-group
 ```
 
-Add `--no-sync` to either command to create only the provider.
+By default, the command attempts to get models from the endpoint itself. Add `--no-sync` to either command to create only the provider. You can add models later with `az ai-gateway model create`.
 
-The API-key value is sent exactly as entered. For example, Meta `LLM_...`
-keys use the raw value in the `Authorization` header; do not prepend an
-authentication scheme.
+The API-key value is sent exactly as entered. If your provider uses Bearer scheme,
+enter "Bearer <key>".
 
 ### `az ai-gateway model-provider sync`
 
@@ -235,20 +236,22 @@ Support levels: `partial`, `consumed`, and `unsupported`.
 
 See [APIM policy translation](docs/apim-policy-translation.md).
 
-## `az ai-gateway monitoring`
+## `az ai-gateway telemetry-exporter`
 
-Configure gateway telemetry destinations.
+Manage gateway telemetry exporters.
 
-### `az ai-gateway monitoring configure`
+### `az ai-gateway telemetry-exporter create`
 
-Configure an existing Application Insights resource or custom OpenTelemetry
-endpoint as the gateway's telemetry destination.
+Create or replace a telemetry exporter backed by an existing Application
+Insights resource or custom OpenTelemetry endpoint.
 
 #### Options
 
 | Option | Description |
 | --- | --- |
-| `--application-insights-id` | Resource ID of an existing Application Insights component. Use this option by itself for the streamlined Application Insights setup. |
+| `--name`, `-n` | Telemetry exporter name. Defaults to `appinsights`. |
+| `--workspace-name` | Gateway workspace name. Defaults to `default`. |
+| `--application-insights` | Resource ID of an existing Application Insights component. Use this option by itself for the streamlined Application Insights setup. |
 | `--metrics-endpoint` | Absolute HTTPS OTLP metrics endpoint. Required with the logs and traces endpoints for a custom destination. |
 | `--logs-endpoint` | Absolute HTTPS OTLP logs endpoint. Required with the metrics and traces endpoints for a custom destination. |
 | `--traces-endpoint` | Absolute HTTPS OTLP traces endpoint. Required with the metrics and logs endpoints for a custom destination. |
@@ -256,15 +259,14 @@ endpoint as the gateway's telemetry destination.
 | `--managed-identity-resource` | HTTPS token audience for custom OTLP managed identity authentication. |
 | `--identity-client-id` | Client ID of an assigned user-assigned identity. For custom OTLP, requires `--managed-identity-resource`. |
 | `--payload-capture` | Include request and response payloads in exported telemetry. |
-| `--workspace-name` | Gateway workspace name. Defaults to `default`. |
-| `--exporter-name` | Telemetry exporter name. Defaults to `appinsights`. |
 
 
 Configure Application Insights:
 
 ```bash
-az ai-gateway monitoring configure \
-  --application-insights-id /subscriptions/<sub>/resourceGroups/<group>/providers/Microsoft.Insights/components/<name> \
+az ai-gateway telemetry-exporter create \
+  --name appinsights \
+  --application-insights /subscriptions/<sub>/resourceGroups/<group>/providers/Microsoft.Insights/components/<name> \
   --resource-name my-ai-gateway \
   --resource-group my-resource-group
 ```
@@ -272,7 +274,8 @@ az ai-gateway monitoring configure \
 Configure a custom OpenTelemetry destination with headers:
 
 ```bash
-az ai-gateway monitoring configure \
+az ai-gateway telemetry-exporter create \
+  --name custom-otlp \
   --metrics-endpoint https://otel.example.com/v1/metrics \
   --logs-endpoint https://otel.example.com/v1/logs \
   --traces-endpoint https://otel.example.com/v1/traces \

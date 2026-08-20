@@ -48,7 +48,7 @@ from azext_ai_gateway._identity import (
     remove_identity,
     show_identity,
 )
-from azext_ai_gateway._monitoring import configure_monitoring
+from azext_ai_gateway._monitoring import create_telemetry_exporter
 from azext_ai_gateway._policy import (
     create_policy,
     delete_policy,

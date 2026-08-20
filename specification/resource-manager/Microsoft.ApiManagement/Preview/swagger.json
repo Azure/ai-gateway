@@ -2390,7 +2390,6 @@
         }
       },
       "required": [
-        "endpoint",
         "resourceIds",
         "authentication"
       ]

@@ -157,6 +157,47 @@ def test_create_foundry_provider_builds_managed_identity_payload(
     return_value="sub",
 )
 @patch("azext_ai_gateway._gateway.send_raw_request")
+def test_create_foundry_provider_does_not_require_endpoint(
+    send_request,
+    _,
+    cmd,
+):
+    send_request.return_value = FakeResponse({"name": "foundry"})
+    resource_id = (
+        "/subscriptions/sub/resourceGroups/rg/providers/"
+        "Microsoft.CognitiveServices/accounts/account"
+    )
+
+    _model_provider.create_model_provider(
+        cmd,
+        "foundry",
+        "gateway",
+        "rg",
+        "Foundry",
+        resource_ids=[resource_id],
+        managed_identity_resource="https://cognitiveservices.azure.com",
+        no_sync=True,
+    )
+
+    foundry = json.loads(send_request.call_args.kwargs["body"])[
+        "properties"
+    ]["foundry"]
+    assert foundry == {
+        "resourceIds": [resource_id],
+        "authentication": {
+            "kind": "ManagedIdentity",
+            "managedIdentity": {
+                "resource": "https://cognitiveservices.azure.com",
+            },
+        },
+    }
+
+
+@patch(
+    "azext_ai_gateway._model_provider.get_subscription_id",
+    return_value="sub",
+)
+@patch("azext_ai_gateway._gateway.send_raw_request")
 def test_create_custom_provider_builds_api_key_payload(
     send_request,
     _,
@@ -336,6 +377,19 @@ def test_create_foundry_provider_requires_resource_ids(cmd):
             "Foundry",
             "https://foundry.example.com",
             managed_identity_resource="https://cognitiveservices.azure.com",
+        )
+
+
+def test_create_custom_provider_requires_endpoint(cmd):
+    with pytest.raises(RequiredArgumentMissingError, match="--endpoint"):
+        _model_provider.create_model_provider(
+            cmd,
+            "custom",
+            "gateway",
+            "rg",
+            "Custom",
+            api_key_header_name="Authorization",
+            api_key_value="secret",
         )
 
 

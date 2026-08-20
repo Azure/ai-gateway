@@ -46,7 +46,7 @@ def test_validate_endpoint_rejects_unsafe_urls(endpoint):
 
 @patch("azext_ai_gateway._monitoring.get_subscription_id", return_value="gateway-sub")
 @patch("azext_ai_gateway._gateway.send_raw_request")
-def test_configure_existing_application_insights(send_request, _, cmd):
+def test_create_exporter_for_existing_application_insights(send_request, _, cmd):
     app_insights_id = (
         "/subscriptions/monitor-sub/resourceGroups/monitor-rg/providers/"
         "Microsoft.Insights/components/app"
@@ -84,7 +84,7 @@ def test_configure_existing_application_insights(send_request, _, cmd):
         ),
     ]
 
-    result = _monitoring.configure_application_insights(
+    result = _monitoring.create_telemetry_exporter(
         cmd,
         "gateway",
         "gateway-rg",
@@ -133,7 +133,7 @@ def test_configure_existing_application_insights(send_request, _, cmd):
 @patch("azext_ai_gateway._monitoring.get_subscription_id", return_value="sub")
 @patch("azext_ai_gateway._monitoring._wait_for_gateway")
 @patch("azext_ai_gateway._gateway.send_raw_request")
-def test_configure_enables_identity_and_synthesizes_otlp_endpoints(
+def test_create_exporter_enables_identity_and_synthesizes_otlp_endpoints(
     send_request,
     wait_for_gateway,
     _,
@@ -189,7 +189,7 @@ def test_configure_enables_identity_and_synthesizes_otlp_endpoints(
         FakeResponse({"properties": {"kind": "OpenTelemetry"}}),
     ]
 
-    _monitoring.configure_application_insights(
+    _monitoring.create_telemetry_exporter(
         cmd,
         "gateway",
         "rg",
@@ -216,7 +216,7 @@ def test_application_insights_id_must_be_complete(cmd):
         InvalidArgumentValueError,
         match="complete Azure Application Insights",
     ):
-        _monitoring.configure_application_insights(
+        _monitoring.create_telemetry_exporter(
             cmd,
             "gateway",
             "rg",
@@ -237,7 +237,7 @@ def test_unassigned_explicit_identity_fails_without_enabling_system_identity(
         InvalidArgumentValueError,
         match="is not assigned",
     ):
-        _monitoring.configure_application_insights(
+        _monitoring.create_telemetry_exporter(
             cmd,
             "gateway",
             "rg",
@@ -253,12 +253,12 @@ def test_unassigned_explicit_identity_fails_without_enabling_system_identity(
 
 @patch("azext_ai_gateway._monitoring.get_subscription_id", return_value="sub")
 @patch("azext_ai_gateway._gateway.send_raw_request")
-def test_configure_custom_otlp_with_headers(send_request, _, cmd):
+def test_create_custom_otlp_exporter_with_headers(send_request, _, cmd):
     send_request.return_value = FakeResponse(
         {"properties": {"kind": "OpenTelemetry"}}
     )
 
-    result = _monitoring.configure_monitoring(
+    result = _monitoring.create_telemetry_exporter(
         cmd,
         "gateway",
         "rg",
@@ -288,7 +288,7 @@ def test_configure_custom_otlp_with_headers(send_request, _, cmd):
 
 @patch("azext_ai_gateway._monitoring.get_subscription_id", return_value="sub")
 @patch("azext_ai_gateway._gateway.send_raw_request")
-def test_configure_custom_otlp_with_user_assigned_identity(
+def test_create_custom_otlp_exporter_with_user_assigned_identity(
     send_request,
     _,
     cmd,
@@ -310,7 +310,7 @@ def test_configure_custom_otlp_with_user_assigned_identity(
         FakeResponse({"properties": {"kind": "OpenTelemetry"}}),
     ]
 
-    _monitoring.configure_monitoring(
+    _monitoring.create_telemetry_exporter(
         cmd,
         "gateway",
         "rg",
@@ -366,7 +366,7 @@ def test_configure_custom_otlp_with_user_assigned_identity(
 )
 def test_custom_otlp_validation(cmd, kwargs, message):
     with pytest.raises(InvalidArgumentValueError, match=message):
-        _monitoring.configure_monitoring(cmd, "gateway", "rg", **kwargs)
+        _monitoring.create_telemetry_exporter(cmd, "gateway", "rg", **kwargs)
 
 
 def test_deterministic_guid_matches_portal_algorithm():

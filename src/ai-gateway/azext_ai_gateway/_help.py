@@ -187,14 +187,14 @@ helps["ai-gateway list"] = """
         text: az ai-gateway list --resource-group my-resource-group
 """
 
-helps["ai-gateway monitoring"] = """
+helps["ai-gateway telemetry-exporter"] = """
     type: group
-    short-summary: Configure AI Gateway monitoring.
+    short-summary: Manage AI Gateway telemetry exporters.
 """
 
-helps["ai-gateway monitoring configure"] = """
+helps["ai-gateway telemetry-exporter create"] = """
     type: command
-    short-summary: Configure an Application Insights or custom OTLP destination.
+    short-summary: Create or replace a telemetry exporter.
     long-summary: >
         For Application Insights, provide its resource ID. The command enables
         OTLP ingestion, grants the gateway identity access to the data collection
@@ -202,24 +202,25 @@ helps["ai-gateway monitoring configure"] = """
         provide all three signal endpoints and authenticate with custom headers
         or managed identity.
     examples:
-      - name: Configure Application Insights monitoring.
+      - name: Create an Application Insights telemetry exporter.
         text: >-
-          az ai-gateway monitoring configure
+          az ai-gateway telemetry-exporter create
           --resource-name my-ai-gateway --resource-group my-resource-group
-          --application-insights-id
+          --name appinsights --application-insights
           /subscriptions/sub/resourceGroups/rg/providers/Microsoft.Insights/components/app
-      - name: Configure payload capture with a user-assigned identity.
+      - name: Create an exporter with payload capture and a user-assigned identity.
         text: >-
-          az ai-gateway monitoring configure
+          az ai-gateway telemetry-exporter create
           --resource-name my-ai-gateway --resource-group my-resource-group
-          --application-insights-id
+          --name appinsights --application-insights
           /subscriptions/sub/resourceGroups/rg/providers/Microsoft.Insights/components/app
           --identity-client-id 00000000-0000-0000-0000-000000000000
           --payload-capture
-      - name: Configure a custom OTLP destination with headers.
+      - name: Create a custom OTLP telemetry exporter with headers.
         text: >-
-          az ai-gateway monitoring configure
+          az ai-gateway telemetry-exporter create
           --resource-name my-ai-gateway --resource-group my-resource-group
+          --name custom-otlp
           --metrics-endpoint https://otel.example.com/v1/metrics
           --logs-endpoint https://otel.example.com/v1/logs
           --traces-endpoint https://otel.example.com/v1/traces
@@ -321,8 +322,8 @@ helps["ai-gateway model-provider create"] = """
           az ai-gateway model-provider create
           --resource-name my-ai-gateway --resource-group my-resource-group
           --name foundry --kind Foundry
-          --endpoint https://foundry.example.com
           --resource-ids /subscriptions/sub/resourceGroups/rg/providers/Microsoft.CognitiveServices/accounts/account
+          /subscriptions/sub/resourceGroups/rg/providers/Microsoft.CognitiveServices/accounts/account-2
           --managed-identity-resource https://cognitiveservices.azure.com
       - name: Create a custom provider using an API key.
         text: >-
