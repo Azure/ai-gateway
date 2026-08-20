@@ -107,7 +107,20 @@ def _contains_sensitive_data(value):
     return False
 
 
+def _is_policy_only_body(body):
+    if not isinstance(body, dict) or set(body) != {"properties"}:
+        return False
+    properties = body["properties"]
+    return (
+        isinstance(properties, dict)
+        and set(properties) == {"policies"}
+        and isinstance(properties["policies"], list)
+    )
+
+
 def _is_sensitive_request(url, body):
+    if _is_policy_only_body(body) and not _contains_sensitive_data(body):
+        return False
     normalized_url = str(url).rstrip("/").casefold()
     return (
         normalized_url.endswith("/listsecrets")
@@ -118,13 +131,13 @@ def _is_sensitive_request(url, body):
 
 def _service_error_details(response):
     if response is None or not getattr(response, "content", None):
-        return None, None
+        return None, None, []
     try:
         payload = response.json()
     except (json.JSONDecodeError, ValueError):
-        return None, None
+        return None, None, []
     if not isinstance(payload, dict):
-        return None, None
+        return None, None, []
 
     service_error = payload.get("error")
     if not isinstance(service_error, dict):
@@ -135,28 +148,75 @@ def _service_error_details(response):
         code = code.strip()
     if isinstance(description, str):
         description = description.strip()
+    details = []
+    for detail in service_error.get("details") or []:
+        if not isinstance(detail, dict):
+            continue
+        detail_code = detail.get("code")
+        target = detail.get("target")
+        detail_description = detail.get("message") or detail.get("description")
+        if isinstance(detail_code, str):
+            detail_code = detail_code.strip()
+        if not (
+            isinstance(detail_code, str)
+            and _SERVICE_ERROR_CODE_PATTERN.fullmatch(detail_code)
+        ):
+            detail_code = None
+        if isinstance(target, str):
+            target = target.strip() or None
+        else:
+            target = None
+        if isinstance(detail_description, str):
+            detail_description = detail_description.strip() or None
+        else:
+            detail_description = None
+        if detail_code or target or detail_description:
+            details.append(
+                {
+                    "code": detail_code,
+                    "target": target,
+                    "description": detail_description,
+                }
+            )
     return (
         code
         if isinstance(code, str) and _SERVICE_ERROR_CODE_PATTERN.fullmatch(code)
         else None,
         description if isinstance(description, str) and description else None,
+        details,
     )
+
+
+def _format_service_error_detail(detail):
+    description = detail["description"]
+    target = detail["target"]
+    code = detail["code"]
+    lines = [f"  - Target: {target}" if target else "  - Detail"]
+    if code:
+        lines.append(f"    Code: {code}")
+    if description:
+        lines.append(f"    Description: {description}")
+    return "\n".join(lines)
 
 
 def _http_error_message(method, error, include_description):
     response = getattr(error, "response", None)
     status_code = getattr(response, "status_code", "unknown")
     reason = getattr(response, "reason", None)
-    code, description = _service_error_details(response)
+    code, description, details = _service_error_details(response)
 
-    message = f"{method.upper()} request failed with HTTP {status_code}"
-    if reason:
-        message += f": {reason}"
+    lines = [
+        f"{method.upper()} request failed.",
+        f"HTTP status: {status_code}" + (f" {reason}" if reason else ""),
+    ]
     if code:
-        message += f". Code: {code}"
+        lines.append(f"Code: {code}")
     if include_description and description:
-        message += f". Description: {description}"
-    return message if message.endswith((".", "!", "?")) else f"{message}."
+        lines.append(f"Description: {description.rstrip(':')}")
+    if include_description and details:
+        lines.append("Details:")
+        lines.extend(_format_service_error_detail(detail) for detail in details)
+    return "\n".join(lines)
 
 
 def _gateway_path(subscription_id, resource_group_name, name):

@@ -99,8 +99,9 @@ def test_sensitive_request_error_does_not_expose_response_body(
         )
 
     assert str(error.value) == (
-        "PUT request failed with HTTP 400: Bad Request. "
-        "Code: InvalidCredentials."
+        "PUT request failed.\n"
+        "HTTP status: 400 Bad Request\n"
+        "Code: InvalidCredentials"
     )
     assert error.value.response is response
 
@@ -131,10 +132,53 @@ def test_request_error_includes_service_code_and_description(
         )
 
     assert str(error.value) == (
-        "PATCH request failed with HTTP 400: Bad Request. "
-        "Code: InvalidPolicy. Description: periodSeconds is required."
+        "PATCH request failed.\n"
+        "HTTP status: 400 Bad Request\n"
+        "Code: InvalidPolicy\n"
+        "Description: periodSeconds is required."
     )
     assert error.value.response is response
+
+
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_request_error_includes_nested_service_details(send_request, cmd):
+    response = FakeResponse(
+        {
+            "error": {
+                "code": "ValidationError",
+                "message": "One or more fields contain incorrect values:",
+                "details": [
+                    {
+                        "code": "InvalidValue",
+                        "target": "properties.policies[0].periodSeconds",
+                        "message": "The value must not exceed 3600.",
+                    }
+                ],
+            }
+        },
+        status_code=400,
+        reason="Bad Request",
+    )
+    send_request.side_effect = HTTPError("Bad Request", response)
+
+    with pytest.raises(HTTPError) as error:
+        _gateway._request(
+            cmd,
+            "PATCH",
+            "/resource",
+            {"properties": {"policies": []}},
+        )
+
+    assert str(error.value) == (
+        "PATCH request failed.\n"
+        "HTTP status: 400 Bad Request\n"
+        "Code: ValidationError\n"
+        "Description: One or more fields contain incorrect values\n"
+        "Details:\n"
+        "  - Target: properties.policies[0].periodSeconds\n"
+        "    Code: InvalidValue\n"
+        "    Description: The value must not exceed 3600."
+    )
 
 
 @patch("azext_ai_gateway._gateway.send_raw_request")
@@ -145,7 +189,10 @@ def test_request_error_handles_non_json_response(send_request, cmd):
     with pytest.raises(HTTPError) as error:
         _gateway._request(cmd, "GET", "/resource")
 
-    assert str(error.value) == "GET request failed with HTTP 502: Bad Gateway."
+    assert str(error.value) == (
+        "GET request failed.\n"
+        "HTTP status: 502 Bad Gateway"
+    )
 
 
 @patch("azext_ai_gateway._gateway.send_raw_request")
@@ -170,7 +217,67 @@ def test_sensitive_request_omits_free_form_error_code(send_request, cmd):
             {"credentials": {"secret": "sentinel-secret"}},
         )
 
-    assert str(error.value) == "PUT request failed with HTTP 400: Bad Request."
+    assert str(error.value) == (
+        "PUT request failed.\n"
+        "HTTP status: 400 Bad Request"
+    )
+
+
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_model_policy_error_includes_service_description(send_request, cmd):
+    response = FakeResponse(
+        {
+            "error": {
+                "code": "ValidationError",
+                "message": "The request rate limit is not supported.",
+            }
+        },
+        status_code=400,
+        reason="Bad Request",
+    )
+    send_request.side_effect = HTTPError("Bad Request", response)
+
+    with pytest.raises(HTTPError) as error:
+        _gateway._request(
+            cmd,
+            "PATCH",
+            "/modelProviders/foundry/models/model",
+            {
+                "properties": {
+                    "policies": [
+                        {
+                            "type": "requestRateLimit",
+                            "callsPerPeriod": 200,
+                            "periodSeconds": 86400,
+                            "counterKey": "Identity",
+                        }
+                    ]
+                }
+            },
+        )
+
+    assert str(error.value) == (
+        "PATCH request failed.\n"
+        "HTTP status: 400 Bad Request\n"
+        "Code: ValidationError\n"
+        "Description: The request rate limit is not supported."
+    )
+
+
+def test_model_policy_with_sensitive_fields_remains_sensitive():
+    assert _gateway._is_sensitive_request(
+        "/modelProviders/foundry/models/model",
+        {
+            "properties": {
+                "policies": [
+                    {
+                        "type": "futurePolicy",
+                        "clientSecret": "sentinel-secret",
+                    }
+                ]
+            }
+        },
+    )
 
 
 def test_list_secrets_request_is_always_sensitive():
