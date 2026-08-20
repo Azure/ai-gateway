@@ -303,6 +303,20 @@ def test_workspace_name_is_not_exposed():
         assert workspace["ignored"] is True
 
 
+def test_policy_list_arguments_describe_scope_filters():
+    loader = _Loader()
+    _params.load_arguments(loader, None)
+
+    command = "ai-gateway policy list"
+    scope_type = _get_argument(loader, command, "scope_type")
+    scope_name = _get_argument(loader, command, "scope_name")
+    provider_name = _get_argument(loader, command, "provider_name")
+
+    assert "Only include policies" in scope_type["help"]
+    assert "--scope-type" in scope_name["help"]
+    assert "--scope-type model and --scope-name" in provider_name["help"]
+
+
 def test_telemetry_exporter_headers_allow_authorization():
     assert _params.validate_headers(
         '{"Authorization": "******"}'

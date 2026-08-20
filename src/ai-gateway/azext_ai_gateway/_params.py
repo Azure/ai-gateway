@@ -703,25 +703,45 @@ def load_arguments(loader, _):
                 help="Policy JSON object or path prefixed with '@'.",
             )
 
-    for command in [
-        "ai-gateway policy create",
-        "ai-gateway policy list",
-    ]:
+    for command in ["ai-gateway policy create", "ai-gateway policy list"]:
         with loader.argument_context(command) as context:
             context.ignore("workspace_name")
-            context.argument(
-                "scope_type",
-                arg_type=get_enum_type(["model", "mcp"]),
-                help="Type of resource that hosts the inline policy.",
-            )
-            context.argument(
-                "scope_name",
-                help="Name of the model or MCP tool server.",
-            )
-            context.argument(
-                "provider_name",
-                help="Model provider name. Required for a model target.",
-            )
+
+    with loader.argument_context("ai-gateway policy create") as context:
+        context.argument(
+            "scope_type",
+            arg_type=get_enum_type(["model", "mcp"]),
+            help="Type of resource that hosts the inline policy.",
+        )
+        context.argument(
+            "scope_name",
+            help="Name of the model or MCP tool server.",
+        )
+        context.argument(
+            "provider_name",
+            help="Model provider name. Required for a model target.",
+        )
+
+    with loader.argument_context("ai-gateway policy list") as context:
+        context.argument(
+            "scope_type",
+            arg_type=get_enum_type(["model", "mcp"]),
+            help="Only include policies attached to this resource type.",
+        )
+        context.argument(
+            "scope_name",
+            help=(
+                "Only include policies attached to this model or MCP tool "
+                "server. Requires --scope-type."
+            ),
+        )
+        context.argument(
+            "provider_name",
+            help=(
+                "Only include model policies for this provider. Required with "
+                "--scope-type model and --scope-name."
+            ),
+        )
 
     with loader.argument_context(
         "ai-gateway policy import-support list"

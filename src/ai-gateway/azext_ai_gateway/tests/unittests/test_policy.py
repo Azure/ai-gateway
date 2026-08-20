@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------------------------
 
 import json
+import logging
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -68,6 +69,68 @@ def test_policy_id_round_trips_and_survives_array_reordering():
     locator = _policy._parse_policy_id(policy_id)
 
     assert _policy._locate([target, first], locator) == 0
+
+
+@patch("azext_ai_gateway._policy.get_subscription_id", return_value="sub")
+@patch("azext_ai_gateway._policy._read_host")
+def test_list_policies_filters_to_one_model(read_host, _, cmd, caplog):
+    policy = {"type": "tokenLimit", "count": 100}
+    read_host.return_value = (
+        {"properties": {"policies": [policy]}},
+        None,
+    )
+    caplog.set_level(logging.WARNING)
+
+    result = _policy.list_policies(
+        cmd,
+        "gateway",
+        "rg",
+        scope_type="model",
+        scope_name="gpt-4o",
+        provider_name="foundry",
+    )
+
+    assert result[0]["scopeType"] == "model"
+    assert result[0]["scopeName"] == "gpt-4o"
+    assert result[0]["providerName"] == "foundry"
+    assert "/modelProviders/foundry/models/gpt-4o" in (
+        read_host.call_args.args[1]["host_id"]
+    )
+    assert (
+        "Retrieving and compiling policies across gateway resources..."
+        in caplog.text
+    )
+
+
+@patch("azext_ai_gateway._policy.get_subscription_id", return_value="sub")
+@patch("azext_ai_gateway._policy._read_host")
+def test_list_policies_filters_to_one_mcp_server(read_host, _, cmd):
+    read_host.return_value = (
+        {"properties": {"policies": [{"type": "contentSafety"}]}},
+        None,
+    )
+
+    result = _policy.list_policies(
+        cmd,
+        "gateway",
+        "rg",
+        scope_type="mcp",
+        scope_name="tools",
+    )
+
+    assert result[0]["scopeType"] == "mcp"
+    assert result[0]["scopeName"] == "tools"
+    assert "/toolServers/tools" in read_host.call_args.args[1]["host_id"]
+
+
+def test_list_policies_scope_name_requires_scope_type(cmd):
+    with pytest.raises(Exception, match="--scope-name requires --scope-type"):
+        _policy.list_policies(
+            cmd,
+            "gateway",
+            "rg",
+            scope_name="gpt-4o",
+        )
 
 
 @patch("azext_ai_gateway._policy.get_subscription_id", return_value="sub")

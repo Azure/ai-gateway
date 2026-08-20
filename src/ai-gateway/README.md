@@ -465,11 +465,17 @@ Manage policies on gateway assets.
 | --- | --- |
 | `create` | `az ai-gateway policy create --scope-type <model-or-mcp> --scope-name <resource> --policy @policy.json [--provider-name <provider>] --resource-name <gateway> -g <group>` |
 | `delete` | `az ai-gateway policy delete --policy-id '<id>' --resource-name <gateway> -g <group>` |
-| `list` | `az ai-gateway policy list [--scope-type <model-or-mcp>] --resource-name <gateway> -g <group>` |
+| `list` | `az ai-gateway policy list [--scope-type <model-or-mcp> --scope-name <resource> [--provider-name <provider>]] --resource-name <gateway> -g <group>` |
 | `show` | `az ai-gateway policy show --policy-id '<id>' --resource-name <gateway> -g <group>` |
 | `update` | `az ai-gateway policy update --policy-id '<id>' --policy @policy.json --resource-name <gateway> -g <group>` |
 
 Policy IDs contain `#`; quote literal IDs.
+
+### `az ai-gateway policy list`
+
+Filter by `--scope-type model|mcp`. Add `--scope-name` to select one model or
+MCP tool server; selecting one model also requires `--provider-name`.
+The command reports progress while retrieving policies across resources.
 
 ### `az ai-gateway policy create`
 

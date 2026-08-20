@@ -13,6 +13,7 @@ from azure.cli.core.azclierror import (
     ResourceNotFoundError,
 )
 from azure.cli.core.commands.client_factory import get_subscription_id
+from knack.log import get_logger
 
 from azext_ai_gateway._gateway import (
     _gateway_path,
@@ -32,6 +33,7 @@ from azext_ai_gateway._model import (
 
 DEFAULT_WORKSPACE = "default"
 POLICY_ID_MARKER = "#policies/"
+logger = get_logger(__name__)
 _MODEL_HOST_PATTERN = re.compile(
     r"/workspaces/([^/]+)/modelProviders/([^/]+)/models/([^/]+)$",
     re.IGNORECASE,
@@ -403,6 +405,9 @@ def list_policies(
             "--provider-name is required when listing one model."
         )
 
+    logger.warning(
+        "Retrieving and compiling policies across gateway resources..."
+    )
     subscription_id = get_subscription_id(cmd.cli_ctx)
     hosts = []
     if scope_type in {None, "model"}:
