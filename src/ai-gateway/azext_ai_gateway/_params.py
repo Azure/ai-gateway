@@ -124,11 +124,7 @@ def load_arguments(loader, _):
                 help="Name of the parent AI Gateway." + AI_GATEWAY_DEFAULT_HELP,
             )
             context.argument("resource_group_name", resource_group_name_type)
-            context.argument(
-                "workspace_name",
-                default="default",
-                help="Workspace name.",
-            )
+            context.ignore("workspace_name")
 
     for command in [
         "ai-gateway model create",
@@ -224,11 +220,7 @@ def load_arguments(loader, _):
                 help="Name of the parent AI Gateway." + AI_GATEWAY_DEFAULT_HELP,
             )
             context.argument("resource_group_name", resource_group_name_type)
-            context.argument(
-                "workspace_name",
-                default="default",
-                help="Workspace name.",
-            )
+            context.ignore("workspace_name")
 
     for command in [
         "ai-gateway model-provider create",
@@ -368,11 +360,7 @@ def load_arguments(loader, _):
                 help="Name of the parent AI Gateway." + AI_GATEWAY_DEFAULT_HELP,
             )
             context.argument("resource_group_name", resource_group_name_type)
-            context.argument(
-                "workspace_name",
-                default="default",
-                help="Workspace name.",
-            )
+            context.ignore("workspace_name")
 
     for command in [
         "ai-gateway mcp authorize",
@@ -534,11 +522,7 @@ def load_arguments(loader, _):
                 help="Name of the AI Gateway." + AI_GATEWAY_DEFAULT_HELP,
             )
             context.argument("resource_group_name", resource_group_name_type)
-            context.argument(
-                "workspace_name",
-                default="default",
-                help="Gateway workspace name.",
-            )
+            context.ignore("workspace_name")
 
     for command in [
         "ai-gateway telemetry-exporter create",
@@ -656,11 +640,7 @@ def load_arguments(loader, _):
         "ai-gateway policy list",
     ]:
         with loader.argument_context(command) as context:
-            context.argument(
-                "workspace_name",
-                default="default",
-                help="Workspace name.",
-            )
+            context.ignore("workspace_name")
             context.argument(
                 "scope_type",
                 arg_type=get_enum_type(["model", "mcp"]),

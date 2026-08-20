@@ -240,7 +240,7 @@ helps["ai-gateway telemetry-exporter delete"] = """
 
 helps["ai-gateway telemetry-exporter list"] = """
     type: command
-    short-summary: List telemetry exporters in a gateway workspace.
+    short-summary: List telemetry exporters in an AI Gateway.
     long-summary: Custom header values are redacted in the output.
     examples:
       - name: List telemetry exporters.
@@ -485,7 +485,7 @@ helps["ai-gateway mcp list"] = """
     type: command
     short-summary: List MCP tool servers.
     examples:
-      - name: List MCP tool servers in the default workspace.
+      - name: List MCP tool servers.
         text: >-
           az ai-gateway mcp list --resource-name my-ai-gateway
           --resource-group my-resource-group --output table
@@ -556,7 +556,7 @@ helps["ai-gateway policy list"] = """
     type: command
     short-summary: List inline policies across models and MCP tool servers.
     examples:
-      - name: List every policy in the default workspace.
+      - name: List every policy.
         text: >-
           az ai-gateway policy list --resource-name my-ai-gateway
           --resource-group my-resource-group --output table

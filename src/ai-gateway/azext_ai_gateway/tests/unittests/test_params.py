@@ -24,6 +24,9 @@ class _ArgumentContext:
     def argument(self, name, *args, **kwargs):
         self._arguments[self._command].append((name, args, kwargs))
 
+    def ignore(self, name):
+        self._arguments[self._command].append((name, (), {"ignored": True}))
+
 
 class _Loader:
 
@@ -200,12 +203,51 @@ def test_telemetry_exporter_create_accepts_custom_otlp_options():
         )
         assert name_argument["default"] == "appinsights"
 
-    list_workspace = _get_argument(
-        loader,
-        "ai-gateway telemetry-exporter list",
-        "workspace_name",
-    )
-    assert list_workspace["default"] == "default"
+
+
+def test_workspace_name_is_not_exposed():
+    loader = _Loader()
+    with patch.object(_params, "get_location_type", return_value=object()):
+        _params.load_arguments(loader, None)
+
+    commands = [
+        *[
+            f"ai-gateway model {operation}"
+            for operation in ["create", "delete", "list", "show", "update"]
+        ],
+        *[
+            f"ai-gateway model-provider {operation}"
+            for operation in [
+                "create",
+                "delete",
+                "list",
+                "show",
+                "sync",
+                "update",
+            ]
+        ],
+        *[
+            f"ai-gateway mcp {operation}"
+            for operation in [
+                "authorize",
+                "create",
+                "delete",
+                "list",
+                "show",
+                "update",
+            ]
+        ],
+        *[
+            f"ai-gateway telemetry-exporter {operation}"
+            for operation in ["create", "delete", "list"]
+        ],
+        "ai-gateway policy create",
+        "ai-gateway policy list",
+    ]
+
+    for command in commands:
+        workspace = _get_argument(loader, command, "workspace_name")
+        assert workspace["ignored"] is True
 
 
 def test_telemetry_exporter_headers_allow_authorization():
