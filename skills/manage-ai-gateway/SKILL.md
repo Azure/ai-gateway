@@ -2,10 +2,10 @@
 name: manage-ai-gateway
 version: 1.0.0
 updated: 2026-08-20
-description: Create, configure, and operate Azure AI Gateway resources with the Azure CLI extension. Use this for administrators and platform engineers who manage gateways, model providers and models, MCP tool servers, policies, API keys, identities, telemetry, or APIM import assessments.
+description: Create, configure, and operate the AI Gateway SKU in Azure API Management with the Azure CLI extension. Use this for administrators and platform engineers who manage gateways, model providers and models, MCP tool servers, policies, API keys, identities, telemetry, or APIM import assessments.
 ---
 
-# Manage an Azure AI Gateway
+# Manage the AI Gateway SKU in Azure API Management
 
 > Invoked as `/ai-gateway:manage-ai-gateway` when installed via the plugin. It is
 > also used by `/ai-gateway:create` and `/ai-gateway:manage`.

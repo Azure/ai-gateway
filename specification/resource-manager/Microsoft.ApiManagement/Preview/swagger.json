@@ -1,7 +1,7 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "Azure AI Gateway",
+    "title": "AI Gateway SKU in Azure API Management",
     "description": "Focused Azure CLI contract for AI Gateway resources hosted on Microsoft.ApiManagement/service. The broader API Management surface is intentionally excluded.",
     "version": "2025-09-01-preview"
   },

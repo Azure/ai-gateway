@@ -1,6 +1,6 @@
 {
   "name": "ai-gateway",
-  "description": "Create, configure, manage, and build applications on Azure AI Gateway resources. Includes administrator workflows and read-only developer integration.",
+  "description": "Create, configure, manage, and build applications on the AI Gateway SKU in Azure API Management. Includes administrator workflows and read-only developer integration.",
   "version": "3.0.0",
   "keywords": ["ai-gateway", "agents", "mcp", "models", "azure", "integration", "management"],
   "author": {

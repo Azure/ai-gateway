@@ -28,7 +28,7 @@ the configured default.
 
 ## `az ai-gateway`
 
-Manage AI Gateway resources.
+Manage and use the AI Gateway SKU in Azure API Management.
 
 | Command | Syntax |
 | --- | --- |

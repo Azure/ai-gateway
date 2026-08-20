@@ -8,7 +8,7 @@ from knack.help_files import helps
 
 helps["ai-gateway"] = """
     type: group
-    short-summary: Manage and use Azure AI Gateway resources.
+    short-summary: Manage and use the AI Gateway SKU in Azure API Management.
 """
 
 helps["ai-gateway api-key"] = """

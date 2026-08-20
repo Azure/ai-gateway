@@ -1,5 +1,5 @@
 ---
-description: Create an Azure AI Gateway resource and verify that it is ready for configuration.
+description: Create an AI Gateway SKU in Azure API Management and verify that it is ready for configuration.
 argument-hint: <gateway-name> <resource-group> <region> [optional requirements]
 ---
 

@@ -1,6 +1,6 @@
 {
   "name": "azure",
-  "description": "Plugins for creating, configuring, managing, and building applications on Azure AI Gateway resources.",
+  "description": "Plugins for creating, configuring, managing, and building applications on the AI Gateway SKU in Azure API Management.",
   "version": "1.0.0",
   "owner": {
     "name": "Microsoft"

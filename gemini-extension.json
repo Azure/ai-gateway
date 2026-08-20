@@ -1,5 +1,5 @@
 {
   "name": "ai-gateway",
   "version": "3.0.0",
-  "description": "Create, configure, manage, and build applications on Azure AI Gateway resources. Includes administrator workflows and read-only developer integration."
+  "description": "Create, configure, manage, and build applications on the AI Gateway SKU in Azure API Management. Includes administrator workflows and read-only developer integration."
 }
