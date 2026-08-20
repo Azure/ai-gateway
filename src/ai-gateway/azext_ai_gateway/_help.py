@@ -358,7 +358,6 @@ helps["ai-gateway model-provider create"] = """
           --name foundry --kind Foundry
           --resource-ids /subscriptions/sub/resourceGroups/rg/providers/Microsoft.CognitiveServices/accounts/account
           /subscriptions/sub/resourceGroups/rg/providers/Microsoft.CognitiveServices/accounts/account-2
-          --managed-identity-resource https://cognitiveservices.azure.com
       - name: Create a custom provider using an API key.
         text: >-
           az ai-gateway model-provider create

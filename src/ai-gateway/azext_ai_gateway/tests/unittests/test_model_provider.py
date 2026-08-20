@@ -435,7 +435,7 @@ def test_create_foundry_provider_builds_managed_identity_payload(
     return_value="sub",
 )
 @patch("azext_ai_gateway._gateway.send_raw_request")
-def test_create_foundry_provider_does_not_require_endpoint(
+def test_create_foundry_provider_defaults_managed_identity_resource(
     send_request,
     _,
     cmd,
@@ -453,7 +453,6 @@ def test_create_foundry_provider_does_not_require_endpoint(
         "rg",
         "Foundry",
         resource_ids=[resource_id],
-        managed_identity_resource="https://cognitiveservices.azure.com",
         no_sync=True,
     )
 

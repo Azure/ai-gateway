@@ -357,7 +357,10 @@ def load_arguments(loader, _):
             context.argument(
                 "managed_identity_resource",
                 arg_group="Authentication",
-                help="Token audience for managed identity authentication.",
+                help=(
+                    "Token audience for managed identity authentication. "
+                    "Defaults to https://cognitiveservices.azure.com."
+                ),
             )
             context.argument(
                 "managed_identity_client_id",

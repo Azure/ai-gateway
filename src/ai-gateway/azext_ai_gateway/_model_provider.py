@@ -883,12 +883,7 @@ def _api_key_authentication(header_name, value):
 
 
 def _managed_identity_authentication(resource, client_id):
-    if not resource:
-        raise RequiredArgumentMissingError(
-            "Specify --managed-identity-resource when using managed identity "
-            "authentication."
-        )
-    managed_identity = {"resource": resource}
+    managed_identity = {"resource": resource or MANAGED_IDENTITY_RESOURCE}
     if client_id is not None:
         managed_identity["clientId"] = client_id
     return {

@@ -183,29 +183,9 @@ Create a Foundry or custom provider and import its available models.
 | `--auth-kind` | `ManagedIdentity` or `ApiKey`. Defaults to managed identity for Foundry and API key for custom providers. |
 | `--api-key-header-name` | Header used by API-key authentication. |
 | `--api-key-value` | Exact value sent in the API-key header. Add an authentication scheme only when required by the provider. |
-| `--managed-identity-resource` | Token audience used by Foundry managed identity authentication. |
+| `--managed-identity-resource` | Token audience used by Foundry managed identity authentication. Defaults to `https://cognitiveservices.azure.com`. |
 | `--managed-identity-client-id` | Optional user-assigned managed identity client ID. |
 | `--no-sync` | Skip model discovery and import after provider creation. |
-
-Create one Foundry provider per eligible account from piped Cognitive Services
-account list output. `AIServices` and `OpenAI` accounts are imported; other
-account kinds are skipped. Provider names come from the account names. The
-command reads each provider endpoint and resource ID from the account object,
-then uses the AI Gateway's system-assigned identity, its sole user-assigned
-identity, or the account's primary key when the gateway has no identity.
-Piped account creation cannot be combined with explicit provider properties. Only `--managed-identity-client-id` and `--no-sync` are supported.
-
-Specify `--managed-identity-client-id` when the gateway has multiple
-user-assigned identities.
-
-```bash
-az cognitiveservices account list \
-  --resource-group my-foundry-resource-group \
-  --output json \
-  | az ai-gateway model-provider create \
-      --resource-name my-ai-gateway \
-      --resource-group my-gateway-resource-group
-```
 
 Create a Foundry provider and import its deployments:
 
@@ -216,7 +196,6 @@ az ai-gateway model-provider create \
   --resource-ids \
     /subscriptions/<sub>/resourceGroups/<group>/providers/Microsoft.CognitiveServices/accounts/<account-1> \
     /subscriptions/<sub>/resourceGroups/<group>/providers/Microsoft.CognitiveServices/accounts/<account-2> \
-  --managed-identity-resource https://cognitiveservices.azure.com \
   --resource-name my-ai-gateway \
   --resource-group my-resource-group
 ```
@@ -233,6 +212,14 @@ az ai-gateway model-provider create \
   --api-key-value "$PROVIDER_API_KEY" \
   --resource-name my-ai-gateway \
   --resource-group my-resource-group
+```
+
+Create multiple model providers from Foundry accounts:
+
+```bash
+az cognitiveservices account list | az ai-gateway model-provider create \
+      --resource-name my-ai-gateway \
+      --resource-group my-gateway-resource-group
 ```
 
 By default, the command attempts to get models from the endpoint itself. Add `--no-sync` to either command to create only the provider. You can add models later with `az ai-gateway model create`.
