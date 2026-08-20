@@ -40,6 +40,9 @@ Manage AI Gateway resources.
 | `update` | `az ai-gateway update -n <gateway> -g <group> [options]` |
 | `version` | `az ai-gateway version` |
 
+`list --output table` displays the gateway name, resource group, location, and
+runtime URL.
+
 ### `az ai-gateway import`
 
 Discover and import assess models, agents, tools, and policies from an APIM resource.

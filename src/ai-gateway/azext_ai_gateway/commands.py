@@ -15,6 +15,7 @@ from azext_ai_gateway._model import format_model_list_table
 from azext_ai_gateway._mcp import format_mcp_list_table
 from azext_ai_gateway._api_key import format_api_key_list_table
 from azext_ai_gateway._policy import format_policy_list_table
+from azext_ai_gateway._gateway import format_gateway_list_table
 
 
 def load_command_table(loader, _):
@@ -37,7 +38,11 @@ def load_command_table(loader, _):
             supports_no_wait=True,
             table_transformer=format_import_table,
         )
-        group.custom_command("list", "list_gateways")
+        group.custom_command(
+            "list",
+            "list_gateways",
+            table_transformer=format_gateway_list_table,
+        )
         group.custom_show_command("show", "show_gateway")
         group.custom_command(
             "update",

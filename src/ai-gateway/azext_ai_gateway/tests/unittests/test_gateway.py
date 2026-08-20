@@ -168,6 +168,49 @@ def test_list_follows_pages_and_filters_non_ai_gateway_skus(
     )
 
 
+def test_format_gateway_list_table():
+    gateways = [
+        {
+            "id": (
+                "/subscriptions/sub/resourceGroups/ai-gateway-contoso-aigw/"
+                "providers/Microsoft.ApiManagement/service/contoso-aigw"
+            ),
+            "name": "contoso-aigw",
+            "location": "East US 2",
+            "properties": {
+                "gatewayUrl": (
+                    "https://contoso-aigw.eastus2.ai.gateway.azure.com"
+                )
+            },
+        },
+        {
+            "id": (
+                "/subscriptions/sub/RESOURCEGROUPS/encoded%20group/"
+                "providers/Microsoft.ApiManagement/service/other-aigw"
+            ),
+            "name": "other-aigw",
+            "location": "West US 2",
+        },
+    ]
+
+    assert _gateway.format_gateway_list_table(gateways) == [
+        {
+            "Name": "contoso-aigw",
+            "ResourceGroup": "ai-gateway-contoso-aigw",
+            "Location": "East US 2",
+            "Runtime URL": (
+                "https://contoso-aigw.eastus2.ai.gateway.azure.com"
+            ),
+        },
+        {
+            "Name": "other-aigw",
+            "ResourceGroup": "encoded group",
+            "Location": "West US 2",
+            "Runtime URL": "",
+        },
+    ]
+
+
 @patch("azext_ai_gateway._gateway.get_subscription_id", return_value="sub")
 @patch("azext_ai_gateway._gateway._wait_for_gateway")
 @patch("azext_ai_gateway._gateway.send_raw_request")

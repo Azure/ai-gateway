@@ -8,7 +8,7 @@ import json
 import logging
 import time
 from contextlib import contextmanager
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from azure.cli.core.azclierror import (
     AzureResponseError,
@@ -38,6 +38,27 @@ _SENSITIVE_URL_SEGMENTS = (
     "/modelproviders/",
     "/toolservers/",
 )
+
+
+def _resource_group_name(resource):
+    segments = str(resource.get("id") or "").split("/")
+    for index, segment in enumerate(segments[:-1]):
+        if segment.casefold() == "resourcegroups":
+            return unquote(segments[index + 1])
+    return ""
+
+
+def format_gateway_list_table(gateways):
+    return [
+        {
+            "Name": gateway.get("name") or "",
+            "ResourceGroup": _resource_group_name(gateway),
+            "Location": gateway.get("location") or "",
+            "Runtime URL": (gateway.get("properties") or {}).get("gatewayUrl")
+            or "",
+        }
+        for gateway in gateways
+    ]
 
 
 class _DenyAllLogs(logging.Filter):
