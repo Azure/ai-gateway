@@ -84,6 +84,7 @@ def test_gateway_arguments_use_ai_gateway_configured_default():
                 "delete",
                 "list",
                 "show",
+                "test",
                 "update",
             ]
         ],
@@ -154,6 +155,22 @@ def test_model_provider_sync_accepts_api_key_value():
     assert argument["arg_group"] == "Authentication"
     assert "prompts for it securely" in argument["help"]
     assert "sent exactly as entered" in argument["help"]
+
+
+def test_mcp_test_accepts_api_key_name():
+    loader = _Loader()
+    with patch.object(_params, "get_location_type", return_value=object()):
+        _params.load_arguments(loader, None)
+
+    argument = _get_argument(
+        loader,
+        "ai-gateway mcp test",
+        "api_key_name",
+    )
+
+    assert argument["arg_group"] == "Authentication"
+    assert argument["options_list"] == ["--api-key-name"]
+    assert "resource" in argument["help"]
 
 
 def test_telemetry_exporter_create_accepts_custom_otlp_options():

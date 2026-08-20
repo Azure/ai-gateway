@@ -95,6 +95,7 @@ def load_command_table(loader, _):
             table_transformer=format_mcp_list_table,
         )
         group.custom_show_command("show", "show_mcp")
+        group.custom_command("test", "test_mcp")
         group.custom_command("update", "update_mcp")
 
     with loader.command_group("ai-gateway api-key") as group:

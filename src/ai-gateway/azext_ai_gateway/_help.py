@@ -483,7 +483,7 @@ helps["ai-gateway mcp delete"] = """
 
 helps["ai-gateway mcp list"] = """
     type: command
-    short-summary: List MCP tool servers.
+    short-summary: List MCP tool servers and their runtime endpoints.
     examples:
       - name: List MCP tool servers.
         text: >-
@@ -499,6 +499,24 @@ helps["ai-gateway mcp show"] = """
         text: >-
           az ai-gateway mcp show --resource-name my-ai-gateway
           --resource-group my-resource-group --name tools
+"""
+
+helps["ai-gateway mcp test"] = """
+    type: command
+    short-summary: Test an MCP tool server by performing protocol initialization.
+    long-summary: >
+        Builds the MCP endpoint from the AI Gateway runtime URL, workspace, and
+        tool-server name, performs initialization, and lists the tools exposed
+        by the server. Failures show attempted protocol stages in execution
+        order, followed by a structured federation diagnosis and the full failed
+        HTTP response. Before testing, the command states the configured failure
+        mode and its effect on the result.
+    examples:
+      - name: Test an MCP tool server.
+        text: >-
+          az ai-gateway mcp test --resource-name my-ai-gateway
+          --resource-group my-resource-group --name tools
+          --api-key-name production
 """
 
 helps["ai-gateway mcp update"] = """

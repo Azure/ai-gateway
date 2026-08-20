@@ -33,6 +33,7 @@ from azext_ai_gateway._mcp import (
     delete_mcp,
     list_mcp,
     show_mcp,
+    test_mcp,
     update_mcp,
 )
 from azext_ai_gateway._api_key import (

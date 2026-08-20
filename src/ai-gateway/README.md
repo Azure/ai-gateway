@@ -271,10 +271,47 @@ Manage MCP tool servers, endpoints, and OAuth authorization.
 | `delete` | `az ai-gateway mcp delete -n <server> --resource-name <gateway> -g <group>` |
 | `list` | `az ai-gateway mcp list --resource-name <gateway> -g <group>` |
 | `show` | `az ai-gateway mcp show -n <server> --resource-name <gateway> -g <group>` |
+| `test` | `az ai-gateway mcp test -n <server> --api-key-name <key> --resource-name <gateway> -g <group>` |
 | `update` | `az ai-gateway mcp update -n <server> [options] --resource-name <gateway> -g <group>` |
 
 `--endpoints` accepts a JSON array or an `@file` path. Endpoint kinds: `mcp`,
-`openApi`, and `http`.
+`openApi`, and `http`. Table output from `mcp list` includes each server's
+derived runtime endpoint.
+
+### `az ai-gateway mcp test`
+
+Test a registered MCP tool server by sending an MCP `initialize` request to its
+runtime endpoint, constructed as
+`<gateway-runtime-url>/<workspace>/toolservers/<server-name>/mcp`. Select an AI
+Gateway API key resource with `--api-key-name`. The command retrieves its
+primary key through the management API and keeps the value out of the terminal
+output. The key is sent in all three MCP requests: `initialize`,
+`notifications/initialized`, and `tools/list`; each request includes a 15-second
+HTTP timeout. A successful command returns the server's initialize result and
+then sends `notifications/initialized` and `tools/list`, carrying the MCP
+session ID when provided. The output includes the negotiated protocol version,
+capabilities, server information, and exposed tools. On failure, the
+diagnostic identifies the endpoint and shows attempted stages in execution
+order as a table. The table is followed by the complete failed HTTP response
+status, headers, and body when a response is available, without
+displaying the API key. Transport failures instead show the connection error.
+Known federation errors mark the failed stage as
+`Federation failed` and add a structured diagnosis containing the downstream
+endpoint, requirement, operation, and HTTP status. Before the handshake begins,
+the command states a reported failure mode and its implication: `failOpen` can
+return a partial tool list when endpoints are unavailable, while `failClosed`
+returns required endpoint failures. No failure-mode message is shown when the
+service does not report one. When any configured endpoint is explicitly
+non-required, the command emits an explicit `Warning:` that the tool list may
+be incomplete if that endpoint is unavailable.
+
+```bash
+az ai-gateway mcp test \
+  --name tools \
+  --api-key-name production \
+  --resource-name my-ai-gateway \
+  --resource-group my-resource-group
+```
 
 ### `az ai-gateway mcp create`
 

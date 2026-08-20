@@ -391,6 +391,7 @@ def load_arguments(loader, _):
         "ai-gateway mcp delete",
         "ai-gateway mcp list",
         "ai-gateway mcp show",
+        "ai-gateway mcp test",
         "ai-gateway mcp update",
     ]
     for command in mcp_commands:
@@ -409,6 +410,7 @@ def load_arguments(loader, _):
         "ai-gateway mcp create",
         "ai-gateway mcp delete",
         "ai-gateway mcp show",
+        "ai-gateway mcp test",
         "ai-gateway mcp update",
     ]:
         with loader.argument_context(command) as context:
@@ -460,6 +462,14 @@ def load_arguments(loader, _):
         context.argument(
             "endpoint_id",
             help="Server-generated ID of the OAuth endpoint.",
+        )
+
+    with loader.argument_context("ai-gateway mcp test") as context:
+        context.argument(
+            "api_key_name",
+            options_list=["--api-key-name"],
+            arg_group="Authentication",
+            help="Name of the AI Gateway API key resource to use.",
         )
 
     api_key_commands = [
