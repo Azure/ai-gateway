@@ -418,8 +418,8 @@ helps["ai-gateway model-provider sync"] = """
         Naming conflicts abort synchronization before any model changes are
         applied; use --dry-run to inspect the complete plan. Custom providers
         securely prompt for the API key when --api-key-value is omitted from an
-        interactive session. Stale registrations are deleted only with
-        --delete-missing.
+        interactive session. Non-dry-run synchronization creates discovered
+        models and deletes stale registrations, and requires --yes.
     examples:
       - name: Preview synchronization changes.
         text: >-
@@ -430,12 +430,12 @@ helps["ai-gateway model-provider sync"] = """
         text: >-
           az ai-gateway model-provider sync
           --resource-name my-ai-gateway --resource-group my-resource-group
-          --name custom --api-key-value "$PROVIDER_API_KEY"
-      - name: Synchronize and delete stale registrations.
+          --name custom --api-key-value "$PROVIDER_API_KEY" --yes
+      - name: Synchronize a Foundry provider.
         text: >-
           az ai-gateway model-provider sync
           --resource-name my-ai-gateway --resource-group my-resource-group
-          --name foundry --delete-missing --yes
+          --name foundry --yes
 """
 
 helps["ai-gateway model-provider update"] = """

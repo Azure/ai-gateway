@@ -328,7 +328,6 @@ def _build_sync_changes(
     provider_models,
     all_models,
     remote_models,
-    delete_missing,
     missing_reason,
 ):
     provider_model_names = {
@@ -373,19 +372,17 @@ def _build_sync_changes(
             continue
         changes.append(
             {
-                "action": "delete" if delete_missing else "skip",
+                "action": "delete",
                 "name": name,
-                "status": "planned" if delete_missing else "stale",
-                "reason": missing_reason
-                if delete_missing
-                else "Use --delete-missing to remove this stale model.",
+                "status": "planned",
+                "reason": missing_reason,
                 "id": model.get("id"),
             }
         )
     return changes
 
 
-def _foundry_sync_plan(cmd, provider, provider_path, delete_missing):
+def _foundry_sync_plan(cmd, provider, provider_path):
     foundry = (provider.get("properties") or {}).get("foundry") or {}
     resource_ids = foundry.get("resourceIds") or []
     if not resource_ids:
@@ -433,7 +430,6 @@ def _foundry_sync_plan(cmd, provider, provider_path, delete_missing):
         provider_models,
         all_models,
         remote_models,
-        delete_missing,
         "Foundry deployment no longer exists.",
     )
 
@@ -760,7 +756,6 @@ def _custom_sync_plan(
     cmd,
     provider,
     provider_path,
-    delete_missing,
     api_key_value=None,
 ):
     discovered_models = _discover_custom_models(
@@ -787,7 +782,6 @@ def _custom_sync_plan(
         provider_models,
         all_models,
         remote_models,
-        delete_missing,
         "Provider model no longer exists.",
     )
 
@@ -796,7 +790,6 @@ def _sync_plan(
     cmd,
     provider,
     provider_path,
-    delete_missing,
     api_key_value=None,
 ):
     if (provider.get("properties") or {}).get("kind") == "Custom":
@@ -804,14 +797,12 @@ def _sync_plan(
             cmd,
             provider,
             provider_path,
-            delete_missing,
             api_key_value,
         )
     return _foundry_sync_plan(
         cmd,
         provider,
         provider_path,
-        delete_missing,
     )
 
 
@@ -1233,8 +1224,7 @@ def _create_single_model_provider(
             path,
             name,
             dry_run=False,
-            delete_missing=False,
-            yes=False,
+            yes=True,
             api_key_value=api_key_value,
         )
     except Exception as error:
@@ -1494,10 +1484,13 @@ def sync_model_provider(
     resource_group_name,
     workspace_name=DEFAULT_WORKSPACE,
     dry_run=False,
-    delete_missing=False,
     yes=False,
     api_key_value=None,
 ):
+    if not dry_run and not yes:
+        raise RequiredArgumentMissingError(
+            "Specify --yes to confirm model synchronization."
+        )
     subscription_id = get_subscription_id(cmd.cli_ctx)
     path = _providers_path(
         subscription_id,
@@ -1516,7 +1509,6 @@ def sync_model_provider(
         path,
         name,
         dry_run,
-        delete_missing,
         yes,
         api_key_value,
     )
@@ -1528,10 +1520,13 @@ def _synchronize_model_provider(
     path,
     name,
     dry_run,
-    delete_missing,
     yes,
     api_key_value=None,
 ):
+    if not dry_run and not yes:
+        raise RequiredArgumentMissingError(
+            "Specify --yes to confirm model synchronization."
+        )
     provider_kind = (provider.get("properties") or {}).get("kind")
     if provider_kind not in {"Foundry", "Custom"}:
         raise InvalidArgumentValueError(
@@ -1563,7 +1558,6 @@ def _synchronize_model_provider(
         cmd,
         provider,
         path,
-        delete_missing,
         api_key_value,
     )
     conflicts = sorted(
@@ -1580,14 +1574,6 @@ def _synchronize_model_provider(
             f"already exist in the gateway: {formatted_names}. No model "
             "changes were applied. Use --dry-run to inspect the complete "
             "synchronization plan."
-        )
-    if (
-        not dry_run
-        and not yes
-        and any(change["action"] == "delete" for change in changes)
-    ):
-        raise RequiredArgumentMissingError(
-            "Specify --yes to confirm deletion of stale model registrations."
         )
     if not dry_run:
         foundry_authentication = (
@@ -1631,7 +1617,6 @@ def _synchronize_model_provider(
             "name": provider.get("name") or name,
         },
         "dryRun": dry_run,
-        "deleteMissing": delete_missing,
         "summary": {
             "created": sum(
                 change["status"] == "created" for change in changes

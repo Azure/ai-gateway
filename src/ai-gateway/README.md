@@ -166,7 +166,7 @@ Manage Foundry and custom model provider registrations.
 | `delete` | `az ai-gateway model-provider delete -n <provider> --resource-name <gateway> -g <group>` |
 | `list` | `az ai-gateway model-provider list --resource-name <gateway> -g <group>` |
 | `show` | `az ai-gateway model-provider show -n <provider> --resource-name <gateway> -g <group>` |
-| `sync` | `az ai-gateway model-provider sync -n <provider> [--api-key-value <key>] [--dry-run] [--delete-missing --yes] --resource-name <gateway> -g <group>` |
+| `sync` | `az ai-gateway model-provider sync -n <provider> [--api-key-value <key>] [--dry-run] [--yes] --resource-name <gateway> -g <group>` |
 | `update` | `az ai-gateway model-provider update -n <provider> [options] --resource-name <gateway> -g <group>` |
 
 ### `az ai-gateway model-provider create`
@@ -238,14 +238,14 @@ registrations.
 | --- | --- |
 | `--api-key-value` | Exact header value used to query a custom provider. When omitted interactively, a masked prompt is shown. |
 | `--dry-run` | Return the synchronization plan without changing models. |
-| `--delete-missing` | Delete stale model registrations. Requires `--yes`. |
-| `--yes`, `-y` | Confirm deletion of stale model registrations. |
+| `--yes`, `-y` | Confirm model creation and deletion. Required unless `--dry-run` is used. |
 
 Synchronize a Foundry provider:
 
 ```bash
 az ai-gateway model-provider sync \
   --name foundry \
+  --yes \
   --resource-name my-ai-gateway \
   --resource-group my-resource-group
 ```
@@ -256,14 +256,14 @@ Synchronize a custom provider:
 az ai-gateway model-provider sync \
   --name custom-openai \
   --api-key-value "$PROVIDER_API_KEY" \
+  --yes \
   --resource-name my-ai-gateway \
   --resource-group my-resource-group
 ```
 
-Add `--dry-run --output table` to preview changes. To also delete stale
-registrations, add `--delete-missing --yes`. If any discovered model name
-already belongs to another provider, synchronization fails before creating or
-deleting any models.
+Add `--dry-run --output table` to preview all model creations and deletions.
+If any discovered model name already belongs to another provider, synchronization
+fails before creating or deleting any models.
 
 ## `az ai-gateway model`
 

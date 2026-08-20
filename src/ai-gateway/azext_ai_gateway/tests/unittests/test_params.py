@@ -205,6 +205,18 @@ def test_model_provider_sync_accepts_api_key_value():
     assert "sent exactly as entered" in argument["help"]
 
 
+def test_model_provider_sync_requires_confirmation_without_delete_option():
+    loader = _Loader()
+    _params.load_arguments(loader, None)
+    command = "ai-gateway model-provider sync"
+
+    argument_names = {argument[0] for argument in loader.arguments[command]}
+    assert "delete_missing" not in argument_names
+    yes = _get_argument(loader, command, "yes")
+    assert yes["options_list"] == ["--yes", "-y"]
+    assert yes["action"] == "store_true"
+
+
 def test_mcp_test_accepts_api_key_name():
     loader = _Loader()
     _params.load_arguments(loader, None)

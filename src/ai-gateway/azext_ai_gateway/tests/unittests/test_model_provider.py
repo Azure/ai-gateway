@@ -551,8 +551,7 @@ def test_create_provider_syncs_models_by_default(
     assert sync_args.args[3] == "custom"
     assert sync_args.kwargs == {
         "dry_run": False,
-        "delete_missing": False,
-        "yes": False,
+        "yes": True,
         "api_key_value": "secret",
     }
     assert result == {
@@ -1006,7 +1005,6 @@ def test_sync_plan_creates_new_models_and_reports_stale_models(
         None,
         provider,
         "/gateway/workspaces/default/modelProviders/foundry",
-        delete_missing=False,
     )
 
     assert changes == [
@@ -1025,10 +1023,10 @@ def test_sync_plan_creates_new_models_and_reports_stale_models(
             },
         },
         {
-            "action": "skip",
+            "action": "delete",
             "name": "old",
-            "status": "stale",
-            "reason": "Use --delete-missing to remove this stale model.",
+            "status": "planned",
+            "reason": "Foundry deployment no longer exists.",
             "id": "/provider/models/old",
         },
     ]
@@ -1078,7 +1076,6 @@ def test_sync_plan_skips_duplicate_and_cross_provider_names(
         None,
         provider,
         "/gateway/workspaces/default/modelProviders/foundry",
-        delete_missing=True,
     )
 
     assert [
@@ -1127,7 +1124,6 @@ def test_sync_plan_normalizes_foundry_deployment_names(
         None,
         provider,
         "/gateway/workspaces/default/modelProviders/foundry",
-        delete_missing=True,
     )
 
     assert changes == []
@@ -1166,7 +1162,6 @@ def test_sync_plan_uses_normalized_resource_name_and_deployment_name(
         None,
         provider,
         "/gateway/workspaces/default/modelProviders/foundry",
-        delete_missing=False,
     )
 
     assert changes[0]["name"] == "o3-mini"
@@ -1304,7 +1299,6 @@ def test_sync_plan_treats_every_gateway_model_name_as_reserved(
         None,
         provider,
         "/gateway/workspaces/default/modelProviders/foundry",
-        delete_missing=False,
     )
 
     assert [(change["name"], change["status"]) for change in changes] == [
@@ -1643,7 +1637,6 @@ def test_custom_sync_plan_creates_normalized_models_and_reports_stale(
         None,
         provider,
         "/gateway/workspaces/default/modelProviders/custom",
-        delete_missing=False,
     )
 
     assert changes == [
@@ -1658,10 +1651,10 @@ def test_custom_sync_plan_creates_normalized_models_and_reports_stale(
             },
         },
         {
-            "action": "skip",
+            "action": "delete",
             "name": "old",
-            "status": "stale",
-            "reason": "Use --delete-missing to remove this stale model.",
+            "status": "planned",
+            "reason": "Provider model no longer exists.",
             "id": "/provider/models/old",
         },
     ]
@@ -1705,6 +1698,7 @@ def test_sync_supports_custom_provider(
         "custom",
         "gateway",
         "rg",
+        yes=True,
         api_key_value="secret",
     )
 
@@ -1750,6 +1744,7 @@ def test_sync_custom_provider_requires_api_key(
             "custom",
             "gateway",
             "rg",
+            yes=True,
         )
 
     sync_plan.assert_not_called()
@@ -1781,6 +1776,7 @@ def test_sync_custom_provider_prompts_for_api_key(
         "custom",
         "gateway",
         "rg",
+        yes=True,
     )
 
     prompt.assert_called_once_with("Custom provider API key: ")
@@ -1843,7 +1839,6 @@ def test_sync_applies_create_and_delete_changes(
             "foundry",
             "gateway",
             "rg",
-            delete_missing=True,
             yes=True,
         )
 
@@ -1906,6 +1901,7 @@ def test_sync_does_not_retrieve_keys_for_managed_identity(
         "foundry",
         "gateway",
         "rg",
+        yes=True,
     )
 
     refresh_foundry_key.assert_not_called()
@@ -1964,6 +1960,7 @@ def test_sync_fails_before_writes_when_model_name_conflicts(
             "foundry",
             "gateway",
             "rg",
+            yes=True,
         )
 
     assert send_request.call_count == 1
@@ -2013,7 +2010,7 @@ def test_sync_dry_run_reports_conflicts(
 )
 @patch("azext_ai_gateway._model_provider._sync_plan")
 @patch("azext_ai_gateway._gateway.send_raw_request")
-def test_sync_requires_confirmation_before_deleting(
+def test_sync_requires_confirmation_before_planning(
     send_request,
     sync_plan,
     _,
@@ -2022,22 +2019,13 @@ def test_sync_requires_confirmation_before_deleting(
     send_request.return_value = FakeResponse(
         {"name": "foundry", "properties": {"kind": "Foundry"}}
     )
-    sync_plan.return_value = [
-        {
-            "action": "delete",
-            "name": "old",
-            "status": "planned",
-            "id": "/modelProviders/foundry/models/old",
-        }
-    ]
-
     with pytest.raises(RequiredArgumentMissingError, match="--yes"):
         _model_provider.sync_model_provider(
             cmd,
             "foundry",
             "gateway",
             "rg",
-            delete_missing=True,
         )
 
-    assert send_request.call_count == 1
+    send_request.assert_not_called()
+    sync_plan.assert_not_called()

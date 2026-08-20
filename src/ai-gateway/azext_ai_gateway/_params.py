@@ -404,18 +404,10 @@ def load_arguments(loader, _):
             help="Return the synchronization plan without changing models.",
         )
         context.argument(
-            "delete_missing",
-            action="store_true",
-            help=(
-                "Delete model registrations that no longer exist in the "
-                "provider."
-            ),
-        )
-        context.argument(
             "yes",
             options_list=["--yes", "-y"],
             action="store_true",
-            help="Confirm deletion of stale model registrations.",
+            help="Confirm model creation and deletion.",
         )
 
     mcp_commands = [
