@@ -256,7 +256,7 @@ Manage model registrations and their backing deployments.
 | --- | --- |
 | `create` | `az ai-gateway model create --provider-name <provider> -n <model> [options] --resource-name <gateway> -g <group>` |
 | `delete` | `az ai-gateway model delete --provider-name <provider> -n <model> --resource-name <gateway> -g <group>` |
-| `list` | `az ai-gateway model list [--provider-name <provider>] --resource-name <gateway> -g <group>` |
+| `list` | `az ai-gateway model list [--model-provider <provider>] [--type <Foundry-or-Custom>] --resource-name <gateway> -g <group>` |
 | `show` | `az ai-gateway model show --provider-name <provider> -n <model> --resource-name <gateway> -g <group>` |
 | `update` | `az ai-gateway model update --provider-name <provider> -n <model> [options] --resource-name <gateway> -g <group>` |
 

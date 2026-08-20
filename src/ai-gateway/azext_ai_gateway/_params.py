@@ -188,8 +188,15 @@ def load_arguments(loader, _):
     with loader.argument_context("ai-gateway model list") as context:
         context.argument(
             "provider_name",
+            options_list=["--model-provider", "--provider-name"],
             required=False,
             help="Only list models belonging to this provider.",
+        )
+        context.argument(
+            "model_type",
+            options_list=["--type"],
+            arg_type=get_enum_type(["Foundry", "Custom"]),
+            help="Only list models with this provider type.",
         )
 
     for command in [

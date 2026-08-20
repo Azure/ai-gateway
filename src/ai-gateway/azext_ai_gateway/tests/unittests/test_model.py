@@ -61,6 +61,38 @@ def test_list_models_uses_cross_provider_path_and_follows_pages(
     )
 
 
+@patch("azext_ai_gateway._model.get_subscription_id", return_value="sub")
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_list_models_filters_by_provider_and_type(send_request, _, cmd):
+    send_request.return_value = FakeResponse(
+        {
+            "value": [
+                {
+                    "name": "foundry-model",
+                    "properties": {"providerKind": "Foundry"},
+                },
+                {
+                    "name": "custom-model",
+                    "properties": {"providerKind": "Custom"},
+                },
+            ]
+        }
+    )
+
+    result = _model.list_models(
+        cmd,
+        "gateway",
+        "rg",
+        provider_name="provider",
+        model_type="foundry",
+    )
+
+    assert [model["name"] for model in result] == ["foundry-model"]
+    assert send_request.call_args.args[2].endswith(
+        "/workspaces/default/modelProviders/provider/models"
+    )
+
+
 def test_format_model_list_table():
     models = [
         {

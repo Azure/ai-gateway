@@ -141,6 +141,29 @@ def test_model_provider_create_no_sync_is_opt_out_flag():
     assert argument["action"] == "store_true"
 
 
+def test_model_list_accepts_provider_and_type_filters():
+    loader = _Loader()
+    with patch.object(_params, "get_location_type", return_value=object()):
+        _params.load_arguments(loader, None)
+
+    provider = _get_argument(
+        loader,
+        "ai-gateway model list",
+        "provider_name",
+    )
+    model_type = _get_argument(
+        loader,
+        "ai-gateway model list",
+        "model_type",
+    )
+
+    assert provider["options_list"] == [
+        "--model-provider",
+        "--provider-name",
+    ]
+    assert model_type["options_list"] == ["--type"]
+
+
 def test_model_provider_sync_accepts_api_key_value():
     loader = _Loader()
     with patch.object(_params, "get_location_type", return_value=object()):

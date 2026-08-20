@@ -293,10 +293,11 @@ helps["ai-gateway model list"] = """
         text: >-
           az ai-gateway model list --resource-name my-ai-gateway
           --resource-group my-resource-group --output table
-      - name: List models belonging to one provider.
+      - name: Filter models by model provider and type.
         text: >-
           az ai-gateway model list --resource-name my-ai-gateway
-          --resource-group my-resource-group --provider-name foundry
+          --resource-group my-resource-group --model-provider foundry
+          --type Foundry
 """
 
 helps["ai-gateway model show"] = """

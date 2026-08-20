@@ -158,6 +158,7 @@ def list_models(
     resource_group_name,
     provider_name=None,
     workspace_name=DEFAULT_WORKSPACE,
+    model_type=None,
 ):
     subscription_id = get_subscription_id(cmd.cli_ctx)
     path = _models_path(
@@ -167,7 +168,17 @@ def list_models(
         workspace_name,
         provider_name,
     )
-    return _list_all(cmd, path)
+    models = _list_all(cmd, path)
+    if model_type is None:
+        return models
+    return [
+        model
+        for model in models
+        if str(
+            (model.get("properties") or {}).get("providerKind") or ""
+        ).casefold()
+        == model_type.casefold()
+    ]
 
 
 def show_model(
