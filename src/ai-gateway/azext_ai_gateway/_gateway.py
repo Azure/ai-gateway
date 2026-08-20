@@ -44,6 +44,7 @@ _SENSITIVE_URL_SEGMENTS = (
     "/modelproviders/",
     "/toolservers/",
 )
+_SERVICE_ERROR_CODE_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9._-]{0,127}$")
 _SUBNET_RESOURCE_ID = re.compile(
     r"^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/"
     r"Microsoft\.Network/virtualNetworks/[^/]+/subnets/[^/]+$",
@@ -115,6 +116,49 @@ def _is_sensitive_request(url, body):
     )
 
 
+def _service_error_details(response):
+    if response is None or not getattr(response, "content", None):
+        return None, None
+    try:
+        payload = response.json()
+    except (json.JSONDecodeError, ValueError):
+        return None, None
+    if not isinstance(payload, dict):
+        return None, None
+
+    service_error = payload.get("error")
+    if not isinstance(service_error, dict):
+        service_error = payload
+    code = service_error.get("code")
+    description = service_error.get("message") or service_error.get("description")
+    if isinstance(code, str):
+        code = code.strip()
+    if isinstance(description, str):
+        description = description.strip()
+    return (
+        code
+        if isinstance(code, str) and _SERVICE_ERROR_CODE_PATTERN.fullmatch(code)
+        else None,
+        description if isinstance(description, str) and description else None,
+    )
+
+
+def _http_error_message(method, error, include_description):
+    response = getattr(error, "response", None)
+    status_code = getattr(response, "status_code", "unknown")
+    reason = getattr(response, "reason", None)
+    code, description = _service_error_details(response)
+
+    message = f"{method.upper()} request failed with HTTP {status_code}"
+    if reason:
+        message += f": {reason}"
+    if code:
+        message += f". Code: {code}"
+    if include_description and description:
+        message += f". Description: {description}"
+    return message if message.endswith((".", "!", "?")) else f"{message}."
+
+
 def _gateway_path(subscription_id, resource_group_name, name):
     return (
         f"/subscriptions/{quote(subscription_id, safe='')}"
@@ -158,13 +202,11 @@ def _request(
                 **request_kwargs,
             )
     except HTTPError as error:
-        if not _is_sensitive_request(url, body):
-            raise
-        status_code = getattr(error.response, "status_code", "unknown")
-        reason = getattr(error.response, "reason", None)
-        message = f"HTTP {status_code}"
-        if reason:
-            message += f": {reason}"
+        message = _http_error_message(
+            method,
+            error,
+            include_description=not _is_sensitive_request(url, body),
+        )
         raise HTTPError(message, error.response) from None
 
 

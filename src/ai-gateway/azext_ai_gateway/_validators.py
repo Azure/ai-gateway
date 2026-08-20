@@ -86,8 +86,10 @@ def _validate_cost_limit(policy):
         or not isinstance(amount, (int, float))
         or not _COST_AMOUNT_MIN <= amount <= _COST_AMOUNT_MAX
     ):
-        raise InvalidArgumentValueError(
-            "costLimit.amount must be a number from 0.000000001 to 10000000."
+        _raise_policy_field_error(
+            "costLimit",
+            "amount",
+            "must be a number from 0.000000001 to 10000000.",
         )
     _require_enum(policy, "period", _COST_PERIODS, "costLimit")
     _require_enum(policy, "counterKey", _COUNTER_KEYS, "costLimit")
@@ -98,10 +100,11 @@ def _validate_cost_limit(policy):
         not _HEADER_NAME_PATTERN.fullmatch(header_name)
         or header_name.casefold() in _RESTRICTED_RESPONSE_HEADERS
     ):
-        raise InvalidArgumentValueError(
-            "costLimit.remainingCostHeaderName must be a valid response header "
-            "other than Connection, Content-Length, Keep-Alive, or "
-            "Transfer-Encoding."
+        _raise_policy_field_error(
+            "costLimit",
+            "remainingCostHeaderName",
+            "must be a valid response header other than Connection, "
+            "Content-Length, Keep-Alive, or Transfer-Encoding.",
         )
 
 
@@ -138,46 +141,70 @@ def _validate_ip_filter(policy):
     _require_enum(policy, "action", {"Allow", "Deny"}, "ipFilter")
     cidr_ranges = policy.get("cidrRanges")
     if not isinstance(cidr_ranges, list) or not cidr_ranges:
-        raise InvalidArgumentValueError(
-            "ipFilter.cidrRanges must be a non-empty array of IPv4 CIDR ranges."
+        _raise_policy_field_error(
+            "ipFilter",
+            "cidrRanges",
+            "must be a non-empty array of IPv4 CIDR ranges.",
         )
     for cidr_range in cidr_ranges:
         if not isinstance(cidr_range, str) or "/" not in cidr_range:
-            raise InvalidArgumentValueError(
-                "ipFilter.cidrRanges must contain valid IPv4 CIDR ranges."
+            _raise_policy_field_error(
+                "ipFilter",
+                "cidrRanges",
+                "must contain valid IPv4 CIDR ranges.",
             )
         try:
             network = ipaddress.ip_network(cidr_range, strict=False)
         except (TypeError, ValueError) as error:
-            raise InvalidArgumentValueError(
-                "ipFilter.cidrRanges must contain valid IPv4 CIDR ranges."
-            ) from error
-        if network.version != 4:
-            raise InvalidArgumentValueError(
-                "ipFilter.cidrRanges must contain valid IPv4 CIDR ranges."
+            _raise_policy_field_error(
+                "ipFilter",
+                "cidrRanges",
+                "must contain valid IPv4 CIDR ranges.",
+                error,
             )
+        if network.version != 4:
+            _raise_policy_field_error(
+                "ipFilter",
+                "cidrRanges",
+                "must contain valid IPv4 CIDR ranges.",
+            )
+
+
+def _raise_policy_field_error(policy_type, field, message, cause=None):
+    error = InvalidArgumentValueError(
+        f"Failed to validate {policy_type} policy at '{field}': {message}"
+    )
+    if cause:
+        raise error from cause
+    raise error
 
 
 def _require_positive_integer(policy, field, policy_type):
     value = policy.get(field)
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-        raise InvalidArgumentValueError(
-            f"{policy_type}.{field} must be a positive integer."
+        _raise_policy_field_error(
+            policy_type,
+            field,
+            "must be a positive integer.",
         )
 
 
 def _require_enum(policy, field, values, policy_type):
     if policy.get(field) not in values:
         choices = ", ".join(sorted(values))
-        raise InvalidArgumentValueError(
-            f"{policy_type}.{field} must be one of: {choices}."
+        _raise_policy_field_error(
+            policy_type,
+            field,
+            f"must be one of: {choices}.",
         )
 
 
 def _require_optional_string(policy, field, policy_type):
     if field in policy and not isinstance(policy[field], str):
-        raise InvalidArgumentValueError(
-            f"{policy_type}.{field} must be a string."
+        _raise_policy_field_error(
+            policy_type,
+            field,
+            "must be a string.",
         )
 
 

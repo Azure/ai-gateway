@@ -8,7 +8,10 @@ from types import SimpleNamespace
 from unittest.mock import call, patch
 
 import pytest
-from azure.cli.core.azclierror import RequiredArgumentMissingError
+from azure.cli.core.azclierror import (
+    InvalidArgumentValueError,
+    RequiredArgumentMissingError,
+)
 
 from azext_ai_gateway import _model
 from azext_ai_gateway._validators import validate_policies, validate_policy
@@ -315,7 +318,8 @@ def test_policy_validator_accepts_known_schemas_and_unknown_types(policy):
                 "period": "minute",
                 "counterKey": "IPAddress",
             },
-            "tokenLimit.count must be a positive integer",
+            "Failed to validate tokenLimit policy at 'count': "
+            "must be a positive integer",
         ),
         (
             {
@@ -324,7 +328,7 @@ def test_policy_validator_accepts_known_schemas_and_unknown_types(policy):
                 "period": "month",
                 "counterKey": "Identity",
             },
-            "costLimit.amount must be a number",
+            "Failed to validate costLimit policy at 'amount': must be a number",
         ),
         (
             {
@@ -333,7 +337,8 @@ def test_policy_validator_accepts_known_schemas_and_unknown_types(policy):
                 "periodSeconds": "60",
                 "counterKey": "IPAddress",
             },
-            "requestRateLimit.periodSeconds must be a positive integer",
+            "Failed to validate requestRateLimit policy at 'periodSeconds': "
+            "must be a positive integer",
         ),
         (
             {
@@ -343,7 +348,8 @@ def test_policy_validator_accepts_known_schemas_and_unknown_types(policy):
                 "sexualSeverity": "Low",
                 "selfHarmSeverity": "Low",
             },
-            "contentSafety.hateSeverity must be one of",
+            "Failed to validate contentSafety policy at 'hateSeverity': "
+            "must be one of",
         ),
         (
             {
@@ -351,10 +357,28 @@ def test_policy_validator_accepts_known_schemas_and_unknown_types(policy):
                 "action": "Allow",
                 "cidrRanges": ["10.0.0.1"],
             },
-            "ipFilter.cidrRanges must contain valid IPv4 CIDR ranges",
+            "Failed to validate ipFilter policy at 'cidrRanges': "
+            "must contain valid IPv4 CIDR ranges",
         ),
     ],
 )
 def test_policy_validator_rejects_invalid_known_schemas(policy, message):
     with pytest.raises(Exception, match=message):
         validate_policy(json.dumps(policy))
+
+
+def test_policy_validator_identifies_attempted_policy_and_missing_field():
+    policy = {
+        "type": "requestRateLimit",
+        "callsPerPeriod": 200,
+        "period": "day",
+        "counterKey": "Identity",
+    }
+
+    with pytest.raises(InvalidArgumentValueError) as error:
+        validate_policy(json.dumps(policy))
+
+    assert str(error.value) == (
+        "Failed to validate requestRateLimit policy at 'periodSeconds': "
+        "must be a positive integer."
+    )

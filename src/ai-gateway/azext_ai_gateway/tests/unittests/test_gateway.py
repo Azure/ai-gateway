@@ -76,7 +76,12 @@ def test_sensitive_request_error_does_not_expose_response_body(
     cmd,
 ):
     response = FakeResponse(
-        {"error": {"message": "rejected sentinel-secret"}},
+        {
+            "error": {
+                "code": "InvalidCredentials",
+                "message": "rejected sentinel-secret",
+            }
+        },
         status_code=400,
         reason="Bad Request",
     )
@@ -93,8 +98,79 @@ def test_sensitive_request_error_does_not_expose_response_body(
             {"properties": {"clientSecret": "sentinel-secret"}},
         )
 
-    assert str(error.value) == "HTTP 400: Bad Request"
+    assert str(error.value) == (
+        "PUT request failed with HTTP 400: Bad Request. "
+        "Code: InvalidCredentials."
+    )
     assert error.value.response is response
+
+
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_request_error_includes_service_code_and_description(
+    send_request,
+    cmd,
+):
+    response = FakeResponse(
+        {
+            "error": {
+                "code": "InvalidPolicy",
+                "message": "periodSeconds is required.",
+            }
+        },
+        status_code=400,
+        reason="Bad Request",
+    )
+    send_request.side_effect = HTTPError("Bad Request", response)
+
+    with pytest.raises(HTTPError) as error:
+        _gateway._request(
+            cmd,
+            "PATCH",
+            "/resource",
+            {"properties": {"policies": []}},
+        )
+
+    assert str(error.value) == (
+        "PATCH request failed with HTTP 400: Bad Request. "
+        "Code: InvalidPolicy. Description: periodSeconds is required."
+    )
+    assert error.value.response is response
+
+
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_request_error_handles_non_json_response(send_request, cmd):
+    response = FakeResponse(status_code=502, reason="Bad Gateway")
+    send_request.side_effect = HTTPError("Bad Gateway", response)
+
+    with pytest.raises(HTTPError) as error:
+        _gateway._request(cmd, "GET", "/resource")
+
+    assert str(error.value) == "GET request failed with HTTP 502: Bad Gateway."
+
+
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_sensitive_request_omits_free_form_error_code(send_request, cmd):
+    response = FakeResponse(
+        {
+            "error": {
+                "code": "Invalid sentinel-secret",
+                "message": "rejected sentinel-secret",
+            }
+        },
+        status_code=400,
+        reason="Bad Request",
+    )
+    send_request.side_effect = HTTPError("Bad Request", response)
+
+    with pytest.raises(HTTPError) as error:
+        _gateway._request(
+            cmd,
+            "PUT",
+            "/resource",
+            {"credentials": {"secret": "sentinel-secret"}},
+        )
+
+    assert str(error.value) == "PUT request failed with HTTP 400: Bad Request."
 
 
 def test_list_secrets_request_is_always_sensitive():
