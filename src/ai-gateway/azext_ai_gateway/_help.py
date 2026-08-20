@@ -83,6 +83,8 @@ helps["ai-gateway create"] = """
     type: command
     short-summary: Create an AI Gateway.
     examples:
+      - name: List regions supported by the AI Gateway SKU.
+        text: az ai-gateway create --list-regions --output table
       - name: Create an AI Gateway with the fixed AI Gateway SKU.
         text: >-
           az ai-gateway create --name my-ai-gateway
@@ -462,7 +464,10 @@ helps["ai-gateway mcp authorize"] = """
 
 helps["ai-gateway mcp create"] = """
     type: command
-    short-summary: Create or replace an MCP tool server.
+    short-summary: Create an MCP tool server.
+    long-summary: >
+        The command fails if an MCP tool server with the same name already
+        exists. Use az ai-gateway mcp update to change an existing server.
     examples:
       - name: Create an MCP tool server from an endpoint definition file.
         text: >-

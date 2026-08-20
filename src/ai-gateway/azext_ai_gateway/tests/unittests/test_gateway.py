@@ -134,6 +134,47 @@ def test_create_uses_fixed_sku_and_defaults(
     assert result["properties"]["provisioningState"] == "Succeeded"
 
 
+@patch("azext_ai_gateway._gateway.get_subscription_id")
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_create_list_regions_does_not_require_creation_arguments(
+    send_request,
+    get_subscription,
+    cmd,
+):
+    assert _gateway.create_gateway(cmd, list_regions=True) == [
+        {"name": "eastus2", "displayName": "East US 2"},
+        {"name": "swedencentral", "displayName": "Sweden Central"},
+    ]
+    get_subscription.assert_not_called()
+    send_request.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "missing_option"),
+    [
+        (
+            {"resource_group_name": "rg", "location": "eastus2"},
+            "--name",
+        ),
+        (
+            {"name": "gateway", "location": "eastus2"},
+            "--resource-group",
+        ),
+        (
+            {"name": "gateway", "resource_group_name": "rg"},
+            "--location",
+        ),
+    ],
+)
+def test_create_requires_creation_arguments_without_list_regions(
+    cmd,
+    kwargs,
+    missing_option,
+):
+    with pytest.raises(RequiredArgumentMissingError, match=missing_option):
+        _gateway.create_gateway(cmd, **kwargs)
+
+
 @patch("azext_ai_gateway._gateway.get_subscription_id", return_value="sub")
 @patch("azext_ai_gateway._gateway.send_raw_request")
 def test_list_follows_pages_and_filters_non_ai_gateway_skus(

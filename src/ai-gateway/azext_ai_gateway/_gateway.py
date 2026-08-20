@@ -24,6 +24,10 @@ from azure.cli.core.util import send_raw_request
 API_VERSION = "2025-09-01-preview"
 DEFAULT_PUBLISHER_EMAIL = "noreply@aigateway.azure.com"
 DEFAULT_PUBLISHER_NAME = "AI Gateway Administrator"
+AI_GATEWAY_REGIONS = (
+    {"name": "eastus2", "displayName": "East US 2"},
+    {"name": "swedencentral", "displayName": "Sweden Central"},
+)
 PROVIDER_PATH = "Microsoft.ApiManagement/service"
 POLL_INTERVAL_SECONDS = 5
 POLL_TIMEOUT_SECONDS = 300
@@ -291,16 +295,35 @@ def _networking_properties(
 
 def create_gateway(
     cmd,
-    name,
-    resource_group_name,
-    location,
+    name=None,
+    resource_group_name=None,
+    location=None,
     publisher_email=DEFAULT_PUBLISHER_EMAIL,
     publisher_name=DEFAULT_PUBLISHER_NAME,
     tags=None,
     mi_system_assigned=None,
     mi_user_assigned=None,
     no_wait=False,
+    list_regions=False,
 ):
+    if list_regions:
+        return [dict(region) for region in AI_GATEWAY_REGIONS]
+
+    missing_options = [
+        option
+        for option, value in [
+            ("--name", name),
+            ("--resource-group", resource_group_name),
+            ("--location", location),
+        ]
+        if not value
+    ]
+    if missing_options:
+        raise RequiredArgumentMissingError(
+            f"Specify {', '.join(missing_options)} when creating an AI Gateway, "
+            "or use --list-regions to list supported regions."
+        )
+
     subscription_id = get_subscription_id(cmd.cli_ctx)
     path = _gateway_path(subscription_id, resource_group_name, name)
     body = {

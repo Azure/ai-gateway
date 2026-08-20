@@ -32,13 +32,23 @@ Manage and use the AI Gateway SKU in Azure API Management.
 
 | Command | Syntax |
 | --- | --- |
-| `create` | `az ai-gateway create -n <gateway> -g <group> -l <region> [options]` |
+| `create` | `az ai-gateway create -n <gateway> -g <group> -l <region> [options]` or `az ai-gateway create --list-regions` |
 | `delete` | `az ai-gateway delete -n <gateway> -g <group>` |
 | `import` | `az ai-gateway import -n <gateway> -g <group> --source-apim-id <id> --dry-run [options]` |
 | `list` | `az ai-gateway list [-g <group>]` |
 | `show` | `az ai-gateway show -n <gateway> -g <group>` |
 | `update` | `az ai-gateway update -n <gateway> -g <group> [options]` |
 | `version` | `az ai-gateway version` |
+
+List the production regions supported by the AI Gateway SKU:
+
+```bash
+az ai-gateway create --list-regions --output table
+```
+
+The listed regions are advisory. `create` sends any supplied `--location`
+directly to the AI Gateway service so newly enabled regions can be used before
+they appear in this list.
 
 
 ### Networking
@@ -315,7 +325,9 @@ az ai-gateway mcp test \
 
 ### `az ai-gateway mcp create`
 
-Create or replace an MCP tool server that federates one or more tool endpoints.
+Create an MCP tool server that federates one or more tool endpoints. The command
+fails if a server with the same name already exists; use `mcp update` to change
+an existing server.
 
 #### Options
 

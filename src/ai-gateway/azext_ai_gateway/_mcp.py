@@ -316,7 +316,13 @@ def create_mcp(
         name,
     )
     return _response_json(
-        _request(cmd, "PUT", path, {"properties": properties})
+        _request(
+            cmd,
+            "PUT",
+            path,
+            {"properties": properties},
+            headers={"If-None-Match": "*"},
+        )
     )
 
 

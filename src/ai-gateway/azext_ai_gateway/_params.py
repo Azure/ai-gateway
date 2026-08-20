@@ -6,7 +6,6 @@
 from azure.cli.core.commands.parameters import (
     file_type,
     get_enum_type,
-    get_location_type,
     get_three_state_flag,
     resource_group_name_type,
     tags_type,
@@ -44,10 +43,20 @@ def load_arguments(loader, _):
 
     with loader.argument_context("ai-gateway create") as context:
         context.argument(
+            "list_regions",
+            action="store_true",
+            help=(
+                "List the Azure regions supported by the AI Gateway SKU "
+                "without creating a gateway."
+            ),
+        )
+        context.argument(
             "location",
             options_list=["--location", "-l"],
-            arg_type=get_location_type(loader.cli_ctx),
-            help="Azure region in which to create the gateway.",
+            help=(
+                "Azure region in which to create the gateway. The value is "
+                "sent directly to the AI Gateway service for validation."
+            ),
         )
         context.argument(
             "publisher_email",

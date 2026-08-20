@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------------------------
 
 from collections import defaultdict
-from unittest.mock import patch
 
 from azext_ai_gateway import _params
 
@@ -50,8 +49,7 @@ def _get_argument(loader, command, name):
 
 def test_gateway_arguments_use_ai_gateway_configured_default():
     loader = _Loader()
-    with patch.object(_params, "get_location_type", return_value=object()):
-        _params.load_arguments(loader, None)
+    _params.load_arguments(loader, None)
 
     top_level_commands = [
         "ai-gateway create",
@@ -127,10 +125,29 @@ def test_gateway_arguments_use_ai_gateway_configured_default():
     assert "configured_default" not in model_name
 
 
+def test_gateway_create_accepts_list_regions_flag():
+    loader = _Loader()
+    _params.load_arguments(loader, None)
+
+    argument = _get_argument(
+        loader,
+        "ai-gateway create",
+        "list_regions",
+    )
+    assert argument["action"] == "store_true"
+
+
+def test_gateway_create_does_not_prevalidate_location():
+    loader = _Loader()
+    _params.load_arguments(loader, None)
+
+    argument = _get_argument(loader, "ai-gateway create", "location")
+    assert "arg_type" not in argument
+
+
 def test_model_provider_create_no_sync_is_opt_out_flag():
     loader = _Loader()
-    with patch.object(_params, "get_location_type", return_value=object()):
-        _params.load_arguments(loader, None)
+    _params.load_arguments(loader, None)
 
     argument = _get_argument(
         loader,
@@ -143,8 +160,7 @@ def test_model_provider_create_no_sync_is_opt_out_flag():
 
 def test_model_list_accepts_provider_and_type_filters():
     loader = _Loader()
-    with patch.object(_params, "get_location_type", return_value=object()):
-        _params.load_arguments(loader, None)
+    _params.load_arguments(loader, None)
 
     provider = _get_argument(
         loader,
@@ -166,8 +182,7 @@ def test_model_list_accepts_provider_and_type_filters():
 
 def test_model_provider_sync_accepts_api_key_value():
     loader = _Loader()
-    with patch.object(_params, "get_location_type", return_value=object()):
-        _params.load_arguments(loader, None)
+    _params.load_arguments(loader, None)
 
     argument = _get_argument(
         loader,
@@ -182,8 +197,7 @@ def test_model_provider_sync_accepts_api_key_value():
 
 def test_mcp_test_accepts_api_key_name():
     loader = _Loader()
-    with patch.object(_params, "get_location_type", return_value=object()):
-        _params.load_arguments(loader, None)
+    _params.load_arguments(loader, None)
 
     argument = _get_argument(
         loader,
@@ -198,8 +212,7 @@ def test_mcp_test_accepts_api_key_name():
 
 def test_telemetry_exporter_create_accepts_custom_otlp_options():
     loader = _Loader()
-    with patch.object(_params, "get_location_type", return_value=object()):
-        _params.load_arguments(loader, None)
+    _params.load_arguments(loader, None)
 
     command = "ai-gateway telemetry-exporter create"
     application_insights = _get_argument(
@@ -248,8 +261,7 @@ def test_telemetry_exporter_create_accepts_custom_otlp_options():
 
 def test_workspace_name_is_not_exposed():
     loader = _Loader()
-    with patch.object(_params, "get_location_type", return_value=object()):
-        _params.load_arguments(loader, None)
+    _params.load_arguments(loader, None)
 
     commands = [
         *[

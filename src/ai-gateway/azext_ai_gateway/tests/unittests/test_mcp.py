@@ -122,6 +122,7 @@ def test_create_mcp_strips_server_managed_oauth_fields(
     assert "status" not in oauth
     assert "tokenKind" not in oauth
     assert body["properties"]["type"] == "mcp"
+    assert "If-None-Match=*" in send_request.call_args.kwargs["headers"]
 
 
 @patch("azext_ai_gateway._mcp.get_subscription_id", return_value="sub")
