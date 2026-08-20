@@ -61,7 +61,7 @@ def test_gateway_arguments_use_ai_gateway_configured_default():
     nested_commands = [
         *[
             f"ai-gateway model {operation}"
-            for operation in ["create", "delete", "list", "show", "update"]
+            for operation in ["create", "delete", "list", "show"]
         ],
         *[
             f"ai-gateway model-provider {operation}"
@@ -288,7 +288,7 @@ def test_workspace_name_is_not_exposed():
     commands = [
         *[
             f"ai-gateway model {operation}"
-            for operation in ["create", "delete", "list", "show", "update"]
+            for operation in ["create", "delete", "list", "show"]
         ],
         *[
             f"ai-gateway model-provider {operation}"

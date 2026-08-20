@@ -189,63 +189,6 @@ def test_create_requires_model_name_for_deployment(cmd):
         )
 
 
-@patch("azext_ai_gateway._model.get_subscription_id", return_value="sub")
-@patch("azext_ai_gateway._gateway.send_raw_request")
-def test_update_uses_etag_and_preserves_existing_deployment_fields(
-    send_request,
-    _,
-    cmd,
-):
-    send_request.side_effect = [
-        FakeResponse(
-            {
-                "etag": "body-etag",
-                "properties": {
-                    "deployment": {
-                        "resourceId": "/deployment",
-                        "modelName": "gpt-4o",
-                        "modelVersion": "old",
-                    }
-                },
-            },
-            headers={"ETag": "header-etag"},
-        ),
-        FakeResponse({"name": "gpt-4o"}),
-    ]
-
-    _model.update_model(
-        cmd,
-        "gpt-4o",
-        "gateway",
-        "rg",
-        "foundry",
-        deployment_model_version="new",
-    )
-
-    patch_call = send_request.call_args_list[1]
-    assert "If-Match=header-etag" in patch_call.kwargs["headers"]
-    assert json.loads(patch_call.kwargs["body"]) == {
-        "properties": {
-            "deployment": {
-                "resourceId": "/deployment",
-                "modelName": "gpt-4o",
-                "modelVersion": "new",
-            }
-        }
-    }
-
-
-def test_update_requires_a_property(cmd):
-    with pytest.raises(RequiredArgumentMissingError):
-        _model.update_model(
-            cmd,
-            "model",
-            "gateway",
-            "rg",
-            "provider",
-        )
-
-
 def test_policy_validator_accepts_inline_array_and_rejects_missing_type():
     assert validate_policies(
         '[{"type":"tokenLimit","count":100,'

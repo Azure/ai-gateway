@@ -93,7 +93,6 @@ def _build_deployment(
     deployment_resource_id,
     deployment_model_name,
     deployment_model_version,
-    current=None,
 ):
     if all(
         value is None
@@ -105,7 +104,7 @@ def _build_deployment(
     ):
         return None
 
-    deployment = dict(current or {})
+    deployment = {}
     if deployment_resource_id is not None:
         deployment["resourceId"] = deployment_resource_id
     if deployment_model_name is not None:
@@ -128,7 +127,6 @@ def _build_properties(
     deployment_model_version=None,
     supported_endpoints=None,
     policies=None,
-    current_deployment=None,
 ):
     properties = {}
     if display_name is not None:
@@ -141,7 +139,6 @@ def _build_properties(
         deployment_resource_id,
         deployment_model_name,
         deployment_model_version,
-        current_deployment,
     )
     if deployment is not None:
         properties["deployment"] = deployment
@@ -240,83 +237,6 @@ def create_model(
         name,
     )
     return _response_json(_request(cmd, "PUT", path, {"properties": properties}))
-
-
-def update_model(
-    cmd,
-    name,
-    gateway_name,
-    resource_group_name,
-    provider_name,
-    workspace_name=DEFAULT_WORKSPACE,
-    display_name=None,
-    description=None,
-    api_format=None,
-    deployment_resource_id=None,
-    deployment_model_name=None,
-    deployment_model_version=None,
-    supported_endpoints=None,
-    policies=None,
-    if_match=None,
-):
-    supplied_values = [
-        display_name,
-        description,
-        api_format,
-        deployment_resource_id,
-        deployment_model_name,
-        deployment_model_version,
-        supported_endpoints,
-        policies,
-    ]
-    if all(value is None for value in supplied_values):
-        raise RequiredArgumentMissingError(
-            "Specify at least one model property to update."
-        )
-
-    subscription_id = get_subscription_id(cmd.cli_ctx)
-    path = _models_path(
-        subscription_id,
-        resource_group_name,
-        gateway_name,
-        workspace_name,
-        provider_name,
-        name,
-    )
-    try:
-        current_response = _request(cmd, "GET", path)
-    except HTTPError as error:
-        _raise_model_not_found(error, name)
-    current = _response_json(current_response)
-    current_properties = current.get("properties") or {}
-    properties = _build_properties(
-        display_name,
-        description,
-        api_format,
-        deployment_resource_id,
-        deployment_model_name,
-        deployment_model_version,
-        supported_endpoints,
-        policies,
-        current_properties.get("deployment"),
-    )
-
-    etag = (
-        if_match
-        or current_response.headers.get("ETag")
-        or current_response.headers.get("etag")
-        or current.get("etag")
-    )
-    headers = {"If-Match": etag} if etag else None
-    return _response_json(
-        _request(
-            cmd,
-            "PATCH",
-            path,
-            {"properties": properties},
-            headers=headers,
-        )
-    )
 
 
 def delete_model(

@@ -313,23 +313,6 @@ helps["ai-gateway model show"] = """
           --name gpt-4o
 """
 
-helps["ai-gateway model update"] = """
-    type: command
-    short-summary: Update a model registration.
-    examples:
-      - name: Update model metadata and supported endpoints.
-        text: >-
-          az ai-gateway model update --resource-name my-ai-gateway
-          --resource-group my-resource-group --provider-name custom
-          --name llama --description "Production model"
-          --supported-endpoints /v1/chat/completions /v1/responses
-      - name: Replace inline policies from a JSON file.
-        text: >-
-          az ai-gateway model update --resource-name my-ai-gateway
-          --resource-group my-resource-group --provider-name foundry
-          --name gpt-4o --policies @policies.json
-"""
-
 helps["ai-gateway model-provider"] = """
     type: group
     short-summary: Manage model providers.

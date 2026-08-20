@@ -178,7 +178,6 @@ def load_arguments(loader, _):
         "ai-gateway model delete",
         "ai-gateway model list",
         "ai-gateway model show",
-        "ai-gateway model update",
     ]
     for command in model_commands:
         with loader.argument_context(command) as context:
@@ -195,7 +194,6 @@ def load_arguments(loader, _):
         "ai-gateway model create",
         "ai-gateway model delete",
         "ai-gateway model show",
-        "ai-gateway model update",
     ]:
         with loader.argument_context(command) as context:
             context.argument(
@@ -224,7 +222,6 @@ def load_arguments(loader, _):
 
     for command in [
         "ai-gateway model create",
-        "ai-gateway model update",
     ]:
         with loader.argument_context(command) as context:
             context.argument("display_name", help="Display name of the model.")
@@ -265,15 +262,6 @@ def load_arguments(loader, _):
                 type=validate_policies,
                 help="Inline policy JSON array or path prefixed with '@'.",
             )
-
-    with loader.argument_context("ai-gateway model update") as context:
-        context.argument(
-            "if_match",
-            help=(
-                "ETag used to reject stale updates. By default, the current "
-                "ETag is retrieved automatically."
-            ),
-        )
 
     model_provider_commands = [
         "ai-gateway model-provider create",

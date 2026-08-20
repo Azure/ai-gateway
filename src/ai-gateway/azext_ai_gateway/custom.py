@@ -17,7 +17,6 @@ from azext_ai_gateway._model import (
     delete_model,
     list_models,
     show_model,
-    update_model,
 )
 from azext_ai_gateway._model_provider import (
     create_model_provider,

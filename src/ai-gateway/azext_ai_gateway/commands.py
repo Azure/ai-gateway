@@ -63,7 +63,6 @@ def load_command_table(loader, _):
             table_transformer=format_model_list_table,
         )
         group.custom_show_command("show", "show_model")
-        group.custom_command("update", "update_model")
 
     with loader.command_group("ai-gateway model-provider") as group:
         group.custom_command("create", "create_model_provider")
