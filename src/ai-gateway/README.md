@@ -459,6 +459,68 @@ Manage policies on gateway assets.
 
 Policy IDs contain `#`; quote literal IDs.
 
+### `az ai-gateway policy create`
+
+Add an new policy to an asset.
+
+#### Options
+
+| Option | Description |
+| --- | --- |
+| `--scope-type` | Required. Type of the scope at which the policy will be applied: `model` or `mcp`. |
+| `--scope-name` | Required. Name of the asset at which the policy is attached. |
+| `--policy` | Required. Policy JSON object or `@file`. The object must contain `type`. |
+| `--provider-name` | Model provider name. Required when `--scope-type` is `model`. |
+
+#### Policy schema
+
+The CLI requires a JSON object with `type`. The schemas below cover
+`tokenLimit`, `costLimit`, `requestRateLimit`, `contentSafety`, and `ipFilter`;
+other policy types and fields are passed through unchanged.
+
+| Field | Policy type | Description |
+| --- | --- | --- |
+| `type` | All | Required. Policy type: `tokenLimit`, `costLimit`, `requestRateLimit`, `contentSafety`, or `ipFilter`. |
+| `period` | `tokenLimit` | Limit period: `minute`, `hour`, or `day`. |
+| `count` | `tokenLimit` | Positive integer token limit for the period. |
+| `displayName` | `costLimit` | Optional display name for the cost limit. |
+| `amount` | `costLimit` | Cost limit amount for the period. |
+| `period` | `costLimit` | Limit period: `hour`, `day`, `week`, `month`, or `year`. |
+| `remainingCostHeaderName` | `costLimit` | Optional response header name for the remaining cost allowance. |
+| `callsPerPeriod` | `requestRateLimit` | Positive integer request limit for the period. |
+| `periodSeconds` | `requestRateLimit` | Positive integer duration of the request-limit period, in seconds. |
+| `counterKey` | `tokenLimit`, `costLimit`, `requestRateLimit` | Counter scope: `IPAddress` or `Identity`. |
+| `hateSeverity` | `contentSafety` | Hate-content threshold: `Low`, `Medium`, `High`, or `None`. |
+| `selfHarmSeverity` | `contentSafety` | Self-harm-content threshold: `Low`, `Medium`, `High`, or `None`. |
+| `sexualSeverity` | `contentSafety` | Sexual-content threshold: `Low`, `Medium`, `High`, or `None`. |
+| `violenceSeverity` | `contentSafety` | Violence-content threshold: `Low`, `Medium`, `High`, or `None`. |
+| `action` | `ipFilter` | Filter behavior: `Allow` or `Deny`. |
+| `cidrRanges` | `ipFilter` | Array of IPv4 CIDR ranges, such as `["10.0.0.0/8"]`. Bare IP addresses are not accepted. |
+
+
+Create `policy.json` with a token-limit policy:
+
+```json
+{
+  "type": "tokenLimit",
+  "period": "minute",
+  "count": 5000,
+  "counterKey": "IPAddress"
+}
+```
+
+Add the policy to a model:
+
+```bash
+az ai-gateway policy create \
+  --scope-type model \
+  --scope-name gpt-4o \
+  --provider-name foundry \
+  --policy @policy.json \
+  --resource-name my-ai-gateway \
+  --resource-group my-resource-group
+```
+
 ### `az ai-gateway policy import-support`
 
 Inspect APIM policy import and translation capabilities.

@@ -11,7 +11,7 @@ import pytest
 from azure.cli.core.azclierror import RequiredArgumentMissingError
 
 from azext_ai_gateway import _model
-from azext_ai_gateway._validators import validate_policies
+from azext_ai_gateway._validators import validate_policies, validate_policy
 
 
 class FakeResponse:
@@ -244,8 +244,117 @@ def test_update_requires_a_property(cmd):
 
 
 def test_policy_validator_accepts_inline_array_and_rejects_missing_type():
-    assert validate_policies('[{"type":"tokenLimit","count":100}]') == [
-        {"type": "tokenLimit", "count": 100}
+    assert validate_policies(
+        '[{"type":"tokenLimit","count":100,'
+        '"period":"minute","counterKey":"IPAddress"}]'
+    ) == [
+        {
+            "type": "tokenLimit",
+            "count": 100,
+            "period": "minute",
+            "counterKey": "IPAddress",
+        }
     ]
-    with pytest.raises(Exception, match="each contain 'type'"):
+    with pytest.raises(Exception, match="each contain a non-empty string 'type'"):
         validate_policies('[{"count":100}]')
+    with pytest.raises(Exception, match="non-empty string 'type'"):
+        validate_policy('{"type": {}}')
+
+
+@pytest.mark.parametrize(
+    "policy",
+    [
+        {
+            "type": "tokenLimit",
+            "count": 100,
+            "period": "minute",
+            "counterKey": "IPAddress",
+        },
+        {
+            "type": "costLimit",
+            "amount": 200,
+            "period": "month",
+            "counterKey": "Identity",
+            "displayName": "Monthly budget",
+            "remainingCostHeaderName": "x-cost-remaining",
+        },
+        {
+            "type": "requestRateLimit",
+            "callsPerPeriod": 100,
+            "periodSeconds": 60,
+            "counterKey": "IPAddress",
+        },
+        {
+            "type": "contentSafety",
+            "hateSeverity": "Low",
+            "violenceSeverity": "Medium",
+            "sexualSeverity": "High",
+            "selfHarmSeverity": "None",
+        },
+        {
+            "type": "ipFilter",
+            "action": "Allow",
+            "cidrRanges": ["10.0.0.0/8"],
+        },
+        {"type": "futurePolicy", "customField": True},
+    ],
+)
+def test_policy_validator_accepts_known_schemas_and_unknown_types(policy):
+    serialized = json.dumps(policy)
+    assert validate_policy(serialized) == policy
+    assert validate_policies(f"[{serialized}]") == [policy]
+
+
+@pytest.mark.parametrize(
+    ("policy", "message"),
+    [
+        (
+            {
+                "type": "tokenLimit",
+                "count": 0,
+                "period": "minute",
+                "counterKey": "IPAddress",
+            },
+            "tokenLimit.count must be a positive integer",
+        ),
+        (
+            {
+                "type": "costLimit",
+                "amount": 0,
+                "period": "month",
+                "counterKey": "Identity",
+            },
+            "costLimit.amount must be a number",
+        ),
+        (
+            {
+                "type": "requestRateLimit",
+                "callsPerPeriod": 100,
+                "periodSeconds": "60",
+                "counterKey": "IPAddress",
+            },
+            "requestRateLimit.periodSeconds must be a positive integer",
+        ),
+        (
+            {
+                "type": "contentSafety",
+                "hateSeverity": "Critical",
+                "violenceSeverity": "Low",
+                "sexualSeverity": "Low",
+                "selfHarmSeverity": "Low",
+            },
+            "contentSafety.hateSeverity must be one of",
+        ),
+        (
+            {
+                "type": "ipFilter",
+                "action": "Allow",
+                "cidrRanges": ["10.0.0.1"],
+            },
+            "ipFilter.cidrRanges must contain valid IPv4 CIDR ranges",
+        ),
+    ],
+)
+def test_policy_validator_rejects_invalid_known_schemas(policy, message):
+    with pytest.raises(Exception, match=message):
+        validate_policy(json.dumps(policy))
