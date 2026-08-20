@@ -21,6 +21,7 @@ from azure.cli.core.azclierror import (
     InvalidArgumentValueError,
 )
 from azure.cli.core.commands.client_factory import get_subscription_id
+from knack.log import get_logger
 
 from azext_ai_gateway._gateway import (
     _gateway_path,
@@ -42,6 +43,7 @@ NON_REST_API_TYPES = {
     "soap",
     "websocket",
 }
+logger = get_logger(__name__)
 MODEL_HOST_SUFFIXES = (
     ".openai.azure.com",
     ".models.ai.azure.com",
@@ -49,6 +51,11 @@ MODEL_HOST_SUFFIXES = (
     "api.anthropic.com",
     "api.openai.com",
 )
+MODEL_POLICY_STATEMENTS = {
+    "azure-openai-token-limit",
+    "llm-content-safety",
+    "llm-token-limit",
+}
 SENSITIVE_PROPERTY_NAMES = {
     "certificate",
     "clientcertificate",
@@ -189,12 +196,16 @@ def _optional_policy(cmd, scope_id, errors):
             }
         )
         return None
+    text = getattr(response, "text", None)
+    if isinstance(text, str):
+        text = text.removeprefix("\ufeff")
+        if text.lstrip().startswith("<"):
+            return text
     body = _response_json(response)
     if isinstance(body, dict):
         value = (body.get("properties") or {}).get("value") or body.get("value")
         if isinstance(value, str):
             return value
-    text = getattr(response, "text", None)
     return text if isinstance(text, str) else None
 
 
@@ -335,6 +346,12 @@ def _discover_scope(
     errors,
     scope_policy=None,
 ):
+    scope_label = (
+        f"workspace '{workspace_name}'"
+        if workspace_name is not None
+        else "service scope"
+    )
+    logger.warning("Checking backends and APIs in APIM %s...", scope_label)
     backends = _optional_list(
         cmd,
         f"{scope_id}/backends",
@@ -358,16 +375,26 @@ def _discover_scope(
         f"{scope_id}/apis",
     )
     discovered = []
-    for api in apis:
+    for index, api in enumerate(apis, start=1):
+        logger.warning(
+            "Checking API '%s' in APIM %s (%d of %d)...",
+            api.get("name") or "(unnamed)",
+            scope_label,
+            index,
+            len(apis),
+        )
         api_id = api.get("id") or (
             f"{scope_id}/apis/{quote(str(api.get('name') or ''), safe='')}"
         )
         policy_xml = _optional_policy(cmd, api_id, errors)
         policy = _policy_summary(policy_xml, api_id, "api")
-        backend_ids = policy["backendIds"]
+        backend_ids = list(policy["backendIds"])
+        api_backend_id = (api.get("properties") or {}).get("backendId")
+        if api_backend_id:
+            backend_ids.append(unquote(str(api_backend_id).rsplit("/", 1)[-1]))
         resolved_backends = [
             backend_by_name[backend_id.casefold()]
-            for backend_id in backend_ids
+            for backend_id in dict.fromkeys(backend_ids)
             if backend_id.casefold() in backend_by_name
         ]
         operations = _optional_list(
@@ -443,6 +470,7 @@ def _discover_scope(
 
 def _discover_source(cmd, source_apim_id):
     errors = []
+    logger.warning("Checking source APIM resource and service policy...")
     source = _response_json(_request(cmd, "GET", source_apim_id))
     if str((source.get("sku") or {}).get("name", "")).casefold() == "aigateway":
         raise InvalidArgumentValueError(
@@ -464,6 +492,7 @@ def _discover_source(cmd, source_apim_id):
         scope_policy=source_policy,
     )
     assets = list(root_assets)
+    logger.warning("Checking APIM workspaces...")
     workspaces = _optional_list(
         cmd,
         f"{source_apim_id}/workspaces",
@@ -601,8 +630,13 @@ def _classify(record, effective_url):
         str((backend.get("properties") or {}).get("resourceId") or "").casefold()
         for backend in record["backends"]
     ]
+    policy_statements = {
+        str(statement).casefold()
+        for statement in (record.get("policy") or {}).get("statements", [])
+    }
     if (
         any(host.endswith(suffix) for suffix in MODEL_HOST_SUFFIXES)
+        or policy_statements & MODEL_POLICY_STATEMENTS
         or (
             host.endswith(".services.ai.azure.com")
             and ("/models" in path or "/openai" in path)
@@ -1146,11 +1180,6 @@ def format_import_table(result):
         provider_name = destination.get("providerName")
         if provider_name:
             destination_name = f"{provider_name}/{destination_name}"
-        details = list(assessment.get("reasons") or [])
-        details.extend(
-            f"Warning: {warning}"
-            for warning in assessment.get("warnings") or []
-        )
         rows.append(
             {
                 "Type": asset.get("assetType"),
@@ -1158,12 +1187,6 @@ def format_import_table(result):
                 "Workspace": source.get("workspace") or "(service)",
                 "Destination": destination_name,
                 "Status": assessment.get("status"),
-                "Properties": json.dumps(
-                    source.get("properties") or {},
-                    separators=(",", ":"),
-                    sort_keys=True,
-                ),
-                "Details": "; ".join(details),
             }
         )
     for error in result.get("discoveryErrors") or []:
@@ -1174,8 +1197,6 @@ def format_import_table(result):
                 "Workspace": "",
                 "Destination": "",
                 "Status": "error",
-                "Properties": "",
-                "Details": error.get("message"),
             }
         )
     return rows
@@ -1221,11 +1242,17 @@ def import_from_apim(
             "The source APIM service and destination AI Gateway must differ."
         )
 
+    logger.warning("Discovering assets in source APIM '%s'...", source_parts["name"])
     discovered = _discover_source(cmd, source_apim_id)
+    logger.warning("Checking destination AI Gateway '%s'...", name)
     destination = _destination_inventory(cmd, destination_id)
     selected_types = set(include or ["models", "agents", "tools"])
     singular = {"models": "model", "agents": "agent", "tools": "tool"}
     selected = {singular[value] for value in selected_types}
+    logger.warning(
+        "Assessing import compatibility for %d discovered assets...",
+        len(discovered["assets"]),
+    )
     assets = [
         _inventory_asset(
             record,
@@ -1241,6 +1268,7 @@ def import_from_apim(
     assets = [
         asset for asset in assets if asset["assetType"] in selected
     ]
+    logger.warning("Dry-run assessment complete.")
     return {
         "dryRun": True,
         "source": discovered["source"],

@@ -27,6 +27,35 @@ def cmd():
     return SimpleNamespace(cli_ctx=object())
 
 
+def test_format_api_key_list_table():
+    keys = [
+        {
+            "name": "production",
+            "properties": {
+                "state": "active",
+                "createdDate": "2026-08-19T20:00:00Z",
+                "expirationDate": "2027-08-19T20:00:00Z",
+            },
+        },
+        {"name": "development", "properties": {}},
+    ]
+
+    assert _api_key.format_api_key_list_table(keys) == [
+        {
+            "Name": "production",
+            "State": "active",
+            "Created": "2026-08-19T20:00:00Z",
+            "Expiration date": "2027-08-19T20:00:00Z",
+        },
+        {
+            "Name": "development",
+            "State": "",
+            "Created": "",
+            "Expiration date": "",
+        },
+    ]
+
+
 @patch("azext_ai_gateway._api_key.get_subscription_id", return_value="sub")
 @patch("azext_ai_gateway._gateway.send_raw_request")
 def test_create_uses_resource_name_as_default_display_name(
@@ -87,4 +116,3 @@ def test_regenerate_maps_key_type_to_service_action(
     assert send_request.call_args.args[2].endswith(
         "/apiKeys/production/regenerateSecondaryKey"
     )
-

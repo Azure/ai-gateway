@@ -21,6 +21,30 @@ from azext_ai_gateway._gateway import (
 DEFAULT_WORKSPACE = "default"
 
 
+def _provider_name(model):
+    model_id = str(model.get("id") or "")
+    marker = "/modelProviders/"
+    marker_index = model_id.casefold().find(marker.casefold())
+    if marker_index < 0:
+        return ""
+    provider_start = marker_index + len(marker)
+    return model_id[provider_start:].split("/", 1)[0]
+
+
+def format_model_list_table(models):
+    return [
+        {
+            "Name": model.get("name") or "",
+            "Type": (model.get("properties") or {}).get("providerKind") or "",
+            "Provider name": _provider_name(model),
+            "Endpoints": ", ".join(
+                (model.get("properties") or {}).get("supportedEndpoints") or []
+            ),
+        }
+        for model in models
+    ]
+
+
 def _models_path(
     subscription_id,
     resource_group_name,

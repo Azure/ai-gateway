@@ -61,6 +61,50 @@ def test_list_models_uses_cross_provider_path_and_follows_pages(
     )
 
 
+def test_format_model_list_table():
+    models = [
+        {
+            "id": (
+                "/workspaces/default/modelProviders/foundry-main/"
+                "models/gpt-4o"
+            ),
+            "name": "gpt-4o",
+            "properties": {
+                "providerKind": "Foundry",
+                "supportedEndpoints": [
+                    "/openai/v1/chat/completions",
+                    "/openai/v1/responses",
+                ],
+            },
+        },
+        {
+            "id": (
+                "/workspaces/default/modelproviders/custom/"
+                "models/llama"
+            ),
+            "name": "llama",
+            "properties": {"providerKind": "Custom"},
+        },
+    ]
+
+    assert _model.format_model_list_table(models) == [
+        {
+            "Name": "gpt-4o",
+            "Type": "Foundry",
+            "Provider name": "foundry-main",
+            "Endpoints": (
+                "/openai/v1/chat/completions, /openai/v1/responses"
+            ),
+        },
+        {
+            "Name": "llama",
+            "Type": "Custom",
+            "Provider name": "custom",
+            "Endpoints": "",
+        },
+    ]
+
+
 @patch("azext_ai_gateway._model.get_subscription_id", return_value="sub")
 @patch("azext_ai_gateway._gateway.send_raw_request")
 def test_create_model_builds_foundry_deployment_payload(
@@ -173,4 +217,3 @@ def test_policy_validator_accepts_inline_array_and_rejects_missing_type():
     ]
     with pytest.raises(Exception, match="each contain 'type'"):
         validate_policies('[{"count":100}]')
-

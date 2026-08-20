@@ -30,6 +30,32 @@ def cmd():
     return SimpleNamespace(cli_ctx=object())
 
 
+def test_format_mcp_list_table():
+    servers = [
+        {
+            "name": "tools",
+            "properties": {
+                "description": "Shared engineering tools",
+                "mcpEndpointUrl": "https://gateway.example.com/mcp/tools",
+            },
+        },
+        {"name": "empty", "properties": {}},
+    ]
+
+    assert _mcp.format_mcp_list_table(servers) == [
+        {
+            "Name": "tools",
+            "Description": "Shared engineering tools",
+            "Endpoint": "https://gateway.example.com/mcp/tools",
+        },
+        {
+            "Name": "empty",
+            "Description": "",
+            "Endpoint": "",
+        },
+    ]
+
+
 @patch("azext_ai_gateway._mcp.get_subscription_id", return_value="sub")
 @patch("azext_ai_gateway._gateway.send_raw_request")
 def test_create_mcp_strips_server_managed_oauth_fields(

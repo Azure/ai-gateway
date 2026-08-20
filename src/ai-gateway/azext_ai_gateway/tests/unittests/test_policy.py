@@ -28,6 +28,39 @@ def cmd():
     return SimpleNamespace(cli_ctx=object())
 
 
+def test_format_policy_list_table():
+    policies = [
+        {
+            "scopeName": "gpt-4o",
+            "scopeType": "model",
+            "workspaceName": "default",
+            "type": "tokenLimit",
+            "policy": {"type": "tokenLimit", "count": 100},
+        },
+        {
+            "scopeName": "tools",
+            "scopeType": "mcp",
+            "workspaceName": "engineering",
+            "type": "contentSafety",
+        },
+    ]
+
+    assert _policy.format_policy_list_table(policies) == [
+        {
+            "ScopeName": "gpt-4o",
+            "ScopeType": "model",
+            "WorkspaceName": "default",
+            "Type": "tokenLimit",
+        },
+        {
+            "ScopeName": "tools",
+            "ScopeType": "mcp",
+            "WorkspaceName": "engineering",
+            "Type": "contentSafety",
+        },
+    ]
+
+
 def test_policy_id_round_trips_and_survives_array_reordering():
     first = {"type": "tokenLimit", "count": 100}
     target = {"type": "contentSafety", "hateSeverity": 2}

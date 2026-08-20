@@ -42,6 +42,18 @@ _MCP_HOST_PATTERN = re.compile(
 )
 
 
+def format_policy_list_table(policies):
+    return [
+        {
+            "ScopeName": policy.get("scopeName") or "",
+            "ScopeType": policy.get("scopeType") or "",
+            "WorkspaceName": policy.get("workspaceName") or "",
+            "Type": policy.get("type") or "",
+        }
+        for policy in policies
+    ]
+
+
 def _fingerprint(policy):
     serialized = _stable_stringify(policy)
     value = 0x811C9DC5

@@ -3,8 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------------------------
 
+import codecs
 import json
+import logging
 import time
+from contextlib import contextmanager
 from urllib.parse import quote
 
 from azure.cli.core.azclierror import (
@@ -22,6 +25,62 @@ DEFAULT_PUBLISHER_NAME = "AI Gateway Administrator"
 PROVIDER_PATH = "Microsoft.ApiManagement/service"
 POLL_INTERVAL_SECONDS = 5
 POLL_TIMEOUT_SECONDS = 300
+_SENSITIVE_FIELD_NAMES = {
+    "apikey",
+    "clientsecret",
+    "credentials",
+    "headers",
+    "secret",
+}
+_SENSITIVE_URL_SEGMENTS = (
+    "/apikeys/",
+    "/exporters/",
+    "/modelproviders/",
+    "/toolservers/",
+)
+
+
+class _DenyAllLogs(logging.Filter):
+
+    def filter(self, record):
+        del record
+        return False
+
+
+@contextmanager
+def _suppress_raw_http_logging():
+    raw_request_logger = logging.getLogger(send_raw_request.__module__)
+    deny_filter = _DenyAllLogs()
+    raw_request_logger.addFilter(deny_filter)
+    try:
+        yield
+    finally:
+        raw_request_logger.removeFilter(deny_filter)
+
+
+def _contains_sensitive_data(value):
+    if isinstance(value, dict):
+        for key, child in value.items():
+            normalized_key = str(key).replace("-", "").replace("_", "").casefold()
+            if (
+                normalized_key in _SENSITIVE_FIELD_NAMES
+                or "secret" in normalized_key
+            ):
+                return True
+            if _contains_sensitive_data(child):
+                return True
+    elif isinstance(value, list):
+        return any(_contains_sensitive_data(item) for item in value)
+    return False
+
+
+def _is_sensitive_request(url, body):
+    normalized_url = str(url).rstrip("/").casefold()
+    return (
+        normalized_url.endswith("/listsecrets")
+        or any(segment in normalized_url for segment in _SENSITIVE_URL_SEGMENTS)
+        or _contains_sensitive_data(body)
+    )
 
 
 def _gateway_path(subscription_id, resource_group_name, name):
@@ -46,6 +105,7 @@ def _request(
     body=None,
     include_api_version=True,
     headers=None,
+    api_version=API_VERSION,
 ):
     request_kwargs = {}
     if headers:
@@ -53,19 +113,34 @@ def _request(
             f"{header_name}={header_value}"
             for header_name, header_value in headers.items()
         ]
-    return send_raw_request(
-        cmd.cli_ctx,
-        method,
-        url,
-        uri_parameters=[f"api-version={API_VERSION}"] if include_api_version else None,
-        body=json.dumps(body) if body is not None else None,
-        **request_kwargs,
-    )
+    try:
+        with _suppress_raw_http_logging():
+            return send_raw_request(
+                cmd.cli_ctx,
+                method,
+                url,
+                uri_parameters=[f"api-version={api_version}"]
+                if include_api_version
+                else None,
+                body=json.dumps(body) if body is not None else None,
+                **request_kwargs,
+            )
+    except HTTPError as error:
+        if not _is_sensitive_request(url, body):
+            raise
+        status_code = getattr(error.response, "status_code", "unknown")
+        reason = getattr(error.response, "reason", None)
+        message = f"HTTP {status_code}"
+        if reason:
+            message += f": {reason}"
+        raise HTTPError(message, error.response) from None
 
 
 def _response_json(response):
     if not response.content:
         return None
+    if response.content.startswith(codecs.BOM_UTF8):
+        return json.loads(response.content.decode("utf-8-sig"))
     return response.json()
 
 

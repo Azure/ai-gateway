@@ -31,6 +31,23 @@ OAUTH_SERVER_MANAGED_FIELDS = {
 }
 
 
+def format_mcp_list_table(servers):
+    return [
+        {
+            "Name": server.get("name") or "",
+            "Description": (server.get("properties") or {}).get(
+                "description"
+            )
+            or "",
+            "Endpoint": (server.get("properties") or {}).get(
+                "mcpEndpointUrl"
+            )
+            or "",
+        }
+        for server in servers
+    ]
+
+
 def _mcp_path(
     subscription_id,
     resource_group_name,

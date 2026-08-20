@@ -1,6 +1,5 @@
 # AI Gateway tier in Azure API Management
 
-**One gateway for every model and tool.**
 [AI Gateway tier in Azure API Management](https://aka.ms/aigateway/docs) is the AI-focused tier of Azure API
 Management. It gives developers one familiar way to call model APIs and MCP tools, while
 platform teams enforce security, policy, networking, and observability.
@@ -79,20 +78,6 @@ Or explore first, then integrate:
 /ai-gateway:discover /subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.ApiManagement/service/<gateway>
 ```
 
-### Security
-
-The generated code authenticates the model passthrough and the MCP tool servers
-with a gateway **API key**, read from an environment variable
-(`AI_GATEWAY_API_KEY`) and never hardcoded. Scaffolded projects keep `.env` out of
-source control. If a key is ever exposed, rotate it in the [AI Gateway Portal](https://ai.gateway.azure.com).
-
-To report a security issue, see [SECURITY.md](SECURITY.md).
-
-## Samples
-
-Looking for working examples? The [samples catalog](samples/README.md) curates end-to-end
-samples and infrastructure that build on the AI Gateway tier in Azure API Management.
-
 ## Azure CLI extension
 
 Install the preview extension from GitHub Releases:
@@ -103,18 +88,28 @@ az extension add \
 az ai-gateway version
 ```
 
-Use it to manage gateways and their models, MCP tool servers, policies, API keys,
-and managed identities:
+Use it to manage gateways, model providers, models, MCP tool servers, policies,
+API keys, and managed identities:
 
 ```bash
 az ai-gateway list
 az ai-gateway create --name my-gateway --resource-group my-rg --location eastus2
-az ai-gateway model list --gateway-name my-gateway --resource-group my-rg
-az ai-gateway mcp list --gateway-name my-gateway --resource-group my-rg
+
+az configure --defaults group=my-rg ai-gateway=my-gateway
+
+az ai-gateway model-provider list
+az ai-gateway model list
+az ai-gateway mcp list
 ```
 
 See the [extension guide](src/ai-gateway/README.md) for all commands and local
 installation.
+
+## Samples
+
+Looking for working examples? The [samples catalog](samples/README.md) curates end-to-end
+samples and infrastructure that build on the AI Gateway tier in Azure API Management.
+
 
 ## Contributing
 

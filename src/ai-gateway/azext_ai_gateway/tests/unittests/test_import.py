@@ -5,10 +5,11 @@
 
 import io
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import pytest
 from azure.cli.core.azclierror import InvalidArgumentValueError
+from requests import Response
 
 from azext_ai_gateway import _import
 
@@ -30,6 +31,19 @@ class FakeResponse:
 
     def json(self):
         return self._payload
+
+
+@patch("azext_ai_gateway._import._request")
+def test_optional_policy_accepts_bom_prefixed_raw_xml(request):
+    policy = "<policies><inbound><base /></inbound></policies>"
+    response = Response()
+    response._content = policy.encode("utf-8-sig")
+    response.encoding = "utf-8"
+    request.return_value = response
+    errors = []
+
+    assert _import._optional_policy(None, SOURCE_ID, errors) == policy
+    assert errors == []
 
 
 def _record(
@@ -412,6 +426,7 @@ def test_discover_source_inventories_service_and_workspace_apis():
         "properties": {
             "type": "http",
             "path": "chat",
+            "backendId": "openai",
             "subscriptionRequired": False,
         },
     }
@@ -460,9 +475,7 @@ def test_discover_source_inventories_service_and_workspace_apis():
         policies = {
             SOURCE_ID: "<policies><inbound><base /></inbound></policies>",
             root_api["id"]: (
-                "<policies><inbound><base />"
-                '<set-backend-service backend-id="openai" />'
-                "</inbound></policies>"
+                "<policies><inbound><base /></inbound></policies>"
             ),
             f"{root_api['id']}/operations/chat": None,
             workspace_id: None,
@@ -547,6 +560,31 @@ def test_classify_apim_apis(record, expected):
         record,
         _import._effective_url(record, {}),
     ) == expected
+
+
+def test_classify_llm_policy_with_custom_backend_as_model():
+    record = _record(
+        service_url=None,
+        backend={
+            "name": "meta-ai",
+            "properties": {"url": "https://api.meta.ai"},
+        },
+    )
+    record["policy"] = _import._policy_summary(
+        """
+        <policies>
+          <inbound>
+            <llm-token-limit tokens-per-minute="1000" />
+          </inbound>
+        </policies>
+        """,
+        record["api"]["id"],
+    )
+
+    assert _import._classify(
+        record,
+        _import._effective_url(record, {}),
+    ) == ("model", "model")
 
 
 def test_backend_summary_redacts_credential_values():
@@ -826,8 +864,6 @@ def test_import_table_formats_assets_and_discovery_errors():
             "Workspace": "(service)",
             "Destination": "foundry/chat",
             "Status": "ready",
-            "Properties": '{"apiRevision":"7","protocols":["https"]}',
-            "Details": "Warning: Policy translation is required.",
         },
         {
             "Type": "agent",
@@ -835,8 +871,6 @@ def test_import_table_formats_assets_and_discovery_errors():
             "Workspace": "team",
             "Destination": "support",
             "Status": "blocked",
-            "Properties": "{}",
-            "Details": "Agents are not supported.",
         },
         {
             "Type": "discovery",
@@ -844,8 +878,6 @@ def test_import_table_formats_assets_and_discovery_errors():
             "Workspace": "",
             "Destination": "",
             "Status": "error",
-            "Properties": "",
-            "Details": "Access denied.",
         },
     ]
 
@@ -890,6 +922,7 @@ def test_dry_run_returns_filtered_inventory_and_summary():
             "get_subscription_id",
             return_value="destination-sub",
         ),
+        patch.object(_import.logger, "warning") as warning,
     ):
         result = _import.import_from_apim(
             cmd,
@@ -912,3 +945,12 @@ def test_dry_run_returns_filtered_inventory_and_summary():
         "discoveryErrorCount": 0,
     }
     assert [asset["source"]["name"] for asset in result["assets"]] == ["tool"]
+    assert warning.call_args_list == [
+        call("Discovering assets in source APIM '%s'...", "source"),
+        call("Checking destination AI Gateway '%s'...", "destination"),
+        call(
+            "Assessing import compatibility for %d discovered assets...",
+            2,
+        ),
+        call("Dry-run assessment complete."),
+    ]

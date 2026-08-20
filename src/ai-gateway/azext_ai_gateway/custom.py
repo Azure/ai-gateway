@@ -19,6 +19,14 @@ from azext_ai_gateway._model import (
     show_model,
     update_model,
 )
+from azext_ai_gateway._model_provider import (
+    create_model_provider,
+    delete_model_provider,
+    list_model_providers,
+    show_model_provider,
+    sync_model_provider,
+    update_model_provider,
+)
 from azext_ai_gateway._mcp import (
     authorize_mcp,
     create_mcp,
@@ -40,6 +48,7 @@ from azext_ai_gateway._identity import (
     remove_identity,
     show_identity,
 )
+from azext_ai_gateway._monitoring import configure_monitoring
 from azext_ai_gateway._policy import (
     create_policy,
     delete_policy,

@@ -1,182 +1,282 @@
 # AI Gateway Azure CLI extension
 
-This package provides the `ai-gateway` extension for the Azure CLI.
-
-Implemented gateway commands:
+## Install
 
 ```bash
-az ai-gateway create --name <name> --resource-group <group> --location <region>
-az ai-gateway list [--resource-group <group>]
-az ai-gateway show --name <name> --resource-group <group>
-az ai-gateway update --name <name> --resource-group <group> [options]
-az ai-gateway delete --name <name> --resource-group <group>
-```
-
-Model commands are nested beneath a gateway and model provider:
-
-```bash
-az ai-gateway model create --gateway-name <gateway> --resource-group <group> \
-  --provider-name <provider> --name <model> [options]
-az ai-gateway model list --gateway-name <gateway> --resource-group <group> \
-  [--provider-name <provider>]
-az ai-gateway model show|update|delete --gateway-name <gateway> \
-  --resource-group <group> --provider-name <provider> --name <model>
-```
-
-MCP tool servers use JSON endpoint definitions so every endpoint and
-authentication kind in the control-plane contract remains available:
-
-```bash
-az ai-gateway mcp create --gateway-name <gateway> --resource-group <group> \
-  --name <server> --endpoints @endpoints.json
-az ai-gateway mcp list --gateway-name <gateway> --resource-group <group>
-az ai-gateway mcp show|update|delete --gateway-name <gateway> \
-  --resource-group <group> --name <server>
-az ai-gateway mcp authorize --gateway-name <gateway> --resource-group <group> \
-  --name <server> --endpoint-id <endpoint>
-```
-
-`mcp update` reads secret fragments only to preserve omitted values during an
-endpoint replacement. It never emits those secret fragments.
-
-Example `endpoints.json` for a remote MCP server:
-
-```json
-[
-  {
-    "namespace": "tickets",
-    "kind": "mcp",
-    "required": true,
-    "mcp": {
-      "url": "https://tools.example.com/mcp",
-      "transport": "streamableHttp"
-    },
-    "credentials": {
-      "type": "none"
-    }
-  }
-]
-```
-
-API keys and gateway managed identities have dedicated command groups:
-
-```bash
-az ai-gateway api-key create|list|show|delete|list-secrets|regenerate ...
-az ai-gateway identity show|assign|remove ...
-```
-
-`api-key list` and `show` return metadata only. `list-secrets` is the explicit
-secret-output operation. Identity assignment and removal preserve identities
-that were not selected by the command.
-
-Policies are inline objects hosted by models or MCP tool servers. `policy list`
-returns synthesized IDs used by `show`, `update`, and `delete`:
-
-```bash
-az ai-gateway policy create --gateway-name <gateway> --resource-group <group> \
-  --scope-type model --scope-name <model> --provider-name <provider> \
-  --policy @policy.json
-az ai-gateway policy list --gateway-name <gateway> --resource-group <group>
-az ai-gateway policy show|delete --gateway-name <gateway> \
-  --resource-group <group> --policy-id <policy-id>
-az ai-gateway policy update --gateway-name <gateway> --resource-group <group> \
-  --policy-id <policy-id> --policy @policy.json
-```
-
-Policy updates replace the complete inline object. MCP policy mutations preserve
-endpoint secrets internally and never include them in command output.
-Policy IDs contain `#`; quote them when passing a literal ID to a shell.
-
-## Assess an import from API Management
-
-Use `--dry-run` to discover service-level and workspace APIs in a classic API
-Management service. The result classifies model, agent, MCP, and REST tool
-assets; inventories operations, backends, and policy statement types; checks
-destination conflicts; and reports each asset as `ready`, `blocked`, or
-`skipped`. Credential values and URL query values are not included in output.
-
-```bash
-az ai-gateway import --name <gateway> --resource-group <group> \
-  --source-apim-id /subscriptions/<sub>/resourceGroups/<group>/providers/Microsoft.ApiManagement/service/<apim> \
-  --dry-run --output table
-```
-
-Use `--include models tools` to limit the inventory and `--conflict-policy
-fail|skip|overwrite` to preview conflict handling. Import writes are not
-implemented yet, so omitting `--dry-run` fails explicitly. Use `--output json`
-for the complete nested configuration and `--output table` for a compact
-compatibility summary. Both formats retain the complete source API property bag;
-the table serializes it in the `Properties` column. Related operation and
-backend property bags are included in JSON. Credential values, embedded URL
-credentials, and URL query values are redacted.
-
-Supported APIM AI policies are projected in each asset's
-`configuration.destinationPolicies`:
-
-- `llm-token-limit` and `azure-openai-token-limit` rate limits become
-  `tokenLimit` policies with a `minute` period. Hourly and daily quotas map to
-  `hour` and `day`. Longer quota periods, arbitrary expressions, estimation,
-  and response headers or variables produce warnings.
-- `llm-content-safety` category thresholds become `contentSafety` severities.
-  Backend selection, prompt shielding, completion enforcement, windows, and
-  blocklists produce warnings because the inline contract has no equivalent.
-
-Conditional policies and operation- or product-scoped policies are inventoried
-but not promoted to asset scope. Unsupported policy statements are also
-retained in the inventory and reported as omitted instead of being silently
-dropped.
-
-Query the executable compatibility registry directly:
-
-```bash
-az ai-gateway policy import-support list --output table
-az ai-gateway policy import-support show --name llm-content-safety
-```
-
-See [APIM policy translation](docs/apim-policy-translation.md) for the complete
-mapping contract, warning behavior, scope rules, and required workflow for
-adding future policy capabilities.
-
-Optional mappings can supply destination names and model metadata that cannot
-be derived from APIM:
-
-```json
-{
-  "models": {
-    "source-api-name": {
-      "name": "destination-model",
-      "providerName": "foundry",
-      "deploymentResourceId": "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.CognitiveServices/accounts/account/deployments/deployment",
-      "modelName": "gpt-4o",
-      "modelVersion": "2024-11-20"
-    }
-  },
-  "tools": {
-    "source-tool-api": {
-      "name": "destination-tool",
-      "namespace": "orders"
-    }
-  }
-}
-```
-
-## Install from a local build
-
-Build from the repository root:
-
-```bash
-python -m pip install build
-python -m build --wheel --outdir dist src/ai-gateway
-az extension add --source dist/ai_gateway-1.0.0b1-py3-none-any.whl
-az ai-gateway version
-```
-
-## Install from a GitHub release
-
-```bash
+# GitHub release
 az extension add \
   --source https://github.com/Azure/ai-gateway/releases/download/azure-cli-v1.0.0b1/ai_gateway-1.0.0b1-py3-none-any.whl
+
+# Local build
+python -m pip install build
+python -m build --wheel --outdir dist src/ai-gateway
+az extension add --source dist/ai_gateway-1.0.0b1-py3-none-any.whl --upgrade --yes
 ```
 
-GitHub release installation uses a pinned version. Publishing the extension to an
-Azure CLI extension index later will enable installation and updates by name.
+## Configure defaults
+
+Configure a default resource group and AI Gateway name to omit those arguments
+from subsequent commands:
+
+```bash
+az configure --defaults group=my-resource-group ai-gateway=my-ai-gateway
+```
+
+The `ai-gateway` default supplies `--name` for top-level gateway commands and
+`--resource-name` for nested commands. An explicitly supplied argument overrides
+the configured default.
+
+## `az ai-gateway`
+
+Manage AI Gateway resources.
+
+| Command | Syntax |
+| --- | --- |
+| `create` | `az ai-gateway create -n <gateway> -g <group> -l <region> [options]` |
+| `delete` | `az ai-gateway delete -n <gateway> -g <group>` |
+| `import` | `az ai-gateway import -n <gateway> -g <group> --source-apim-id <id> --dry-run [options]` |
+| `list` | `az ai-gateway list [-g <group>]` |
+| `show` | `az ai-gateway show -n <gateway> -g <group>` |
+| `update` | `az ai-gateway update -n <gateway> -g <group> [options]` |
+| `version` | `az ai-gateway version` |
+
+### `az ai-gateway import`
+
+Discover and import assess models, agents, tools, and policies from an APIM resource.
+
+#### Options
+
+| Option | Values |
+| --- | --- |
+| `--include` | `models`, `agents`, `tools` |
+| `--conflict-policy` | `fail`, `skip`, `overwrite` |
+| `--mapping-file` | JSON source-to-destination mappings |
+| `--output` | `json` for full details; `table` for a summary |
+
+Import execution is not available. `--dry-run` is required. Sensitive policy,
+credential, and URL values are redacted.
+
+## `az ai-gateway model-provider`
+
+Manage Foundry and custom model provider registrations.
+
+| Command | Syntax |
+| --- | --- |
+| `create` | `az ai-gateway model-provider create -n <provider> --kind <Foundry-or-Custom> --endpoint <url> [--no-sync] [options] --resource-name <gateway> -g <group>` |
+| `delete` | `az ai-gateway model-provider delete -n <provider> --resource-name <gateway> -g <group>` |
+| `list` | `az ai-gateway model-provider list --resource-name <gateway> -g <group>` |
+| `show` | `az ai-gateway model-provider show -n <provider> --resource-name <gateway> -g <group>` |
+| `sync` | `az ai-gateway model-provider sync -n <provider> [--api-key-value <key>] [--dry-run] [--delete-missing --yes] --resource-name <gateway> -g <group>` |
+| `update` | `az ai-gateway model-provider update -n <provider> [options] --resource-name <gateway> -g <group>` |
+
+### `az ai-gateway model-provider create`
+
+Create a Foundry or custom provider and import its available models.
+
+#### Options
+
+| Option | Description |
+| --- | --- |
+| `--kind` | Provider kind: `Foundry` or `Custom`. |
+| `--endpoint` | Provider base endpoint. |
+| `--resource-ids` | Foundry account resource IDs. Required for Foundry providers. |
+| `--auth-kind` | `ManagedIdentity` or `ApiKey`. Defaults to managed identity for Foundry and API key for custom providers. |
+| `--api-key-header-name` | Header used by API-key authentication. |
+| `--api-key-value` | Exact value sent in the API-key header. Add an authentication scheme only when required by the provider. |
+| `--managed-identity-resource` | Token audience used by Foundry managed identity authentication. |
+| `--managed-identity-client-id` | Optional user-assigned managed identity client ID. |
+| `--no-sync` | Skip model discovery and import after provider creation. |
+
+Create a Foundry provider and import its deployments:
+
+```bash
+az ai-gateway model-provider create \
+  --name foundry \
+  --kind Foundry \
+  --endpoint https://account.openai.azure.com \
+  --resource-ids /subscriptions/<sub>/resourceGroups/<group>/providers/Microsoft.CognitiveServices/accounts/<account> \
+  --managed-identity-resource https://cognitiveservices.azure.com \
+  --resource-name my-ai-gateway \
+  --resource-group my-resource-group
+```
+
+Create a custom OpenAI-compatible provider and import its models:
+
+```bash
+az ai-gateway model-provider create \
+  --name custom-openai \
+  --kind Custom \
+  --endpoint https://models.example.com \
+  --api-key-header-name Authorization \
+  --api-key-value "$PROVIDER_API_KEY" \
+  --resource-name my-ai-gateway \
+  --resource-group my-resource-group
+```
+
+Add `--no-sync` to either command to create only the provider.
+
+The API-key value is sent exactly as entered. For example, Meta `LLM_...`
+keys use the raw value in the `Authorization` header; do not prepend an
+authentication scheme.
+
+### `az ai-gateway model-provider sync`
+
+Discover models available from an existing provider and reconcile its model
+registrations.
+
+#### Options
+
+| Option | Description |
+| --- | --- |
+| `--api-key-value` | Exact header value used to query a custom provider. When omitted interactively, a masked prompt is shown. |
+| `--dry-run` | Return the synchronization plan without changing models. |
+| `--delete-missing` | Delete stale model registrations. Requires `--yes`. |
+| `--yes`, `-y` | Confirm deletion of stale model registrations. |
+
+Synchronize a Foundry provider:
+
+```bash
+az ai-gateway model-provider sync \
+  --name foundry \
+  --resource-name my-ai-gateway \
+  --resource-group my-resource-group
+```
+
+Synchronize a custom provider:
+
+```bash
+az ai-gateway model-provider sync \
+  --name custom-openai \
+  --api-key-value "$PROVIDER_API_KEY" \
+  --resource-name my-ai-gateway \
+  --resource-group my-resource-group
+```
+
+Add `--dry-run --output table` to preview changes. To also delete stale
+registrations, add `--delete-missing --yes`.
+
+## `az ai-gateway model`
+
+Manage model registrations and their backing deployments.
+
+| Command | Syntax |
+| --- | --- |
+| `create` | `az ai-gateway model create --provider-name <provider> -n <model> [options] --resource-name <gateway> -g <group>` |
+| `delete` | `az ai-gateway model delete --provider-name <provider> -n <model> --resource-name <gateway> -g <group>` |
+| `list` | `az ai-gateway model list [--provider-name <provider>] --resource-name <gateway> -g <group>` |
+| `show` | `az ai-gateway model show --provider-name <provider> -n <model> --resource-name <gateway> -g <group>` |
+| `update` | `az ai-gateway model update --provider-name <provider> -n <model> [options] --resource-name <gateway> -g <group>` |
+
+## `az ai-gateway mcp`
+
+Manage MCP tool servers, endpoints, and OAuth authorization.
+
+| Command | Syntax |
+| --- | --- |
+| `authorize` | `az ai-gateway mcp authorize -n <server> --endpoint-id <endpoint> --resource-name <gateway> -g <group>` |
+| `create` | `az ai-gateway mcp create -n <server> --endpoints @endpoints.json [options] --resource-name <gateway> -g <group>` |
+| `delete` | `az ai-gateway mcp delete -n <server> --resource-name <gateway> -g <group>` |
+| `list` | `az ai-gateway mcp list --resource-name <gateway> -g <group>` |
+| `show` | `az ai-gateway mcp show -n <server> --resource-name <gateway> -g <group>` |
+| `update` | `az ai-gateway mcp update -n <server> [options] --resource-name <gateway> -g <group>` |
+
+`--endpoints` accepts a JSON array or an `@file` path. Endpoint kinds: `mcp`,
+`openApi`, and `http`.
+
+## `az ai-gateway api-key`
+
+Manage gateway API keys and secret rotation.
+
+| Command | Syntax |
+| --- | --- |
+| `create` | `az ai-gateway api-key create -n <key> [--display-name <name>] --resource-name <gateway> -g <group>` |
+| `delete` | `az ai-gateway api-key delete -n <key> --resource-name <gateway> -g <group>` |
+| `list` | `az ai-gateway api-key list --resource-name <gateway> -g <group>` |
+| `list-secrets` | `az ai-gateway api-key list-secrets -n <key> --resource-name <gateway> -g <group>` |
+| `regenerate` | `az ai-gateway api-key regenerate -n <key> --key-type primary --resource-name <gateway> -g <group>` |
+| `show` | `az ai-gateway api-key show -n <key> --resource-name <gateway> -g <group>` |
+
+`list` and `show` return metadata. `list-secrets` returns key values.
+
+## `az ai-gateway identity`
+
+Manage system- and user-assigned managed identities.
+
+| Command | Syntax |
+| --- | --- |
+| `assign` | `az ai-gateway identity assign [--system-assigned] [--user-assigned <id> ...] --resource-name <gateway> -g <group>` |
+| `remove` | `az ai-gateway identity remove [--system-assigned] [--user-assigned <id> ...] --resource-name <gateway> -g <group>` |
+| `show` | `az ai-gateway identity show --resource-name <gateway> -g <group>` |
+
+## `az ai-gateway policy`
+
+Manage policies on gateway assets.
+
+| Command | Syntax |
+| --- | --- |
+| `create` | `az ai-gateway policy create --scope-type <model-or-mcp> --scope-name <resource> --policy @policy.json [--provider-name <provider>] --resource-name <gateway> -g <group>` |
+| `delete` | `az ai-gateway policy delete --policy-id '<id>' --resource-name <gateway> -g <group>` |
+| `list` | `az ai-gateway policy list [--scope-type <model-or-mcp>] --resource-name <gateway> -g <group>` |
+| `show` | `az ai-gateway policy show --policy-id '<id>' --resource-name <gateway> -g <group>` |
+| `update` | `az ai-gateway policy update --policy-id '<id>' --policy @policy.json --resource-name <gateway> -g <group>` |
+
+Policy IDs contain `#`; quote literal IDs.
+
+### `az ai-gateway policy import-support`
+
+Inspect APIM policy import and translation capabilities.
+
+| Command | Syntax |
+| --- | --- |
+| `list` | `az ai-gateway policy import-support list [--support-level <level>]` |
+| `show` | `az ai-gateway policy import-support show -n <apim-policy>` |
+
+Support levels: `partial`, `consumed`, and `unsupported`.
+
+See [APIM policy translation](docs/apim-policy-translation.md).
+
+## `az ai-gateway monitoring`
+
+Configure gateway telemetry destinations.
+
+### `az ai-gateway monitoring configure`
+
+Configure an existing Application Insights resource or custom OpenTelemetry
+endpoint as the gateway's telemetry destination.
+
+#### Options
+
+| Option | Description |
+| --- | --- |
+| `--application-insights-id` | Resource ID of an existing Application Insights component. Use this option by itself for the streamlined Application Insights setup. |
+| `--metrics-endpoint` | Absolute HTTPS OTLP metrics endpoint. Required with the logs and traces endpoints for a custom destination. |
+| `--logs-endpoint` | Absolute HTTPS OTLP logs endpoint. Required with the metrics and traces endpoints for a custom destination. |
+| `--traces-endpoint` | Absolute HTTPS OTLP traces endpoint. Required with the metrics and logs endpoints for a custom destination. |
+| `--headers` | Custom OTLP headers as a JSON object or `@file`. Cannot contain `Authorization` or be combined with managed identity authentication. |
+| `--managed-identity-resource` | HTTPS token audience for custom OTLP managed identity authentication. |
+| `--identity-client-id` | Client ID of an assigned user-assigned identity. For custom OTLP, requires `--managed-identity-resource`. |
+| `--payload-capture` | Include request and response payloads in exported telemetry. |
+| `--workspace-name` | Gateway workspace name. Defaults to `default`. |
+| `--exporter-name` | Telemetry exporter name. Defaults to `appinsights`. |
+
+
+Configure Application Insights:
+
+```bash
+az ai-gateway monitoring configure \
+  --application-insights-id /subscriptions/<sub>/resourceGroups/<group>/providers/Microsoft.Insights/components/<name> \
+  --resource-name my-ai-gateway \
+  --resource-group my-resource-group
+```
+
+Configure a custom OpenTelemetry destination with headers:
+
+```bash
+az ai-gateway monitoring configure \
+  --metrics-endpoint https://otel.example.com/v1/metrics \
+  --logs-endpoint https://otel.example.com/v1/logs \
+  --traces-endpoint https://otel.example.com/v1/traces \
+  --headers '{"x-api-key":"secret"}' \
+  --resource-name my-ai-gateway \
+  --resource-group my-resource-group
+```

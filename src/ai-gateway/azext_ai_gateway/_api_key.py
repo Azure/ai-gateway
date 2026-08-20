@@ -15,6 +15,21 @@ from azext_ai_gateway._gateway import (
 )
 
 
+def format_api_key_list_table(keys):
+    rows = []
+    for key in keys:
+        properties = key.get("properties") or {}
+        rows.append(
+            {
+                "Name": key.get("name") or "",
+                "State": properties.get("state") or "",
+                "Created": properties.get("createdDate") or "",
+                "Expiration date": properties.get("expirationDate") or "",
+            }
+        )
+    return rows
+
+
 def _api_key_path(
     subscription_id,
     resource_group_name,
@@ -144,4 +159,3 @@ def regenerate_api_key(
         _request(cmd, "POST", f"{path}/{action}")
     except HTTPError as error:
         _raise_api_key_not_found(error, name)
-

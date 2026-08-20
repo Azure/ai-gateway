@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------------------------
 
 import json
+import logging
 from types import SimpleNamespace
 from unittest.mock import call, patch
 
@@ -13,15 +14,17 @@ from azure.cli.core.azclierror import (
     HTTPError,
     RequiredArgumentMissingError,
 )
+from requests import Response
 
 from azext_ai_gateway import _gateway
 
 
 class FakeResponse:
 
-    def __init__(self, body=None, status_code=200):
+    def __init__(self, body=None, status_code=200, reason=None):
         self._body = body
         self.status_code = status_code
+        self.reason = reason
         self.content = b"" if body is None else json.dumps(body).encode()
 
     def json(self):
@@ -31,6 +34,73 @@ class FakeResponse:
 @pytest.fixture
 def cmd():
     return SimpleNamespace(cli_ctx=object())
+
+
+def test_response_json_accepts_utf8_bom():
+    response = Response()
+    response._content = json.dumps(
+        {"properties": {"value": "policy"}}
+    ).encode("utf-8-sig")
+    response.encoding = "utf-8"
+
+    assert _gateway._response_json(response) == {
+        "properties": {"value": "policy"}
+    }
+
+
+def test_request_suppresses_raw_http_debug_logs(cmd, caplog):
+    logger = logging.getLogger(__name__)
+
+    def send_request(*args, **kwargs):
+        del args, kwargs
+        logger.debug("request body contains sentinel-secret")
+        logger.debug("response body contains sentinel-secret")
+        return FakeResponse({})
+
+    caplog.set_level(logging.DEBUG, logger=__name__)
+    with patch.object(_gateway, "send_raw_request", send_request):
+        _gateway._request(
+            cmd,
+            "POST",
+            "/resource",
+            {"credentials": {"secret": "sentinel-secret"}},
+        )
+
+    assert "sentinel-secret" not in caplog.text
+
+
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_sensitive_request_error_does_not_expose_response_body(
+    send_request,
+    cmd,
+):
+    response = FakeResponse(
+        {"error": {"message": "rejected sentinel-secret"}},
+        status_code=400,
+        reason="Bad Request",
+    )
+    send_request.side_effect = HTTPError(
+        "Bad Request(rejected sentinel-secret)",
+        response,
+    )
+
+    with pytest.raises(HTTPError) as error:
+        _gateway._request(
+            cmd,
+            "PUT",
+            "/resource",
+            {"properties": {"clientSecret": "sentinel-secret"}},
+        )
+
+    assert str(error.value) == "HTTP 400: Bad Request"
+    assert error.value.response is response
+
+
+def test_list_secrets_request_is_always_sensitive():
+    assert _gateway._is_sensitive_request(
+        "/resources/key/listSecrets",
+        None,
+    )
 
 
 @patch("azext_ai_gateway._gateway.get_subscription_id", return_value="sub")

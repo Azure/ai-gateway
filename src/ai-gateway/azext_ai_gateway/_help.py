@@ -22,7 +22,7 @@ helps["ai-gateway api-key create"] = """
     examples:
       - name: Create an API key.
         text: >-
-          az ai-gateway api-key create --gateway-name my-ai-gateway
+          az ai-gateway api-key create --resource-name my-ai-gateway
           --resource-group my-resource-group --name production
           --display-name "Production applications"
 """
@@ -33,7 +33,7 @@ helps["ai-gateway api-key delete"] = """
     examples:
       - name: Delete an API key.
         text: >-
-          az ai-gateway api-key delete --gateway-name my-ai-gateway
+          az ai-gateway api-key delete --resource-name my-ai-gateway
           --resource-group my-resource-group --name production
 """
 
@@ -43,8 +43,8 @@ helps["ai-gateway api-key list"] = """
     examples:
       - name: List API keys.
         text: >-
-          az ai-gateway api-key list --gateway-name my-ai-gateway
-          --resource-group my-resource-group
+          az ai-gateway api-key list --resource-name my-ai-gateway
+          --resource-group my-resource-group --output table
 """
 
 helps["ai-gateway api-key list-secrets"] = """
@@ -54,7 +54,7 @@ helps["ai-gateway api-key list-secrets"] = """
     examples:
       - name: List API key values.
         text: >-
-          az ai-gateway api-key list-secrets --gateway-name my-ai-gateway
+          az ai-gateway api-key list-secrets --resource-name my-ai-gateway
           --resource-group my-resource-group --name production
 """
 
@@ -64,7 +64,7 @@ helps["ai-gateway api-key regenerate"] = """
     examples:
       - name: Regenerate the secondary key value.
         text: >-
-          az ai-gateway api-key regenerate --gateway-name my-ai-gateway
+          az ai-gateway api-key regenerate --resource-name my-ai-gateway
           --resource-group my-resource-group --name production
           --key-type secondary
 """
@@ -75,7 +75,7 @@ helps["ai-gateway api-key show"] = """
     examples:
       - name: Show an API key.
         text: >-
-          az ai-gateway api-key show --gateway-name my-ai-gateway
+          az ai-gateway api-key show --resource-name my-ai-gateway
           --resource-group my-resource-group --name production
 """
 
@@ -144,11 +144,11 @@ helps["ai-gateway identity assign"] = """
     examples:
       - name: Enable the system-assigned identity.
         text: >-
-          az ai-gateway identity assign --gateway-name my-ai-gateway
+          az ai-gateway identity assign --resource-name my-ai-gateway
           --resource-group my-resource-group --system-assigned
       - name: Attach a user-assigned identity.
         text: >-
-          az ai-gateway identity assign --gateway-name my-ai-gateway
+          az ai-gateway identity assign --resource-name my-ai-gateway
           --resource-group my-resource-group --user-assigned
           /subscriptions/s/resourceGroups/r/providers/Microsoft.ManagedIdentity/userAssignedIdentities/i
 """
@@ -159,11 +159,11 @@ helps["ai-gateway identity remove"] = """
     examples:
       - name: Disable the system-assigned identity.
         text: >-
-          az ai-gateway identity remove --gateway-name my-ai-gateway
+          az ai-gateway identity remove --resource-name my-ai-gateway
           --resource-group my-resource-group --system-assigned
       - name: Detach all user-assigned identities.
         text: >-
-          az ai-gateway identity remove --gateway-name my-ai-gateway
+          az ai-gateway identity remove --resource-name my-ai-gateway
           --resource-group my-resource-group --user-assigned
 """
 
@@ -173,7 +173,7 @@ helps["ai-gateway identity show"] = """
     examples:
       - name: Show managed identities.
         text: >-
-          az ai-gateway identity show --gateway-name my-ai-gateway
+          az ai-gateway identity show --resource-name my-ai-gateway
           --resource-group my-resource-group
 """
 
@@ -187,6 +187,45 @@ helps["ai-gateway list"] = """
         text: az ai-gateway list --resource-group my-resource-group
 """
 
+helps["ai-gateway monitoring"] = """
+    type: group
+    short-summary: Configure AI Gateway monitoring.
+"""
+
+helps["ai-gateway monitoring configure"] = """
+    type: command
+    short-summary: Configure an Application Insights or custom OTLP destination.
+    long-summary: >
+        For Application Insights, provide its resource ID. The command enables
+        OTLP ingestion, grants the gateway identity access to the data collection
+        rule, and creates the exporter. For another OpenTelemetry destination,
+        provide all three signal endpoints and authenticate with custom headers
+        or managed identity.
+    examples:
+      - name: Configure Application Insights monitoring.
+        text: >-
+          az ai-gateway monitoring configure
+          --resource-name my-ai-gateway --resource-group my-resource-group
+          --application-insights-id
+          /subscriptions/sub/resourceGroups/rg/providers/Microsoft.Insights/components/app
+      - name: Configure payload capture with a user-assigned identity.
+        text: >-
+          az ai-gateway monitoring configure
+          --resource-name my-ai-gateway --resource-group my-resource-group
+          --application-insights-id
+          /subscriptions/sub/resourceGroups/rg/providers/Microsoft.Insights/components/app
+          --identity-client-id 00000000-0000-0000-0000-000000000000
+          --payload-capture
+      - name: Configure a custom OTLP destination with headers.
+        text: >-
+          az ai-gateway monitoring configure
+          --resource-name my-ai-gateway --resource-group my-resource-group
+          --metrics-endpoint https://otel.example.com/v1/metrics
+          --logs-endpoint https://otel.example.com/v1/logs
+          --traces-endpoint https://otel.example.com/v1/traces
+          --headers '{"x-api-key":"secret"}'
+"""
+
 helps["ai-gateway model"] = """
     type: group
     short-summary: Manage models registered in an AI Gateway.
@@ -198,7 +237,7 @@ helps["ai-gateway model create"] = """
     examples:
       - name: Create a model backed by a Foundry deployment.
         text: >-
-          az ai-gateway model create --gateway-name my-ai-gateway
+          az ai-gateway model create --resource-name my-ai-gateway
           --resource-group my-resource-group --provider-name foundry
           --name gpt-4o --display-name "GPT-4o"
           --deployment-model-name gpt-4o
@@ -206,7 +245,7 @@ helps["ai-gateway model create"] = """
           /subscriptions/s/resourceGroups/r/providers/Microsoft.CognitiveServices/accounts/a/deployments/d
       - name: Create a custom-provider model.
         text: >-
-          az ai-gateway model create --gateway-name my-ai-gateway
+          az ai-gateway model create --resource-name my-ai-gateway
           --resource-group my-resource-group --provider-name custom
           --name llama --api-format OpenAIChatCompletions
           --supported-endpoints /v1/chat/completions
@@ -218,7 +257,7 @@ helps["ai-gateway model delete"] = """
     examples:
       - name: Delete a model.
         text: >-
-          az ai-gateway model delete --gateway-name my-ai-gateway
+          az ai-gateway model delete --resource-name my-ai-gateway
           --resource-group my-resource-group --provider-name foundry
           --name gpt-4o
 """
@@ -229,11 +268,11 @@ helps["ai-gateway model list"] = """
     examples:
       - name: List models across every provider.
         text: >-
-          az ai-gateway model list --gateway-name my-ai-gateway
-          --resource-group my-resource-group
+          az ai-gateway model list --resource-name my-ai-gateway
+          --resource-group my-resource-group --output table
       - name: List models belonging to one provider.
         text: >-
-          az ai-gateway model list --gateway-name my-ai-gateway
+          az ai-gateway model list --resource-name my-ai-gateway
           --resource-group my-resource-group --provider-name foundry
 """
 
@@ -243,7 +282,7 @@ helps["ai-gateway model show"] = """
     examples:
       - name: Show a model.
         text: >-
-          az ai-gateway model show --gateway-name my-ai-gateway
+          az ai-gateway model show --resource-name my-ai-gateway
           --resource-group my-resource-group --provider-name foundry
           --name gpt-4o
 """
@@ -254,15 +293,131 @@ helps["ai-gateway model update"] = """
     examples:
       - name: Update model metadata and supported endpoints.
         text: >-
-          az ai-gateway model update --gateway-name my-ai-gateway
+          az ai-gateway model update --resource-name my-ai-gateway
           --resource-group my-resource-group --provider-name custom
           --name llama --description "Production model"
           --supported-endpoints /v1/chat/completions /v1/responses
       - name: Replace inline policies from a JSON file.
         text: >-
-          az ai-gateway model update --gateway-name my-ai-gateway
+          az ai-gateway model update --resource-name my-ai-gateway
           --resource-group my-resource-group --provider-name foundry
           --name gpt-4o --policies @policies.json
+"""
+
+helps["ai-gateway model-provider"] = """
+    type: group
+    short-summary: Manage model providers.
+"""
+
+helps["ai-gateway model-provider create"] = """
+    type: command
+    short-summary: Create a Foundry or custom model provider.
+    long-summary: >
+        Creates the provider, then discovers and imports its models. Use
+        --no-sync to create only the provider.
+    examples:
+      - name: Create a Foundry provider using managed identity.
+        text: >-
+          az ai-gateway model-provider create
+          --resource-name my-ai-gateway --resource-group my-resource-group
+          --name foundry --kind Foundry
+          --endpoint https://foundry.example.com
+          --resource-ids /subscriptions/sub/resourceGroups/rg/providers/Microsoft.CognitiveServices/accounts/account
+          --managed-identity-resource https://cognitiveservices.azure.com
+      - name: Create a custom provider using an API key.
+        text: >-
+          az ai-gateway model-provider create
+          --resource-name my-ai-gateway --resource-group my-resource-group
+          --name custom --kind Custom
+          --endpoint https://models.example.com
+          --api-key-header-name Authorization
+          --api-key-value "$PROVIDER_API_KEY"
+      - name: Create a provider without importing models.
+        text: >-
+          az ai-gateway model-provider create
+          --resource-name my-ai-gateway --resource-group my-resource-group
+          --name custom --kind Custom
+          --endpoint https://models.example.com
+          --api-key-header-name Authorization
+          --api-key-value "$PROVIDER_API_KEY" --no-sync
+"""
+
+helps["ai-gateway model-provider delete"] = """
+    type: command
+    short-summary: Delete a model provider.
+    examples:
+      - name: Delete a model provider.
+        text: >-
+          az ai-gateway model-provider delete
+          --resource-name my-ai-gateway --resource-group my-resource-group
+          --name custom
+"""
+
+helps["ai-gateway model-provider list"] = """
+    type: command
+    short-summary: List model providers.
+    examples:
+      - name: List model providers.
+        text: >-
+          az ai-gateway model-provider list
+          --resource-name my-ai-gateway --resource-group my-resource-group
+          --output table
+"""
+
+helps["ai-gateway model-provider show"] = """
+    type: command
+    short-summary: Show a model provider.
+    examples:
+      - name: Show a model provider.
+        text: >-
+          az ai-gateway model-provider show
+          --resource-name my-ai-gateway --resource-group my-resource-group
+          --name foundry
+"""
+
+helps["ai-gateway model-provider sync"] = """
+    type: command
+    short-summary: Synchronize models from a model provider.
+    long-summary: >
+        Creates registrations from Foundry deployments or from a custom
+        provider's OpenAI- or Anthropic-compatible /v1/models endpoint and
+        reports naming conflicts. Custom providers securely prompt for the API
+        key when --api-key-value is omitted from an interactive session. Stale
+        registrations are deleted only with --delete-missing.
+    examples:
+      - name: Preview synchronization changes.
+        text: >-
+          az ai-gateway model-provider sync
+          --resource-name my-ai-gateway --resource-group my-resource-group
+          --name foundry --dry-run --output table
+      - name: Synchronize a custom provider.
+        text: >-
+          az ai-gateway model-provider sync
+          --resource-name my-ai-gateway --resource-group my-resource-group
+          --name custom --api-key-value "$PROVIDER_API_KEY"
+      - name: Synchronize and delete stale registrations.
+        text: >-
+          az ai-gateway model-provider sync
+          --resource-name my-ai-gateway --resource-group my-resource-group
+          --name foundry --delete-missing --yes
+"""
+
+helps["ai-gateway model-provider update"] = """
+    type: command
+    short-summary: Update a model provider.
+    long-summary: >
+        Provider kind is immutable. Omitted API key values remain unchanged.
+    examples:
+      - name: Update a provider display name.
+        text: >-
+          az ai-gateway model-provider update
+          --resource-name my-ai-gateway --resource-group my-resource-group
+          --name custom --display-name "Custom Models"
+      - name: Rotate a custom provider API key.
+        text: >-
+          az ai-gateway model-provider update
+          --resource-name my-ai-gateway --resource-group my-resource-group
+          --name custom --api-key-value "$PROVIDER_API_KEY"
 """
 
 helps["ai-gateway mcp"] = """
@@ -276,7 +431,7 @@ helps["ai-gateway mcp authorize"] = """
     examples:
       - name: Start OAuth authorization for an endpoint.
         text: >-
-          az ai-gateway mcp authorize --gateway-name my-ai-gateway
+          az ai-gateway mcp authorize --resource-name my-ai-gateway
           --resource-group my-resource-group --name tools
           --endpoint-id endpoint-id
 """
@@ -287,7 +442,7 @@ helps["ai-gateway mcp create"] = """
     examples:
       - name: Create an MCP tool server from an endpoint definition file.
         text: >-
-          az ai-gateway mcp create --gateway-name my-ai-gateway
+          az ai-gateway mcp create --resource-name my-ai-gateway
           --resource-group my-resource-group --name tools
           --display-name "Team tools" --failure-mode failClosed
           --endpoints @endpoints.json
@@ -299,7 +454,7 @@ helps["ai-gateway mcp delete"] = """
     examples:
       - name: Delete an MCP tool server.
         text: >-
-          az ai-gateway mcp delete --gateway-name my-ai-gateway
+          az ai-gateway mcp delete --resource-name my-ai-gateway
           --resource-group my-resource-group --name tools
 """
 
@@ -309,8 +464,8 @@ helps["ai-gateway mcp list"] = """
     examples:
       - name: List MCP tool servers in the default workspace.
         text: >-
-          az ai-gateway mcp list --gateway-name my-ai-gateway
-          --resource-group my-resource-group
+          az ai-gateway mcp list --resource-name my-ai-gateway
+          --resource-group my-resource-group --output table
 """
 
 helps["ai-gateway mcp show"] = """
@@ -319,7 +474,7 @@ helps["ai-gateway mcp show"] = """
     examples:
       - name: Show an MCP tool server.
         text: >-
-          az ai-gateway mcp show --gateway-name my-ai-gateway
+          az ai-gateway mcp show --resource-name my-ai-gateway
           --resource-group my-resource-group --name tools
 """
 
@@ -332,12 +487,12 @@ helps["ai-gateway mcp update"] = """
     examples:
       - name: Update metadata without replacing endpoints.
         text: >-
-          az ai-gateway mcp update --gateway-name my-ai-gateway
+          az ai-gateway mcp update --resource-name my-ai-gateway
           --resource-group my-resource-group --name tools
           --description "Production tool federation"
       - name: Replace endpoints from a definition file.
         text: >-
-          az ai-gateway mcp update --gateway-name my-ai-gateway
+          az ai-gateway mcp update --resource-name my-ai-gateway
           --resource-group my-resource-group --name tools
           --endpoints @endpoints.json
 """
@@ -353,13 +508,13 @@ helps["ai-gateway policy create"] = """
     examples:
       - name: Add a token-limit policy to a model.
         text: >-
-          az ai-gateway policy create --gateway-name my-ai-gateway
+          az ai-gateway policy create --resource-name my-ai-gateway
           --resource-group my-resource-group --scope-type model
           --scope-name gpt-4o --provider-name foundry
           --policy @policy.json
       - name: Add a content-safety policy to an MCP tool server.
         text: >-
-          az ai-gateway policy create --gateway-name my-ai-gateway
+          az ai-gateway policy create --resource-name my-ai-gateway
           --resource-group my-resource-group --scope-type mcp
           --scope-name tools --policy @policy.json
 """
@@ -370,7 +525,7 @@ helps["ai-gateway policy delete"] = """
     examples:
       - name: Delete a policy returned by policy list.
         text: >-
-          az ai-gateway policy delete --gateway-name my-ai-gateway
+          az ai-gateway policy delete --resource-name my-ai-gateway
           --resource-group my-resource-group --policy-id policy-id
 """
 
@@ -380,11 +535,11 @@ helps["ai-gateway policy list"] = """
     examples:
       - name: List every policy in the default workspace.
         text: >-
-          az ai-gateway policy list --gateway-name my-ai-gateway
-          --resource-group my-resource-group
+          az ai-gateway policy list --resource-name my-ai-gateway
+          --resource-group my-resource-group --output table
       - name: List policies on one model.
         text: >-
-          az ai-gateway policy list --gateway-name my-ai-gateway
+          az ai-gateway policy list --resource-name my-ai-gateway
           --resource-group my-resource-group --scope-type model
           --scope-name gpt-4o --provider-name foundry
 """
@@ -395,7 +550,7 @@ helps["ai-gateway policy show"] = """
     examples:
       - name: Show a policy returned by policy list.
         text: >-
-          az ai-gateway policy show --gateway-name my-ai-gateway
+          az ai-gateway policy show --resource-name my-ai-gateway
           --resource-group my-resource-group --policy-id policy-id
 """
 
@@ -406,7 +561,7 @@ helps["ai-gateway policy update"] = """
     examples:
       - name: Replace a policy from a JSON file.
         text: >-
-          az ai-gateway policy update --gateway-name my-ai-gateway
+          az ai-gateway policy update --resource-name my-ai-gateway
           --resource-group my-resource-group --policy-id policy-id
           --policy @policy.json
 """

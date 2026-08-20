@@ -49,6 +49,37 @@ def validate_endpoints(value):
     return parsed
 
 
+def validate_headers(value):
+    parsed = _parse_json_value(value, "Headers")
+    if not isinstance(parsed, dict) or not parsed:
+        raise InvalidArgumentValueError(
+            "Headers must be a JSON object with non-empty string names and values."
+        )
+    normalized_names = []
+    for name, header_value in parsed.items():
+        if (
+            not isinstance(name, str)
+            or not name.strip()
+            or not isinstance(header_value, str)
+            or not header_value.strip()
+        ):
+            raise InvalidArgumentValueError(
+                "Headers must be a JSON object with non-empty string names and "
+                "values."
+            )
+        normalized_names.append(name.strip().casefold())
+    if "authorization" in normalized_names:
+        raise InvalidArgumentValueError(
+            "The Authorization header is reserved for managed identity "
+            "authentication."
+        )
+    if len(set(normalized_names)) != len(normalized_names):
+        raise InvalidArgumentValueError(
+            "Header names must be unique, ignoring case."
+        )
+    return parsed
+
+
 def _parse_json_value(value, label):
     try:
         if value.startswith("@"):

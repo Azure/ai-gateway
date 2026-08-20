@@ -14,8 +14,15 @@ from azure.cli.core.commands.parameters import (
 
 from azext_ai_gateway._validators import (
     validate_endpoints,
+    validate_headers,
     validate_policies,
     validate_policy,
+)
+
+AI_GATEWAY_CONFIGURED_DEFAULT = "ai-gateway"
+AI_GATEWAY_DEFAULT_HELP = (
+    " You can configure the default using "
+    "`az configure --defaults ai-gateway=<name>`."
 )
 
 
@@ -30,7 +37,8 @@ def load_arguments(loader, _):
             context.argument(
                 "name",
                 options_list=["--name", "-n"],
-                help="Name of the AI Gateway.",
+                configured_default=AI_GATEWAY_CONFIGURED_DEFAULT,
+                help="Name of the AI Gateway." + AI_GATEWAY_DEFAULT_HELP,
             )
             context.argument("resource_group_name", resource_group_name_type)
 
@@ -111,7 +119,9 @@ def load_arguments(loader, _):
         with loader.argument_context(command) as context:
             context.argument(
                 "gateway_name",
-                help="Name of the parent AI Gateway.",
+                options_list=["--resource-name"],
+                configured_default=AI_GATEWAY_CONFIGURED_DEFAULT,
+                help="Name of the parent AI Gateway." + AI_GATEWAY_DEFAULT_HELP,
             )
             context.argument("resource_group_name", resource_group_name_type)
             context.argument(
@@ -197,6 +207,147 @@ def load_arguments(loader, _):
             ),
         )
 
+    model_provider_commands = [
+        "ai-gateway model-provider create",
+        "ai-gateway model-provider delete",
+        "ai-gateway model-provider list",
+        "ai-gateway model-provider show",
+        "ai-gateway model-provider sync",
+        "ai-gateway model-provider update",
+    ]
+    for command in model_provider_commands:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "gateway_name",
+                options_list=["--resource-name"],
+                configured_default=AI_GATEWAY_CONFIGURED_DEFAULT,
+                help="Name of the parent AI Gateway." + AI_GATEWAY_DEFAULT_HELP,
+            )
+            context.argument("resource_group_name", resource_group_name_type)
+            context.argument(
+                "workspace_name",
+                default="default",
+                help="Workspace name.",
+            )
+
+    for command in [
+        "ai-gateway model-provider create",
+        "ai-gateway model-provider delete",
+        "ai-gateway model-provider show",
+        "ai-gateway model-provider sync",
+        "ai-gateway model-provider update",
+    ]:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "name",
+                options_list=["--name", "-n"],
+                help="Name of the model provider.",
+            )
+
+    for command in [
+        "ai-gateway model-provider create",
+        "ai-gateway model-provider update",
+    ]:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "display_name",
+                help="Display name of the model provider.",
+            )
+            context.argument(
+                "description",
+                help="Description of the model provider.",
+            )
+            context.argument(
+                "endpoint",
+                arg_group="Provider",
+                help="Provider endpoint URL.",
+            )
+            context.argument(
+                "resource_ids",
+                nargs="+",
+                arg_group="Provider",
+                help="Foundry resource IDs available through this provider.",
+            )
+            context.argument(
+                "auth_kind",
+                arg_type=get_enum_type(["ManagedIdentity", "ApiKey"]),
+                arg_group="Authentication",
+                help=(
+                    "Authentication kind. Defaults to ManagedIdentity for "
+                    "Foundry and ApiKey for Custom."
+                ),
+            )
+            context.argument(
+                "api_key_header_name",
+                arg_group="Authentication",
+                help="HTTP header carrying the provider API key.",
+            )
+            context.argument(
+                "api_key_value",
+                arg_group="Authentication",
+                help="Provider API key value.",
+            )
+            context.argument(
+                "managed_identity_resource",
+                arg_group="Authentication",
+                help="Token audience for managed identity authentication.",
+            )
+            context.argument(
+                "managed_identity_client_id",
+                arg_group="Authentication",
+                help="Client ID of a user-assigned managed identity.",
+            )
+
+    with loader.argument_context(
+        "ai-gateway model-provider create"
+    ) as context:
+        context.argument(
+            "kind",
+            arg_type=get_enum_type(["Foundry", "Custom"]),
+            help="Model provider kind.",
+        )
+        context.argument(
+            "no_sync",
+            action="store_true",
+            help=(
+                "Create the model provider without discovering and importing "
+                "its models."
+            ),
+        )
+
+    with loader.argument_context(
+        "ai-gateway model-provider sync"
+    ) as context:
+        context.argument(
+            "api_key_value",
+            arg_group="Authentication",
+            help=(
+                "Provider API key value. When omitted for a custom provider, "
+                "an interactive terminal prompts for it securely. The value "
+                "is sent exactly as entered; include an authentication scheme "
+                "only when the provider requires one."
+            ),
+        )
+        context.argument(
+            "dry_run",
+            action="store_true",
+            help="Return the synchronization plan without changing models.",
+        )
+        context.argument(
+            "delete_missing",
+            action="store_true",
+            help=(
+                "Delete model registrations that no longer exist in the "
+                "provider."
+            ),
+        )
+        context.argument(
+            "yes",
+            options_list=["--yes", "-y"],
+            action="store_true",
+            help="Confirm deletion of stale model registrations.",
+        )
+
     mcp_commands = [
         "ai-gateway mcp authorize",
         "ai-gateway mcp create",
@@ -209,7 +360,9 @@ def load_arguments(loader, _):
         with loader.argument_context(command) as context:
             context.argument(
                 "gateway_name",
-                help="Name of the parent AI Gateway.",
+                options_list=["--resource-name"],
+                configured_default=AI_GATEWAY_CONFIGURED_DEFAULT,
+                help="Name of the parent AI Gateway." + AI_GATEWAY_DEFAULT_HELP,
             )
             context.argument("resource_group_name", resource_group_name_type)
             context.argument(
@@ -288,7 +441,9 @@ def load_arguments(loader, _):
         with loader.argument_context(command) as context:
             context.argument(
                 "gateway_name",
-                help="Name of the parent AI Gateway.",
+                options_list=["--resource-name"],
+                configured_default=AI_GATEWAY_CONFIGURED_DEFAULT,
+                help="Name of the parent AI Gateway." + AI_GATEWAY_DEFAULT_HELP,
             )
             context.argument("resource_group_name", resource_group_name_type)
 
@@ -328,7 +483,9 @@ def load_arguments(loader, _):
         with loader.argument_context(command) as context:
             context.argument(
                 "gateway_name",
-                help="Name of the AI Gateway.",
+                options_list=["--resource-name"],
+                configured_default=AI_GATEWAY_CONFIGURED_DEFAULT,
+                help="Name of the AI Gateway." + AI_GATEWAY_DEFAULT_HELP,
             )
             context.argument("resource_group_name", resource_group_name_type)
 
@@ -360,6 +517,81 @@ def load_arguments(loader, _):
             ),
         )
 
+    with loader.argument_context("ai-gateway monitoring configure") as context:
+        context.argument(
+            "gateway_name",
+            options_list=["--resource-name"],
+            configured_default=AI_GATEWAY_CONFIGURED_DEFAULT,
+            help="Name of the AI Gateway." + AI_GATEWAY_DEFAULT_HELP,
+        )
+        context.argument("resource_group_name", resource_group_name_type)
+        context.argument(
+            "application_insights_id",
+            options_list=[
+                "--application-insights-id",
+                "--app-insights-id",
+            ],
+            help="Resource ID of an existing Application Insights component.",
+        )
+        context.argument(
+            "workspace_name",
+            default="default",
+            help="Gateway workspace name.",
+        )
+        context.argument(
+            "exporter_name",
+            default="appinsights",
+            help="Telemetry exporter name.",
+        )
+        context.argument(
+            "identity_client_id",
+            arg_group="Authentication",
+            help=(
+                "Client ID of an assigned user-assigned managed identity. By "
+                "default, the system-assigned identity or first available "
+                "identity is used."
+            ),
+        )
+        context.argument(
+            "metrics_endpoint",
+            arg_group="Custom OpenTelemetry Destination",
+            help="Absolute HTTPS OTLP metrics endpoint URL.",
+        )
+        context.argument(
+            "logs_endpoint",
+            arg_group="Custom OpenTelemetry Destination",
+            help="Absolute HTTPS OTLP logs endpoint URL.",
+        )
+        context.argument(
+            "traces_endpoint",
+            arg_group="Custom OpenTelemetry Destination",
+            help="Absolute HTTPS OTLP traces endpoint URL.",
+        )
+        context.argument(
+            "headers",
+            type=validate_headers,
+            arg_group="Authentication",
+            help=(
+                "Custom OTLP headers as a JSON object or path prefixed with '@'."
+            ),
+        )
+        context.argument(
+            "managed_identity_resource",
+            arg_group="Authentication",
+            help=(
+                "Token audience URL for custom OTLP managed identity "
+                "authentication."
+            ),
+        )
+        context.argument(
+            "payload_capture",
+            action="store_true",
+            help=(
+                "Capture request and response payloads in exported telemetry. "
+                "Payloads may contain sensitive or regulated data."
+            ),
+        )
+
     policy_commands = [
         "ai-gateway policy create",
         "ai-gateway policy delete",
@@ -371,7 +603,9 @@ def load_arguments(loader, _):
         with loader.argument_context(command) as context:
             context.argument(
                 "gateway_name",
-                help="Name of the parent AI Gateway.",
+                options_list=["--resource-name"],
+                configured_default=AI_GATEWAY_CONFIGURED_DEFAULT,
+                help="Name of the parent AI Gateway." + AI_GATEWAY_DEFAULT_HELP,
             )
             context.argument("resource_group_name", resource_group_name_type)
 
@@ -444,7 +678,11 @@ def load_arguments(loader, _):
         context.argument(
             "name",
             options_list=["--name", "-n"],
-            help="Name of the destination AI Gateway.",
+            configured_default=AI_GATEWAY_CONFIGURED_DEFAULT,
+            help=(
+                "Name of the destination AI Gateway."
+                + AI_GATEWAY_DEFAULT_HELP
+            ),
         )
         context.argument(
             "resource_group_name",
