@@ -12,6 +12,7 @@ Release History
   providers, with `--no-sync` to opt out.
 * Added CRUD and OAuth authorization commands for MCP tool servers.
 * Added API key lifecycle and managed identity commands.
+* Added outbound VNet configuration and private endpoint connection management.
 * Added create, list, and delete commands for Application Insights and custom
   OpenTelemetry monitoring exporters.
 * Added inline policy CRUD across models and MCP tool servers.

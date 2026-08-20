@@ -936,7 +936,7 @@
         "tags": [
           "Networking"
         ],
-        "description": "Sets the approval state of a service-side private endpoint connection. The request must include the connection resource ID and privateLinkServiceConnectionState; the backing private endpoint is a separate resource created with az network private-endpoint.",
+        "description": "Sets the approval state of a service-side private endpoint connection. The request must include privateLinkServiceConnectionState; the backing private endpoint is a separate resource created with az network private-endpoint.",
         "parameters": [
           {
             "name": "parameters",
@@ -2095,16 +2095,11 @@
     "AIGatewayPrivateEndpointConnectionUpdateParameters": {
       "type": "object",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Private endpoint connection resource ID."
-        },
         "properties": {
           "$ref": "#/definitions/AIGatewayPrivateEndpointConnectionUpdateProperties"
         }
       },
       "required": [
-        "id",
         "properties"
       ]
     },

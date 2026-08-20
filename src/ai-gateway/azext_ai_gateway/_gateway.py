@@ -6,6 +6,7 @@
 import codecs
 import json
 import logging
+import re
 import time
 from contextlib import contextmanager
 from urllib.parse import quote, unquote
@@ -13,6 +14,7 @@ from urllib.parse import quote, unquote
 from azure.cli.core.azclierror import (
     AzureResponseError,
     HTTPError,
+    InvalidArgumentValueError,
     RequiredArgumentMissingError,
     ResourceNotFoundError,
 )
@@ -37,6 +39,11 @@ _SENSITIVE_URL_SEGMENTS = (
     "/exporters/",
     "/modelproviders/",
     "/toolservers/",
+)
+_SUBNET_RESOURCE_ID = re.compile(
+    r"^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/"
+    r"Microsoft\.Network/virtualNetworks/[^/]+/subnets/[^/]+$",
+    re.IGNORECASE,
 )
 
 
@@ -231,6 +238,57 @@ def _current_identity(resource):
     )
 
 
+def _networking_properties(
+    public_network_access,
+    virtual_network_type,
+    subnet_resource_id,
+):
+    properties = {}
+    if public_network_access is not None:
+        properties["publicNetworkAccess"] = public_network_access
+
+    subnet = (
+        subnet_resource_id.strip()
+        if subnet_resource_id is not None
+        else None
+    )
+    if subnet and not _SUBNET_RESOURCE_ID.fullmatch(subnet):
+        raise InvalidArgumentValueError(
+            "--subnet-resource-id must be a full Microsoft.Network "
+            "virtual network subnet resource ID."
+        )
+
+    if virtual_network_type == "None":
+        if subnet:
+            raise InvalidArgumentValueError(
+                "--virtual-network-type None cannot be combined with a "
+                "non-empty --subnet-resource-id."
+            )
+        properties["virtualNetworkType"] = "None"
+        properties["virtualNetworkConfiguration"] = None
+    elif virtual_network_type == "External":
+        if not subnet:
+            raise InvalidArgumentValueError(
+                "--subnet-resource-id is required when "
+                "--virtual-network-type is External."
+            )
+        properties["virtualNetworkType"] = "External"
+        properties["virtualNetworkConfiguration"] = {
+            "subnetResourceId": subnet
+        }
+    elif subnet is not None:
+        if subnet:
+            properties["virtualNetworkType"] = "External"
+            properties["virtualNetworkConfiguration"] = {
+                "subnetResourceId": subnet
+            }
+        else:
+            properties["virtualNetworkType"] = "None"
+            properties["virtualNetworkConfiguration"] = None
+
+    return properties
+
+
 def create_gateway(
     cmd,
     name,
@@ -330,6 +388,11 @@ def update_gateway(
             "Specify at least one property to update."
         )
 
+    properties = _networking_properties(
+        public_network_access,
+        virtual_network_type,
+        subnet_resource_id,
+    )
     subscription_id = get_subscription_id(cmd.cli_ctx)
     path = _gateway_path(subscription_id, resource_group_name, name)
     body = {}
@@ -348,18 +411,6 @@ def update_gateway(
             current_users if mi_user_assigned is None else mi_user_assigned,
         )
 
-    properties = {}
-    if public_network_access is not None:
-        properties["publicNetworkAccess"] = public_network_access
-    if virtual_network_type is not None:
-        properties["virtualNetworkType"] = virtual_network_type
-    if subnet_resource_id is not None:
-        subnet_resource_id = subnet_resource_id.strip()
-        properties["virtualNetworkConfiguration"] = (
-            {"subnetResourceId": subnet_resource_id}
-            if subnet_resource_id
-            else None
-        )
     if properties:
         body["properties"] = properties
 

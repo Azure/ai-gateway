@@ -40,8 +40,97 @@ Manage AI Gateway resources.
 | `update` | `az ai-gateway update -n <gateway> -g <group> [options]` |
 | `version` | `az ai-gateway version` |
 
-`list --output table` displays the gateway name, resource group, location, and
-runtime URL.
+
+### Networking
+
+Enable outbound VNet integration with a delegated subnet:
+
+```bash
+az ai-gateway update \
+  --virtual-network-type External \
+  --subnet-resource-id /subscriptions/<sub>/resourceGroups/<network-group>/providers/Microsoft.Network/virtualNetworks/<vnet>/subnets/<subnet> \
+  -n my-ai-gateway -g my-resource-group
+```
+
+A non-empty `--subnet-resource-id` without `--virtual-network-type` enables
+`External` integration. `External` requires a full
+`Microsoft.Network/virtualNetworks/subnets` resource ID. An explicitly empty
+`--subnet-resource-id` disables VNet integration and clears the configuration.
+
+Disable integration and clear `virtualNetworkConfiguration` with:
+
+```bash
+az ai-gateway update \
+  --virtual-network-type None \
+  -n my-ai-gateway -g my-resource-group
+```
+
+`None` cannot be combined with a non-empty `--subnet-resource-id`.
+For compatibility, an explicitly empty `--subnet-resource-id ""` without
+`--virtual-network-type` also disables VNet integration and clears the
+configuration.
+
+Disable public ingress:
+
+```bash
+az ai-gateway update \
+  --public-network-access Disabled \
+  -n my-ai-gateway -g my-resource-group
+```
+
+`--public-network-access` accepts `Enabled` or `Disabled`.
+
+## `az ai-gateway private-endpoint`
+
+Manage the service-side connections created when private endpoints target an
+AI Gateway.
+
+| Command | Syntax |
+| --- | --- |
+| `approve` | `az ai-gateway private-endpoint approve -n <connection> [--description <text>] [--no-wait] --resource-name <gateway> -g <group>` |
+| `delete` | `az ai-gateway private-endpoint delete -n <connection> [--no-wait] --resource-name <gateway> -g <group>` |
+| `list` | `az ai-gateway private-endpoint list --resource-name <gateway> -g <group>` |
+| `reject` | `az ai-gateway private-endpoint reject -n <connection> [--description <text>] [--no-wait] --resource-name <gateway> -g <group>` |
+| `show` | `az ai-gateway private-endpoint show -n <connection> --resource-name <gateway> -g <group>` |
+
+`approve` and `reject` use `--description` for the connection-state reason and
+wait for completion unless `--no-wait` is specified. If omitted, `approve` uses
+`Approved` and `reject` uses `Rejected`. `delete` prompts for confirmation and
+also supports `--no-wait`.
+
+Create the backing private endpoint with the standard networking commands:
+
+```bash
+GATEWAY_ID=$(az ai-gateway show -n my-ai-gateway -g my-resource-group \
+  --query id -o tsv)
+
+az network private-endpoint create \
+  -n my-ai-gateway-pe -g my-network-resource-group \
+  --vnet-name my-vnet --subnet private-endpoints \
+  --private-connection-resource-id "$GATEWAY_ID" \
+  --group-id Gateway --connection-name my-ai-gateway-connection
+
+PRIVATE_DNS_ZONE_ID=$(az network private-dns zone show \
+  -n privatelink.azure-api.net -g my-network-resource-group \
+  --query id -o tsv)
+
+az network private-endpoint dns-zone-group create \
+  --endpoint-name my-ai-gateway-pe -g my-network-resource-group \
+  -n default --zone-name ai-gateway \
+  --private-dns-zone "$PRIVATE_DNS_ZONE_ID"
+```
+
+Approve the resulting connection if it remains pending:
+
+```bash
+az ai-gateway private-endpoint approve \
+  -n <connection-name> --resource-name my-ai-gateway \
+  -g my-resource-group
+```
+
+Verify private DNS and traffic before disabling public network access. Deleting
+a service-side connection does not delete its backing
+`Microsoft.Network/privateEndpoints` resource.
 
 ### `az ai-gateway import`
 

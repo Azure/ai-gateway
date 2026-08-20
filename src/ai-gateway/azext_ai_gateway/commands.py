@@ -16,6 +16,9 @@ from azext_ai_gateway._mcp import format_mcp_list_table
 from azext_ai_gateway._api_key import format_api_key_list_table
 from azext_ai_gateway._policy import format_policy_list_table
 from azext_ai_gateway._gateway import format_gateway_list_table
+from azext_ai_gateway._private_endpoint_connection import (
+    format_private_endpoint_connection_list_table,
+)
 
 
 def load_command_table(loader, _):
@@ -123,6 +126,35 @@ def load_command_table(loader, _):
             supports_no_wait=True,
         )
         group.custom_show_command("show", "show_identity")
+
+    with loader.command_group(
+        "ai-gateway private-endpoint"
+    ) as group:
+        group.custom_command(
+            "approve",
+            "approve_private_endpoint_connection",
+            supports_no_wait=True,
+        )
+        group.custom_command(
+            "delete",
+            "delete_private_endpoint_connection",
+            confirmation=True,
+            supports_no_wait=True,
+        )
+        group.custom_command(
+            "list",
+            "list_private_endpoint_connections",
+            table_transformer=format_private_endpoint_connection_list_table,
+        )
+        group.custom_command(
+            "reject",
+            "reject_private_endpoint_connection",
+            supports_no_wait=True,
+        )
+        group.custom_show_command(
+            "show",
+            "show_private_endpoint_connection",
+        )
 
     with loader.command_group("ai-gateway telemetry-exporter") as group:
         group.custom_command("create", "create_telemetry_exporter")

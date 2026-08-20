@@ -65,6 +65,13 @@ from azext_ai_gateway._policy_translation import (
     list_policy_translation_support,
     show_policy_translation_support,
 )
+from azext_ai_gateway._private_endpoint_connection import (
+    approve_private_endpoint_connection,
+    delete_private_endpoint_connection,
+    list_private_endpoint_connections,
+    reject_private_endpoint_connection,
+    show_private_endpoint_connection,
+)
 
 # pylint: disable=unused-argument,unused-import
 

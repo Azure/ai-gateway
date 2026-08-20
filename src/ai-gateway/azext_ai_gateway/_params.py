@@ -104,9 +104,51 @@ def load_arguments(loader, _):
             arg_group="Networking",
             help=(
                 "Resource ID of the delegated integration subnet. "
-                "Pass an empty string to clear the configuration."
+                "A non-empty value enables External integration. Set "
+                "--virtual-network-type None to clear the configuration."
             ),
         )
+
+    private_endpoint_connection_commands = [
+        "ai-gateway private-endpoint approve",
+        "ai-gateway private-endpoint delete",
+        "ai-gateway private-endpoint list",
+        "ai-gateway private-endpoint reject",
+        "ai-gateway private-endpoint show",
+    ]
+    for command in private_endpoint_connection_commands:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "gateway_name",
+                options_list=["--resource-name"],
+                configured_default=AI_GATEWAY_CONFIGURED_DEFAULT,
+                help="Name of the parent AI Gateway."
+                + AI_GATEWAY_DEFAULT_HELP,
+            )
+            context.argument("resource_group_name", resource_group_name_type)
+
+    for command in [
+        "ai-gateway private-endpoint approve",
+        "ai-gateway private-endpoint delete",
+        "ai-gateway private-endpoint reject",
+        "ai-gateway private-endpoint show",
+    ]:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "name",
+                options_list=["--name", "-n"],
+                help="Name of the private endpoint connection.",
+            )
+
+    for command in [
+        "ai-gateway private-endpoint approve",
+        "ai-gateway private-endpoint reject",
+    ]:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "description",
+                help="Reason for approving or rejecting the connection.",
+            )
 
     model_commands = [
         "ai-gateway model create",

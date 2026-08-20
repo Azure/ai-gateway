@@ -12,6 +12,7 @@ import pytest
 from azure.cli.core.azclierror import (
     AzureResponseError,
     HTTPError,
+    InvalidArgumentValueError,
     RequiredArgumentMissingError,
 )
 from requests import Response
@@ -232,16 +233,111 @@ def test_update_sends_only_supplied_networking_properties(
         "gateway",
         "rg",
         public_network_access="Disabled",
-        subnet_resource_id="",
+        virtual_network_type="None",
     )
 
     body = json.loads(send_request.call_args.kwargs["body"])
     assert body == {
         "properties": {
             "publicNetworkAccess": "Disabled",
+            "virtualNetworkType": "None",
             "virtualNetworkConfiguration": None,
         }
     }
+
+
+@patch("azext_ai_gateway._gateway.get_subscription_id", return_value="sub")
+@patch("azext_ai_gateway._gateway._wait_for_gateway")
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_update_infers_external_from_subnet(
+    send_request,
+    wait_for_gateway,
+    _,
+    cmd,
+):
+    send_request.return_value = FakeResponse(
+        {"properties": {"provisioningState": "Updating"}}
+    )
+    wait_for_gateway.return_value = {
+        "properties": {"provisioningState": "Succeeded"}
+    }
+    subnet_id = (
+        "/subscriptions/sub/resourceGroups/rg/providers/"
+        "Microsoft.Network/virtualNetworks/vnet/subnets/integration"
+    )
+
+    _gateway.update_gateway(
+        cmd,
+        "gateway",
+        "rg",
+        subnet_resource_id=subnet_id,
+    )
+
+    body = json.loads(send_request.call_args.kwargs["body"])
+    assert body == {
+        "properties": {
+            "virtualNetworkType": "External",
+            "virtualNetworkConfiguration": {
+                "subnetResourceId": subnet_id,
+            },
+        }
+    }
+
+
+@patch("azext_ai_gateway._gateway.get_subscription_id", return_value="sub")
+@patch("azext_ai_gateway._gateway._wait_for_gateway")
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_update_public_access_does_not_overwrite_vnet_configuration(
+    send_request,
+    wait_for_gateway,
+    _,
+    cmd,
+):
+    send_request.return_value = FakeResponse(
+        {"properties": {"provisioningState": "Updating"}}
+    )
+    wait_for_gateway.return_value = {
+        "properties": {"provisioningState": "Succeeded"}
+    }
+
+    _gateway.update_gateway(
+        cmd,
+        "gateway",
+        "rg",
+        public_network_access="Disabled",
+    )
+
+    body = json.loads(send_request.call_args.kwargs["body"])
+    assert body == {"properties": {"publicNetworkAccess": "Disabled"}}
+
+
+@pytest.mark.parametrize(
+    ("virtual_network_type", "subnet_resource_id", "message"),
+    [
+        ("External", None, "--subnet-resource-id is required"),
+        (
+            "None",
+            "/subscriptions/sub/resourceGroups/rg/providers/"
+            "Microsoft.Network/virtualNetworks/vnet/subnets/integration",
+            "cannot be combined",
+        ),
+        ("External", "not-a-resource-id", "full Microsoft.Network"),
+    ],
+)
+def test_update_rejects_invalid_networking_combinations(
+    cmd,
+    virtual_network_type,
+    subnet_resource_id,
+    message,
+):
+    with pytest.raises(InvalidArgumentValueError, match=message):
+        _gateway.update_gateway(
+            cmd,
+            "gateway",
+            "rg",
+            virtual_network_type=virtual_network_type,
+            subnet_resource_id=subnet_resource_id,
+        )
 
 
 def test_update_requires_at_least_one_property(cmd):

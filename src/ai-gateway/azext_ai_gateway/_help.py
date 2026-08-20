@@ -647,6 +647,63 @@ helps["ai-gateway update"] = """
           --resource-group my-resource-group
           --virtual-network-type External
           --subnet-resource-id /subscriptions/s/resourceGroups/r/providers/Microsoft.Network/virtualNetworks/v/subnets/s
+      - name: Disable outbound virtual network integration and clear its subnet.
+        text: >-
+          az ai-gateway update --name my-ai-gateway
+          --resource-group my-resource-group
+          --virtual-network-type None
+"""
+
+helps["ai-gateway private-endpoint"] = """
+    type: group
+    short-summary: Manage service-side private endpoint connections.
+"""
+
+helps["ai-gateway private-endpoint list"] = """
+    type: command
+    short-summary: List private endpoint connections for an AI Gateway.
+    examples:
+      - name: List private endpoint connections.
+        text: >-
+          az ai-gateway private-endpoint list
+          --resource-name my-ai-gateway
+          --resource-group my-resource-group --output table
+"""
+
+helps["ai-gateway private-endpoint show"] = """
+    type: command
+    short-summary: Show a private endpoint connection.
+"""
+
+helps["ai-gateway private-endpoint approve"] = """
+    type: command
+    short-summary: Approve a private endpoint connection.
+    examples:
+      - name: Approve a pending connection.
+        text: >-
+          az ai-gateway private-endpoint approve
+          --name connection-name --description "Approved"
+          --resource-name my-ai-gateway
+          --resource-group my-resource-group
+"""
+
+helps["ai-gateway private-endpoint reject"] = """
+    type: command
+    short-summary: Reject a private endpoint connection.
+    examples:
+      - name: Reject a pending connection.
+        text: >-
+          az ai-gateway private-endpoint reject
+          --name connection-name --description "Not approved"
+          --resource-name my-ai-gateway
+          --resource-group my-resource-group
+"""
+
+helps["ai-gateway private-endpoint delete"] = """
+    type: command
+    short-summary: Delete a service-side private endpoint connection.
+    long-summary: >
+        This does not delete the backing Microsoft.Network private endpoint.
 """
 
 helps["ai-gateway version"] = """
