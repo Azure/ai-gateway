@@ -334,8 +334,8 @@ Manage gateway telemetry exporters.
 
 | Command | Syntax |
 | --- | --- |
-| `create` | `az ai-gateway telemetry-exporter create [options] --resource-name <gateway> -g <group>` |
-| `delete` | `az ai-gateway telemetry-exporter delete [-n <exporter>] --resource-name <gateway> -g <group>` |
+| `create` | `az ai-gateway telemetry-exporter create -n <exporter> [options] --resource-name <gateway> -g <group>` |
+| `delete` | `az ai-gateway telemetry-exporter delete -n <exporter> --resource-name <gateway> -g <group>` |
 | `list` | `az ai-gateway telemetry-exporter list --resource-name <gateway> -g <group>` |
 
 ### `az ai-gateway telemetry-exporter create`
@@ -347,7 +347,7 @@ Insights resource or custom OpenTelemetry endpoint.
 
 | Option | Description |
 | --- | --- |
-| `--name`, `-n` | Telemetry exporter name. Defaults to `appinsights`. |
+| `--name`, `-n` | Required. Telemetry exporter name. |
 | `--application-insights` | Resource ID of an existing Application Insights component. Use this option by itself for the streamlined Application Insights setup. |
 | `--metrics-endpoint` | Absolute HTTPS OTLP metrics endpoint. Each endpoint independently enables its signal; at least one is required for a custom destination. |
 | `--logs-endpoint` | Absolute HTTPS OTLP logs endpoint. Each endpoint independently enables its signal; at least one is required for a custom destination. |
@@ -367,9 +367,6 @@ az ai-gateway telemetry-exporter create \
   --resource-name my-ai-gateway \
   --resource-group my-resource-group
 ```
-
-`list` redacts custom header values. `delete` defaults to the `appinsights`
-exporter and prompts for confirmation.
 
 Configure a custom OpenTelemetry destination with headers:
 

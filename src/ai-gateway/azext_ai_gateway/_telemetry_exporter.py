@@ -3,6 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------------------------
 
+"""Telemetry exporter command implementations."""
+
 import hashlib
 import re
 import time
@@ -32,7 +34,6 @@ RESOURCE_GRAPH_API_VERSION = "2022-10-01"
 ROLE_ASSIGNMENTS_API_VERSION = "2022-04-01"
 IDENTITY_API_VERSION = "2024-05-01"
 DEFAULT_WORKSPACE = "default"
-DEFAULT_EXPORTER_NAME = "appinsights"
 logger = get_logger(__name__)
 MONITORING_METRICS_PUBLISHER_ROLE_ID = (
     "3913510d-42f4-4e42-8a64-420c390055eb"
@@ -509,9 +510,9 @@ def create_telemetry_exporter(
     cmd,
     gateway_name,
     resource_group_name,
+    name,
     application_insights=None,
     workspace_name=DEFAULT_WORKSPACE,
-    name=DEFAULT_EXPORTER_NAME,
     identity_client_id=None,
     metrics_endpoint=None,
     logs_endpoint=None,

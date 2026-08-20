@@ -10,7 +10,7 @@ from unittest.mock import patch
 import pytest
 from azure.cli.core.azclierror import InvalidArgumentValueError
 
-from azext_ai_gateway import _monitoring
+from azext_ai_gateway import _telemetry_exporter
 
 
 class FakeResponse:
@@ -29,7 +29,10 @@ def cmd():
     return SimpleNamespace(cli_ctx=object())
 
 
-@patch("azext_ai_gateway._monitoring.get_subscription_id", return_value="sub")
+@patch(
+    "azext_ai_gateway._telemetry_exporter.get_subscription_id",
+    return_value="sub",
+)
 @patch("azext_ai_gateway._gateway.send_raw_request")
 def test_list_exporters_follows_pages_and_redacts_headers(
     send_request,
@@ -67,7 +70,7 @@ def test_list_exporters_follows_pages_and_redacts_headers(
         ),
     ]
 
-    result = _monitoring.list_telemetry_exporters(
+    result = _telemetry_exporter.list_telemetry_exporters(
         cmd,
         "gateway",
         "rg",
@@ -90,12 +93,15 @@ def test_list_exporters_follows_pages_and_redacts_headers(
     assert second_call.kwargs["uri_parameters"] is None
 
 
-@patch("azext_ai_gateway._monitoring.get_subscription_id", return_value="sub")
+@patch(
+    "azext_ai_gateway._telemetry_exporter.get_subscription_id",
+    return_value="sub",
+)
 @patch("azext_ai_gateway._gateway.send_raw_request")
 def test_delete_exporter_uses_concurrency_precondition(send_request, _, cmd):
     send_request.return_value = FakeResponse()
 
-    _monitoring.delete_telemetry_exporter(
+    _telemetry_exporter.delete_telemetry_exporter(
         cmd,
         "custom/exporter",
         "gateway",
@@ -125,10 +131,13 @@ def test_delete_exporter_uses_concurrency_precondition(send_request, _, cmd):
 )
 def test_validate_endpoint_rejects_unsafe_urls(endpoint):
     with pytest.raises(InvalidArgumentValueError):
-        _monitoring._validate_endpoint(endpoint, "--traces-endpoint")
+        _telemetry_exporter._validate_endpoint(endpoint, "--traces-endpoint")
 
 
-@patch("azext_ai_gateway._monitoring.get_subscription_id", return_value="gateway-sub")
+@patch(
+    "azext_ai_gateway._telemetry_exporter.get_subscription_id",
+    return_value="gateway-sub",
+)
 @patch("azext_ai_gateway._gateway.send_raw_request")
 def test_create_exporter_for_existing_application_insights(send_request, _, cmd):
     app_insights_id = (
@@ -168,11 +177,12 @@ def test_create_exporter_for_existing_application_insights(send_request, _, cmd)
         ),
     ]
 
-    result = _monitoring.create_telemetry_exporter(
+    result = _telemetry_exporter.create_telemetry_exporter(
         cmd,
         "gateway",
         "gateway-rg",
-        app_insights_id,
+        "appinsights",
+        application_insights=app_insights_id,
         payload_capture=True,
     )
 
@@ -184,7 +194,7 @@ def test_create_exporter_for_existing_application_insights(send_request, _, cmd)
         "roleDefinitionId": (
             "/subscriptions/monitor-sub/providers/Microsoft.Authorization/"
             "roleDefinitions/"
-            f"{_monitoring.MONITORING_METRICS_PUBLISHER_ROLE_ID}"
+            f"{_telemetry_exporter.MONITORING_METRICS_PUBLISHER_ROLE_ID}"
         ),
         "principalId": "principal",
         "principalType": "ServicePrincipal",
@@ -215,8 +225,11 @@ def test_create_exporter_for_existing_application_insights(send_request, _, cmd)
     assert result["properties"]["kind"] == "openTelemetry"
 
 
-@patch("azext_ai_gateway._monitoring.get_subscription_id", return_value="sub")
-@patch("azext_ai_gateway._monitoring._wait_for_gateway")
+@patch(
+    "azext_ai_gateway._telemetry_exporter.get_subscription_id",
+    return_value="sub",
+)
+@patch("azext_ai_gateway._telemetry_exporter._wait_for_gateway")
 @patch("azext_ai_gateway._gateway.send_raw_request")
 def test_create_exporter_enables_identity_and_synthesizes_otlp_endpoints(
     send_request,
@@ -274,11 +287,12 @@ def test_create_exporter_enables_identity_and_synthesizes_otlp_endpoints(
         FakeResponse({"properties": {"kind": "OpenTelemetry"}}),
     ]
 
-    _monitoring.create_telemetry_exporter(
+    _telemetry_exporter.create_telemetry_exporter(
         cmd,
         "gateway",
         "rg",
-        app_insights_id,
+        "appinsights",
+        application_insights=app_insights_id,
     )
 
     identity_body = json.loads(send_request.call_args_list[1].kwargs["body"])
@@ -301,15 +315,19 @@ def test_application_insights_id_must_be_complete(cmd):
         InvalidArgumentValueError,
         match="complete Azure Application Insights",
     ):
-        _monitoring.create_telemetry_exporter(
+        _telemetry_exporter.create_telemetry_exporter(
             cmd,
             "gateway",
             "rg",
-            "app",
+            "appinsights",
+            application_insights="app",
         )
 
 
-@patch("azext_ai_gateway._monitoring.get_subscription_id", return_value="sub")
+@patch(
+    "azext_ai_gateway._telemetry_exporter.get_subscription_id",
+    return_value="sub",
+)
 @patch("azext_ai_gateway._gateway.send_raw_request")
 def test_unassigned_explicit_identity_fails_without_enabling_system_identity(
     send_request,
@@ -322,11 +340,12 @@ def test_unassigned_explicit_identity_fails_without_enabling_system_identity(
         InvalidArgumentValueError,
         match="is not assigned",
     ):
-        _monitoring.create_telemetry_exporter(
+        _telemetry_exporter.create_telemetry_exporter(
             cmd,
             "gateway",
             "rg",
-            (
+            "appinsights",
+            application_insights=(
                 "/subscriptions/sub/resourceGroups/rg/providers/"
                 "Microsoft.Insights/components/app"
             ),
@@ -336,17 +355,21 @@ def test_unassigned_explicit_identity_fails_without_enabling_system_identity(
     assert send_request.call_count == 1
 
 
-@patch("azext_ai_gateway._monitoring.get_subscription_id", return_value="sub")
+@patch(
+    "azext_ai_gateway._telemetry_exporter.get_subscription_id",
+    return_value="sub",
+)
 @patch("azext_ai_gateway._gateway.send_raw_request")
 def test_create_custom_otlp_exporter_with_headers(send_request, _, cmd):
     send_request.return_value = FakeResponse(
         {"properties": {"kind": "OpenTelemetry"}}
     )
 
-    result = _monitoring.create_telemetry_exporter(
+    result = _telemetry_exporter.create_telemetry_exporter(
         cmd,
         "gateway",
         "rg",
+        "custom-otlp",
         metrics_endpoint="https://otel.example.com/v1/metrics",
         logs_endpoint="https://otel.example.com/v1/logs",
         traces_endpoint="https://otel.example.com/v1/traces",
@@ -372,7 +395,10 @@ def test_create_custom_otlp_exporter_with_headers(send_request, _, cmd):
     assert result["properties"]["kind"] == "openTelemetry"
 
 
-@patch("azext_ai_gateway._monitoring.get_subscription_id", return_value="sub")
+@patch(
+    "azext_ai_gateway._telemetry_exporter.get_subscription_id",
+    return_value="sub",
+)
 @patch("azext_ai_gateway._gateway.send_raw_request")
 def test_create_custom_otlp_exporter_with_user_assigned_identity(
     send_request,
@@ -396,10 +422,11 @@ def test_create_custom_otlp_exporter_with_user_assigned_identity(
         FakeResponse({"properties": {"kind": "OpenTelemetry"}}),
     ]
 
-    _monitoring.create_telemetry_exporter(
+    _telemetry_exporter.create_telemetry_exporter(
         cmd,
         "gateway",
         "rg",
+        "custom-otlp",
         metrics_endpoint="https://otel.example.com/v1/metrics",
         logs_endpoint="https://otel.example.com/v1/logs",
         traces_endpoint="https://otel.example.com/v1/traces",
@@ -417,17 +444,21 @@ def test_create_custom_otlp_exporter_with_user_assigned_identity(
     }
 
 
-@patch("azext_ai_gateway._monitoring.get_subscription_id", return_value="sub")
+@patch(
+    "azext_ai_gateway._telemetry_exporter.get_subscription_id",
+    return_value="sub",
+)
 @patch("azext_ai_gateway._gateway.send_raw_request")
 def test_create_unauthenticated_traces_only_exporter(send_request, _, cmd):
     send_request.return_value = FakeResponse(
         {"properties": {"kind": "OpenTelemetry"}}
     )
 
-    _monitoring.create_telemetry_exporter(
+    _telemetry_exporter.create_telemetry_exporter(
         cmd,
         "gateway",
         "rg",
+        "custom-otlp",
         traces_endpoint="https://otel.example.com/v1/traces",
     )
 
@@ -443,7 +474,10 @@ def test_create_unauthenticated_traces_only_exporter(send_request, _, cmd):
     }
 
 
-@patch("azext_ai_gateway._monitoring.get_subscription_id", return_value="sub")
+@patch(
+    "azext_ai_gateway._telemetry_exporter.get_subscription_id",
+    return_value="sub",
+)
 @patch("azext_ai_gateway._gateway.send_raw_request")
 def test_create_custom_exporter_allows_authorization_header(
     send_request,
@@ -454,10 +488,11 @@ def test_create_custom_exporter_allows_authorization_header(
         {"properties": {"kind": "OpenTelemetry"}}
     )
 
-    _monitoring.create_telemetry_exporter(
+    _telemetry_exporter.create_telemetry_exporter(
         cmd,
         "gateway",
         "rg",
+        "custom-otlp",
         metrics_endpoint="https://otel.example.com/v1/metrics",
         headers={"Authorization": "Bearer secret"},
     )
@@ -484,10 +519,20 @@ def test_create_custom_exporter_allows_authorization_header(
 )
 def test_custom_otlp_validation(cmd, kwargs, message):
     with pytest.raises(InvalidArgumentValueError, match=message):
-        _monitoring.create_telemetry_exporter(cmd, "gateway", "rg", **kwargs)
+        _telemetry_exporter.create_telemetry_exporter(
+            cmd,
+            "gateway",
+            "rg",
+            "custom-otlp",
+            **kwargs,
+        )
 
 
 def test_deterministic_guid_matches_portal_algorithm():
-    assert _monitoring._deterministic_guid("principal", "/scope", "role") == (
+    assert _telemetry_exporter._deterministic_guid(
+        "principal",
+        "/scope",
+        "role",
+    ) == (
         "d97b46bb-ea06-49d5-9b43-3f85336ca5e8"
     )

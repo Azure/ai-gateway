@@ -574,7 +574,7 @@ def load_arguments(loader, _):
             context.argument(
                 "name",
                 options_list=["--name", "-n"],
-                default="appinsights",
+                required=True,
                 help="Telemetry exporter name.",
             )
 

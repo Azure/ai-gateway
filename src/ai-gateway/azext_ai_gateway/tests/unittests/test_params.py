@@ -201,7 +201,8 @@ def test_telemetry_exporter_create_accepts_custom_otlp_options():
             f"ai-gateway telemetry-exporter {operation}",
             "name",
         )
-        assert name_argument["default"] == "appinsights"
+        assert name_argument["required"] is True
+        assert "default" not in name_argument
 
 
 
