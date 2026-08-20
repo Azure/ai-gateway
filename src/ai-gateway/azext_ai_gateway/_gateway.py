@@ -477,13 +477,46 @@ def list_gateways(cmd, resource_group_name=None):
     return gateways
 
 
-def show_gateway(cmd, name, resource_group_name):
+def show_gateway(
+    cmd,
+    name,
+    resource_group_name,
+    system_assigned=False,
+    user_assigned=False,
+):
     subscription_id = get_subscription_id(cmd.cli_ctx)
     path = _gateway_path(subscription_id, resource_group_name, name)
     try:
-        return _get_resource(cmd, path)
+        gateway = _get_resource(cmd, path)
     except HTTPError as error:
         _raise_not_found(error, name)
+
+    if not system_assigned and not user_assigned:
+        return gateway
+
+    identity = gateway.get("identity") or {}
+    identity_type = identity.get("type") or "None"
+    selected = {"type": "None"}
+
+    if system_assigned and "SystemAssigned" in identity_type:
+        selected = {
+            key: identity[key]
+            for key in ["principalId", "tenantId"]
+            if key in identity
+        }
+        selected["type"] = "SystemAssigned"
+
+    if user_assigned:
+        user_identities = identity.get("userAssignedIdentities") or {}
+        if user_identities:
+            selected["userAssignedIdentities"] = user_identities
+            selected["type"] = (
+                "SystemAssigned, UserAssigned"
+                if selected["type"] == "SystemAssigned"
+                else "UserAssigned"
+            )
+
+    return selected
 
 
 def update_gateway(

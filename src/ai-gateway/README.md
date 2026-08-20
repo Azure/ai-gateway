@@ -11,6 +11,9 @@ az extension add \
 python -m pip install build
 python -m build --wheel --outdir dist src/ai-gateway
 az extension add --source dist/ai_gateway-1.0.0b1-py3-none-any.whl --upgrade --yes
+
+# Or
+make install-extension
 ```
 
 ## Configure defaults
@@ -36,7 +39,7 @@ Manage and use the AI Gateway SKU in Azure API Management.
 | `delete` | `az ai-gateway delete -n <gateway> -g <group>` |
 | `import` | `az ai-gateway import -n <gateway> -g <group> --source-apim-id <id> --dry-run [options]` |
 | `list` | `az ai-gateway list [-g <group>]` |
-| `show` | `az ai-gateway show -n <gateway> -g <group>` |
+| `show` | `az ai-gateway show -n <gateway> -g <group> [--system-assigned] [--user-assigned]` |
 | `update` | `az ai-gateway update -n <gateway> -g <group> [options]` |
 | `version` | `az ai-gateway version` |
 
@@ -46,9 +49,9 @@ List the production regions supported by the AI Gateway SKU:
 az ai-gateway create --list-regions --output table
 ```
 
-The listed regions are advisory. `create` sends any supplied `--location`
-directly to the AI Gateway service so newly enabled regions can be used before
-they appear in this list.
+Use `--system-assigned` or `--user-assigned` with `show` to return only the
+selected managed identity details. Pass both options to return both identity
+types. Without either option, `show` returns the complete gateway resource.
 
 
 ### Networking
@@ -61,11 +64,6 @@ az ai-gateway update \
   --subnet-resource-id /subscriptions/<sub>/resourceGroups/<network-group>/providers/Microsoft.Network/virtualNetworks/<vnet>/subnets/<subnet> \
   -n my-ai-gateway -g my-resource-group
 ```
-
-A non-empty `--subnet-resource-id` without `--virtual-network-type` enables
-`External` integration. `External` requires a full
-`Microsoft.Network/virtualNetworks/subnets` resource ID. An explicitly empty
-`--subnet-resource-id` disables VNet integration and clears the configuration.
 
 Disable integration and clear `virtualNetworkConfiguration` with:
 
@@ -288,41 +286,6 @@ Manage MCP tool servers, endpoints, and OAuth authorization.
 `openApi`, and `http`. Table output from `mcp list` includes each server's
 derived runtime endpoint.
 
-### `az ai-gateway mcp test`
-
-Test a registered MCP tool server by sending an MCP `initialize` request to its
-runtime endpoint, constructed as
-`<gateway-runtime-url>/<workspace>/toolservers/<server-name>/mcp`. Select an AI
-Gateway API key resource with `--api-key-name`. The command retrieves its
-primary key through the management API and keeps the value out of the terminal
-output. The key is sent in all three MCP requests: `initialize`,
-`notifications/initialized`, and `tools/list`; each request includes a 15-second
-HTTP timeout. A successful command returns the server's initialize result and
-then sends `notifications/initialized` and `tools/list`, carrying the MCP
-session ID when provided. The output includes the negotiated protocol version,
-capabilities, server information, and exposed tools. On failure, the
-diagnostic identifies the endpoint and shows attempted stages in execution
-order as a table. The table is followed by the complete failed HTTP response
-status, headers, and body when a response is available, without
-displaying the API key. Transport failures instead show the connection error.
-Known federation errors mark the failed stage as
-`Federation failed` and add a structured diagnosis containing the downstream
-endpoint, requirement, operation, and HTTP status. Before the handshake begins,
-the command states a reported failure mode and its implication: `failOpen` can
-return a partial tool list when endpoints are unavailable, while `failClosed`
-returns required endpoint failures. No failure-mode message is shown when the
-service does not report one. When any configured endpoint is explicitly
-non-required, the command emits an explicit `Warning:` that the tool list may
-be incomplete if that endpoint is unavailable.
-
-```bash
-az ai-gateway mcp test \
-  --name tools \
-  --api-key-name production \
-  --resource-name my-ai-gateway \
-  --resource-group my-resource-group
-```
-
 ### `az ai-gateway mcp create`
 
 Create an MCP tool server that federates one or more tool endpoints. The command
@@ -432,6 +395,19 @@ definition:
 After creation, get the server-generated endpoint ID with `mcp show`, then run
 `az ai-gateway mcp authorize` to obtain the OAuth login link.
 
+### `az ai-gateway mcp test`
+
+Test a registered MCP tool server by sending an MCP `initialize` request to its
+runtime endpoint, and attempting to list resources/tools.
+
+```bash
+az ai-gateway mcp test \
+  --name tools \
+  --api-key-name production \
+  --resource-name my-ai-gateway \
+  --resource-group my-resource-group
+```
+
 ## `az ai-gateway api-key`
 
 Manage gateway API keys and secret rotation.
@@ -470,12 +446,6 @@ Manage policies on gateway assets.
 | `update` | `az ai-gateway policy update --policy-id '<id>' --policy @policy.json --resource-name <gateway> -g <group>` |
 
 Policy IDs contain `#`; quote literal IDs.
-
-### `az ai-gateway policy list`
-
-Filter by `--scope-type model|mcp`. Add `--scope-name` to select one model or
-MCP tool server; selecting one model also requires `--provider-name`.
-The command reports progress while retrieving policies across resources.
 
 ### `az ai-gateway policy create`
 

@@ -653,6 +653,15 @@ helps["ai-gateway show"] = """
         text: >-
           az ai-gateway show --name my-ai-gateway
           --resource-group my-resource-group
+      - name: Show the system-assigned managed identity.
+        text: >-
+          az ai-gateway show --name my-ai-gateway
+          --resource-group my-resource-group --system-assigned
+      - name: Show all managed identities.
+        text: >-
+          az ai-gateway show --name my-ai-gateway
+          --resource-group my-resource-group
+          --system-assigned --user-assigned
 """
 
 helps["ai-gateway update"] = """
