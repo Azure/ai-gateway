@@ -276,6 +276,113 @@ Manage MCP tool servers, endpoints, and OAuth authorization.
 `--endpoints` accepts a JSON array or an `@file` path. Endpoint kinds: `mcp`,
 `openApi`, and `http`.
 
+### `az ai-gateway mcp create`
+
+Create or replace an MCP tool server that federates one or more tool endpoints.
+
+#### Options
+
+| Option | Description |
+| --- | --- |
+| `--name`, `-n` | Required. MCP tool server name. |
+| `--endpoints` | Required. Non-empty endpoint JSON array or `@file`. Use a file when the definition contains secrets. |
+| `--display-name` | Display name of the MCP tool server. |
+| `--description` | Description of the MCP tool server. |
+| `--failure-mode` | Endpoint failure behavior: `failOpen` or `failClosed`. |
+| `--policies` | Optional inline policy JSON array or `@file`. |
+
+#### Endpoint schema
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `namespace` | Yes | Namespace exposed by the tool server. |
+| `kind` | Yes | Endpoint kind: `mcp`, `openApi`, or `http`. |
+| `required` | No | Whether the endpoint is required by the tool server. |
+| `mcp.url` | For `mcp` | MCP server URL. |
+| `mcp.transport` | No | `streamableHttp` (the default) or `sse`. |
+| `openApi.specSource.type` | For `openApi` | OpenAPI document source: `url` or `inline`. |
+| `openApi.specSource.url` | For URL sources | URL of the OpenAPI document. |
+| `openApi.specSource.contentBase64` | For inline sources | Base64-encoded OpenAPI document. |
+| `credentials.type` | No | Authentication type: `none`, `header`, `oauth2`, or `managedIdentity`. |
+| `credentials.headers` | For header authentication | Header names mapped to arrays of string values. |
+| `credentials.oauth2.grantType` | For OAuth 2.0 | Must be `authorizationCode`. |
+| `credentials.oauth2.authorizationUrl` | For OAuth 2.0 | Authorization endpoint URL. |
+| `credentials.oauth2.tokenUrl` | For OAuth 2.0 | Token endpoint URL. |
+| `credentials.oauth2.clientId` | For OAuth 2.0 | OAuth client ID. |
+| `credentials.oauth2.clientSecret` | No | OAuth client secret. |
+| `credentials.oauth2.scopes` | No | OAuth scopes as an array of strings. |
+| `credentials.managedIdentity.resource` | No | Token audience for managed identity authentication. |
+| `credentials.managedIdentity.clientId` | No | Client ID of an assigned user-assigned identity. |
+
+Create `endpoints.json` for an MCP endpoint authenticated with a header and an
+OpenAPI endpoint without authentication:
+
+```json
+[
+  {
+    "namespace": "tickets",
+    "kind": "mcp",
+    "required": true,
+    "mcp": {
+      "url": "https://tools.example.com/mcp",
+      "transport": "streamableHttp"
+    },
+    "credentials": {
+      "type": "header",
+      "headers": {
+        "Authorization": ["Bearer <token>"]
+      }
+    }
+  },
+  {
+    "namespace": "catalog",
+    "kind": "openApi",
+    "openApi": {
+      "specSource": {
+        "type": "url",
+        "url": "https://api.example.com/openapi.json"
+      }
+    },
+    "credentials": {
+      "type": "none"
+    }
+  }
+]
+```
+
+Create the tool server from the endpoint definition:
+
+```bash
+az ai-gateway mcp create \
+  --name team-tools \
+  --display-name "Team tools" \
+  --description "Engineering tool federation" \
+  --failure-mode failClosed \
+  --endpoints @endpoints.json \
+  --resource-name my-ai-gateway \
+  --resource-group my-resource-group
+```
+
+For an OAuth endpoint, use the following credentials in its endpoint
+definition:
+
+```json
+{
+  "type": "oauth2",
+  "oauth2": {
+    "grantType": "authorizationCode",
+    "authorizationUrl": "https://login.example.com/oauth2/authorize",
+    "tokenUrl": "https://login.example.com/oauth2/token",
+    "clientId": "<client-id>",
+    "clientSecret": "<client-secret>",
+    "scopes": ["tools.read"]
+  }
+}
+```
+
+After creation, get the server-generated endpoint ID with `mcp show`, then run
+`az ai-gateway mcp authorize` to obtain the OAuth login link.
+
 ## `az ai-gateway api-key`
 
 Manage gateway API keys and secret rotation.
