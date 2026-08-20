@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------------------------
 
 import json
+from io import StringIO
 from types import SimpleNamespace
 from unittest.mock import call, patch
 
@@ -101,6 +102,283 @@ def test_format_model_provider_list_table():
             "Auth": "ApiKey",
         },
     ]
+
+
+def test_parse_piped_foundry_accounts_filters_unsupported_kinds():
+    stream = StringIO(
+        json.dumps(
+            [
+                {
+                    "id": "/accounts/foundry",
+                    "name": "foundry",
+                    "kind": "AIServices",
+                    "type": "Microsoft.CognitiveServices/accounts",
+                    "properties": {
+                        "endpoint": "https://foundry.cognitiveservices.azure.com"
+                    },
+                },
+                {
+                    "id": "/accounts/safety",
+                    "name": "safety",
+                    "kind": "ContentSafety",
+                    "type": "Microsoft.CognitiveServices/accounts",
+                },
+            ]
+        )
+    )
+
+    with patch.object(_model_provider.logger, "warning") as warning:
+        accounts = _model_provider._parse_piped_foundry_accounts(stream)
+
+    assert accounts == [
+        {
+            "id": "/accounts/foundry",
+            "name": "foundry",
+            "endpoint": "https://foundry.cognitiveservices.azure.com",
+        }
+    ]
+    warning.assert_called_once()
+
+
+@pytest.mark.parametrize("payload", ["{}", "not-json", "[]"])
+def test_parse_piped_foundry_accounts_rejects_invalid_input(payload):
+    with pytest.raises(InvalidArgumentValueError):
+        _model_provider._parse_piped_foundry_accounts(StringIO(payload))
+
+
+@patch("azext_ai_gateway._model_provider._create_single_model_provider")
+@patch(
+    "azext_ai_gateway._model_provider._piped_authentication",
+    return_value={
+        "auth_kind": "ManagedIdentity",
+        "managed_identity_resource": (
+            "https://cognitiveservices.azure.com"
+        ),
+        "managed_identity_client_id": None,
+    },
+)
+def test_create_from_pipe_creates_one_provider_per_account(
+    piped_authentication,
+    create_single,
+    cmd,
+):
+    create_single.side_effect = [{"name": "one"}, {"name": "two"}]
+    stream = StringIO(
+        json.dumps(
+            [
+                {
+                    "id": "/accounts/one",
+                    "name": "one",
+                    "kind": "AIServices",
+                    "type": "Microsoft.CognitiveServices/accounts",
+                    "properties": {
+                        "endpoint": "https://one.cognitiveservices.azure.com"
+                    },
+                },
+                {
+                    "id": "/accounts/two",
+                    "name": "two",
+                    "kind": "OpenAI",
+                    "type": "Microsoft.CognitiveServices/accounts",
+                    "properties": {
+                        "endpoint": "https://two.openai.azure.com"
+                    },
+                },
+            ]
+        )
+    )
+
+    with patch.object(_model_provider.sys, "stdin", stream):
+        result = _model_provider.create_model_provider(
+            cmd,
+            gateway_name="gateway",
+            resource_group_name="rg",
+        )
+
+    assert result == [{"name": "one"}, {"name": "two"}]
+    piped_authentication.assert_called_once_with(
+        cmd,
+        "gateway",
+        "rg",
+        None,
+    )
+    assert [invocation.args[1] for invocation in create_single.call_args_list] == [
+        "one",
+        "two",
+    ]
+    assert create_single.call_args_list[0].kwargs == {
+        "endpoint": "https://one.cognitiveservices.azure.com",
+        "workspace_name": "default",
+        "resource_ids": ["/accounts/one"],
+        "no_sync": False,
+        "auth_kind": "ManagedIdentity",
+        "managed_identity_resource": (
+            "https://cognitiveservices.azure.com"
+        ),
+        "managed_identity_client_id": None,
+    }
+
+
+def test_parse_piped_foundry_account_requires_endpoint():
+    stream = StringIO(
+        json.dumps(
+            [
+                {
+                    "id": "/accounts/foundry",
+                    "name": "foundry",
+                    "kind": "AIServices",
+                    "type": "Microsoft.CognitiveServices/accounts",
+                    "properties": {},
+                }
+            ]
+        )
+    )
+
+    with pytest.raises(InvalidArgumentValueError, match="valid endpoint"):
+        _model_provider._parse_piped_foundry_accounts(stream)
+
+
+@patch(
+    "azext_ai_gateway._model_provider._foundry_account_key",
+    return_value="account-key",
+)
+@patch("azext_ai_gateway._model_provider._create_single_model_provider")
+@patch(
+    "azext_ai_gateway._model_provider._piped_authentication",
+    return_value={"auth_kind": "ApiKey"},
+)
+def test_create_from_pipe_uses_account_key_without_gateway_identity(
+    _piped_authentication,
+    create_single,
+    account_key,
+    cmd,
+):
+    create_single.return_value = {"name": "foundry"}
+    stream = StringIO(
+        json.dumps(
+            [
+                {
+                    "id": "/accounts/foundry",
+                    "name": "foundry",
+                    "kind": "AIServices",
+                    "type": "Microsoft.CognitiveServices/accounts",
+                    "properties": {
+                        "endpoint": (
+                            "https://foundry.cognitiveservices.azure.com"
+                        )
+                    },
+                }
+            ]
+        )
+    )
+
+    with patch.object(_model_provider.sys, "stdin", stream):
+        result = _model_provider.create_model_provider(
+            cmd,
+            gateway_name="gateway",
+            resource_group_name="rg",
+        )
+
+    assert result == [{"name": "foundry"}]
+    account_key.assert_called_once_with(cmd, "/accounts/foundry")
+    assert create_single.call_args.kwargs == {
+        "endpoint": "https://foundry.cognitiveservices.azure.com",
+        "workspace_name": "default",
+        "resource_ids": ["/accounts/foundry"],
+        "no_sync": False,
+        "auth_kind": "ApiKey",
+        "api_key_header_name": "api-key",
+        "api_key_value": "account-key",
+    }
+
+
+@patch(
+    "azext_ai_gateway._model_provider.get_subscription_id",
+    return_value="sub",
+)
+@patch("azext_ai_gateway._model_provider._request")
+def test_piped_authentication_uses_single_user_identity(
+    request,
+    _,
+    cmd,
+):
+    request.return_value = FakeResponse(
+        {
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "/identities/one": {"clientId": "client-id"}
+                },
+            }
+        }
+    )
+
+    assert _model_provider._piped_authentication(
+        cmd,
+        "gateway",
+        "rg",
+        None,
+    ) == {
+        "auth_kind": "ManagedIdentity",
+        "managed_identity_resource": (
+            "https://cognitiveservices.azure.com"
+        ),
+        "managed_identity_client_id": "client-id",
+    }
+
+
+@patch(
+    "azext_ai_gateway._model_provider.get_subscription_id",
+    return_value="sub",
+)
+@patch("azext_ai_gateway._model_provider._request")
+def test_piped_authentication_falls_back_without_gateway_identity(
+    request,
+    _,
+    cmd,
+):
+    request.return_value = FakeResponse({"identity": {"type": "None"}})
+
+    assert _model_provider._piped_authentication(
+        cmd,
+        "gateway",
+        "rg",
+        None,
+    ) == {"auth_kind": "ApiKey"}
+
+
+@patch(
+    "azext_ai_gateway._model_provider.get_subscription_id",
+    return_value="sub",
+)
+@patch("azext_ai_gateway._model_provider._request")
+def test_piped_authentication_requires_selection_for_multiple_identities(
+    request,
+    _,
+    cmd,
+):
+    request.return_value = FakeResponse(
+        {
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "/identities/one": {"clientId": "one"},
+                    "/identities/two": {"clientId": "two"},
+                },
+            }
+        }
+    )
+
+    with pytest.raises(
+        RequiredArgumentMissingError,
+        match="multiple user-assigned identities",
+    ):
+        _model_provider._piped_authentication(
+            cmd,
+            "gateway",
+            "rg",
+            None,
+        )
 
 
 @patch(
@@ -953,7 +1231,7 @@ def test_refresh_foundry_api_key_matches_portal(request):
             "foundry": {
                 "endpoint": "https://account.openai.azure.com",
                 "resourceIds": ["/accounts/account"],
-                "authentication": {"kind": "ManagedIdentity"},
+                "authentication": {"kind": "ApiKey"},
             }
         }
     }
@@ -1525,7 +1803,15 @@ def test_sync_applies_create_and_delete_changes(
 ):
     send_request.side_effect = [
         FakeResponse(
-            {"name": "foundry", "properties": {"kind": "Foundry"}}
+            {
+                "name": "foundry",
+                "properties": {
+                    "kind": "Foundry",
+                    "foundry": {
+                        "authentication": {"kind": "ApiKey"},
+                    },
+                },
+            }
         ),
         FakeResponse({"name": "new"}),
         FakeResponse(),
@@ -1585,6 +1871,141 @@ def test_sync_applies_create_and_delete_changes(
         0,
         0,
     )
+
+
+@patch(
+    "azext_ai_gateway._model_provider.get_subscription_id",
+    return_value="sub",
+)
+@patch("azext_ai_gateway._model_provider._refresh_foundry_api_key")
+@patch(
+    "azext_ai_gateway._model_provider._sync_plan",
+    return_value=[],
+)
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_sync_does_not_retrieve_keys_for_managed_identity(
+    send_request,
+    _sync_plan,
+    refresh_foundry_key,
+    _,
+    cmd,
+):
+    send_request.return_value = FakeResponse(
+        {
+            "name": "foundry",
+            "properties": {
+                "kind": "Foundry",
+                "foundry": {
+                    "authentication": {"kind": "ManagedIdentity"},
+                },
+            },
+        }
+    )
+
+    result = _model_provider.sync_model_provider(
+        cmd,
+        "foundry",
+        "gateway",
+        "rg",
+    )
+
+    refresh_foundry_key.assert_not_called()
+    assert result["summary"]["created"] == 0
+
+
+@patch(
+    "azext_ai_gateway._model_provider.get_subscription_id",
+    return_value="sub",
+)
+@patch("azext_ai_gateway._model_provider._refresh_foundry_api_key")
+@patch("azext_ai_gateway._model_provider._sync_plan")
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_sync_fails_before_writes_when_model_name_conflicts(
+    send_request,
+    sync_plan,
+    refresh_foundry_key,
+    _,
+    cmd,
+):
+    send_request.return_value = FakeResponse(
+        {
+            "name": "foundry",
+            "properties": {
+                "kind": "Foundry",
+                "foundry": {
+                    "authentication": {"kind": "ApiKey"},
+                },
+            },
+        }
+    )
+    sync_plan.return_value = [
+        {
+            "action": "create",
+            "name": "available",
+            "status": "planned",
+            "properties": {"displayName": "Available"},
+        },
+        {
+            "action": "skip",
+            "name": "existing",
+            "status": "conflict",
+            "reason": "A model with this name already exists in the gateway.",
+        },
+    ]
+
+    with pytest.raises(
+        InvalidArgumentValueError,
+        match=(
+            "model names already exist.*'existing'.*"
+            "No model changes were applied"
+        ),
+    ):
+        _model_provider.sync_model_provider(
+            cmd,
+            "foundry",
+            "gateway",
+            "rg",
+        )
+
+    assert send_request.call_count == 1
+    refresh_foundry_key.assert_not_called()
+
+
+@patch(
+    "azext_ai_gateway._model_provider.get_subscription_id",
+    return_value="sub",
+)
+@patch("azext_ai_gateway._model_provider._sync_plan")
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_sync_dry_run_reports_conflicts(
+    send_request,
+    sync_plan,
+    _,
+    cmd,
+):
+    send_request.return_value = FakeResponse(
+        {"name": "foundry", "properties": {"kind": "Foundry"}}
+    )
+    sync_plan.return_value = [
+        {
+            "action": "skip",
+            "name": "existing",
+            "status": "conflict",
+            "reason": "A model with this name already exists in the gateway.",
+        }
+    ]
+
+    result = _model_provider.sync_model_provider(
+        cmd,
+        "foundry",
+        "gateway",
+        "rg",
+        dry_run=True,
+    )
+
+    assert result["summary"]["conflicts"] == 1
+    assert result["changes"][0]["name"] == "existing"
+    assert send_request.call_count == 1
 
 
 @patch(

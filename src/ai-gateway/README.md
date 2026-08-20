@@ -162,7 +162,7 @@ Manage Foundry and custom model provider registrations.
 
 | Command | Syntax |
 | --- | --- |
-| `create` | `az ai-gateway model-provider create -n <provider> --kind <Foundry-or-Custom> [--no-sync] [options] --resource-name <gateway> -g <group>` |
+| `create` | `az ai-gateway model-provider create [-n <provider> --kind <Foundry-or-Custom>] [--no-sync] [options] --resource-name <gateway> -g <group>` |
 | `delete` | `az ai-gateway model-provider delete -n <provider> --resource-name <gateway> -g <group>` |
 | `list` | `az ai-gateway model-provider list --resource-name <gateway> -g <group>` |
 | `show` | `az ai-gateway model-provider show -n <provider> --resource-name <gateway> -g <group>` |
@@ -186,6 +186,26 @@ Create a Foundry or custom provider and import its available models.
 | `--managed-identity-resource` | Token audience used by Foundry managed identity authentication. |
 | `--managed-identity-client-id` | Optional user-assigned managed identity client ID. |
 | `--no-sync` | Skip model discovery and import after provider creation. |
+
+Create one Foundry provider per eligible account from piped Cognitive Services
+account list output. `AIServices` and `OpenAI` accounts are imported; other
+account kinds are skipped. Provider names come from the account names. The
+command reads each provider endpoint and resource ID from the account object,
+then uses the AI Gateway's system-assigned identity, its sole user-assigned
+identity, or the account's primary key when the gateway has no identity.
+Piped account creation cannot be combined with explicit provider properties. Only `--managed-identity-client-id` and `--no-sync` are supported.
+
+Specify `--managed-identity-client-id` when the gateway has multiple
+user-assigned identities.
+
+```bash
+az cognitiveservices account list \
+  --resource-group my-foundry-resource-group \
+  --output json \
+  | az ai-gateway model-provider create \
+      --resource-name my-ai-gateway \
+      --resource-group my-gateway-resource-group
+```
 
 Create a Foundry provider and import its deployments:
 
@@ -254,7 +274,9 @@ az ai-gateway model-provider sync \
 ```
 
 Add `--dry-run --output table` to preview changes. To also delete stale
-registrations, add `--delete-missing --yes`.
+registrations, add `--delete-missing --yes`. If any discovered model name
+already belongs to another provider, synchronization fails before creating or
+deleting any models.
 
 ## `az ai-gateway model`
 

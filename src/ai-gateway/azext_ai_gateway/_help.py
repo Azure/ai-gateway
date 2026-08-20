@@ -340,8 +340,17 @@ helps["ai-gateway model-provider create"] = """
     short-summary: Create a Foundry or custom model provider.
     long-summary: >
         Creates the provider, then discovers and imports its models. Use
-        --no-sync to create only the provider.
+        --no-sync to create only the provider. When Cognitive Services account
+        list output is piped to this command, creates one Foundry provider per
+        AIServices or OpenAI account using the account name, resource ID, and
+        endpoint.
     examples:
+      - name: Create providers from Cognitive Services accounts.
+        text: >-
+          az cognitiveservices account list
+          --resource-group my-foundry-resource-group
+          | az ai-gateway model-provider create
+          --resource-name my-ai-gateway --resource-group my-gateway-resource-group
       - name: Create a Foundry provider using managed identity.
         text: >-
           az ai-gateway model-provider create
@@ -406,10 +415,12 @@ helps["ai-gateway model-provider sync"] = """
     short-summary: Synchronize models from a model provider.
     long-summary: >
         Creates registrations from Foundry deployments or from a custom
-        provider's OpenAI- or Anthropic-compatible /v1/models endpoint and
-        reports naming conflicts. Custom providers securely prompt for the API
-        key when --api-key-value is omitted from an interactive session. Stale
-        registrations are deleted only with --delete-missing.
+        provider's OpenAI- or Anthropic-compatible /v1/models endpoint.
+        Naming conflicts abort synchronization before any model changes are
+        applied; use --dry-run to inspect the complete plan. Custom providers
+        securely prompt for the API key when --api-key-value is omitted from an
+        interactive session. Stale registrations are deleted only with
+        --delete-missing.
     examples:
       - name: Preview synchronization changes.
         text: >-

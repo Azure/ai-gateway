@@ -4,8 +4,10 @@
 # --------------------------------------------------------------------------------------------
 
 import hashlib
+import json
 import re
 import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from urllib.parse import quote, unquote, urlsplit
@@ -55,6 +57,9 @@ CAPABILITY_ENDPOINTS = (
     ("imageGenerations", "/openai/v1/images/generations"),
 )
 logger = get_logger(__name__)
+FOUNDRY_ACCOUNT_KINDS = {"aiservices", "openai"}
+COGNITIVE_SERVICES_ACCOUNT_TYPE = "microsoft.cognitiveservices/accounts"
+MANAGED_IDENTITY_RESOURCE = "https://cognitiveservices.azure.com"
 
 
 def format_model_provider_list_table(providers):
@@ -111,6 +116,90 @@ def _raise_provider_not_found(error, name):
             f"Model provider '{name}' was not found."
         ) from None
     raise error
+
+
+def _parse_piped_foundry_accounts(stream):
+    try:
+        payload = json.load(stream)
+    except json.JSONDecodeError as error:
+        raise InvalidArgumentValueError(
+            f"Piped input must be valid JSON: {error.msg}."
+        ) from error
+
+    if not isinstance(payload, list):
+        raise InvalidArgumentValueError(
+            "Piped input must be a JSON array produced by "
+            "'az cognitiveservices account list'."
+        )
+
+    accounts = []
+    seen_ids = set()
+    seen_names = set()
+    for index, item in enumerate(payload):
+        if not isinstance(item, dict):
+            raise InvalidArgumentValueError(
+                f"Piped item {index} must be a Cognitive Services account "
+                "object."
+            )
+
+        account_type = str(item.get("type") or "").casefold()
+        kind = str(item.get("kind") or "")
+        if (
+            account_type != COGNITIVE_SERVICES_ACCOUNT_TYPE
+            or kind.casefold() not in FOUNDRY_ACCOUNT_KINDS
+        ):
+            logger.warning(
+                "Skipping Cognitive Services account '%s' because kind '%s' "
+                "does not expose Foundry model deployments.",
+                item.get("name") or f"item {index}",
+                kind or "unknown",
+            )
+            continue
+
+        resource_id = item.get("id")
+        name = item.get("name")
+        if not isinstance(resource_id, str) or not resource_id.strip():
+            raise InvalidArgumentValueError(
+                f"Piped account at item {index} has no valid resource ID."
+            )
+        if not isinstance(name, str) or not name.strip():
+            raise InvalidArgumentValueError(
+                f"Piped account at item {index} has no valid name."
+            )
+        resource_id = resource_id.strip()
+        name = name.strip()
+        if resource_id.casefold() in seen_ids:
+            continue
+        if name.casefold() in seen_names:
+            raise InvalidArgumentValueError(
+                f"Multiple piped accounts would create model provider "
+                f"'{name}'. Filter or rename the duplicate accounts."
+            )
+        seen_ids.add(resource_id.casefold())
+        seen_names.add(name.casefold())
+        properties = item.get("properties")
+        if properties is not None and not isinstance(properties, dict):
+            raise InvalidArgumentValueError(
+                f"Piped account '{name}' has invalid properties."
+            )
+        endpoint = (properties or {}).get("endpoint")
+        if not isinstance(endpoint, str) or not endpoint.strip():
+            raise InvalidArgumentValueError(
+                f"Piped account '{name}' has no valid endpoint."
+            )
+        accounts.append(
+            {
+                "id": resource_id,
+                "name": name,
+                "endpoint": endpoint.strip(),
+            }
+        )
+
+    if not accounts:
+        raise InvalidArgumentValueError(
+            "Piped input contains no AIServices or OpenAI accounts."
+        )
+    return accounts
 
 
 def _list_all(cmd, url):
@@ -1067,7 +1156,7 @@ def show_model_provider(
         _raise_provider_not_found(error, name)
 
 
-def create_model_provider(
+def _create_single_model_provider(
     cmd,
     name,
     gateway_name,
@@ -1161,6 +1250,181 @@ def create_model_provider(
         ) from error
     logger.warning("Models imported.")
     return provider
+
+
+def _piped_authentication(
+    cmd,
+    gateway_name,
+    resource_group_name,
+    managed_identity_client_id,
+):
+    subscription_id = get_subscription_id(cmd.cli_ctx)
+    gateway = _response_json(
+        _request(
+            cmd,
+            "GET",
+            _gateway_path(
+                subscription_id,
+                resource_group_name,
+                gateway_name,
+            ),
+        )
+    )
+    identity = gateway.get("identity") or {}
+    identity_type = str(identity.get("type") or "None")
+    if "SystemAssigned" in identity_type:
+        return {
+            "auth_kind": "ManagedIdentity",
+            "managed_identity_resource": MANAGED_IDENTITY_RESOURCE,
+            "managed_identity_client_id": managed_identity_client_id,
+        }
+
+    user_identities = identity.get("userAssignedIdentities") or {}
+    if "UserAssigned" in identity_type and user_identities:
+        if managed_identity_client_id:
+            client_id = managed_identity_client_id
+        elif len(user_identities) == 1:
+            details = next(iter(user_identities.values())) or {}
+            client_id = details.get("clientId")
+            if not client_id:
+                raise RequiredArgumentMissingError(
+                    "The gateway's user-assigned identity does not expose its "
+                    "client ID. Specify --managed-identity-client-id."
+                )
+        else:
+            raise RequiredArgumentMissingError(
+                "The gateway has multiple user-assigned identities. Specify "
+                "--managed-identity-client-id."
+            )
+        return {
+            "auth_kind": "ManagedIdentity",
+            "managed_identity_resource": MANAGED_IDENTITY_RESOURCE,
+            "managed_identity_client_id": client_id,
+        }
+    return {"auth_kind": "ApiKey"}
+
+
+def _foundry_account_key(cmd, resource_id):
+    keys = _response_json(
+        _request(
+            cmd,
+            "POST",
+            f"{resource_id.rstrip('/')}/listKeys",
+            {},
+            api_version=FOUNDRY_API_VERSION,
+        )
+    )
+    key = (keys or {}).get("key1")
+    if not key:
+        raise InvalidArgumentValueError(
+            f"Foundry account '{resource_id}' did not return a primary API key."
+        )
+    return key
+
+
+def create_model_provider(
+    cmd,
+    name=None,
+    gateway_name=None,
+    resource_group_name=None,
+    kind=None,
+    endpoint=None,
+    workspace_name=DEFAULT_WORKSPACE,
+    display_name=None,
+    description=None,
+    resource_ids=None,
+    auth_kind=None,
+    api_key_header_name=None,
+    api_key_value=None,
+    managed_identity_resource=None,
+    managed_identity_client_id=None,
+    no_sync=False,
+):
+    if not gateway_name:
+        raise RequiredArgumentMissingError(
+            "Specify --resource-name or configure the ai-gateway default."
+        )
+    if not resource_group_name:
+        raise RequiredArgumentMissingError(
+            "Specify --resource-group or configure the group default."
+        )
+
+    pipe_mode = name is None and kind is None and not sys.stdin.isatty()
+    if not pipe_mode:
+        if not name:
+            raise RequiredArgumentMissingError("Specify --name.")
+        if not kind:
+            raise RequiredArgumentMissingError("Specify --kind.")
+        return _create_single_model_provider(
+            cmd,
+            name,
+            gateway_name,
+            resource_group_name,
+            kind,
+            endpoint,
+            workspace_name,
+            display_name,
+            description,
+            resource_ids,
+            auth_kind,
+            api_key_header_name,
+            api_key_value,
+            managed_identity_resource,
+            managed_identity_client_id,
+            no_sync,
+        )
+
+    if any(
+        value is not None
+        for value in [
+            endpoint,
+            display_name,
+            description,
+            resource_ids,
+            auth_kind,
+            api_key_header_name,
+            api_key_value,
+            managed_identity_resource,
+        ]
+    ):
+        raise InvalidArgumentValueError(
+            "Piped account creation cannot be combined with explicit provider "
+            "properties. Only --managed-identity-client-id and --no-sync are "
+            "supported."
+        )
+
+    accounts = _parse_piped_foundry_accounts(sys.stdin)
+    authentication = _piped_authentication(
+        cmd,
+        gateway_name,
+        resource_group_name,
+        managed_identity_client_id,
+    )
+    providers = []
+    for account in accounts:
+        account_authentication = dict(authentication)
+        if authentication["auth_kind"] == "ApiKey":
+            account_authentication.update(
+                {
+                    "api_key_header_name": "api-key",
+                    "api_key_value": _foundry_account_key(cmd, account["id"]),
+                }
+            )
+        providers.append(
+            _create_single_model_provider(
+                cmd,
+                account["name"],
+                gateway_name,
+                resource_group_name,
+                "Foundry",
+                endpoint=account["endpoint"],
+                workspace_name=workspace_name,
+                resource_ids=[account["id"]],
+                no_sync=no_sync,
+                **account_authentication,
+            )
+        )
+    return providers
 
 
 def update_model_provider(
@@ -1307,6 +1571,21 @@ def _synchronize_model_provider(
         delete_missing,
         api_key_value,
     )
+    conflicts = sorted(
+        {
+            str(change.get("name") or "")
+            for change in changes
+            if change.get("status") == "conflict"
+        }
+    )
+    if not dry_run and conflicts:
+        formatted_names = ", ".join(f"'{name}'" for name in conflicts)
+        raise InvalidArgumentValueError(
+            "Model synchronization cannot continue because these model names "
+            f"already exist in the gateway: {formatted_names}. No model "
+            "changes were applied. Use --dry-run to inspect the complete "
+            "synchronization plan."
+        )
     if (
         not dry_run
         and not yes
@@ -1316,7 +1595,16 @@ def _synchronize_model_provider(
             "Specify --yes to confirm deletion of stale model registrations."
         )
     if not dry_run:
-        if provider_kind == "Foundry":
+        foundry_authentication = (
+            ((provider.get("properties") or {}).get("foundry") or {}).get(
+                "authentication"
+            )
+            or {}
+        )
+        if (
+            provider_kind == "Foundry"
+            and foundry_authentication.get("kind") == "ApiKey"
+        ):
             logger.warning("Refreshing the Foundry account API key...")
             _refresh_foundry_api_key(cmd, provider, path)
         for change in changes:
