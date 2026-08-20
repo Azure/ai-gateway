@@ -240,6 +240,12 @@ See [APIM policy translation](docs/apim-policy-translation.md).
 
 Manage gateway telemetry exporters.
 
+| Command | Syntax |
+| --- | --- |
+| `create` | `az ai-gateway telemetry-exporter create [options] --resource-name <gateway> -g <group>` |
+| `delete` | `az ai-gateway telemetry-exporter delete [-n <exporter>] [--workspace-name <workspace>] --resource-name <gateway> -g <group>` |
+| `list` | `az ai-gateway telemetry-exporter list [--workspace-name <workspace>] --resource-name <gateway> -g <group>` |
+
 ### `az ai-gateway telemetry-exporter create`
 
 Create or replace a telemetry exporter backed by an existing Application
@@ -252,10 +258,10 @@ Insights resource or custom OpenTelemetry endpoint.
 | `--name`, `-n` | Telemetry exporter name. Defaults to `appinsights`. |
 | `--workspace-name` | Gateway workspace name. Defaults to `default`. |
 | `--application-insights` | Resource ID of an existing Application Insights component. Use this option by itself for the streamlined Application Insights setup. |
-| `--metrics-endpoint` | Absolute HTTPS OTLP metrics endpoint. Required with the logs and traces endpoints for a custom destination. |
-| `--logs-endpoint` | Absolute HTTPS OTLP logs endpoint. Required with the metrics and traces endpoints for a custom destination. |
-| `--traces-endpoint` | Absolute HTTPS OTLP traces endpoint. Required with the metrics and logs endpoints for a custom destination. |
-| `--headers` | Custom OTLP headers as a JSON object or `@file`. Cannot contain `Authorization` or be combined with managed identity authentication. |
+| `--metrics-endpoint` | Absolute HTTPS OTLP metrics endpoint. Each endpoint independently enables its signal; at least one is required for a custom destination. |
+| `--logs-endpoint` | Absolute HTTPS OTLP logs endpoint. Each endpoint independently enables its signal; at least one is required for a custom destination. |
+| `--traces-endpoint` | Absolute HTTPS OTLP traces endpoint. Each endpoint independently enables its signal; at least one is required for a custom destination. |
+| `--headers` | Optional custom OTLP headers as a JSON object or `@file`. Cannot be combined with managed identity authentication. |
 | `--managed-identity-resource` | HTTPS token audience for custom OTLP managed identity authentication. |
 | `--identity-client-id` | Client ID of an assigned user-assigned identity. For custom OTLP, requires `--managed-identity-resource`. |
 | `--payload-capture` | Include request and response payloads in exported telemetry. |
@@ -271,6 +277,9 @@ az ai-gateway telemetry-exporter create \
   --resource-group my-resource-group
 ```
 
+`list` redacts custom header values. `delete` defaults to the `appinsights`
+exporter in the `default` workspace and prompts for confirmation.
+
 Configure a custom OpenTelemetry destination with headers:
 
 ```bash
@@ -280,6 +289,16 @@ az ai-gateway telemetry-exporter create \
   --logs-endpoint https://otel.example.com/v1/logs \
   --traces-endpoint https://otel.example.com/v1/traces \
   --headers '{"x-api-key":"secret"}' \
+  --resource-name my-ai-gateway \
+  --resource-group my-resource-group
+```
+
+Configure an unauthenticated traces-only OpenTelemetry destination:
+
+```bash
+az ai-gateway telemetry-exporter create \
+  --name custom-otlp \
+  --traces-endpoint https://otel.example.com/v1/traces \
   --resource-name my-ai-gateway \
   --resource-group my-resource-group
 ```

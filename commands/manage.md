@@ -1,0 +1,24 @@
+---
+description: Configure and operate an AI Gateway, including assets, policies, identities, telemetry, secret rotation, and APIM import assessment.
+argument-hint: <gateway-name> <resource-group> <operation>
+---
+
+# /ai-gateway:manage
+
+Configure and operate an existing AI Gateway for an authorized administrator or
+platform engineer. Follow the complete workflow in
+`skills/manage-ai-gateway/SKILL.md`, especially **Configure gateway assets** and
+**Operate and assess**.
+
+Use `$ARGUMENTS` to resolve the target and operation. Confirm the active
+subscription and inspect current state before proposing commands. Prefer read-only
+`list` and `show` operations when the user's intent is diagnostic. Explain the
+impact and obtain explicit confirmation immediately before deletes, API-key
+regeneration, identity removal, overwrites, or synchronization with
+`--delete-missing`.
+
+APIM import is assessment-only: `az ai-gateway import` requires `--dry-run`, and
+the extension cannot execute the import. Never claim a dry-run plan was applied.
+After any mutation, verify from the command result and, where supported, the
+corresponding `show` or `list` command. Report the outcome without exposing
+secrets.

@@ -29,7 +29,11 @@ Use this skill when a developer wants to **use the models and/or MCP tools regis
 This skill is **strictly for developers consuming an existing AI Gateway**. It is **read-only** against the gateway and only generates client code that calls already-registered models and tools.
 
 - ✅ Allowed: list models, list tools/MCP servers, read an existing API key, generate integration/client/agent code.
-- ❌ Not allowed: creating, provisioning, updating, or deleting gateways, models, tools, connections, products, or any other resource. Never issue ARM `PUT`/`PATCH`/`DELETE` calls. If a user asks to create or provision a gateway or model, tell them that is an administrator task done in the [AI Gateway Portal](https://ai.gateway.azure.com) and is out of scope for this skill.
+- ❌ Not allowed: creating, provisioning, updating, or deleting gateways, models,
+  tools, connections, products, or any other resource. Never issue ARM
+  `PUT`/`PATCH`/`DELETE` calls. If a user asks to manage or provision resources,
+  switch to the bundled `skills/manage-ai-gateway/SKILL.md` administrator
+  workflow (or direct them to `/ai-gateway:create` or `/ai-gateway:manage`).
 
 ---
 

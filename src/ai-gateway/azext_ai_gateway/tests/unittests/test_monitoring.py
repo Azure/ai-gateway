@@ -29,6 +29,90 @@ def cmd():
     return SimpleNamespace(cli_ctx=object())
 
 
+@patch("azext_ai_gateway._monitoring.get_subscription_id", return_value="sub")
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_list_exporters_follows_pages_and_redacts_headers(
+    send_request,
+    _,
+    cmd,
+):
+    send_request.side_effect = [
+        FakeResponse(
+            {
+                "value": [
+                    {
+                        "name": "custom",
+                        "properties": {
+                            "kind": "OpenTelemetry",
+                            "openTelemetry": {
+                                "credentials": {
+                                    "headers": {"x-api-key": "stored-value"}
+                                }
+                            },
+                        },
+                    }
+                ],
+                "nextLink": "https://management.azure.com/next",
+            }
+        ),
+        FakeResponse(
+            {
+                "value": [
+                    {
+                        "name": "appinsights",
+                        "properties": {"kind": "OpenTelemetry"},
+                    }
+                ]
+            }
+        ),
+    ]
+
+    result = _monitoring.list_telemetry_exporters(
+        cmd,
+        "gateway",
+        "rg",
+        workspace_name="custom workspace",
+    )
+
+    assert [exporter["name"] for exporter in result] == [
+        "custom",
+        "appinsights",
+    ]
+    assert result[0]["properties"]["openTelemetry"]["credentials"][
+        "headers"
+    ] == {"x-api-key": "******"}
+    assert result[1]["properties"]["kind"] == "openTelemetry"
+    first_call, second_call = send_request.call_args_list
+    assert first_call.args[2].endswith(
+        "/workspaces/custom%20workspace/telemetryExporters"
+    )
+    assert second_call.args[2] == "https://management.azure.com/next"
+    assert second_call.kwargs["uri_parameters"] is None
+
+
+@patch("azext_ai_gateway._monitoring.get_subscription_id", return_value="sub")
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_delete_exporter_uses_concurrency_precondition(send_request, _, cmd):
+    send_request.return_value = FakeResponse()
+
+    _monitoring.delete_telemetry_exporter(
+        cmd,
+        "custom/exporter",
+        "gateway",
+        "rg",
+    )
+
+    assert send_request.call_args.args[1:3] == (
+        "DELETE",
+        (
+            "/subscriptions/sub/resourceGroups/rg/providers/"
+            "Microsoft.ApiManagement/service/gateway/workspaces/default/"
+            "telemetryExporters/custom%2Fexporter"
+        ),
+    )
+    assert send_request.call_args.kwargs["headers"] == ["If-Match=*"]
+
+
 @pytest.mark.parametrize(
     "endpoint",
     [
@@ -114,15 +198,16 @@ def test_create_exporter_for_existing_application_insights(send_request, _, cmd)
     assert exporter_body == {
         "properties": {
             "kind": "OpenTelemetry",
-            "tracing": True,
             "payloadCapture": True,
             "applicationInsights": {"resourceId": app_insights_id},
             "openTelemetry": {
                 "metricsEndpoint": "https://metrics/v1/metrics",
                 "logsEndpoint": "https://logs/v1/logs",
                 "tracesEndpoint": "https://logs/v1/traces",
-                "managedIdentity": {
-                    "resource": "https://monitor.azure.com",
+                "credentials": {
+                    "managedIdentity": {
+                        "resource": "https://monitor.azure.com",
+                    },
                 },
             },
         }
@@ -273,13 +358,14 @@ def test_create_custom_otlp_exporter_with_headers(send_request, _, cmd):
     assert body == {
         "properties": {
             "kind": "OpenTelemetry",
-            "tracing": True,
             "payloadCapture": False,
             "openTelemetry": {
                 "metricsEndpoint": "https://otel.example.com/v1/metrics",
                 "logsEndpoint": "https://otel.example.com/v1/logs",
                 "tracesEndpoint": "https://otel.example.com/v1/traces",
-                "headers": {"x-api-key": "secret"},
+                "credentials": {
+                    "headers": {"x-api-key": "secret"},
+                },
             },
         }
     }
@@ -323,19 +409,68 @@ def test_create_custom_otlp_exporter_with_user_assigned_identity(
 
     body = json.loads(send_request.call_args_list[1].kwargs["body"])
     assert "applicationInsights" not in body["properties"]
-    assert body["properties"]["openTelemetry"]["managedIdentity"] == {
+    assert body["properties"]["openTelemetry"]["credentials"][
+        "managedIdentity"
+    ] == {
         "resource": "https://otel.example.com",
         "clientId": "client",
+    }
+
+
+@patch("azext_ai_gateway._monitoring.get_subscription_id", return_value="sub")
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_create_unauthenticated_traces_only_exporter(send_request, _, cmd):
+    send_request.return_value = FakeResponse(
+        {"properties": {"kind": "OpenTelemetry"}}
+    )
+
+    _monitoring.create_telemetry_exporter(
+        cmd,
+        "gateway",
+        "rg",
+        traces_endpoint="https://otel.example.com/v1/traces",
+    )
+
+    body = json.loads(send_request.call_args.kwargs["body"])
+    assert body == {
+        "properties": {
+            "kind": "OpenTelemetry",
+            "payloadCapture": False,
+            "openTelemetry": {
+                "tracesEndpoint": "https://otel.example.com/v1/traces",
+            },
+        }
+    }
+
+
+@patch("azext_ai_gateway._monitoring.get_subscription_id", return_value="sub")
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_create_custom_exporter_allows_authorization_header(
+    send_request,
+    _,
+    cmd,
+):
+    send_request.return_value = FakeResponse(
+        {"properties": {"kind": "OpenTelemetry"}}
+    )
+
+    _monitoring.create_telemetry_exporter(
+        cmd,
+        "gateway",
+        "rg",
+        metrics_endpoint="https://otel.example.com/v1/metrics",
+        headers={"Authorization": "Bearer secret"},
+    )
+
+    body = json.loads(send_request.call_args.kwargs["body"])
+    assert body["properties"]["openTelemetry"]["credentials"] == {
+        "headers": {"Authorization": "Bearer secret"},
     }
 
 
 @pytest.mark.parametrize(
     "kwargs, message",
     [
-        (
-            {"metrics_endpoint": "https://otel.example.com/v1/metrics"},
-            "together",
-        ),
         (
             {
                 "metrics_endpoint": "http://otel.example.com/v1/metrics",
@@ -344,23 +479,6 @@ def test_create_custom_otlp_exporter_with_user_assigned_identity(
                 "headers": {"x-api-key": "secret"},
             },
             "absolute HTTPS URL",
-        ),
-        (
-            {
-                "metrics_endpoint": "https://otel.example.com/v1/metrics",
-                "logs_endpoint": "https://otel.example.com/v1/logs",
-                "traces_endpoint": "https://otel.example.com/v1/traces",
-            },
-            "--headers or --managed-identity-resource",
-        ),
-        (
-            {
-                "metrics_endpoint": "https://otel.example.com/v1/metrics",
-                "logs_endpoint": "https://otel.example.com/v1/logs",
-                "traces_endpoint": "https://otel.example.com/v1/traces",
-                "headers": {"Authorization": "secret"},
-            },
-            "Authorization header is reserved",
         ),
     ],
 )

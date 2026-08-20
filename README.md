@@ -16,11 +16,14 @@ platform teams enforce security, policy, networking, and observability.
 
 ## Coding-agent plugin
 
-This repository hosts the official **plugin** for coding agents. It helps
-developers **build applications on top of an existing AI Gateway tier in Azure API Management resources**: it discovers the
-models and MCP tool servers registered in a gateway and integrates them into whatever
-you're building — call a model over the OpenAI-compatible passthrough, connect MCP
-tools, or scaffold a runnable agent — all from your coding agent.
+This repository hosts the official **plugin** for coding agents. It supports two
+personas:
+
+- **Administrators and platform engineers** can create and operate gateways and
+  configure model providers, models, MCP tool servers, policies, API keys,
+  identities, and telemetry.
+- **Developers** can discover the models and MCP tool servers in an existing
+  gateway and integrate them into an application.
 
 The plugin follows the [Claude Code plugin spec](https://code.claude.com/docs/en/plugins),
 the [GitHub Copilot / awesome-copilot plugin convention](https://github.com/github/awesome-copilot/blob/main/CONTRIBUTING.md#adding-plugins),
@@ -28,17 +31,19 @@ the [Cursor plugin format](https://cursor.com/docs/plugins), and the
 [Gemini CLI extension format](https://geminicli.com/docs/extensions/), so it installs
 in any of those coding agents (and other agents that support the plugin standard).
 
-> **Consumption only.** The plugin is read-only against the gateway — it never
-> provisions, updates, or deletes resources. Creating gateways, models, or tools
-> is an administrator task done in the [AI Gateway Portal](https://ai.gateway.azure.com).
+Administrator workflows use the bundled Azure CLI extension and can change Azure
+resources. Developer workflows remain read-only against the gateway.
 
 ### What's inside
 
 | Component | Invoked as | Purpose |
 | --------- | ---------- | ------- |
 | Skill `use-ai-gateway` | `/ai-gateway:use-ai-gateway` | Full discover → select → credential → integrate workflow (call a model, connect MCP tools, or scaffold an agent). |
+| Skill `manage-ai-gateway` | `/ai-gateway:manage-ai-gateway` | Full administrator workflow for creating, configuring, and operating a gateway. |
 | Command `discover` | `/ai-gateway:discover` | Read-only: list a gateway's models and MCP tool servers and pick the ones that fit your use case. |
 | Command `build` | `/ai-gateway:build` | End-to-end: discover, retrieve a credential, and integrate the models/tools into your app. |
+| Command `create` | `/ai-gateway:create` | Create a gateway and verify that it is ready for configuration. |
+| Command `manage` | `/ai-gateway:manage` | Configure and operate a gateway, rotate keys, maintain assets, or assess an APIM import. |
 
 ### Install
 
@@ -76,6 +81,14 @@ Or explore first, then integrate:
 
 ```
 /ai-gateway:discover /subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.ApiManagement/service/<gateway>
+```
+
+Administrators can create a gateway or manage an existing one:
+
+```
+/ai-gateway:create my-gateway my-resource-group eastus2
+/ai-gateway:manage my-gateway my-resource-group add a Foundry model provider
+/ai-gateway:manage my-gateway my-resource-group preview an APIM import
 ```
 
 ## Azure CLI extension

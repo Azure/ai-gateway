@@ -121,6 +121,12 @@ def load_command_table(loader, _):
 
     with loader.command_group("ai-gateway telemetry-exporter") as group:
         group.custom_command("create", "create_telemetry_exporter")
+        group.custom_command(
+            "delete",
+            "delete_telemetry_exporter",
+            confirmation=True,
+        )
+        group.custom_command("list", "list_telemetry_exporters")
 
     with loader.command_group("ai-gateway policy") as group:
         group.custom_command("create", "create_policy")

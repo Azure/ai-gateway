@@ -6,6 +6,7 @@
 import hashlib
 import re
 import time
+from copy import deepcopy
 from urllib.parse import quote, urlsplit
 
 from azure.cli.core.azclierror import (
@@ -98,28 +99,19 @@ def _custom_configuration(
     logs_endpoint,
     traces_endpoint,
 ):
-    supplied = [metrics_endpoint, logs_endpoint, traces_endpoint]
-    if any(supplied) and not all(supplied):
-        raise InvalidArgumentValueError(
-            "Specify --metrics-endpoint, --logs-endpoint, and "
-            "--traces-endpoint together."
-        )
-    if not all(supplied):
-        return None
-    return {
-        "metrics_endpoint": _validate_endpoint(
-            metrics_endpoint,
-            "--metrics-endpoint",
-        ),
-        "logs_endpoint": _validate_endpoint(
-            logs_endpoint,
-            "--logs-endpoint",
-        ),
-        "traces_endpoint": _validate_endpoint(
-            traces_endpoint,
-            "--traces-endpoint",
-        ),
+    endpoints = {
+        "metrics_endpoint": (metrics_endpoint, "--metrics-endpoint"),
+        "logs_endpoint": (logs_endpoint, "--logs-endpoint"),
+        "traces_endpoint": (traces_endpoint, "--traces-endpoint"),
     }
+    configuration = {
+        name: _validate_endpoint(value, option_name)
+        for name, (value, option_name) in endpoints.items()
+        if value and value.strip()
+    }
+    if not configuration:
+        return None
+    return configuration
 
 
 def _validate_headers(headers):
@@ -142,11 +134,6 @@ def _validate_headers(headers):
                 "--headers must contain non-empty string names and values."
             )
         normalized_name = name.strip().casefold()
-        if normalized_name == "authorization":
-            raise InvalidArgumentValueError(
-                "The Authorization header is reserved for managed identity "
-                "authentication."
-            )
         if normalized_name in normalized_names:
             raise InvalidArgumentValueError(
                 "Header names must be unique, ignoring case."
@@ -429,11 +416,92 @@ def _assign_monitoring_role(
 def _exporter_path(
     gateway_path,
     workspace_name,
-    exporter_name,
+    exporter_name=None,
 ):
-    return (
+    path = (
         f"{gateway_path}/workspaces/{quote(workspace_name, safe='')}"
-        f"/telemetryExporters/{quote(exporter_name, safe='')}"
+        "/telemetryExporters"
+    )
+    if exporter_name is not None:
+        path += f"/{quote(exporter_name, safe='')}"
+    return path
+
+
+def _normalize_exporter(exporter):
+    if not exporter:
+        return exporter
+    normalized = deepcopy(exporter)
+    properties = normalized.get("properties") or {}
+    if properties.get("kind") == "OpenTelemetry":
+        properties["kind"] = "openTelemetry"
+    open_telemetry = properties.get("openTelemetry") or {}
+    credentials = open_telemetry.get("credentials") or {}
+    headers = credentials.get("headers")
+    if isinstance(headers, dict):
+        credentials["headers"] = {
+            name: "******"
+            for name in headers
+        }
+    legacy_headers = open_telemetry.get("headers")
+    if isinstance(legacy_headers, dict):
+        open_telemetry["headers"] = {
+            name: "******"
+            for name in legacy_headers
+        }
+    return normalized
+
+
+def list_telemetry_exporters(
+    cmd,
+    gateway_name,
+    resource_group_name,
+    workspace_name=DEFAULT_WORKSPACE,
+):
+    subscription_id = get_subscription_id(cmd.cli_ctx)
+    gateway_path = _gateway_path(
+        subscription_id,
+        resource_group_name,
+        gateway_name,
+    )
+    url = _exporter_path(gateway_path, workspace_name)
+    exporters = []
+    include_api_version = True
+    while url:
+        page = _response_json(
+            _request(
+                cmd,
+                "GET",
+                url,
+                include_api_version=include_api_version,
+            )
+        )
+        exporters.extend(
+            _normalize_exporter(exporter)
+            for exporter in page.get("value", [])
+        )
+        url = page.get("nextLink")
+        include_api_version = False
+    return exporters
+
+
+def delete_telemetry_exporter(
+    cmd,
+    name,
+    gateway_name,
+    resource_group_name,
+    workspace_name=DEFAULT_WORKSPACE,
+):
+    subscription_id = get_subscription_id(cmd.cli_ctx)
+    gateway_path = _gateway_path(
+        subscription_id,
+        resource_group_name,
+        gateway_name,
+    )
+    _request(
+        cmd,
+        "DELETE",
+        _exporter_path(gateway_path, workspace_name, name),
+        headers={"If-Match": "*"},
     )
 
 
@@ -465,8 +533,8 @@ def create_telemetry_exporter(
     )
     if bool(application_insights) == bool(custom_configuration):
         raise InvalidArgumentValueError(
-            "Specify either --application-insights or all three custom "
-            "OpenTelemetry endpoint options."
+            "Specify either --application-insights or at least one custom "
+            "OpenTelemetry endpoint option."
         )
     headers = _validate_headers(headers)
     if headers is not None and managed_identity_resource:
@@ -482,11 +550,6 @@ def create_telemetry_exporter(
         raise InvalidArgumentValueError(
             "--identity-client-id requires --managed-identity-resource for a "
             "custom OpenTelemetry destination."
-        )
-    if custom_configuration and headers is None and not managed_identity_resource:
-        raise InvalidArgumentValueError(
-            "Specify --headers or --managed-identity-resource for a custom "
-            "OpenTelemetry destination."
         )
     if managed_identity_resource:
         managed_identity_resource = _validate_endpoint(
@@ -543,18 +606,23 @@ def create_telemetry_exporter(
             if identity["client_id"]:
                 managed_identity["clientId"] = identity["client_id"]
 
-    open_telemetry = {
-        "metricsEndpoint": configuration["metrics_endpoint"],
-        "logsEndpoint": configuration["logs_endpoint"],
-        "tracesEndpoint": configuration["traces_endpoint"],
-    }
+    open_telemetry = {}
+    for configuration_name, property_name in [
+        ("metrics_endpoint", "metricsEndpoint"),
+        ("logs_endpoint", "logsEndpoint"),
+        ("traces_endpoint", "tracesEndpoint"),
+    ]:
+        if configuration.get(configuration_name):
+            open_telemetry[property_name] = configuration[configuration_name]
+    credentials = {}
     if headers is not None:
-        open_telemetry["headers"] = headers
+        credentials["headers"] = headers
     if managed_identity:
-        open_telemetry["managedIdentity"] = managed_identity
+        credentials["managedIdentity"] = managed_identity
+    if credentials:
+        open_telemetry["credentials"] = credentials
     properties = {
         "kind": "OpenTelemetry",
-        "tracing": True,
         "payloadCapture": payload_capture,
         "openTelemetry": open_telemetry,
     }
@@ -568,7 +636,4 @@ def create_telemetry_exporter(
             {"properties": properties},
         )
     )
-    exporter_properties = exporter.get("properties") or {}
-    if exporter_properties.get("kind") == "OpenTelemetry":
-        exporter_properties["kind"] = "openTelemetry"
-    return exporter
+    return _normalize_exporter(exporter)

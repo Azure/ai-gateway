@@ -68,11 +68,6 @@ def validate_headers(value):
                 "values."
             )
         normalized_names.append(name.strip().casefold())
-    if "authorization" in normalized_names:
-        raise InvalidArgumentValueError(
-            "The Authorization header is reserved for managed identity "
-            "authentication."
-        )
     if len(set(normalized_names)) != len(normalized_names):
         raise InvalidArgumentValueError(
             "Header names must be unique, ignoring case."

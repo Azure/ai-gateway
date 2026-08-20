@@ -70,11 +70,14 @@ EOF
 
 if ! response="$(
   copilot \
+    --agent ai-gateway-docs-check \
     --prompt "$prompt" \
     --silent \
     --no-color \
     --allow-all-tools \
-    --available-tools
+    --deny-tool shell \
+    --deny-tool write \
+    --no-custom-instructions
 )"; then
   echo "AI Gateway documentation check failed: Copilot could not review the staged changes." >&2
   echo "Retry the commit, or bypass once with git commit --no-verify." >&2

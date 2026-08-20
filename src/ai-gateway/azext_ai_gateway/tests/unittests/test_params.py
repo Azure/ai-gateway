@@ -99,7 +99,10 @@ def test_gateway_arguments_use_ai_gateway_configured_default():
             f"ai-gateway identity {operation}"
             for operation in ["assign", "remove", "show"]
         ],
-        "ai-gateway telemetry-exporter create",
+        *[
+            f"ai-gateway telemetry-exporter {operation}"
+            for operation in ["create", "delete", "list"]
+        ],
         *[
             f"ai-gateway policy {operation}"
             for operation in ["create", "delete", "list", "show", "update"]
@@ -188,3 +191,24 @@ def test_telemetry_exporter_create_accepts_custom_otlp_options():
         "headers",
     )
     assert headers["type"] is _params.validate_headers
+
+    for operation in ["create", "delete"]:
+        name_argument = _get_argument(
+            loader,
+            f"ai-gateway telemetry-exporter {operation}",
+            "name",
+        )
+        assert name_argument["default"] == "appinsights"
+
+    list_workspace = _get_argument(
+        loader,
+        "ai-gateway telemetry-exporter list",
+        "workspace_name",
+    )
+    assert list_workspace["default"] == "default"
+
+
+def test_telemetry_exporter_headers_allow_authorization():
+    assert _params.validate_headers(
+        '{"Authorization": "******"}'
+    ) == {"Authorization": "******"}

@@ -520,29 +520,43 @@ def load_arguments(loader, _):
             ),
         )
 
+    telemetry_exporter_commands = [
+        "ai-gateway telemetry-exporter create",
+        "ai-gateway telemetry-exporter delete",
+        "ai-gateway telemetry-exporter list",
+    ]
+    for command in telemetry_exporter_commands:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "gateway_name",
+                options_list=["--resource-name"],
+                configured_default=AI_GATEWAY_CONFIGURED_DEFAULT,
+                help="Name of the AI Gateway." + AI_GATEWAY_DEFAULT_HELP,
+            )
+            context.argument("resource_group_name", resource_group_name_type)
+            context.argument(
+                "workspace_name",
+                default="default",
+                help="Gateway workspace name.",
+            )
+
+    for command in [
+        "ai-gateway telemetry-exporter create",
+        "ai-gateway telemetry-exporter delete",
+    ]:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "name",
+                options_list=["--name", "-n"],
+                default="appinsights",
+                help="Telemetry exporter name.",
+            )
+
     with loader.argument_context("ai-gateway telemetry-exporter create") as context:
-        context.argument(
-            "gateway_name",
-            options_list=["--resource-name"],
-            configured_default=AI_GATEWAY_CONFIGURED_DEFAULT,
-            help="Name of the AI Gateway." + AI_GATEWAY_DEFAULT_HELP,
-        )
-        context.argument("resource_group_name", resource_group_name_type)
         context.argument(
             "application_insights",
             options_list=["--application-insights"],
             help="Resource ID of an existing Application Insights component.",
-        )
-        context.argument(
-            "workspace_name",
-            default="default",
-            help="Gateway workspace name.",
-        )
-        context.argument(
-            "name",
-            options_list=["--name", "-n"],
-            default="appinsights",
-            help="Telemetry exporter name.",
         )
         context.argument(
             "identity_client_id",
@@ -556,7 +570,10 @@ def load_arguments(loader, _):
         context.argument(
             "metrics_endpoint",
             arg_group="Custom OpenTelemetry Destination",
-            help="Absolute HTTPS OTLP metrics endpoint URL.",
+            help=(
+                "Absolute HTTPS OTLP metrics endpoint URL. At least one signal "
+                "endpoint is required."
+            ),
         )
         context.argument(
             "logs_endpoint",
@@ -573,7 +590,8 @@ def load_arguments(loader, _):
             type=validate_headers,
             arg_group="Authentication",
             help=(
-                "Custom OTLP headers as a JSON object or path prefixed with '@'."
+                "Optional custom OTLP headers as a JSON object or path "
+                "prefixed with '@'."
             ),
         )
         context.argument(

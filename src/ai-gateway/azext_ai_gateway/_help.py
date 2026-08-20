@@ -199,8 +199,8 @@ helps["ai-gateway telemetry-exporter create"] = """
         For Application Insights, provide its resource ID. The command enables
         OTLP ingestion, grants the gateway identity access to the data collection
         rule, and creates the exporter. For another OpenTelemetry destination,
-        provide all three signal endpoints and authenticate with custom headers
-        or managed identity.
+        provide at least one signal endpoint. Authentication is optional; use
+        custom headers or managed identity when the destination requires it.
     examples:
       - name: Create an Application Insights telemetry exporter.
         text: >-
@@ -225,6 +225,28 @@ helps["ai-gateway telemetry-exporter create"] = """
           --logs-endpoint https://otel.example.com/v1/logs
           --traces-endpoint https://otel.example.com/v1/traces
           --headers '{"x-api-key":"secret"}'
+"""
+
+helps["ai-gateway telemetry-exporter delete"] = """
+    type: command
+    short-summary: Delete a telemetry exporter.
+    examples:
+      - name: Delete a telemetry exporter.
+        text: >-
+          az ai-gateway telemetry-exporter delete
+          --resource-name my-ai-gateway --resource-group my-resource-group
+          --name appinsights
+"""
+
+helps["ai-gateway telemetry-exporter list"] = """
+    type: command
+    short-summary: List telemetry exporters in a gateway workspace.
+    long-summary: Custom header values are redacted in the output.
+    examples:
+      - name: List telemetry exporters.
+        text: >-
+          az ai-gateway telemetry-exporter list
+          --resource-name my-ai-gateway --resource-group my-resource-group
 """
 
 helps["ai-gateway model"] = """
