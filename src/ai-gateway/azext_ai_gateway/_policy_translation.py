@@ -15,6 +15,7 @@ STRUCTURAL_POLICY_ELEMENTS = {
     "blocklists",
     "categories",
     "category",
+    "forward-request",
     "id",
     "inbound",
     "on-error",

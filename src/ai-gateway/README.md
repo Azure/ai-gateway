@@ -73,11 +73,6 @@ az ai-gateway update \
   -n my-ai-gateway -g my-resource-group
 ```
 
-`None` cannot be combined with a non-empty `--subnet-resource-id`.
-For compatibility, an explicitly empty `--subnet-resource-id ""` without
-`--virtual-network-type` also disables VNet integration and clears the
-configuration.
-
 Disable public ingress:
 
 ```bash
@@ -150,11 +145,25 @@ Discover and import assess models, agents, tools, and policies from an APIM reso
 | --- | --- |
 | `--include` | `models`, `agents`, `tools` |
 | `--conflict-policy` | `fail`, `skip`, `overwrite` |
-| `--mapping-file` | JSON source-to-destination mappings |
-| `--output` | `json` for full details; `table` for a summary |
+| `--mapping-file` | JSON network and source-to-destination asset mappings |
+| `--output` | Explicit structured output; `table` returns only the compact plan |
 
 Import execution is not available. `--dry-run` is required. Sensitive policy,
 credential, and URL values are redacted.
+
+Without explicit output or a query, dry-run prints a compact ordered plan,
+followed by grouped issues, warnings, and a readiness summary.
+
+Custom-provider model discovery reuses provider sync for OpenAI-compatible and
+Anthropic APIs. API-specific APIM backend credentials, including named values,
+are used for discovery without exposing their values. If discovery fails, the
+provider-only import remains ready. Successfully discovered models are grouped
+by API protocol in a dedicated report section rather than shown as warnings.
+Native Gemini APIs are not supported.
+
+REST-backed MCP servers omit their referenced backing APIs from the separate
+OpenAPI plan. When required, import retrieves an active scoped APIM subscription
+key and configures it as redacted MCP header authentication.
 
 ## `az ai-gateway model-provider`
 
