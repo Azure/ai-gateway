@@ -37,7 +37,7 @@ Manage and use the AI Gateway SKU in Azure API Management.
 | --- | --- |
 | `create` | `az ai-gateway create -n <gateway> -g <group> -l <region> [options]` or `az ai-gateway create --list-regions` |
 | `delete` | `az ai-gateway delete -n <gateway> -g <group>` |
-| `import` | `az ai-gateway import -n <gateway> -g <group> --source-apim-id <id> --dry-run [options]` |
+| `import` | `az ai-gateway import -n <gateway> -g <group> --source-apim-id <id> [--dry-run] [options]` |
 | `list` | `az ai-gateway list [-g <group>]` |
 | `show` | `az ai-gateway show -n <gateway> -g <group>` |
 | `update` | `az ai-gateway update -n <gateway> -g <group> [options]` |
@@ -132,33 +132,23 @@ a service-side connection does not delete its backing
 
 ### `az ai-gateway import`
 
-Discover and import assess models, agents, tools, and policies from an APIM resource.
+Import model and MCP server assets from an APIM resource. Other API types are
+ignored.
 
 #### Options
 
-| Option | Values |
+| Option | Description |
 | --- | --- |
-| `--include` | `models`, `agents`, `tools` |
-| `--conflict-policy` | `fail`, `skip`, `overwrite` |
-| `--mapping-file` | JSON network and source-to-destination asset mappings |
-| `--output` | Explicit structured output; `table` returns only the compact plan |
+| `--include` | Asset types: `models`, `mcp-servers`. Both are included by default. |
+| `--conflict-policy` | Existing-target behavior: `fail` (default), `skip`, or `overwrite`. |
+| `--mapping-file` | JSON network and source-to-destination asset mappings. |
+| `--dry-run` | Assess the import without changing resources. |
+| `--yes`, `-y` | Required to execute the import. |
+| `--output` | Use `table` for a compact inventory. |
 
-Import execution is not available. `--dry-run` is required. Sensitive policy,
-credential, and URL values are redacted.
-
-Without explicit output or a query, dry-run prints a compact ordered plan,
-followed by grouped issues, warnings, and a readiness summary.
-
-Custom-provider model discovery reuses provider sync for OpenAI-compatible and
-Anthropic APIs. API-specific APIM backend credentials, including named values,
-are used for discovery without exposing their values. If discovery fails, the
-provider-only import remains ready. Successfully discovered models are grouped
-by API protocol in a dedicated report section rather than shown as warnings.
-Native Gemini APIs are not supported.
-
-REST-backed MCP servers omit their referenced backing APIs from the separate
-OpenAPI plan. When required, import retrieves an active scoped APIM subscription
-key and configures it as redacted MCP header authentication.
+Import is additive and does not delete destination resources. Critical blockers
+prevent execution. Dependent actions do not support `--no-wait`. Sensitive
+values are redacted.
 
 ## `az ai-gateway model-provider`
 
