@@ -451,6 +451,57 @@ def test_create_uses_fixed_sku_and_defaults(
     assert result["properties"]["provisioningState"] == "Succeeded"
 
 
+@patch("azext_ai_gateway._gateway.report_lro_accepted")
+@patch("azext_ai_gateway._gateway.get_subscription_id", return_value="sub")
+@patch("azext_ai_gateway._gateway._wait_for_gateway")
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_create_no_wait_reports_acceptance_without_polling(
+    send_request,
+    wait_for_gateway,
+    _,
+    report_accepted,
+    cmd,
+):
+    send_request.return_value = FakeResponse(
+        {"properties": {"provisioningState": "Creating"}}
+    )
+
+    result = _gateway.create_gateway(
+        cmd,
+        "gateway",
+        "rg",
+        "eastus2",
+        no_wait=True,
+    )
+
+    report_accepted.assert_called_once_with(
+        cmd,
+        "AI Gateway 'gateway' create request accepted.",
+    )
+    wait_for_gateway.assert_not_called()
+    assert result["properties"]["provisioningState"] == "Creating"
+
+
+@patch("azext_ai_gateway._gateway.report_lro_accepted")
+@patch("azext_ai_gateway._gateway.get_subscription_id", return_value="sub")
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_create_does_not_report_acceptance_when_request_fails(
+    send_request,
+    _,
+    report_accepted,
+    cmd,
+):
+    send_request.side_effect = HTTPError(
+        "Bad Request",
+        FakeResponse(status_code=400),
+    )
+
+    with pytest.raises(HTTPError):
+        _gateway.create_gateway(cmd, "gateway", "rg", "eastus2")
+
+    report_accepted.assert_not_called()
+
+
 @patch("azext_ai_gateway._gateway.get_subscription_id")
 @patch("azext_ai_gateway._gateway.send_raw_request")
 def test_create_list_regions_does_not_require_creation_arguments(

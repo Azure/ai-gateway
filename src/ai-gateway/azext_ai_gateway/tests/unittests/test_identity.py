@@ -118,3 +118,31 @@ def test_identity_change_requires_a_selection(cmd):
     with pytest.raises(RequiredArgumentMissingError):
         _identity.remove_identity(cmd, "gateway", "rg")
 
+
+@patch("azext_ai_gateway._identity.report_lro_accepted")
+@patch("azext_ai_gateway._identity.get_subscription_id", return_value="sub")
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_assign_no_wait_reports_acceptance(
+    send_request,
+    _,
+    report_accepted,
+    cmd,
+):
+    send_request.side_effect = [
+        FakeResponse({"identity": {"type": "None"}}),
+        FakeResponse({"properties": {"provisioningState": "Updating"}}),
+    ]
+
+    result = _identity.assign_identity(
+        cmd,
+        "gateway",
+        "rg",
+        system_assigned=True,
+        no_wait=True,
+    )
+
+    report_accepted.assert_called_once_with(
+        cmd,
+        "Identity assignment for AI Gateway 'gateway' accepted.",
+    )
+    assert result["properties"]["provisioningState"] == "Updating"

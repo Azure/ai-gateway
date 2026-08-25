@@ -21,6 +21,11 @@ from azure.cli.core.azclierror import (
 from azure.cli.core.commands.client_factory import get_subscription_id
 from azure.cli.core.util import send_raw_request
 
+from azext_ai_gateway._progress import (
+    long_running_progress,
+    report_lro_accepted,
+)
+
 API_VERSION = "2025-09-01-preview"
 DEFAULT_PUBLISHER_EMAIL = "noreply@aigateway.azure.com"
 DEFAULT_PUBLISHER_NAME = "AI Gateway Administrator"
@@ -290,32 +295,44 @@ def _raise_not_found(error, name):
 
 def _wait_for_gateway(cmd, path, name, deleted=False):
     deadline = time.monotonic() + POLL_TIMEOUT_SECONDS
-    while time.monotonic() <= deadline:
-        try:
-            resource = _get_resource(cmd, path)
-        except HTTPError as error:
-            if deleted and error.response.status_code == 404:
-                return None
-            _raise_not_found(error, name)
-
-        if deleted:
-            time.sleep(POLL_INTERVAL_SECONDS)
-            continue
-
-        state = (resource.get("properties") or {}).get("provisioningState")
-        if state == "Succeeded":
-            return resource
-        if state in {"Failed", "Canceled", "Cancelled"}:
-            raise AzureResponseError(
-                f"AI Gateway '{name}' provisioning ended in state '{state}'."
-            )
-        time.sleep(POLL_INTERVAL_SECONDS)
-
     action = "deletion" if deleted else "provisioning"
-    raise AzureResponseError(
-        f"Timed out waiting for AI Gateway '{name}' {action} after "
-        f"{POLL_TIMEOUT_SECONDS} seconds."
-    )
+    message = f"Waiting for AI Gateway '{name}' {action}"
+    with long_running_progress(cmd, message) as progress:
+        while time.monotonic() <= deadline:
+            try:
+                resource = _get_resource(cmd, path)
+            except HTTPError as error:
+                if deleted and error.response.status_code == 404:
+                    return None
+                _raise_not_found(error, name)
+
+            state = (resource.get("properties") or {}).get(
+                "provisioningState"
+            )
+            if deleted:
+                progress.update(
+                    f"{message}"
+                    + (f" (state: {state})" if state else "")
+                )
+                progress.wait(POLL_INTERVAL_SECONDS)
+                continue
+
+            if state == "Succeeded":
+                return resource
+            if state in {"Failed", "Canceled", "Cancelled"}:
+                raise AzureResponseError(
+                    f"AI Gateway '{name}' provisioning ended in state "
+                    f"'{state}'."
+                )
+            progress.update(
+                f"{message}" + (f" (state: {state})" if state else "")
+            )
+            progress.wait(POLL_INTERVAL_SECONDS)
+
+        raise AzureResponseError(
+            f"Timed out waiting for AI Gateway '{name}' {action} after "
+            f"{POLL_TIMEOUT_SECONDS} seconds."
+        )
 
 
 def _identity_payload(system_assigned, user_assigned_ids):
@@ -445,6 +462,10 @@ def create_gateway(
         )
 
     response = _response_json(_request(cmd, "PUT", path, body))
+    report_lro_accepted(
+        cmd,
+        f"AI Gateway '{name}' create request accepted.",
+    )
     if no_wait:
         return response
     return _wait_for_gateway(cmd, path, name)
@@ -573,6 +594,10 @@ def update_gateway(
         body["properties"] = properties
 
     response = _response_json(_request(cmd, "PATCH", path, body))
+    report_lro_accepted(
+        cmd,
+        f"AI Gateway '{name}' update request accepted.",
+    )
     if no_wait:
         return response
     return _wait_for_gateway(cmd, path, name)
@@ -582,6 +607,10 @@ def delete_gateway(cmd, name, resource_group_name, no_wait=False):
     subscription_id = get_subscription_id(cmd.cli_ctx)
     path = _gateway_path(subscription_id, resource_group_name, name)
     _request(cmd, "DELETE", path)
+    report_lro_accepted(
+        cmd,
+        f"AI Gateway '{name}' delete request accepted.",
+    )
     if no_wait:
         return None
     return _wait_for_gateway(cmd, path, name, deleted=True)

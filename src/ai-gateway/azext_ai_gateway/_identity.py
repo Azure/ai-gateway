@@ -17,6 +17,7 @@ from azext_ai_gateway._gateway import (
     _response_json,
     _wait_for_gateway,
 )
+from azext_ai_gateway._progress import report_lro_accepted
 
 
 def _get_gateway(cmd, path, name):
@@ -76,6 +77,10 @@ def assign_identity(
     response = _response_json(
         _request(cmd, "PATCH", path, {"identity": identity})
     )
+    report_lro_accepted(
+        cmd,
+        f"Identity assignment for AI Gateway '{gateway_name}' accepted.",
+    )
     if no_wait:
         return response
     gateway = _wait_for_gateway(cmd, path, gateway_name)
@@ -120,8 +125,11 @@ def remove_identity(
     response = _response_json(
         _request(cmd, "PATCH", path, {"identity": identity})
     )
+    report_lro_accepted(
+        cmd,
+        f"Identity removal for AI Gateway '{gateway_name}' accepted.",
+    )
     if no_wait:
         return response
     gateway = _wait_for_gateway(cmd, path, gateway_name)
     return gateway.get("identity") or {"type": "None"}
-

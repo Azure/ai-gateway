@@ -20,6 +20,10 @@ from azext_ai_gateway._gateway import (
     _request,
     _response_json,
 )
+from azext_ai_gateway._progress import (
+    long_running_progress,
+    report_lro_accepted,
+)
 
 
 def format_private_endpoint_connection_list_table(connections):
@@ -78,39 +82,50 @@ def _wait_for_connection(
     deleted=False,
 ):
     deadline = time.monotonic() + POLL_TIMEOUT_SECONDS
-    while time.monotonic() <= deadline:
-        try:
-            connection = _response_json(_request(cmd, "GET", path))
-        except HTTPError as error:
-            if deleted and error.response.status_code == 404:
-                return None
-            _raise_connection_not_found(error, name)
-
-        if deleted:
-            time.sleep(POLL_INTERVAL_SECONDS)
-            continue
-
-        properties = connection.get("properties") or {}
-        provisioning_state = properties.get("provisioningState")
-        connection_state = (
-            properties.get("privateLinkServiceConnectionState") or {}
-        ).get("status")
-        if provisioning_state in {"Failed", "Canceled", "Cancelled"}:
-            raise AzureResponseError(
-                f"Private endpoint connection '{name}' provisioning ended "
-                f"in state '{provisioning_state}'."
-            )
-        if provisioning_state in {None, "Succeeded"} and (
-            expected_status is None or connection_state == expected_status
-        ):
-            return connection
-        time.sleep(POLL_INTERVAL_SECONDS)
-
     action = "deletion" if deleted else "provisioning"
-    raise AzureResponseError(
-        f"Timed out waiting for private endpoint connection '{name}' "
-        f"{action} after {POLL_TIMEOUT_SECONDS} seconds."
-    )
+    message = f"Waiting for private endpoint connection '{name}' {action}"
+    with long_running_progress(cmd, message) as progress:
+        while time.monotonic() <= deadline:
+            try:
+                connection = _response_json(_request(cmd, "GET", path))
+            except HTTPError as error:
+                if deleted and error.response.status_code == 404:
+                    return None
+                _raise_connection_not_found(error, name)
+
+            properties = connection.get("properties") or {}
+            provisioning_state = properties.get("provisioningState")
+            connection_state = (
+                properties.get("privateLinkServiceConnectionState") or {}
+            ).get("status")
+            states = ", ".join(
+                state
+                for state in [provisioning_state, connection_state]
+                if state
+            )
+            progress.update(
+                f"{message}" + (f" (state: {states})" if states else "")
+            )
+
+            if deleted:
+                progress.wait(POLL_INTERVAL_SECONDS)
+                continue
+
+            if provisioning_state in {"Failed", "Canceled", "Cancelled"}:
+                raise AzureResponseError(
+                    f"Private endpoint connection '{name}' provisioning ended "
+                    f"in state '{provisioning_state}'."
+                )
+            if provisioning_state in {None, "Succeeded"} and (
+                expected_status is None or connection_state == expected_status
+            ):
+                return connection
+            progress.wait(POLL_INTERVAL_SECONDS)
+
+        raise AzureResponseError(
+            f"Timed out waiting for private endpoint connection '{name}' "
+            f"{action} after {POLL_TIMEOUT_SECONDS} seconds."
+        )
 
 
 def list_private_endpoint_connections(
@@ -182,6 +197,11 @@ def _set_private_endpoint_connection_status(
         }
     }
     response = _response_json(_request(cmd, "PUT", path, body))
+    report_lro_accepted(
+        cmd,
+        f"Private endpoint connection '{name}' {status.lower()} request "
+        "accepted.",
+    )
     if no_wait:
         return response
     return _wait_for_connection(cmd, path, name, expected_status=status)
@@ -240,6 +260,10 @@ def delete_private_endpoint_connection(
         name,
     )
     _request(cmd, "DELETE", path)
+    report_lro_accepted(
+        cmd,
+        f"Private endpoint connection '{name}' delete request accepted.",
+    )
     if no_wait:
         return None
     return _wait_for_connection(cmd, path, name, deleted=True)

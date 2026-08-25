@@ -26,6 +26,10 @@ from azext_ai_gateway._gateway import (
     _response_json,
     _wait_for_gateway,
 )
+from azext_ai_gateway._progress import (
+    long_running_progress,
+    report_lro_accepted,
+)
 
 APP_INSIGHTS_API_VERSION = "2020-02-02"
 APP_INSIGHTS_OTLP_API_VERSION = "2020-02-02-preview"
@@ -295,21 +299,27 @@ def _resolve_otlp_configuration(cmd, resource_id):
         {"properties": {"AzureMonitorWorkspaceIngestionMode": "Enabled"}},
         api_version=APP_INSIGHTS_OTLP_API_VERSION,
     )
-    deadline = time.monotonic() + POLL_TIMEOUT_SECONDS
-    while time.monotonic() <= deadline:
-        resource = _get_app_insights(cmd, resource_id)
-        configuration = (
-            _direct_configuration(resource)
-            or _synthesize_configuration(cmd, resource)
-        )
-        if configuration:
-            return resource, configuration
-        time.sleep(POLL_INTERVAL_SECONDS)
-
-    raise AzureResponseError(
-        "Timed out waiting for Application Insights OTLP endpoints after "
-        f"{POLL_TIMEOUT_SECONDS} seconds."
+    report_lro_accepted(
+        cmd,
+        "Application Insights OpenTelemetry enablement request accepted.",
     )
+    deadline = time.monotonic() + POLL_TIMEOUT_SECONDS
+    message = "Waiting for Application Insights OpenTelemetry endpoints"
+    with long_running_progress(cmd, message) as progress:
+        while time.monotonic() <= deadline:
+            resource = _get_app_insights(cmd, resource_id)
+            configuration = (
+                _direct_configuration(resource)
+                or _synthesize_configuration(cmd, resource)
+            )
+            if configuration:
+                return resource, configuration
+            progress.wait(POLL_INTERVAL_SECONDS)
+
+        raise AzureResponseError(
+            "Timed out waiting for Application Insights OTLP endpoints after "
+            f"{POLL_TIMEOUT_SECONDS} seconds."
+        )
 
 
 def _identity_candidates(identity):
@@ -353,6 +363,10 @@ def _resolve_identity(
             gateway_path,
             {"identity": {"type": "SystemAssigned"}},
             api_version=IDENTITY_API_VERSION,
+        )
+        report_lro_accepted(
+            cmd,
+            f"Identity assignment for AI Gateway '{gateway_name}' accepted.",
         )
         gateway = _wait_for_gateway(cmd, gateway_path, gateway_name)
         candidates = _identity_candidates(gateway.get("identity") or {})

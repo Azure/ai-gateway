@@ -5,7 +5,7 @@
 
 import json
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import pytest
 from azure.cli.core.azclierror import InvalidArgumentValueError
@@ -229,11 +229,13 @@ def test_create_exporter_for_existing_application_insights(send_request, _, cmd)
     "azext_ai_gateway._telemetry_exporter.get_subscription_id",
     return_value="sub",
 )
+@patch("azext_ai_gateway._telemetry_exporter.report_lro_accepted")
 @patch("azext_ai_gateway._telemetry_exporter._wait_for_gateway")
 @patch("azext_ai_gateway._gateway.send_raw_request")
 def test_create_exporter_enables_identity_and_synthesizes_otlp_endpoints(
     send_request,
     wait_for_gateway,
+    report_accepted,
     _,
     cmd,
 ):
@@ -287,16 +289,27 @@ def test_create_exporter_enables_identity_and_synthesizes_otlp_endpoints(
         FakeResponse({"properties": {"kind": "OpenTelemetry"}}),
     ]
 
-    _telemetry_exporter.create_telemetry_exporter(
-        cmd,
-        "gateway",
-        "rg",
-        "appinsights",
-        application_insights=app_insights_id,
-    )
+    with patch("azext_ai_gateway._progress.time.sleep"):
+        _telemetry_exporter.create_telemetry_exporter(
+            cmd,
+            "gateway",
+            "rg",
+            "appinsights",
+            application_insights=app_insights_id,
+        )
 
     identity_body = json.loads(send_request.call_args_list[1].kwargs["body"])
     assert identity_body == {"identity": {"type": "SystemAssigned"}}
+    assert report_accepted.call_args_list == [
+        call(
+            cmd,
+            "Identity assignment for AI Gateway 'gateway' accepted.",
+        ),
+        call(
+            cmd,
+            "Application Insights OpenTelemetry enablement request accepted.",
+        ),
+    ]
     otlp_call = send_request.call_args_list[3]
     assert json.loads(otlp_call.kwargs["body"]) == {
         "properties": {"AzureMonitorWorkspaceIngestionMode": "Enabled"}

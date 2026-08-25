@@ -138,9 +138,18 @@ def test_approve_sends_status_and_waits(request, wait, _, cmd):
     "azext_ai_gateway._private_endpoint_connection.get_subscription_id",
     return_value="sub",
 )
+@patch(
+    "azext_ai_gateway._private_endpoint_connection.report_lro_accepted"
+)
 @patch("azext_ai_gateway._private_endpoint_connection._wait_for_connection")
 @patch("azext_ai_gateway._private_endpoint_connection._request")
-def test_reject_no_wait_returns_initial_response(request, wait, _, cmd):
+def test_reject_no_wait_returns_initial_response(
+    request,
+    wait,
+    report_accepted,
+    _,
+    cmd,
+):
     request.return_value = FakeResponse(_connection("Pending", "Updating"))
 
     result = private_endpoint.reject_private_endpoint_connection(
@@ -152,6 +161,10 @@ def test_reject_no_wait_returns_initial_response(request, wait, _, cmd):
     )
 
     assert result["properties"]["provisioningState"] == "Updating"
+    report_accepted.assert_called_once_with(
+        cmd,
+        "Private endpoint connection 'connection' rejected request accepted.",
+    )
     wait.assert_not_called()
 
 
