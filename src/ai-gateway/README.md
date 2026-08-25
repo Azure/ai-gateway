@@ -43,13 +43,6 @@ Manage and use the AI Gateway SKU in Azure API Management.
 | `update` | `az ai-gateway update -n <gateway> -g <group> [options]` |
 | `version` | `az ai-gateway version` |
 
-Long-running gateway, identity, private-endpoint, and telemetry setup mutations
-write an accepted message to stderr. Commands that wait for completion then show
-an in-progress indicator without changing structured stdout. With `--no-wait`,
-the command reports acceptance and returns the initial service response
-immediately. Progress indicators honor Azure CLI's
-`core.disable_progress_bar` setting and `--only-show-errors`.
-
 List the production regions supported by the AI Gateway SKU:
 
 ```bash
