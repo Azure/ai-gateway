@@ -39,7 +39,7 @@ Manage and use the AI Gateway SKU in Azure API Management.
 | `delete` | `az ai-gateway delete -n <gateway> -g <group>` |
 | `import` | `az ai-gateway import -n <gateway> -g <group> --source-apim-id <id> --dry-run [options]` |
 | `list` | `az ai-gateway list [-g <group>]` |
-| `show` | `az ai-gateway show -n <gateway> -g <group> [--system-assigned] [--user-assigned]` |
+| `show` | `az ai-gateway show -n <gateway> -g <group>` |
 | `update` | `az ai-gateway update -n <gateway> -g <group> [options]` |
 | `version` | `az ai-gateway version` |
 
@@ -48,11 +48,6 @@ List the production regions supported by the AI Gateway SKU:
 ```bash
 az ai-gateway create --list-regions --output table
 ```
-
-Use `--system-assigned` or `--user-assigned` with `show` to return only the
-selected managed identity details. Pass both options to return both identity
-types. Without either option, `show` returns the complete gateway resource.
-
 
 ### Networking
 

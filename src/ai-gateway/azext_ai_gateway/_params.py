@@ -74,20 +74,6 @@ def load_arguments(loader, _):
             required=False,
         )
 
-    with loader.argument_context("ai-gateway show") as context:
-        context.argument(
-            "system_assigned",
-            action="store_true",
-            arg_group="Managed Identity",
-            help="Show only the system-assigned managed identity details.",
-        )
-        context.argument(
-            "user_assigned",
-            action="store_true",
-            arg_group="Managed Identity",
-            help="Show only the user-assigned managed identity details.",
-        )
-
     for command in ["ai-gateway create", "ai-gateway update"]:
         with loader.argument_context(command) as context:
             context.argument("tags", tags_type)

@@ -183,12 +183,12 @@ def test_request_error_includes_nested_service_details(send_request, cmd):
 
 @patch("azext_ai_gateway._gateway.get_subscription_id", return_value="sub")
 @patch("azext_ai_gateway._gateway._get_resource")
-def test_show_gateway_returns_system_assigned_identity(
+def test_show_gateway_returns_complete_resource(
     get_resource,
     _,
     cmd,
 ):
-    get_resource.return_value = {
+    gateway = {
         "name": "gateway",
         "identity": {
             "type": "SystemAssigned, UserAssigned",
@@ -202,117 +202,9 @@ def test_show_gateway_returns_system_assigned_identity(
             },
         },
     }
+    get_resource.return_value = gateway
 
-    result = _gateway.show_gateway(
-        cmd,
-        "gateway",
-        "rg",
-        system_assigned=True,
-    )
-
-    assert result == {
-        "type": "SystemAssigned",
-        "principalId": "system-principal",
-        "tenantId": "tenant",
-    }
-
-
-@patch("azext_ai_gateway._gateway.get_subscription_id", return_value="sub")
-@patch("azext_ai_gateway._gateway._get_resource")
-def test_show_gateway_returns_selected_managed_identities(
-    get_resource,
-    _,
-    cmd,
-):
-    user_identities = {
-        "/identities/one": {
-            "clientId": "client",
-            "principalId": "user-principal",
-        }
-    }
-    get_resource.return_value = {
-        "identity": {
-            "type": "SystemAssigned, UserAssigned",
-            "principalId": "system-principal",
-            "tenantId": "tenant",
-            "userAssignedIdentities": user_identities,
-        }
-    }
-
-    result = _gateway.show_gateway(
-        cmd,
-        "gateway",
-        "rg",
-        system_assigned=True,
-        user_assigned=True,
-    )
-
-    assert result == {
-        "type": "SystemAssigned, UserAssigned",
-        "principalId": "system-principal",
-        "tenantId": "tenant",
-        "userAssignedIdentities": user_identities,
-    }
-
-
-@patch("azext_ai_gateway._gateway.get_subscription_id", return_value="sub")
-@patch("azext_ai_gateway._gateway._get_resource")
-def test_show_gateway_returns_user_assigned_identities(
-    get_resource,
-    _,
-    cmd,
-):
-    user_identities = {
-        "/identities/one": {
-            "clientId": "client",
-            "principalId": "user-principal",
-        }
-    }
-    get_resource.return_value = {
-        "identity": {
-            "type": "SystemAssigned, UserAssigned",
-            "principalId": "system-principal",
-            "tenantId": "tenant",
-            "userAssignedIdentities": user_identities,
-        }
-    }
-
-    result = _gateway.show_gateway(
-        cmd,
-        "gateway",
-        "rg",
-        user_assigned=True,
-    )
-
-    assert result == {
-        "type": "UserAssigned",
-        "userAssignedIdentities": user_identities,
-    }
-
-
-@patch("azext_ai_gateway._gateway.get_subscription_id", return_value="sub")
-@patch("azext_ai_gateway._gateway._get_resource")
-def test_show_gateway_returns_none_when_selected_identity_is_unassigned(
-    get_resource,
-    _,
-    cmd,
-):
-    get_resource.return_value = {
-        "identity": {
-            "type": "SystemAssigned",
-            "principalId": "system-principal",
-            "tenantId": "tenant",
-        }
-    }
-
-    result = _gateway.show_gateway(
-        cmd,
-        "gateway",
-        "rg",
-        user_assigned=True,
-    )
-
-    assert result == {"type": "None"}
+    assert _gateway.show_gateway(cmd, "gateway", "rg") == gateway
 
 
 @patch("azext_ai_gateway._gateway.send_raw_request")

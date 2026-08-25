@@ -137,16 +137,6 @@ def test_gateway_create_accepts_list_regions_flag():
     assert argument["action"] == "store_true"
 
 
-def test_gateway_show_accepts_managed_identity_selectors():
-    loader = _Loader()
-    _params.load_arguments(loader, None)
-
-    for name in ["system_assigned", "user_assigned"]:
-        argument = _get_argument(loader, "ai-gateway show", name)
-        assert argument["action"] == "store_true"
-        assert argument["arg_group"] == "Managed Identity"
-
-
 def test_gateway_create_does_not_prevalidate_location():
     loader = _Loader()
     _params.load_arguments(loader, None)
