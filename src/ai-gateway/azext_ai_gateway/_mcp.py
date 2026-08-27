@@ -338,6 +338,7 @@ def update_mcp(
     failure_mode=None,
     policies=None,
     if_match=None,
+    replace=False,
 ):
     if all(
         value is None
@@ -361,17 +362,22 @@ def update_mcp(
         workspace_name,
         name,
     )
-    replace_resource = endpoints is not None or policies is not None
+    replace_resource = replace or endpoints is not None or policies is not None
     if replace_resource:
         current_properties, current_etag = _get_with_secrets(cmd, path, name)
-        properties = deepcopy(current_properties)
-        for field in ["mcpEndpointUrl", "state", "provisioningState"]:
-            properties.pop(field, None)
-        if endpoints is not None:
-            properties["endpoints"] = _preserve_endpoint_secrets(
-                endpoints,
-                properties.get("endpoints") or [],
-            )
+        if replace:
+            properties = {"type": "mcp"}
+            if endpoints is not None:
+                properties["endpoints"] = endpoints
+        else:
+            properties = deepcopy(current_properties)
+            for field in ["mcpEndpointUrl", "state", "provisioningState"]:
+                properties.pop(field, None)
+            if endpoints is not None:
+                properties["endpoints"] = _preserve_endpoint_secrets(
+                    endpoints,
+                    properties.get("endpoints") or [],
+                )
         properties["endpoints"] = _clean_endpoints(
             properties.get("endpoints") or []
         )
@@ -689,6 +695,7 @@ def test_mcp(
             f"AI Gateway '{gateway_name}' has no runtime URL."
         )
     endpoint = _mcp_runtime_endpoint(gateway_url, workspace_name, name)
+    logger.warning("Testing MCP endpoint: %s", endpoint)
 
     secrets = list_api_key_secrets(
         cmd,

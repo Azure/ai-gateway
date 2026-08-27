@@ -15,35 +15,34 @@ az ai-gateway policy import-support list --support-level unsupported
 az ai-gateway policy import-support show --name llm-token-limit
 ```
 
-Each entry reports:
+Each entry reports its documentation URL, valid APIM scopes and sections,
+applicable destination assets and subtypes, destination capability,
+`supportLevel` (`exact`, `reduced`, or `unsupported`), assessment action
+(`import`, `warn`, or `block`), criticality, omitted behavior, remediation
+guidance, and executable handler linkage.
 
-- `supportLevel`: `partial`, `consumed`, or `unsupported`
-- `translationMode`: `inlinePolicy`, `configuration`, or `none`
-- destination policy types
-- supported and unsupported source fields
-- valid APIM policy sections
-- scopes imported directly and scopes retained only for inventory
-- compatibility notes
-
-The machine-readable registry is
-`azext_ai_gateway/_policy_translation.py:POLICY_TRANSLATION_CATALOG`.
-`POLICY_TRANSLATORS` is the executable registry. Tests require both registries
-to contain exactly the same source policy names.
+The machine-readable source of truth is
+`azext_ai_gateway/apim_policy_index.json`. It inventories the current Microsoft
+Learn APIM policy reference plus legacy AI policy statement names still
+recognized by the importer. `_policy_translation.py` loads that file and binds
+its `import` entries to `POLICY_TRANSLATORS` or
+`POLICY_CONFIGURATION_HANDLERS`. Tests require every imported entry to resolve
+to its declared executable handler.
 
 ## Current compatibility
 
 | APIM policy | Level | Destination | Behavior |
 | --- | --- | --- | --- |
-| `llm-token-limit` | Partial | `tokenLimit` | Translates literal per-minute rates and hourly/daily quotas. |
-| `azure-openai-token-limit` | Partial | `tokenLimit` | Uses the `llm-token-limit` mapping. |
-| `llm-content-safety` | Partial | `contentSafety` | Translates literal harm-category thresholds. |
-| `set-backend-service` | Consumed | Backend resolution | Uses `backend-id`; warns for `base-url`. |
-| `authentication-managed-identity` | Unsupported | None | Requires a future provider or endpoint credential mapping. |
-| `rewrite-uri` | Unsupported | None | No inline-policy equivalent. |
-| `set-query-parameter` | Unsupported | None | No inline-policy equivalent. |
+| `llm-token-limit` | Reduced | `tokenLimit` | Translates literal per-minute rates and hourly/daily quotas. |
+| `azure-openai-token-limit` | Reduced | `tokenLimit` | Uses the `llm-token-limit` mapping. |
+| `llm-content-safety` | Reduced | `contentSafety` | Translates literal harm-category thresholds. |
+| `set-backend-service` | Reduced | Backend resolution | Uses `backend-id`; warns for `base-url`. |
+| `forward-request` | Reduced | Endpoint configuration | Destination assets forward through their endpoint configuration. |
 
-Any statement absent from the registry is classified as unknown and reported
-under `unsupportedStatements`.
+All other indexed statements are currently unsupported and carry either a
+`warn` or `block` action. Unknown statement names are classified
+deterministically: authentication, routing, and backend-critical names block;
+all other names warn.
 
 ## Token-limit semantics
 
@@ -141,9 +140,8 @@ rule.
 
 Every policy change must follow this sequence:
 
-1. Add or update its `POLICY_TRANSLATION_CATALOG` entry. Describe every handled
-   and omitted source field, supported section, destination type, and semantic
-   caveat.
+1. Add or update its `apim_policy_index.json` entry. Describe its source,
+   applicability, destination capability, omitted behavior, and guidance.
 2. Register exactly one handler with `_register_translator`. A handler returns
    `(destination_policies, warnings)` and must never silently default an
    unsupported value.

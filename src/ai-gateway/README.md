@@ -35,7 +35,7 @@ Manage and use the AI Gateway SKU in Azure API Management.
 
 | Command | Syntax |
 | --- | --- |
-| `create` | `az ai-gateway create -n <gateway> -g <group> -l <region> [options]` or `az ai-gateway create --list-regions` |
+| `create` | `az ai-gateway create -n <gateway> -g <group> -l <region> [--list-regions]`|
 | `delete` | `az ai-gateway delete -n <gateway> -g <group>` |
 | `import` | `az ai-gateway import -n <gateway> -g <group> --source-apim-id <id> [--dry-run] [options]` |
 | `list` | `az ai-gateway list [-g <group>]` |
@@ -520,7 +520,10 @@ Inspect APIM policy import and translation capabilities.
 | `list` | `az ai-gateway policy import-support list [--support-level <level>]` |
 | `show` | `az ai-gateway policy import-support show -n <apim-policy>` |
 
-Support levels: `partial`, `consumed`, and `unsupported`.
+Support levels: `exact`, `reduced`, and `unsupported`. Each indexed statement
+also has an `import`, `warn`, or `block` action. Unknown authentication,
+routing, and backend-critical statements are classified `block`; other unknown
+statements are classified `warn`.
 
 See [APIM policy translation](docs/apim-policy-translation.md).
 

@@ -113,12 +113,17 @@ helps["ai-gateway import"] = """
     type: command
     short-summary: Discover or import configuration from API Management.
     long-summary: >
-        Discover models, agents, and tools in a classic Azure API Management
-        service and assess whether each asset can be imported. The dry-run
-        inventory includes complete source API properties, resolved backends,
-        operations, policy compatibility, destination mappings, and conflicts
-        without exposing credential values.
-        Import execution is not available yet, so --dry-run is required.
+        Discover language model, Foundry, unified model, MCP passthrough, and
+        REST API-backed MCP assets in an Azure API Management service and
+        assess whether each asset can be imported. Other API types are ignored.
+        The dry-run inventory includes resolved backends, operations, policy
+        compatibility, destination mappings, and conflicts without exposing
+        credential values.
+        Import is additive and executes only when its deterministic action graph
+        is unblocked. Products, subscriptions, diagnostics, identity selection,
+        and RBAC are inventoried but not written. Policies execute last.
+        --no-wait is not supported for execution because dependencies must
+        complete in order.
     examples:
       - name: Inventory all assets and assess import compatibility.
         text: >-
@@ -126,13 +131,19 @@ helps["ai-gateway import"] = """
           --resource-group my-resource-group
           --source-apim-id /subscriptions/sub/resourceGroups/rg/providers/Microsoft.ApiManagement/service/apim
           --dry-run
-      - name: Inventory models and tools while planning to skip conflicts.
+      - name: Inventory models and MCP servers while planning to skip conflicts.
         text: >-
           az ai-gateway import --name my-ai-gateway
           --resource-group my-resource-group
           --source-apim-id /subscriptions/sub/resourceGroups/rg/providers/Microsoft.ApiManagement/service/apim
-          --include models tools --conflict-policy skip --dry-run
+          --include models mcp-servers --conflict-policy skip --dry-run
           --output table
+      - name: Import all supported and unblocked assets.
+        text: >-
+          az ai-gateway import --name my-ai-gateway
+          --resource-group my-resource-group
+          --source-apim-id /subscriptions/sub/resourceGroups/rg/providers/Microsoft.ApiManagement/service/apim
+          --conflict-policy skip --yes
 """
 
 helps["ai-gateway identity"] = """
@@ -646,15 +657,6 @@ helps["ai-gateway show"] = """
         text: >-
           az ai-gateway show --name my-ai-gateway
           --resource-group my-resource-group
-      - name: Show the system-assigned managed identity.
-        text: >-
-          az ai-gateway show --name my-ai-gateway
-          --resource-group my-resource-group --system-assigned
-      - name: Show all managed identities.
-        text: >-
-          az ai-gateway show --name my-ai-gateway
-          --resource-group my-resource-group
-          --system-assigned --user-assigned
 """
 
 helps["ai-gateway update"] = """

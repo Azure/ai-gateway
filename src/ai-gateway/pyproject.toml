@@ -31,4 +31,4 @@ readme = { file = ["README.md", "HISTORY.rst"], content-type = "text/markdown" }
 include = ["azext_ai_gateway*"]
 
 [tool.setuptools.package-data]
-azext_ai_gateway = ["azext_metadata.json"]
+azext_ai_gateway = ["apim_policy_index.json", "azext_metadata.json"]

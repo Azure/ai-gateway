@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import call, patch
 
 import pytest
-from azure.cli.core.azclierror import InvalidArgumentValueError
+from azure.cli.core.azclierror import AzCLIError, InvalidArgumentValueError
 from requests import Response
 
 from azext_ai_gateway import _import
@@ -96,6 +96,33 @@ def _record(
     }
 
 
+def _mcp_record(name="asset", passthrough=True):
+    record = _record(
+        name=name,
+        api_type="mcp",
+        service_url=(
+            "https://mcp.example.test"
+            if passthrough
+            else None
+        ),
+    )
+    if passthrough:
+        record["api"]["properties"]["mcpProperties"] = {
+            "transportType": "streamable",
+            "endpoints": [{"name": "message", "uriTemplate": "/mcp"}],
+        }
+    else:
+        record["tools"] = [
+            {
+                "name": "invoke",
+                "operationId": (
+                    f"{SOURCE_ID}/apis/backing/operations/invoke"
+                ),
+            }
+        ]
+    return record
+
+
 def _destination():
     return {
         "resource": {
@@ -122,6 +149,23 @@ def test_parse_apim_id_accepts_complete_service_resource_id():
         "resource_group": "source-rg",
         "name": "source",
     }
+
+
+def test_import_execution_requires_yes_before_discovery():
+    cmd = SimpleNamespace(cli_ctx=SimpleNamespace())
+
+    with (
+        patch.object(_import, "_discover_source") as discover_source,
+        pytest.raises(AzCLIError, match="Specify --yes"),
+    ):
+        _import.import_from_apim(
+            cmd,
+            "destination",
+            "destination-rg",
+            SOURCE_ID,
+        )
+
+    discover_source.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -384,16 +428,42 @@ def test_policy_outside_supported_sections_produces_warning():
     )
 
 
-def test_unsupported_policy_statement_becomes_warning_not_blocker():
-    record = _record(
-        policy=_import._policy_summary(
-            """
-            <policies><inbound>
-              <validate-jwt header-name="Authorization" />
-            </inbound></policies>
-            """,
-            f"{SOURCE_ID}/apis/asset",
-        )
+def test_critical_unsupported_policy_statement_blocks_import():
+    record = _mcp_record()
+    record["policy"] = _import._policy_summary(
+        """
+        <policies><inbound>
+          <validate-jwt header-name="Authorization" />
+        </inbound></policies>
+        """,
+        f"{SOURCE_ID}/apis/asset",
+    )
+
+    asset = _import._inventory_asset(
+        record,
+        {},
+        _destination(),
+        {},
+        "fail",
+        [],
+    )
+
+    assert asset["assessment"]["status"] == "blocked"
+    assert "validate-jwt" in str(asset["assessment"]["reasons"])
+    assert asset["configuration"]["destinationPolicies"] == []
+
+
+def test_noncritical_unsupported_policy_statement_warns_and_is_omitted():
+    record = _mcp_record()
+    record["policy"] = _import._policy_summary(
+        """
+        <policies><inbound>
+          <set-header name="X-Source" exists-action="override">
+            <value>source</value>
+          </set-header>
+        </inbound></policies>
+        """,
+        f"{SOURCE_ID}/apis/asset",
     )
 
     asset = _import._inventory_asset(
@@ -406,12 +476,12 @@ def test_unsupported_policy_statement_becomes_warning_not_blocker():
     )
 
     assert asset["assessment"]["status"] == "ready"
-    assert "validate-jwt" in str(asset["assessment"]["warnings"])
+    assert "set-header is unsupported" in str(asset["assessment"]["warnings"])
     assert asset["configuration"]["destinationPolicies"] == []
 
 
 def test_operation_policy_is_inventoried_but_not_moved_to_asset_scope():
-    record = _record()
+    record = _mcp_record()
     operation_policy = _import._policy_summary(
         """
         <policies><inbound>
@@ -435,9 +505,32 @@ def test_operation_policy_is_inventoried_but_not_moved_to_asset_scope():
     )
 
     assert asset["assessment"]["status"] == "ready"
-    assert "cannot preserve its scope" in str(asset["assessment"]["warnings"])
+    assert "scope cannot be preserved" in str(asset["assessment"]["warnings"])
     assert asset["configuration"]["destinationPolicies"] == []
     assert asset["configuration"]["operations"][0]["policy"] == operation_policy
+
+
+def test_malformed_operation_policy_blocks_import():
+    record = _mcp_record()
+    operation_policy = _import._policy_summary(
+        "<policies><inbound>",
+        f"{record['source']['id']}/operations/invoke",
+        "operation",
+    )
+    record["operationPolicies"] = [operation_policy]
+    record["operations"][0]["policy"] = operation_policy
+
+    asset = _import._inventory_asset(
+        record,
+        {},
+        _destination(),
+        {},
+        "fail",
+        [],
+    )
+
+    assert asset["assessment"]["status"] == "blocked"
+    assert "could not be parsed" in str(asset["assessment"]["reasons"])
 
 
 def test_discover_source_inventories_service_and_workspace_apis():
@@ -467,8 +560,10 @@ def test_discover_source_inventories_service_and_workspace_apis():
         "properties": {"url": "https://account.openai.azure.com"},
     }
 
-    def optional_list(_cmd, url, _errors, _context):
+    def optional_list(_cmd, url, _errors, _context, *_args, **_kwargs):
         values = {
+            f"{SOURCE_ID}/loggers": [],
+            f"{SOURCE_ID}/diagnostics": [],
             f"{SOURCE_ID}/backends": [backend],
             f"{SOURCE_ID}/apis": [root_api],
             f"{root_api['id']}/operations": [
@@ -482,14 +577,18 @@ def test_discover_source_inventories_service_and_workspace_apis():
                 }
             ],
             f"{root_api['id']}/products": [],
+            f"{root_api['id']}/diagnostics": [],
             f"{SOURCE_ID}/workspaces": [
                 {"id": workspace_id, "name": "team"}
             ],
+            f"{workspace_id}/loggers": [],
             f"{workspace_id}/backends": [],
             f"{workspace_id}/apis": [workspace_api],
             f"{workspace_api['id']}/operations": [],
             f"{workspace_api['id']}/products": [],
             f"{workspace_api['id']}/tools": [],
+            f"{workspace_api['id']}/diagnostics": [],
+            f"{SOURCE_ID}/subscriptions": [],
         }
         return values[url]
 
@@ -554,6 +653,7 @@ def test_discover_source_inventories_service_and_workspace_apis():
         policy["scope"]
         for policy in result["assets"][1]["inheritedPolicies"]
     ] == [workspace_id, SOURCE_ID]
+    assert result["sourceApiCount"] == 2
     assert result["suppressedAssets"] == []
 
 
@@ -579,6 +679,9 @@ def test_mcp_server_suppresses_its_backing_rest_api():
 
     assert [asset["source"]["id"] for asset in included] == [mcp_id]
     assert [asset["id"] for asset in suppressed] == [api_id]
+    assert suppressed[0]["dependencyType"] == "mcpRestBackingApi"
+    assert suppressed[0]["requiredBy"] == [mcp_id]
+    assert suppressed[0]["reasonCode"] == "MCP_REST_BACKING_API"
 
 
 def test_rest_backed_mcp_retrieves_product_subscription_key():
@@ -639,6 +742,7 @@ def test_rest_backed_mcp_retrieves_product_subscription_key():
         "subscriptionName": "colors-import",
         "headerName": "X-Subscription-Key",
         "value": "<redacted>",
+        "_value": "secret",
         "candidateCount": 1,
     }
     optional_list.assert_called_once_with(
@@ -646,6 +750,7 @@ def test_rest_backed_mcp_retrieves_product_subscription_key():
         f"{SOURCE_ID}/subscriptions",
         [],
         f"{SOURCE_ID}/subscriptions",
+        "subscriptions",
     )
     request.assert_called_once_with(
         None,
@@ -687,6 +792,19 @@ def test_rest_backed_mcp_uses_subscription_header_credentials():
     )
 
     assert asset["assessment"]["status"] == "ready"
+    assert asset["inventory"] == {
+        "mcpProperties": {},
+        "tools": record["tools"],
+        "dependencies": [
+            {
+                "apiId": f"{SOURCE_ID}/apis/colors-api",
+                "operationIds": [
+                    f"{SOURCE_ID}/apis/colors-api/operations/get-color"
+                ],
+                "toolIds": [],
+            }
+        ],
+    }
     assert asset["configuration"]["endpoint"]["credentials"] == {
         "type": "header",
         "headers": {
@@ -722,52 +840,62 @@ def test_discover_source_rejects_non_v2_sku_before_asset_discovery():
 
 
 @pytest.mark.parametrize(
-    ("record", "expected"),
+    ("record", "disposition", "subtype", "reason_code"),
     [
         (
-            _record(
-                api_type="mcp",
-                service_url="https://tools.example.test/mcp",
-            ),
-            ("tool", "mcp"),
+            _mcp_record(),
+            "candidate",
+            "mcpPassthrough",
+            "SUPPORTED_MCP_PASSTHROUGH",
+        ),
+        (
+            _mcp_record(passthrough=False),
+            "candidate",
+            "mcpApi",
+            "SUPPORTED_MCP_REST_BACKED",
         ),
         (
             _record(
-                name="assistant-agent",
-                service_url=(
-                    "https://project.services.ai.azure.com/"
-                    "api/projects/demo/agents/assistant"
-                ),
+                service_url="https://models.example.test",
+                operations=[
+                    {
+                        "urlTemplate": "/v1/chat/completions",
+                        "method": "POST",
+                    }
+                ],
             ),
-            ("agent", "agent"),
-        ),
-        (
-            _record(
-                service_url=(
-                    "https://account.openai.azure.com/openai/"
-                    "deployments/gpt-4o"
-                ),
-            ),
-            ("model", "model"),
+            "candidate",
+            "llm",
+            "SUPPORTED_LLM_API",
         ),
         (
             _record(service_url="https://orders.example.test"),
-            ("tool", "openApi"),
+            "ignored",
+            None,
+            "NO_SUPPORTED_API_EVIDENCE",
         ),
         (
             _record(api_type="soap"),
-            ("tool", "unsupported"),
+            "ignored",
+            None,
+            "UNSUPPORTED_API_TYPE",
         ),
     ],
 )
-def test_classify_apim_apis(record, expected):
-    assert _import._classify(
+def test_classify_apim_apis(record, disposition, subtype, reason_code):
+    classification = _import._classify(
         record,
         _import._effective_url(record, {}),
-    ) == expected
+    )
+
+    assert classification["disposition"] == disposition
+    assert classification["assetSubtype"] == subtype
+    assert classification["reasonCode"] == reason_code
+    assert classification["reason"]
+    assert classification["evidence"]
 
 
-def test_classify_llm_policy_with_custom_backend_as_model():
+def test_model_policy_alone_does_not_classify_generic_api_as_model():
     record = _record(
         service_url=None,
         backend={
@@ -786,10 +914,180 @@ def test_classify_llm_policy_with_custom_backend_as_model():
         record["api"]["id"],
     )
 
-    assert _import._classify(
+    classification = _import._classify(
         record,
         _import._effective_url(record, {}),
-    ) == ("model", "model")
+    )
+
+    assert classification["disposition"] == "ignored"
+    assert classification["reasonCode"] == "NO_SUPPORTED_API_EVIDENCE"
+
+
+@pytest.mark.parametrize(
+    "record",
+    [
+        _record(
+            name="gpt-4-chat-model",
+            service_url="https://account.openai.azure.com/invoke",
+        ),
+        _record(
+            service_url="https://orders.example.test",
+            backend={
+                "name": "vision",
+                "properties": {
+                    "url": "https://vision.example.test",
+                    "resourceId": (
+                        "/subscriptions/sub/resourceGroups/rg/providers/"
+                        "Microsoft.CognitiveServices/accounts/vision"
+                    ),
+                },
+            },
+        ),
+        _record(
+            operations=[
+                {
+                    "urlTemplate": "/reports/chat/completions/status",
+                    "method": "GET",
+                }
+            ],
+        ),
+    ],
+)
+def test_model_like_names_hosts_and_path_overlap_are_not_model_evidence(record):
+    classification = _import._classify(
+        record,
+        _import._effective_url(record, {}),
+    )
+
+    assert classification["disposition"] == "ignored"
+    assert classification["reasonCode"] == "NO_SUPPORTED_API_EVIDENCE"
+
+
+def test_classify_foundry_api_from_backend_resource():
+    record = _record(
+        service_url=None,
+        backend={
+            "name": "foundry",
+            "properties": {
+                "url": "https://account.openai.azure.com/openai",
+                "resourceId": (
+                    "/subscriptions/sub/resourceGroups/rg/providers/"
+                    "Microsoft.CognitiveServices/accounts/account"
+                ),
+            },
+        },
+        operations=[
+            {"urlTemplate": "/models", "method": "GET"},
+            {"urlTemplate": "/chat/completions", "method": "POST"},
+        ],
+    )
+
+    classification = _import._classify(
+        record,
+        _import._effective_url(record, {}),
+    )
+
+    assert classification["disposition"] == "candidate"
+    assert classification["assetSubtype"] == "foundry"
+    assert classification["reasonCode"] == "SUPPORTED_FOUNDRY_API"
+    assert classification["evidence"][0]["kind"] == (
+        "foundryBackendResources"
+    )
+    assert classification["evidence"][1] == {
+        "kind": "modelEndpoints",
+        "paths": ["/chat/completions"],
+    }
+
+
+@pytest.mark.parametrize(
+    "backends",
+    [
+        [],
+        [
+            {
+                "name": "single-route",
+                "properties": {"url": "https://route.example.test"},
+            }
+        ],
+    ],
+)
+def test_classify_meta_model_api_with_zero_or_one_backend_as_llm(backends):
+    record = _record(
+        name="Meta",
+        operations=[
+            {"urlTemplate": "/models", "method": "GET"},
+            {"urlTemplate": "/chat/completions", "method": "POST"},
+        ]
+    )
+    record["backends"] = backends
+
+    classification = _import._classify(
+        record,
+        _import._effective_url(record, {}),
+    )
+
+    assert classification["disposition"] == "candidate"
+    assert classification["assetSubtype"] == "llm"
+    assert classification["reasonCode"] == "SUPPORTED_LLM_API"
+    assert classification["evidence"] == [
+        {"kind": "modelEndpoints", "paths": ["/chat/completions"]}
+    ]
+
+
+def test_unified_model_api_is_deferred_with_one_precise_reason():
+    record = _record(
+        name="unified",
+        operations=[
+            {"urlTemplate": "/models", "method": "GET"},
+            {"urlTemplate": "/chat/completions", "method": "POST"},
+        ],
+    )
+    record["backends"] = [
+        {
+            "name": "route-one",
+            "properties": {"url": "https://route-one.example.test"},
+        },
+        {
+            "name": "route-two",
+            "properties": {"url": "https://route-two.example.test"},
+        },
+    ]
+
+    classification = _import._classify(
+        record,
+        _import._effective_url(record, {}),
+    )
+
+    assert classification["disposition"] == "deferred"
+    assert classification["assetSubtype"] == "unified"
+    assert classification["reasonCode"] == "UNIFIED_MODEL_API_DEFERRED"
+    assert classification["reason"] == (
+        "Unified model APIs are known but require model aliases and backend "
+        "routes to be mapped individually."
+    )
+    assert classification["evidence"] == [
+        {
+            "kind": "operationPaths",
+            "values": ["/chat/completions", "/models"],
+        }
+    ]
+
+
+def test_mcp_without_tools_or_passthrough_properties_is_ignored_with_reason():
+    record = _record(api_type="mcp", service_url=None)
+
+    classification = _import._classify(
+        record,
+        _import._effective_url(
+            record,
+            {"gatewayUrl": "https://source.azure-api.net"},
+        ),
+    )
+
+    assert classification["disposition"] == "ignored"
+    assert classification["reasonCode"] == (
+        "MCP_CONFIGURATION_NOT_RECOGNIZED"
+    )
 
 
 def test_backend_summary_redacts_credential_values():
@@ -816,10 +1114,289 @@ def test_backend_summary_redacts_credential_values():
         "headerNames": ["api-key"],
         "queryParameterNames": ["code"],
         "authorizationScheme": "Basic",
+        "namedValueReferences": [],
     }
     assert "super-secret" not in str(summary)
     assert "another-secret" not in str(summary)
     assert "encoded-secret" not in str(summary)
+
+
+def test_associated_backend_credentials_and_named_values_are_secret_safe():
+    backend = {
+        "id": f"{SOURCE_ID}/backends/private",
+        "name": "private",
+        "properties": {
+            "url": "https://models.example.test/v1",
+            "credentials": {
+                "header": {
+                    "api-key": ["{{model-key}}"],
+                    "X-Secret": ["literal-secret"],
+                },
+                "query": {"sig": ["{{query-signature}}"]},
+            },
+        },
+    }
+    record = _record(
+        backend=backend,
+        operations=[
+            {"method": "POST", "urlTemplate": "/chat/completions"}
+        ],
+    )
+    classification = _import._classify(
+        record,
+        _import._effective_url(record, {}),
+    )
+
+    associated = _import._associated_configuration(
+        record,
+        {},
+        classification,
+        [],
+    )
+
+    assert associated["backendCredentials"]["supportState"] == (
+        "unsupported-critical"
+    )
+    assert associated["namedValueReferences"] == {
+        "supportState": "deferred",
+        "items": [
+            {"name": "model-key", "value": "<redacted>"},
+            {"name": "query-signature", "value": "<redacted>"},
+        ],
+        "reason": (
+            "Named-value references require an explicit destination "
+            "credential mapping."
+        ),
+    }
+    serialized = str(associated)
+    assert "literal-secret" not in serialized
+    assert "{{model-key}}" not in serialized
+
+
+def test_associated_products_and_subscription_relationships_are_explicit():
+    record = _mcp_record(passthrough=False)
+    record["source"]["subscriptionRequired"] = True
+    record["products"] = [
+        {
+            "id": f"{SOURCE_ID}/products/starter",
+            "name": "starter",
+            "properties": {"displayName": "Starter"},
+        }
+    ]
+    record["subscriptions"] = [
+        {
+            "id": f"{SOURCE_ID}/subscriptions/import",
+            "name": "import",
+            "scope": f"{SOURCE_ID}/products/starter",
+            "relationship": "product",
+            "state": "active",
+        }
+    ]
+
+    associated = _import._associated_configuration(
+        record,
+        {},
+        _import._classify(record, "https://source.azure-api.net"),
+        [],
+    )
+
+    assert associated["products"]["supportState"] == (
+        "unsupported-noncritical"
+    )
+    assert associated["products"]["items"] == record["products"]
+    assert associated["subscriptions"]["supportState"] == (
+        "unsupported-critical"
+    )
+    assert associated["subscriptions"]["items"] == record["subscriptions"]
+
+
+def test_associated_managed_identity_policy_and_rbac_intent_are_inventoried():
+    account_id = (
+        "/subscriptions/source-sub/resourceGroups/models-rg/providers/"
+        "Microsoft.CognitiveServices/accounts/openai"
+    )
+    record = _record(
+        service_url=None,
+        backend={
+            "name": "openai",
+            "properties": {
+                "url": "https://openai.openai.azure.com/openai",
+                "resourceId": account_id,
+            },
+        },
+        operations=[
+            {"method": "POST", "urlTemplate": "/chat/completions"}
+        ],
+    )
+    record["policy"] = _import._policy_summary(
+        """
+        <policies><inbound>
+          <authentication-managed-identity
+            resource="https://cognitiveservices.azure.com/"
+            client-id="user-client"
+            output-token-variable-name="backend-token"
+            ignore-error="false" />
+        </inbound></policies>
+        """,
+        record["source"]["id"],
+    )
+    source = {
+        "managedIdentities": {
+            "type": "SystemAssigned, UserAssigned",
+            "systemAssigned": {
+                "principalId": "system-principal",
+                "tenantId": "tenant",
+            },
+            "userAssigned": [
+                {
+                    "resourceId": "/identities/invoker",
+                    "clientId": "user-client",
+                    "principalId": "user-principal",
+                }
+            ],
+        }
+    }
+
+    associated = _import._associated_configuration(
+        record,
+        source,
+        _import._classify(record, _import._effective_url(record, {})),
+        [],
+    )
+
+    assert associated["managedIdentities"]["supportState"] == "deferred"
+    authentication = associated["managedIdentityAuthentication"]
+    assert authentication["supportState"] == "unsupported-critical"
+    assert authentication["items"] == [
+        {
+            "scope": record["source"]["id"],
+            "scopeType": "api",
+            "resource": "https://cognitiveservices.azure.com/",
+            "clientId": "user-client",
+            "outputTokenVariableName": "backend-token",
+            "ignoreError": "false",
+        }
+    ]
+    assert associated["requiredRbac"] == {
+        "supportState": "deferred",
+        "items": [
+            {
+                "targetResourceId": account_id,
+                "tokenAudience": "https://cognitiveservices.azure.com/",
+                "sourceClientId": "user-client",
+                "intent": (
+                    "Grant the selected destination managed identity permission "
+                    "to invoke this backend."
+                ),
+            }
+        ],
+        "reason": (
+            "RBAC intent is inventoried only; no role assignment is made."
+        ),
+    }
+
+
+def test_associated_diagnostics_and_logger_references_are_redacted():
+    record = _mcp_record()
+    record["diagnostics"] = [
+        {
+            "id": f"{record['source']['id']}/diagnostics/appinsights",
+            "name": "appinsights",
+            "scopeType": "api",
+            "loggerId": f"{SOURCE_ID}/loggers/appinsights",
+            "properties": {
+                "loggerId": f"{SOURCE_ID}/loggers/appinsights",
+                "sampling": {"percentage": 100},
+            },
+        }
+    ]
+    record["loggers"] = [
+        {
+            "id": f"{SOURCE_ID}/loggers/appinsights",
+            "name": "appinsights",
+            "loggerType": "applicationInsights",
+            "credentials": {
+                "hasCredentials": True,
+                "headerNames": [],
+                "queryParameterNames": [],
+                "authorizationScheme": None,
+                "namedValueReferences": ["appinsights-key"],
+            },
+            "properties": {
+                "loggerType": "applicationInsights",
+                "credentials": {
+                    "hasCredentials": True,
+                    "headerNames": [],
+                    "queryParameterNames": [],
+                    "authorizationScheme": None,
+                    "namedValueReferences": ["appinsights-key"],
+                },
+            },
+        }
+    ]
+    errors = [
+        {
+            "scope": f"{record['source']['id']}/diagnostics",
+            "message": "Forbidden",
+            "configurationDomain": "diagnostics",
+            "required": False,
+        }
+    ]
+
+    associated = _import._associated_configuration(
+        record,
+        {},
+        _import._classify(record, _import._effective_url(record, {})),
+        errors,
+    )
+
+    assert associated["diagnostics"]["supportState"] == (
+        "unsupported-noncritical"
+    )
+    assert associated["diagnostics"]["discoveryErrors"] == errors
+    assert associated["loggerReferences"]["supportState"] == (
+        "unsupported-noncritical"
+    )
+    assert "appinsights-key" in str(associated)
+    assert "instrumentation-secret" not in str(associated)
+
+    asset = _import._inventory_asset(
+        record,
+        {},
+        _destination(),
+        {},
+        "fail",
+        errors,
+    )
+    assert asset["assessment"]["status"] == "ready"
+
+
+def test_required_scoped_discovery_error_blocks_candidate():
+    record = _mcp_record()
+    errors = [
+        {
+            "scope": f"{record['source']['id']}/operations",
+            "message": "Forbidden",
+            "configurationDomain": "operations",
+            "required": True,
+        }
+    ]
+
+    asset = _import._inventory_asset(
+        record,
+        {},
+        _destination(),
+        {},
+        "fail",
+        errors,
+    )
+
+    assert asset["assessment"]["status"] == "blocked"
+    assert asset["assessment"]["canImport"] is False
+    assert asset["assessment"]["reasons"] == [
+        "Discovery was incomplete for: "
+        f"{record['source']['id']}/operations"
+    ]
 
 
 def test_safe_url_redacts_user_info_and_query_values():
@@ -943,6 +1520,13 @@ def test_model_inventory_maps_foundry_provider_and_deployment():
     )
 
     assert asset["assetType"] == "model"
+    assert asset["assetSubtype"] == "foundry"
+    assert asset["classification"]["reasonCode"] == "SUPPORTED_FOUNDRY_API"
+    assert asset["inventory"] == {
+        "apiFormat": "OpenAIChatCompletions",
+        "operationPaths": ["/chat/completions"],
+        "backendResourceIds": [account_id],
+    }
     assert asset["order"] == 2
     assert asset["destination"] == {
         "name": "chat",
@@ -955,6 +1539,81 @@ def test_model_inventory_maps_foundry_provider_and_deployment():
         "modelVersion": None,
     }
     assert asset["assessment"]["status"] == "ready"
+
+
+@patch("azext_ai_gateway._import._sync_plan")
+def test_foundry_api_synchronizes_account_deployments(sync_plan):
+    account_id = (
+        "/subscriptions/source-sub/resourceGroups/models-rg/providers/"
+        "Microsoft.CognitiveServices/accounts/foundry"
+    )
+    sync_plan.return_value = [
+        {
+            "action": "create",
+            "name": "gpt-4o",
+            "properties": {
+                "supportedEndpoints": ["/openai/v1/chat/completions"],
+                "deployment": {
+                    "resourceId": f"{account_id}/deployments/gpt-4o",
+                    "modelName": "gpt-4o",
+                },
+            },
+        }
+    ]
+    record = _record(
+        name="foundry-api",
+        service_url=None,
+        backend={
+            "name": "foundry",
+            "properties": {
+                "url": "https://foundry.openai.azure.com/openai",
+                "resourceId": account_id,
+            },
+        },
+        operations=[
+            {
+                "name": "chat",
+                "method": "POST",
+                "urlTemplate": "/chat/completions",
+            }
+        ],
+    )
+    provider = {
+        "id": f"{DESTINATION_ID}/workspaces/default/modelProviders/foundry",
+        "name": "foundry",
+        "properties": {
+            "kind": "Foundry",
+            "foundry": {"resourceIds": [account_id]},
+        },
+    }
+    destination = _destination()
+    destination["providers"] = [provider]
+
+    asset = _import._inventory_asset(
+        record,
+        {},
+        destination,
+        {},
+        "fail",
+        [],
+        cmd="cmd",
+        destination_id=DESTINATION_ID,
+    )
+
+    assert asset["assetSubtype"] == "foundry"
+    assert asset["configuration"]["deployment"] is None
+    assert asset["configuration"]["providerModels"] == [
+        {
+            "modelName": "gpt-4o",
+            "supportedEndpoints": ["/openai/v1/chat/completions"],
+            "deployment": {
+                "resourceId": f"{account_id}/deployments/gpt-4o",
+                "modelName": "gpt-4o",
+            },
+        }
+    ]
+    assert asset["assessment"]["status"] == "ready"
+    sync_plan.assert_called_once_with("cmd", provider, provider["id"])
 
 
 @pytest.mark.parametrize(
@@ -1108,7 +1767,11 @@ def test_custom_model_inventory_discovers_provider_models(discover):
     assert asset["configuration"]["deployment"] is None
     assert asset["configuration"]["providerOnly"] is False
     assert asset["configuration"]["providerModels"] == discover.return_value
-    assert asset["assetSubtype"] == "provider"
+    assert asset["assetSubtype"] == "llm"
+    assert asset["inventory"] == {
+        "apiFormat": "OpenAIChatCompletions",
+        "operationPaths": ["/invoke"],
+    }
     assert asset["assessment"]["warnings"] == []
     report = _import.format_import_report(
         {
@@ -1116,15 +1779,16 @@ def test_custom_model_inventory_discovers_provider_models(discover):
             "summary": {"canImport": True},
         }
     )
-    assert "MODELS TO IMPORT" in report
-    assert "meta-ai [custom provider]" in report
-    assert "Anthropic API: 1 model(s)" in report
-    assert "    - claude-sonnet" in report
-    assert "OpenAI-compatible API: 1 model(s)" in report
-    assert "    - llama-3.3" in report
+    assert "MODELS TO IMPORT" not in report
+    assert "Model provider" in report
+    assert "meta-ai" in report
+    assert "claude-sonnet" in report
+    assert "meta-ai/claude-sonnet" in report
+    assert "llama-3.3" in report
+    assert "meta-ai/llama-3.3" in report
     assert "WARNINGS" not in report
     assert _import.format_import_table({"assets": [asset]})[0] == {
-        "Type": "provider",
+        "Type": "llm",
         "Source": "meta-ai",
         "Workspace": "(service)",
         "Destination": "meta-ai",
@@ -1328,7 +1992,7 @@ def test_model_inventory_blocks_native_gemini_api():
     ]
 
 
-def test_agent_inventory_is_blocked_by_destination_contract():
+def test_agent_api_is_ignored():
     record = _record(
         name="assistant-agent",
         service_url=(
@@ -1346,11 +2010,14 @@ def test_agent_inventory_is_blocked_by_destination_contract():
         [],
     )
 
-    assert asset["assetType"] == "agent"
-    assert asset["assessment"]["status"] == "blocked"
-    assert "does not define an agent resource" in str(
-        asset["assessment"]["reasons"]
+    assert asset is None
+    classification = _import._classify(
+        record,
+        _import._effective_url(record, {}),
     )
+    assert classification["reasonCode"] == "AGENT_API_NOT_SUPPORTED"
+    assert "services.ai.azure.com" in str(classification["evidence"])
+    assert "assistant" in str(classification["evidence"])
 
 
 @pytest.mark.parametrize(
@@ -1361,7 +2028,7 @@ def test_agent_inventory_is_blocked_by_destination_contract():
         ("overwrite", "ready", True),
     ],
 )
-def test_tool_conflict_policy_changes_assessment(
+def test_mcp_server_conflict_policy_changes_assessment(
     conflict_policy,
     expected_status,
     can_import,
@@ -1370,7 +2037,7 @@ def test_tool_conflict_policy_changes_assessment(
     destination["toolNames"].add("asset")
 
     asset = _import._inventory_asset(
-        _record(),
+        _mcp_record(),
         {},
         destination,
         {},
@@ -1380,6 +2047,245 @@ def test_tool_conflict_policy_changes_assessment(
 
     assert asset["assessment"]["status"] == expected_status
     assert asset["assessment"]["canImport"] is can_import
+
+
+def test_mcp_passthrough_uses_configured_transport_endpoint():
+    asset = _import._inventory_asset(
+        _mcp_record(),
+        {},
+        _destination(),
+        {},
+        "fail",
+        [],
+    )
+
+    assert asset["assetSubtype"] == "mcpPassthrough"
+    assert asset["inventory"] == {
+        "mcpProperties": {
+            "transportType": "streamable",
+            "endpoints": [{"name": "message", "uriTemplate": "/mcp"}],
+        },
+        "tools": [],
+        "dependencies": [],
+    }
+    assert asset["configuration"]["endpoint"]["mcp"] == {
+        "url": "https://mcp.example.test/mcp",
+        "transport": "streamableHttp",
+    }
+
+
+@pytest.mark.parametrize("endpoints", ["/mcp", ["/mcp"]])
+def test_mcp_passthrough_uses_string_endpoint_value(endpoints):
+    record = _mcp_record()
+    record["api"]["properties"]["mcpProperties"]["endpoints"] = endpoints
+
+    asset = _import._inventory_asset(
+        record,
+        {},
+        _destination(),
+        {},
+        "fail",
+        [],
+    )
+
+    assert asset["classification"]["evidence"] == [
+        {
+            "kind": "mcpProperties",
+            "transportType": "streamable",
+            "endpointNames": ["/mcp"],
+        }
+    ]
+    assert asset["configuration"]["endpoint"]["mcp"]["url"] == (
+        "https://mcp.example.test/mcp"
+    )
+
+
+def test_mcp_passthrough_blocks_ambiguous_string_endpoints():
+    record = _mcp_record()
+    record["api"]["properties"]["mcpProperties"]["endpoints"] = [
+        "/sse",
+        "/message",
+    ]
+
+    asset = _import._inventory_asset(
+        record,
+        {},
+        _destination(),
+        {},
+        "fail",
+        [],
+    )
+
+    assert asset["assessment"]["status"] == "blocked"
+    assert asset["assessment"]["reasons"] == [
+        "Multiple unnamed MCP endpoints cannot be mapped automatically."
+    ]
+
+
+def test_mcp_passthrough_blocks_malformed_string_endpoint():
+    record = _mcp_record()
+    record["api"]["properties"]["mcpProperties"]["endpoints"] = [
+        "https://example.test:invalid/mcp"
+    ]
+
+    asset = _import._inventory_asset(
+        record,
+        {},
+        _destination(),
+        {},
+        "fail",
+        [],
+    )
+
+    assert asset["classification"]["evidence"][0]["endpointNames"] == []
+    assert asset["assessment"]["status"] == "blocked"
+    assert asset["assessment"]["reasons"] == [
+        "The MCP endpoint URI template is malformed."
+    ]
+
+
+def test_mcp_passthrough_blocks_endpoint_template_with_embedded_credentials():
+    record = _mcp_record()
+    record["api"]["properties"]["mcpProperties"]["endpoints"] = [
+        {
+            "name": "message",
+            "uriTemplate": "https://user:password@example.test/mcp",
+        }
+    ]
+
+    asset = _import._inventory_asset(
+        record,
+        {},
+        _destination(),
+        {},
+        "fail",
+        [],
+    )
+
+    assert asset["assessment"]["status"] == "blocked"
+    assert asset["assessment"]["reasons"] == [
+        "The MCP endpoint URI template contains embedded credentials that "
+        "cannot be copied safely."
+    ]
+
+
+def test_mcp_endpoint_name_redacts_query_values():
+    record = _mcp_record()
+    record["api"]["properties"]["mcpProperties"]["endpoints"] = [
+        {"name": "/mcp?sig=endpoint-secret", "uriTemplate": "/mcp"}
+    ]
+
+    classification = _import._classify(
+        record,
+        "https://mcp.example.test",
+    )
+
+    assert classification["evidence"][0]["endpointNames"] == [
+        "/mcp?sig=%3Credacted%3E"
+    ]
+    assert "endpoint-secret" not in str(classification)
+
+
+def test_mcp_passthrough_ignores_malformed_mixed_endpoint_values():
+    record = _mcp_record()
+    record["api"]["properties"]["mcpProperties"]["endpoints"] = [
+        None,
+        42,
+        "/alternate",
+        {"name": "message", "uriTemplate": "/mcp"},
+    ]
+
+    asset = _import._inventory_asset(
+        record,
+        {},
+        _destination(),
+        {},
+        "fail",
+        [],
+    )
+
+    assert asset["classification"]["evidence"] == [
+        {
+            "kind": "mcpProperties",
+            "transportType": "streamable",
+            "endpointNames": ["/alternate", "message"],
+        }
+    ]
+    assert asset["configuration"]["endpoint"]["mcp"]["url"] == (
+        "https://mcp.example.test/mcp"
+    )
+
+
+def test_mcp_inventory_preserves_full_properties_tools_and_dependencies():
+    record = _mcp_record(passthrough=False)
+    record["api"]["properties"]["mcpProperties"] = {
+        "transportType": "streamable",
+        "authentication": {"apiKey": "mcp-secret"},
+        "endpoints": [
+            {
+                "name": "message",
+                "uriTemplate": "/mcp?sig=endpoint-secret",
+                "metadata": {"capabilities": ["tools", "resources"]},
+            },
+            {
+                "name": "events",
+                "uriTemplate": "/events",
+            },
+        ],
+    }
+    record["tools"] = [
+        {
+            "id": f"{record['source']['id']}/tools/colors",
+            "name": "colors",
+            "operationId": (
+                f"{SOURCE_ID}/apis/colors-api/operations/get-color"
+            ),
+            "properties": {
+                "displayName": "Colors",
+                "schema": {
+                    "type": "object",
+                    "properties": {"name": {"type": "string"}},
+                },
+            },
+        }
+    ]
+
+    asset = _import._inventory_asset(
+        record,
+        {"gatewayUrl": "https://source.azure-api.net"},
+        _destination(),
+        {},
+        "fail",
+        [],
+    )
+
+    assert asset["inventory"]["mcpProperties"] == {
+        "transportType": "streamable",
+        "authentication": {"apiKey": "<redacted>"},
+        "endpoints": [
+            {
+                "name": "message",
+                "uriTemplate": "/mcp?sig=%3Credacted%3E",
+                "metadata": {"capabilities": ["tools", "resources"]},
+            },
+            {"name": "events", "uriTemplate": "/events"},
+        ],
+    }
+    assert asset["inventory"]["tools"] == record["tools"]
+    assert asset["inventory"]["dependencies"] == [
+        {
+            "apiId": f"{SOURCE_ID}/apis/colors-api",
+            "operationIds": [
+                f"{SOURCE_ID}/apis/colors-api/operations/get-color"
+            ],
+            "toolIds": [f"{record['source']['id']}/tools/colors"],
+        }
+    ]
+    mcp_configuration = asset["associatedConfiguration"]["mcpConfiguration"]
+    assert mcp_configuration["supportState"] == "reduced"
+    assert mcp_configuration["items"][0] == asset["inventory"]
+    assert "endpoint-secret" not in str(asset)
+    assert "mcp-secret" not in str(asset)
 
 
 def test_mapping_file_rejects_unknown_sections():
@@ -1518,6 +2424,7 @@ def test_import_table_formats_assets_and_discovery_errors():
         "assets": [
             {
                 "assetType": "model",
+                "assetSubtype": "foundry",
                 "source": {
                     "name": "chat",
                     "workspace": None,
@@ -1537,31 +2444,31 @@ def test_import_table_formats_assets_and_discovery_errors():
                 },
             },
             {
-                "assetType": "agent",
+                "assetType": "mcpServer",
+                "assetSubtype": "mcpApi",
                 "source": {
-                    "name": "support",
+                    "name": "support-mcp",
                     "workspace": "team",
                 },
                 "destination": {
-                    "name": "support",
+                    "name": "support-mcp",
                 },
                 "assessment": {
                     "status": "blocked",
                     "reasons": [
-                        "Agents are not supported.",
-                        "Remove the agent from the import.",
+                        "A backing operation is unavailable.",
                     ],
                     "warnings": [],
                 },
             },
             {
-                "assetType": "tool",
-                "assetSubtype": "openApi",
+                "assetType": "mcpServer",
+                "assetSubtype": "mcpPassthrough",
                 "source": {
-                    "name": "colors-api",
+                    "name": "external-mcp",
                     "workspace": None,
                 },
-                "destination": {"name": "colors-api"},
+                "destination": {"name": "external-mcp"},
                 "assessment": {
                     "status": "ready",
                     "reasons": [],
@@ -1586,24 +2493,24 @@ def test_import_table_formats_assets_and_discovery_errors():
             "Status": "ready",
         },
         {
-            "Type": "model",
+            "Type": "foundry",
             "Source": "chat",
             "Workspace": "(service)",
             "Destination": "foundry/chat",
             "Status": "ready",
         },
         {
-            "Type": "agent",
-            "Source": "support",
+            "Type": "mcp-api",
+            "Source": "support-mcp",
             "Workspace": "team",
-            "Destination": "support",
+            "Destination": "support-mcp",
             "Status": "blocked",
         },
         {
-            "Type": "openapi",
-            "Source": "colors-api",
+            "Type": "mcp-passthrough",
+            "Source": "external-mcp",
             "Workspace": "(service)",
-            "Destination": "colors-api",
+            "Destination": "external-mcp",
             "Status": "ready",
         },
         {
@@ -1616,7 +2523,333 @@ def test_import_table_formats_assets_and_discovery_errors():
     ]
 
 
-def test_import_report_groups_issues_and_warnings_after_compact_plan():
+def test_import_inventory_includes_all_source_apis_and_discovered_resources():
+    model_api = {
+        "assetType": "model",
+        "source": {
+            "id": f"{SOURCE_ID}/workspaces/team/apis/model-api",
+            "name": "model-api",
+            "workspace": "team",
+        },
+        "destination": {
+            "name": "model-api",
+            "providerName": "custom-provider",
+        },
+        "configuration": {
+            "providerModels": [
+                {"modelName": "gpt-4o"},
+                {"modelName": "claude-sonnet"},
+            ],
+        },
+        "associatedConfiguration": {
+            "namedValueReferences": {
+                "supportState": "deferred",
+                "items": [{"name": "model-key", "value": "<redacted>"}],
+            },
+        },
+        "assessment": {
+            "status": "ready",
+            "reasons": [],
+            "warnings": [],
+        },
+    }
+    mcp_api = {
+        "assetType": "mcpServer",
+        "assetSubtype": "mcpApi",
+        "source": {
+            "id": f"{SOURCE_ID}/apis/tools",
+            "name": "tools",
+            "workspace": None,
+        },
+        "destination": {"name": "tools"},
+        "configuration": {
+            "endpoint": {
+                "credentials": {
+                    "type": "header",
+                    "headers": {"Ocp-Apim-Subscription-Key": ["<redacted>"]},
+                }
+            },
+        },
+        "associatedConfiguration": {
+            "subscriptions": {
+                "supportState": "unsupported-critical",
+                "items": [
+                    {
+                        "id": f"{SOURCE_ID}/subscriptions/tools",
+                        "name": "tools-subscription",
+                    }
+                ],
+            },
+        },
+        "assessment": {
+            "status": "ready",
+            "reasons": [],
+            "warnings": [],
+        },
+    }
+    result = {
+        "source": {
+            "name": "apim-mcp-test-2979",
+            "managedIdentities": {
+                "systemAssigned": {"principalId": "source-principal"},
+                "userAssigned": [
+                    {"resourceId": "/identities/worker", "clientId": "worker"}
+                ],
+            },
+        },
+        "destination": {"name": "destination"},
+        "networkConfiguration": {
+            "assessment": {"status": "ready", "warnings": []},
+        },
+        "assets": [mcp_api, model_api],
+        "deferredApis": [
+            {
+                "id": f"{SOURCE_ID}/workspaces/team/apis/unified",
+                "name": "unified",
+                "workspace": "team",
+                "assetType": "model",
+            }
+        ],
+        "ignoredApis": [
+            {
+                "id": f"{SOURCE_ID}/apis/agent",
+                "name": "agent",
+                "workspace": None,
+                "reasonCode": "AGENT_API_NOT_SUPPORTED",
+            }
+        ],
+        "suppressedAssets": [
+            {
+                "id": f"{SOURCE_ID}/apis/tools-rest",
+                "name": "tools-rest",
+                "workspace": None,
+            }
+        ],
+    }
+
+    rows = _import.format_import_inventory(result)
+
+    assert all(
+        list(row) == [
+            "Type",
+            "Source",
+            "Workspace",
+            "Target type",
+            "Target",
+            "Status",
+        ]
+        for row in rows
+    )
+    assert rows[0] == {
+        "Type": "Gateway",
+        "Source": "apim-mcp-test-2979",
+        "Workspace": "(service)",
+        "Target type": "gateway",
+        "Target": "destination",
+        "Status": "ready",
+    }
+    assert {
+        row["Type"]
+        for row in rows
+    } <= {"Gateway", "API", "MCP", "A2A", "Model", "Keys", "Identity"}
+    assert {
+        row["Target type"]
+        for row in rows
+    } <= {
+        "Model",
+        "Model provider",
+        "Tool server",
+        "workspace",
+        "gateway",
+        "Keys",
+        "Identity",
+        "-",
+    }
+    assert {
+        row["Status"] for row in rows
+    } <= {"ready", "warn", "blocked", "skipped", "unsupported"}
+    source_api_names = {
+        "model-api",
+        "tools",
+        "unified",
+        "agent",
+        "tools-rest",
+    }
+    assert [
+        row["Source"] for row in rows if row["Source"] in source_api_names
+    ].count("model-api") == 1
+    assert [
+        row["Source"] for row in rows if row["Source"] in source_api_names
+    ].count("tools") == 1
+    assert [
+        row["Source"] for row in rows if row["Source"] in source_api_names
+    ].count("unified") == 1
+    assert [
+        row["Source"] for row in rows if row["Source"] in source_api_names
+    ].count("agent") == 1
+    assert [
+        row["Source"] for row in rows if row["Source"] in source_api_names
+    ].count("tools-rest") == 1
+    assert {
+        (row["Source"], row["Type"], row["Status"])
+        for row in rows
+        if row["Source"] in {"agent", "tools-rest", "unified"}
+    } == {
+        ("agent", "A2A", "skipped"),
+        ("tools-rest", "API", "skipped"),
+        ("unified", "Model", "blocked"),
+    }
+    assert {
+        (
+            row["Source"],
+            row["Target type"],
+            row["Target"],
+            row["Status"],
+        )
+        for row in rows
+        if row["Source"] in {"model-api", "claude-sonnet", "gpt-4o"}
+    } == {
+        ("model-api", "Model provider", "custom-provider", "warn"),
+        ("claude-sonnet", "Model", "custom-provider/claude-sonnet", "warn"),
+        ("gpt-4o", "Model", "custom-provider/gpt-4o", "warn"),
+    }
+    assert {
+        (
+            row["Type"],
+            row["Source"],
+            row["Target type"],
+            row["Target"],
+            row["Status"],
+        )
+        for row in rows
+        if row["Type"] in {"Identity", "Keys"}
+    } == {
+        ("Identity", "system-assigned", "Identity", "-", "warn"),
+        ("Identity", "/identities/worker", "Identity", "-", "warn"),
+        ("Keys", "model-key", "Keys", "-", "blocked"),
+        (
+            "Keys",
+            "tools-subscription",
+            "Tool server",
+            "tools",
+            "ready",
+        ),
+    }
+    assert (
+        "Gateway",
+        "team",
+        "workspace",
+        "default",
+        "warn",
+    ) in {
+        (
+            row["Type"],
+            row["Source"],
+            row["Target type"],
+            row["Target"],
+            row["Status"],
+        )
+        for row in rows
+    }
+
+
+def test_import_inventory_applies_status_precedence():
+    def asset(name, asset_type="model", **overrides):
+        default = {
+            "assetType": asset_type,
+            "source": {"id": f"{SOURCE_ID}/apis/{name}", "name": name},
+            "destination": (
+                {"name": name, "providerName": "provider"}
+                if asset_type == "model"
+                else {"name": name}
+            ),
+            "configuration": {"apiFormat": "OpenAIChatCompletions"},
+            "assessment": {"status": "ready", "reasons": [], "warnings": []},
+        }
+        default.update(overrides)
+        return default
+
+    rows = _import.format_import_inventory(
+        {
+            "assets": [
+                asset(
+                    "warning",
+                    assessment={
+                        "status": "ready",
+                        "reasons": [],
+                        "warnings": ["Policy translation is reduced."],
+                    },
+                ),
+                asset(
+                    "blocked",
+                    assessment={
+                        "status": "blocked",
+                        "reasons": ["Provide a model mapping."],
+                        "warnings": [],
+                    },
+                ),
+                asset(
+                    "gemini",
+                    configuration={"apiFormat": "Gemini"},
+                    assessment={
+                        "status": "skipped",
+                        "reasons": [],
+                        "warnings": [],
+                    },
+                ),
+                asset(
+                    "unsupported-mcp",
+                    "mcpServer",
+                    configuration={},
+                    inventory={"mcpProperties": {"transportType": "websocket"}},
+                    assessment={
+                        "status": "blocked",
+                        "reasons": ["MCP transport is not supported."],
+                        "warnings": [],
+                    },
+                ),
+                asset(
+                    "skipped",
+                    assessment={
+                        "status": "skipped",
+                        "reasons": [],
+                        "warnings": ["Destination already exists."],
+                    },
+                ),
+            ]
+        }
+    )
+
+    assert {
+        row["Source"]: row["Status"] for row in rows
+    } == {
+        "blocked": "blocked",
+        "gemini": "unsupported",
+        "skipped": "skipped",
+        "unsupported-mcp": "unsupported",
+        "warning": "warn",
+    }
+
+
+def test_import_report_uses_source_inventory_heading():
+    report = _import.format_import_report(
+        {
+            "source": {"name": "apim-mcp-test-2979"},
+            "destination": {"name": "destination"},
+            "networkConfiguration": {
+                "assessment": {"status": "ready", "warnings": []},
+            },
+            "summary": {"canImport": True},
+        }
+    )
+
+    assert "APIM-MCP-TEST-2979 INVENTORY" in report
+    assert "IMPORT PLAN" not in report
+    assert "IMPORT ACTIONS" not in report
+    assert "MODELS TO IMPORT" not in report
+
+
+def test_import_report_groups_issues_and_warnings_after_inventory():
     result = {
         "networkConfiguration": {
             "source": {"name": "source"},
@@ -1629,10 +2862,10 @@ def test_import_report_groups_issues_and_warnings_after_compact_plan():
         },
         "assets": [
             {
-                "assetType": "tool",
-                "assetSubtype": "openApi",
-                "source": {"name": "ready-tool", "workspace": None},
-                "destination": {"name": "ready-tool"},
+                "assetType": "mcpServer",
+                "assetSubtype": "mcpPassthrough",
+                "source": {"name": "ready-mcp", "workspace": None},
+                "destination": {"name": "ready-mcp"},
                 "assessment": {
                     "status": "ready",
                     "reasons": [],
@@ -1641,6 +2874,7 @@ def test_import_report_groups_issues_and_warnings_after_compact_plan():
             },
             {
                 "assetType": "model",
+                "assetSubtype": "llm",
                 "source": {"name": "blocked-model", "workspace": "team"},
                 "destination": {
                     "name": "blocked-model",
@@ -1664,10 +2898,12 @@ def test_import_report_groups_issues_and_warnings_after_compact_plan():
 
     plan, details = report.split("ISSUES REQUIRING ACTION", 1)
     assert "Step" not in plan
-    assert "openapi" in plan
+    assert "SOURCE INVENTORY" in plan
+    assert "Target type" in plan
+    assert "MCP" in plan
     assert "blocked-model" in plan
     assert "Provide a model mapping." not in plan
-    assert "blocked-model [model]" in details
+    assert "blocked-model [llm]" in details
     assert "Destination: custom/blocked-model" in details
     assert "  - Provide a model mapping." in details
     assert "  - Remove embedded credentials." in details
@@ -1675,7 +2911,7 @@ def test_import_report_groups_issues_and_warnings_after_compact_plan():
     assert "network\n  Destination: destination" in details
     assert "  - Map a replacement subnet." in details
     assert (
-        "Ready: 2  Blocked: 1  Skipped: 0  Errors: 0  "
+        "Ready: 1  Warn: 2  Blocked: 1  Skipped: 0  Unsupported: 0  "
         "Warnings: 2  Importable: no"
     ) in report
 
@@ -1706,7 +2942,7 @@ def test_human_report_is_used_only_without_explicit_output(
 
 def test_dry_run_returns_filtered_inventory_and_summary(capsys):
     records = [
-        _record(name="tool"),
+        _mcp_record(name="tools"),
         _record(
             name="agent",
             service_url=(
@@ -1762,28 +2998,52 @@ def test_dry_run_returns_filtered_inventory_and_summary(capsys):
             "destination",
             "destination-rg",
             SOURCE_ID,
-            include=["tools"],
+            include=["mcp-servers"],
             dry_run=True,
         )
 
     assert result["dryRun"] is True
     assert result["summary"] == {
-        "discovered": 2,
+        "discovered": 1,
         "included": 1,
         "ready": 1,
         "blocked": 0,
         "skipped": 0,
-        "byType": {"models": 0, "agents": 0, "tools": 1},
+        "byType": {"models": 0, "mcpServers": 1},
         "discoveryComplete": True,
         "discoveryErrorCount": 0,
         "networkStatus": "ready",
         "suppressedMcpBackingApiCount": 0,
+        "ignoredApiCount": 1,
+        "totalSourceApiCount": 2,
+        "candidateApiCount": 1,
+        "deferredApiCount": 0,
+        "suppressedDependencyCount": 0,
         "canImport": True,
     }
-    assert [asset["source"]["name"] for asset in result["assets"]] == ["tool"]
+    assert [asset["source"]["name"] for asset in result["assets"]] == ["tools"]
+    assert [api["name"] for api in result["ignoredApis"]] == ["agent"]
+    assert result["ignoredApis"][0]["reasonCode"] == (
+        "AGENT_API_NOT_SUPPORTED"
+    )
+    assert result["deferredApis"] == []
+    assert result["summary"]["totalSourceApiCount"] == sum(
+        result["summary"][field]
+        for field in (
+            "candidateApiCount",
+            "deferredApiCount",
+            "ignoredApiCount",
+            "suppressedDependencyCount",
+        )
+    )
     report = capsys.readouterr().out
-    assert "IMPORT PLAN" in report
-    assert "tool" in report
+    assert "SOURCE INVENTORY" in report
+    assert "IMPORT PLAN" not in report
+    assert "IMPORT ACTIONS" not in report
+    assert "MCP" in report
+    assert "A2A" in report
+    assert "agent" in report
+    assert "Other APIM APIs ignored:" not in report
     assert "SUMMARY" in report
     set_output_format.assert_called_once_with(cmd.cli_ctx, "none")
     assert warning.call_args_list == [
@@ -1796,3 +3056,106 @@ def test_dry_run_returns_filtered_inventory_and_summary(capsys):
         ),
         call("Dry-run assessment complete."),
     ]
+
+
+def test_dry_run_reconciles_candidate_deferred_ignored_and_dependency_counts():
+    candidate = _mcp_record(name="tools")
+    deferred = _record(
+        name="unified",
+        backend={
+            "name": "route-one",
+            "properties": {"url": "https://route-one.example.test"},
+        },
+        operations=[
+            {"urlTemplate": "/models", "method": "GET"},
+            {"urlTemplate": "/chat/completions", "method": "POST"},
+        ],
+    )
+    deferred["backends"].append(
+        {
+            "name": "route-two",
+            "properties": {"url": "https://route-two.example.test"},
+        }
+    )
+    ignored = _record(name="orders")
+    suppressed = {
+        **_record(name="tools-rest")["source"],
+        "dependencyType": "mcpRestBackingApi",
+        "requiredBy": [candidate["source"]["id"]],
+        "reasonCode": "MCP_REST_BACKING_API",
+        "reason": "Retained as an MCP dependency.",
+    }
+    discovered = {
+        "source": {
+            "id": SOURCE_ID,
+            "name": "source",
+            "location": "eastus",
+            "sku": "StandardV2",
+            "gatewayUrl": "https://source.azure-api.net",
+            "networkConfiguration": {
+                "publicNetworkAccess": "Enabled",
+                "virtualNetworkType": "None",
+                "subnetResourceId": None,
+                "privateEndpointConnectionCount": 0,
+            },
+        },
+        "assets": [candidate, deferred, ignored],
+        "sourceApiCount": 4,
+        "suppressedAssets": [suppressed],
+        "errors": [],
+    }
+    cmd = SimpleNamespace(
+        cli_ctx=SimpleNamespace(
+            data={
+                "subscription_id": "destination-sub",
+                "safe_params": ["--dry-run", "--output"],
+            },
+            invocation=SimpleNamespace(),
+        )
+    )
+
+    with (
+        patch.object(_import, "_discover_source", return_value=discovered),
+        patch.object(
+            _import,
+            "_destination_inventory",
+            return_value=_destination(),
+        ),
+        patch.object(
+            _import,
+            "get_subscription_id",
+            return_value="destination-sub",
+        ),
+        patch.object(_import, "format_import_report") as format_report,
+    ):
+        result = _import.import_from_apim(
+            cmd,
+            "destination",
+            "destination-rg",
+            SOURCE_ID,
+            dry_run=True,
+        )
+
+    summary = result["summary"]
+    assert summary["totalSourceApiCount"] == 4
+    assert summary["candidateApiCount"] == 1
+    assert summary["deferredApiCount"] == 1
+    assert summary["ignoredApiCount"] == 1
+    assert summary["suppressedDependencyCount"] == 1
+    assert summary["totalSourceApiCount"] == sum(
+        summary[field]
+        for field in (
+            "candidateApiCount",
+            "deferredApiCount",
+            "ignoredApiCount",
+            "suppressedDependencyCount",
+        )
+    )
+    assert result["deferredApis"][0]["reasonCode"] == (
+        "UNIFIED_MODEL_API_DEFERRED"
+    )
+    assert result["ignoredApis"][0]["reasonCode"] == (
+        "NO_SUPPORTED_API_EVIDENCE"
+    )
+    assert result["suppressedAssets"] == [suppressed]
+    format_report.assert_not_called()

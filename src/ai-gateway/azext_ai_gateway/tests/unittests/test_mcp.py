@@ -346,6 +346,10 @@ def test_test_mcp_initializes_registered_runtime_endpoint(
     ]
     assert result["diagnostic"]["failureMode"] == "failOpen"
     assert result["diagnostic"]["configuredEndpointCount"] == 1
+    assert (
+        "Testing MCP endpoint: "
+        "https://gateway.test/default/toolservers/tools/mcp"
+    ) in caplog.text
     assert "Failure mode: failOpen." in caplog.text
     assert "successful test can return a partial tool list" in caplog.text
     show_gateway.assert_called_once_with(cmd, "gateway", "rg")

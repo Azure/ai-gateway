@@ -3,8 +3,10 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------------------------
 
+import json
 import re
 from copy import deepcopy
+from pathlib import Path
 from xml.etree import ElementTree
 
 from azure.cli.core.azclierror import ResourceNotFoundError
@@ -44,152 +46,25 @@ CONTENT_SAFETY_FIELDS = {
     "sexual": "sexualSeverity",
     "violence": "violenceSeverity",
 }
-SCOPES = {
-    "imported": ["service", "workspace", "api"],
-    "inventoryOnly": ["product", "operation"],
+POLICY_INDEX_PATH = Path(__file__).with_name("apim_policy_index.json")
+
+
+def _load_policy_index():
+    with POLICY_INDEX_PATH.open(encoding="utf-8") as index_file:
+        index = json.load(index_file)
+    policies = index["policies"]
+    catalog = {policy["statement"]: policy for policy in policies}
+    if len(catalog) != len(policies):
+        raise ValueError("APIM policy index contains duplicate statements.")
+    return index, catalog
+
+
+APIM_POLICY_INDEX, POLICY_TRANSLATION_CATALOG = _load_policy_index()
+RECOGNIZED_POLICY_ELEMENTS = {
+    statement
+    for statement, capability in POLICY_TRANSLATION_CATALOG.items()
+    if capability["action"] == "import"
 }
-
-
-def _capability(
-    source_policy,
-    support_level,
-    translation_mode,
-    destination_policy_types,
-    supported_source_fields,
-    unsupported_source_fields,
-    supported_sections,
-    notes,
-):
-    return {
-        "sourcePolicy": source_policy,
-        "supportLevel": support_level,
-        "translationMode": translation_mode,
-        "destinationPolicyTypes": destination_policy_types,
-        "supportedSourceFields": supported_source_fields,
-        "unsupportedSourceFields": unsupported_source_fields,
-        "supportedSections": supported_sections,
-        "scopes": deepcopy(SCOPES),
-        "notes": notes,
-    }
-
-
-POLICY_TRANSLATION_CATALOG = {
-    "llm-token-limit": _capability(
-        "llm-token-limit",
-        "partial",
-        "inlinePolicy",
-        ["tokenLimit"],
-        [
-            "counter-key",
-            "tokens-per-minute",
-            "token-quota",
-            "token-quota-period:Hourly",
-            "token-quota-period:Daily",
-        ],
-        sorted(TOKEN_LIMIT_NON_DESTINATION_ATTRIBUTES)
-        + [
-            "token-quota-period:Monthly",
-            "token-quota-period:Weekly",
-            "token-quota-period:Yearly",
-        ],
-        ["inbound"],
-        (
-            "Literal rates and hourly/daily quotas are translated. Counter keys "
-            "must match a supported IP address or identity expression."
-        ),
-    ),
-    "azure-openai-token-limit": _capability(
-        "azure-openai-token-limit",
-        "partial",
-        "inlinePolicy",
-        ["tokenLimit"],
-        [
-            "counter-key",
-            "tokens-per-minute",
-            "token-quota",
-            "token-quota-period:Hourly",
-            "token-quota-period:Daily",
-        ],
-        sorted(TOKEN_LIMIT_NON_DESTINATION_ATTRIBUTES)
-        + [
-            "token-quota-period:Monthly",
-            "token-quota-period:Weekly",
-            "token-quota-period:Yearly",
-        ],
-        ["inbound"],
-        "Uses the same translation as llm-token-limit.",
-    ),
-    "llm-content-safety": _capability(
-        "llm-content-safety",
-        "partial",
-        "inlinePolicy",
-        ["contentSafety"],
-        [
-            "categories.category:Hate",
-            "categories.category:SelfHarm",
-            "categories.category:Sexual",
-            "categories.category:Violence",
-            "categories.output-type",
-        ],
-        [
-            "backend-id",
-            "blocklists",
-            "enforce-on-completions",
-            "shield-prompt",
-            "window-overlap-size",
-            "window-size",
-        ],
-        ["inbound", "outbound"],
-        (
-            "Literal category thresholds are normalized to Low, Medium, or High. "
-            "Request/response placement must be reviewed."
-        ),
-    ),
-    "set-backend-service": _capability(
-        "set-backend-service",
-        "consumed",
-        "configuration",
-        [],
-        ["backend-id"],
-        ["base-url"],
-        ["inbound", "backend"],
-        "backend-id is consumed while resolving the source APIM backend.",
-    ),
-    "authentication-managed-identity": _capability(
-        "authentication-managed-identity",
-        "unsupported",
-        "none",
-        [],
-        [],
-        ["client-id", "ignore-error", "output-token-variable-name", "resource"],
-        ["inbound"],
-        (
-            "Destination credentials require an explicit endpoint or provider "
-            "mapping that is not implemented."
-        ),
-    ),
-    "rewrite-uri": _capability(
-        "rewrite-uri",
-        "unsupported",
-        "none",
-        [],
-        [],
-        ["copy-unmatched-params", "template"],
-        ["inbound"],
-        "URI rewriting has no destination inline-policy equivalent.",
-    ),
-    "set-query-parameter": _capability(
-        "set-query-parameter",
-        "unsupported",
-        "none",
-        [],
-        [],
-        ["exists-action", "name", "value"],
-        ["inbound", "outbound"],
-        "Query mutation has no destination inline-policy equivalent.",
-    ),
-}
-RECOGNIZED_POLICY_ELEMENTS = set(POLICY_TRANSLATION_CATALOG)
 POLICY_TRANSLATORS = {}
 
 
@@ -464,26 +339,102 @@ def _unsupported_configuration_translator(element, _section):
     ]
 
 
-for _policy_name in (
-    "authentication-managed-identity",
-    "rewrite-uri",
-    "set-query-parameter",
-):
-    _register_translator(_policy_name)(_unsupported_configuration_translator)
+def _consume_forward_request(_element, _section):
+    return [], []
+
+
+POLICY_CONFIGURATION_HANDLERS = {
+    "forward-request": _consume_forward_request,
+    "set-backend-service": _translate_backend_service,
+}
+
+
+_UNKNOWN_CRITICALITY_PATTERNS = (
+    (
+        "authentication",
+        re.compile(
+            r"(?:auth|authoriz|credential|identity|jwt|token|certificate|"
+            r"header-check|check-header|ip-filter)"
+        ),
+    ),
+    (
+        "backend",
+        re.compile(r"(?:backend|upstream|endpoint|service-discovery)"),
+    ),
+    (
+        "routing",
+        re.compile(
+            r"(?:route|routing|forward|proxy|redirect|rewrite|dispatch|"
+            r"set-method|return-response|mock-response)"
+        ),
+    ),
+)
+
+
+def classify_policy_statement(statement):
+    normalized = str(statement or "").strip().casefold()
+    capability = POLICY_TRANSLATION_CATALOG.get(normalized)
+    if capability is not None:
+        return {**deepcopy(capability), "indexed": True}
+    criticality = "unknown"
+    for candidate, pattern in _UNKNOWN_CRITICALITY_PATTERNS:
+        if pattern.search(normalized):
+            criticality = candidate
+            break
+    action = "block" if criticality != "unknown" else "warn"
+    return {
+        "statement": normalized,
+        "docsUrl": APIM_POLICY_INDEX["source"]["url"],
+        "validScopes": [],
+        "validSections": [],
+        "applicableAssets": ["model", "mcpServer"],
+        "applicableSubtypes": ["*"],
+        "destinationCapability": {"mode": "none", "policyTypes": []},
+        "supportLevel": "unsupported",
+        "action": action,
+        "criticality": criticality,
+        "omittedBehavior": "The statement is not present in the reviewed index.",
+        "guidance": (
+            "Do not import until its authentication, routing, or backend "
+            "semantics are mapped."
+            if action == "block"
+            else "Review the source statement and recreate required behavior."
+        ),
+        "handler": None,
+        "indexed": False,
+    }
 
 
 def _nested_policy_names(element):
+    executable_policies = set(POLICY_TRANSLATORS).union(
+        POLICY_CONFIGURATION_HANDLERS
+    )
     return sorted(
         {
             _local_name(nested.tag)
             for nested in element.iter()
-            if _local_name(nested.tag) in POLICY_TRANSLATORS
+            if _local_name(nested.tag) in executable_policies
         }
     )
 
 
-def _policy_translations(root):
-    translated = []
+def policy_handler(capability):
+    handler = capability.get("handler")
+    if not handler:
+        return None
+    registry = (
+        POLICY_TRANSLATORS
+        if handler["kind"] == "translator"
+        else POLICY_CONFIGURATION_HANDLERS
+    )
+    registered = registry.get(capability["statement"])
+    if registered is None or registered.__name__ != handler["name"]:
+        return None
+    return registered
+
+
+def _policy_translation_records(root):
+    records = []
     warnings = []
     for section in root:
         section_name = _local_name(section.tag)
@@ -501,7 +452,14 @@ def _policy_translations(root):
             translator = POLICY_TRANSLATORS.get(name)
             if translator:
                 policies, policy_warnings = translator(element, section_name)
-                translated.extend(policies)
+                records.extend(
+                    {
+                        "statement": name,
+                        "section": section_name,
+                        "policy": policy,
+                    }
+                    for policy in policies
+                )
                 warnings.extend(policy_warnings)
                 continue
             nested_policy_names = _nested_policy_names(element)
@@ -511,7 +469,204 @@ def _policy_translations(root):
                     "translated without changing when they apply: "
                     + ", ".join(nested_policy_names)
                 )
-    return translated, warnings
+                continue
+            capability = classify_policy_statement(name)
+            if name not in STRUCTURAL_POLICY_ELEMENTS:
+                warnings.append(
+                    f"{name} is classified action={capability['action']} "
+                    f"({capability['criticality']}); "
+                    f"{capability['omittedBehavior']}"
+                )
+                continue
+    return records, warnings
+
+
+def _policy_translations(root):
+    records, warnings = _policy_translation_records(root)
+    return [record["policy"] for record in records], warnings
+
+
+def _statement_occurrences(root):
+    occurrences = set()
+    for section in root:
+        section_name = _local_name(section.tag)
+        for element in section.iter():
+            if element is section:
+                continue
+            name = _local_name(element.tag)
+            capability = POLICY_TRANSLATION_CATALOG.get(name)
+            if name not in STRUCTURAL_POLICY_ELEMENTS or (
+                capability is not None and capability.get("handler")
+            ):
+                occurrences.add((name, section_name))
+    return [
+        {"statement": statement, "section": section}
+        for statement, section in sorted(occurrences)
+    ]
+
+
+def _policy_origin(policy):
+    return (
+        f"{policy.get('scopeType', 'api')} policy "
+        f"'{policy.get('scope', '')}'"
+    )
+
+
+def _applies_to_asset(capability, asset_type, asset_subtype):
+    applicable_assets = {
+        str(value).casefold()
+        for value in capability.get("applicableAssets", [])
+    }
+    if str(asset_type or "").casefold() not in applicable_assets:
+        return False
+    applicable_subtypes = {
+        str(value).casefold()
+        for value in capability.get("applicableSubtypes", [])
+    }
+    return (
+        "*" in applicable_subtypes
+        or str(asset_subtype or "").casefold() in applicable_subtypes
+    )
+
+
+def translate_effective_policies(
+    effective_policy_summaries,
+    asset_type,
+    asset_subtype=None,
+):
+    """Assess and translate effective APIM policies for a destination asset."""
+    destination_policies = []
+    reduced_warnings = []
+    unsupported_warnings = []
+    critical_blockers = []
+
+    for policy in effective_policy_summaries or []:
+        origin = _policy_origin(policy)
+        scope_type = str(policy.get("scopeType") or "api").casefold()
+        occurrences = policy.get("statementOccurrences")
+        if occurrences is None:
+            occurrences = [
+                {
+                    "statement": assessment["statement"],
+                    "section": None,
+                }
+                for assessment in policy.get("statementAssessments", [])
+            ]
+
+        occurrence_decisions = {}
+        for occurrence in occurrences:
+            statement = occurrence.get("statement")
+            section = occurrence.get("section")
+            capability = classify_policy_statement(statement)
+            valid_scope = scope_type in {
+                str(value).casefold()
+                for value in capability.get("validScopes", [])
+            }
+            valid_section = section is None or section.casefold() in {
+                str(value).casefold()
+                for value in capability.get("validSections", [])
+            }
+            applicable = _applies_to_asset(
+                capability,
+                asset_type,
+                asset_subtype,
+            )
+            can_import = (
+                capability["action"] == "import"
+                and applicable
+                and valid_scope
+                and valid_section
+                and scope_type not in {"product", "operation"}
+            )
+            occurrence_decisions[(statement, section)] = can_import
+
+            location = (
+                f"{origin}, {section} section"
+                if section
+                else origin
+            )
+            if capability["indexed"] and not applicable:
+                unsupported_warnings.append(
+                    f"{location}: {statement} does not apply to destination "
+                    f"asset type '{asset_type}'"
+                    + (
+                        f" subtype '{asset_subtype}'"
+                        if asset_subtype is not None
+                        else ""
+                    )
+                    + " and will not be imported."
+                )
+                continue
+            if capability["indexed"] and not valid_scope:
+                unsupported_warnings.append(
+                    f"{location}: {statement} is not valid at APIM scope "
+                    f"'{scope_type}' and will not be imported."
+                )
+                continue
+            if capability["indexed"] and not valid_section:
+                unsupported_warnings.append(
+                    f"{location}: {statement} is not valid in the APIM "
+                    f"'{section}' section and will not be imported."
+                )
+                continue
+            if capability["action"] == "block":
+                critical_blockers.append(
+                    f"{location}: {statement} is unsupported and blocks import; "
+                    f"{capability['omittedBehavior']} {capability['guidance']}"
+                )
+                continue
+            if capability["action"] == "warn":
+                unsupported_warnings.append(
+                    f"{location}: {statement} is unsupported; "
+                    f"{capability['omittedBehavior']} {capability['guidance']}"
+                )
+                continue
+            if capability["supportLevel"] == "reduced":
+                reduced_warnings.append(
+                    f"{location}: {statement} has a reduced destination "
+                    f"mapping; {capability['omittedBehavior']} "
+                    f"{capability['guidance']}"
+                )
+
+        if scope_type in {"service", "workspace"} and any(
+            occurrence_decisions.values()
+        ):
+            reduced_warnings.append(
+                f"{origin}: translated policies must be replicated onto each "
+                "destination asset; shared counters and inheritance boundaries "
+                "may change."
+            )
+        if scope_type in {"product", "operation"} and policy.get("present"):
+            reduced_warnings.append(
+                f"{origin}: this scope cannot be preserved as a destination "
+                "inline policy and translated policies will not be imported."
+            )
+
+        for warning in policy.get("translationWarnings", []):
+            reduced_warnings.append(f"{origin}: {warning}")
+
+        if scope_type in {"product", "operation"}:
+            continue
+        translated_records = policy.get("translatedPolicyRecords")
+        if translated_records is None:
+            if any(occurrence_decisions.values()):
+                destination_policies.extend(
+                    deepcopy(policy.get("translatedPolicies", []))
+                )
+            continue
+        for record in translated_records:
+            if occurrence_decisions.get(
+                (record.get("statement"), record.get("section")),
+                False,
+            ):
+                destination_policies.append(deepcopy(record["policy"]))
+
+    return {
+        "destinationPolicies": destination_policies,
+        "reducedMappingWarnings": reduced_warnings,
+        "unsupportedNoncriticalWarnings": unsupported_warnings,
+        "unsupportedCriticalBlockers": critical_blockers,
+    }
 
 
 def summarize_policy(policy_xml, scope, scope_type="api"):
@@ -527,6 +682,9 @@ def summarize_policy(policy_xml, scope, scope_type="api"):
         "parseError": None,
         "translatedPolicies": [],
         "translationWarnings": [],
+        "statementAssessments": [],
+        "statementOccurrences": [],
+        "translatedPolicyRecords": [],
     }
     if not policy_xml:
         return empty
@@ -558,10 +716,24 @@ def summarize_policy(policy_xml, scope, scope_type="api"):
     recognized = sorted(
         name for name in statements if name in RECOGNIZED_POLICY_ELEMENTS
     )
+    occurrences = _statement_occurrences(root)
+    assessment_sections = {}
+    for occurrence in occurrences:
+        assessment_sections.setdefault(occurrence["statement"], []).append(
+            occurrence["section"]
+        )
+    assessments = []
+    for name, sections in sorted(assessment_sections.items()):
+        assessment = classify_policy_statement(name)
+        assessment["observedSections"] = sorted(set(sections))
+        assessments.append(assessment)
     unsupported = sorted(
-        name for name in statements if name not in RECOGNIZED_POLICY_ELEMENTS
+        assessment["statement"]
+        for assessment in assessments
+        if assessment["action"] != "import"
     )
-    translated, translation_warnings = _policy_translations(root)
+    translated_records, translation_warnings = _policy_translation_records(root)
+    translated = [record["policy"] for record in translated_records]
     return {
         **empty,
         "present": True,
@@ -572,6 +744,9 @@ def summarize_policy(policy_xml, scope, scope_type="api"):
         "backendIds": sorted(set(backend_ids)),
         "translatedPolicies": translated,
         "translationWarnings": translation_warnings,
+        "statementAssessments": assessments,
+        "statementOccurrences": occurrences,
+        "translatedPolicyRecords": translated_records,
     }
 
 
@@ -582,7 +757,7 @@ def list_policy_translation_support(support_level=None):
         if support_level is None
         or capability["supportLevel"] == support_level
     ]
-    return sorted(capabilities, key=lambda item: item["sourcePolicy"])
+    return sorted(capabilities, key=lambda item: item["statement"])
 
 
 def show_policy_translation_support(name):
@@ -598,15 +773,17 @@ def format_policy_translation_table(result):
     capabilities = result if isinstance(result, list) else [result]
     return [
         {
-            "SourcePolicy": capability["sourcePolicy"],
+            "SourcePolicy": capability["statement"],
             "Support": capability["supportLevel"],
-            "Mode": capability["translationMode"],
-            "Destination": ",".join(capability["destinationPolicyTypes"]),
-            "Sections": ",".join(capability["supportedSections"]),
-            "ImportedScopes": ",".join(
-                capability["scopes"]["imported"]
+            "Action": capability["action"],
+            "Criticality": capability["criticality"],
+            "Mode": capability["destinationCapability"]["mode"],
+            "Destination": ",".join(
+                capability["destinationCapability"]["policyTypes"]
             ),
-            "Notes": capability["notes"],
+            "Sections": ",".join(capability["validSections"]),
+            "Scopes": ",".join(capability["validScopes"]),
+            "Guidance": capability["guidance"],
         }
         for capability in capabilities
     ]

@@ -731,7 +731,7 @@ def load_arguments(loader, _):
     ) as context:
         context.argument(
             "support_level",
-            arg_type=get_enum_type(["partial", "consumed", "unsupported"]),
+            arg_type=get_enum_type(["exact", "reduced", "unsupported"]),
             help="Only list capabilities at this support level.",
         )
 
@@ -766,9 +766,9 @@ def load_arguments(loader, _):
         context.argument(
             "include",
             nargs="+",
-            arg_type=get_enum_type(["models", "agents", "tools"]),
-            default=["models", "agents", "tools"],
-            help="Configuration types to import.",
+            arg_type=get_enum_type(["models", "mcp-servers"]),
+            default=["models", "mcp-servers"],
+            help="First-class APIM asset types to import.",
         )
         context.argument(
             "conflict_policy",
@@ -780,7 +780,7 @@ def load_arguments(loader, _):
             "mapping_file",
             type=file_type,
             help=(
-                "Path to a JSON file containing models, agents, and tools "
+                "Path to a JSON file containing models and MCP servers "
                 "source-to-destination mappings."
             ),
         )
@@ -789,6 +789,13 @@ def load_arguments(loader, _):
             action="store_true",
             help=(
                 "Discover assets and display a compatibility inventory without "
-                "changing either resource. Currently required."
+                "changing either resource. The output includes the ordered "
+                "action graph."
             ),
+        )
+        context.argument(
+            "yes",
+            options_list=["--yes", "-y"],
+            action="store_true",
+            help="Execute the assessed import action graph without prompting.",
         )

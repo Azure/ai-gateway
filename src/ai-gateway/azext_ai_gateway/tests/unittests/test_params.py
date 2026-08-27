@@ -207,6 +207,20 @@ def test_model_provider_sync_requires_confirmation_without_delete_option():
     assert yes["action"] == "store_true"
 
 
+def test_import_requires_confirmation_without_adding_it_to_mcp_commands():
+    loader = _Loader()
+    _params.load_arguments(loader, None)
+
+    yes = _get_argument(loader, "ai-gateway import", "yes")
+    assert yes["options_list"] == ["--yes", "-y"]
+    assert yes["action"] == "store_true"
+    for command in ["ai-gateway mcp create", "ai-gateway mcp update"]:
+        argument_names = {
+            argument[0] for argument in loader.arguments[command]
+        }
+        assert "yes" not in argument_names
+
+
 def test_mcp_test_accepts_api_key_name():
     loader = _Loader()
     _params.load_arguments(loader, None)
