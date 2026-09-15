@@ -6,7 +6,7 @@ the public command groups in **aigateway 1.0.0b6**; use your installed CLI's
 
 New to the CLI? Start with the [installation and quickstart](README.md).
 
-[Find a command](#find-a-command) | [Command groups](#command-groups) | [Arguments](#read-the-arguments) | [Model policies](#common-model-policies) | [Output and queries](#output-and-queries) | [Usage notes](#usage-notes)
+[Find a command](#find-a-command) | [Command groups](#command-groups) | [Arguments](#read-the-arguments) | [Model policies](#common-model-policies) | [Output and queries](#output-and-queries) | [Runtime tests](#test-models-with-additional-checks) | [Usage notes](#usage-notes)
 
 ## Find a command
 
@@ -240,6 +240,221 @@ List commands that advertise `--max-items` and `--next-token` support paging.
 When a limited result includes a continuation token, pass that value to
 `--next-token` to resume. Use JSON output while inspecting a paged response
 so you do not discard the token.
+
+## Test models with additional checks
+
+The [quickstart](README.md#5-test-the-gateway) uses a fresh gateway's default key
+and a known Chat Completions route. The expanded examples below discover an
+active key and the selected model's advertised endpoint instead. They stop if
+required metadata or credentials are missing.
+
+Use the gateway's runtime URL and API key, not an Azure management token or
+Foundry backend credential. You need permission to read key values. Keep the key
+in memory: do not print it, enable shell tracing, or paste it into source control.
+Model calls can incur inference charges.
+
+### Get the runtime URL and key
+
+**Bash** -- reuse `RG` and `GATEWAY` from the quickstart:
+
+```bash
+AI_GATEWAY_URL="$(az aigateway show -g "$RG" -n "$GATEWAY" \
+  --query properties.gatewayUrl -o tsv)" || exit 1
+KEY_NAME="$(az aigateway api-key list -g "$RG" --gateway-name "$GATEWAY" \
+  --query "[?properties.state=='active'].name | [0]" -o tsv)" || exit 1
+if [ -z "$AI_GATEWAY_URL" ] || [ -z "$KEY_NAME" ]; then
+  echo "No runtime URL or active API key found. Check the gateway configuration." >&2
+  exit 1
+fi
+AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets \
+  -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" \
+  --query primaryKey -o tsv)" || exit 1
+if [ -z "$AI_GATEWAY_API_KEY" ]; then
+  echo "No key value returned. Check your key-read permissions." >&2
+  exit 1
+fi
+```
+
+**PowerShell** -- set the same resource names in this shell:
+
+```powershell
+$RG = "rg-aigateway-quickstart"
+$GATEWAY = "<your-gateway-name>"
+
+$AI_GATEWAY_URL = az aigateway show -g $RG -n $GATEWAY --query properties.gatewayUrl -o tsv
+if ($LASTEXITCODE -ne 0) { throw "Unable to read the gateway URL." }
+$KEY_NAME = az aigateway api-key list -g $RG --gateway-name $GATEWAY --query "[?properties.state=='active'].name | [0]" -o tsv
+if ($LASTEXITCODE -ne 0) { throw "Unable to list API keys." }
+if (!$AI_GATEWAY_URL -or !$KEY_NAME) { throw "No runtime URL or active API key found." }
+$AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n $KEY_NAME --query primaryKey -o tsv
+if ($LASTEXITCODE -ne 0 -or !$AI_GATEWAY_API_KEY) { throw "Unable to read the API key." }
+```
+
+For an MCP-only gateway, continue to [Test MCP tools](#test-mcp-tools).
+
+### Select the endpoint and call the model
+
+Use your chosen `PROVIDER` and `MODEL`. These examples select an advertised
+`/chat/completions` path and preserve the exact runtime identifier from
+`properties.deployment.modelName`, which can differ from the registration name.
+If the model supports only Responses, Anthropic Messages, or non-chat
+operations, choose a Chat Completions model for this test or use the
+[coding-agent plugin](../README.md#coding-agent-plugin) to integrate its protocol.
+
+**Bash / curl**
+
+```bash
+MODEL_PATH="$(az aigateway model show \
+  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --query "properties.supportedEndpoints[?ends_with(@, '/chat/completions')] | [0]" -o tsv)" || exit 1
+if [ -z "$MODEL_PATH" ]; then
+  echo "This model does not advertise a Chat Completions endpoint." >&2
+  exit 1
+fi
+BODY="$(az aigateway model show \
+  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --query "properties.deployment.modelName && {model:properties.deployment.modelName,messages:[{role:'user',content:'Say hello in one sentence.'}]}" -o json)" || exit 1
+if [ -z "$BODY" ] || [ "$BODY" = "null" ]; then
+  echo "This model has no runtime model identifier." >&2
+  exit 1
+fi
+
+curl -fsS --max-time 60 "${AI_GATEWAY_URL%/}/default/models${MODEL_PATH}" \
+  -H "Api-Key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
+  --data "$BODY"
+```
+
+**PowerShell / `irm`**
+
+```powershell
+$PROVIDER = "foundry-models"
+$MODEL = "<imported-model-name>"
+$modelInfo = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL -o json | ConvertFrom-Json -ErrorAction Stop
+if ($LASTEXITCODE -ne 0) { throw "Unable to read the model." }
+$modelPath = $modelInfo.properties.supportedEndpoints |
+  Where-Object { $_.EndsWith("/chat/completions") } | Select-Object -First 1
+if (!$modelPath -or !$modelInfo.properties.deployment.modelName) {
+  throw "This model needs a Chat Completions endpoint and a runtime model identifier."
+}
+$body = @{
+  model = $modelInfo.properties.deployment.modelName
+  messages = @(@{ role = "user"; content = "Say hello in one sentence." })
+} | ConvertTo-Json -Depth 5
+
+$reply = irm -Method Post -Uri "$($AI_GATEWAY_URL.TrimEnd('/'))/default/models$modelPath" `
+  -Headers @{ "Api-Key" = $AI_GATEWAY_API_KEY } -ContentType "application/json" `
+  -Body $body -TimeoutSec 60 -ErrorAction Stop
+$reply | ConvertTo-Json -Depth 20
+```
+
+A successful response contains `choices` with the model's reply. A `401` or
+`403` means authentication or access needs attention; `404` means the route or
+registration should be checked; `429` can mean a gateway token limit or backend
+quota was reached. A successful call checks connectivity, not every policy's
+enforcement behavior. When finished with all runtime tests, clear the key:
+
+```bash
+unset AI_GATEWAY_API_KEY
+```
+
+```powershell
+Remove-Variable AI_GATEWAY_API_KEY
+```
+
+## Test MCP tools
+
+After registering `learn` in the quickstart, first
+[read the runtime URL and key](#get-the-runtime-url-and-key) in your
+chosen shell. Reuse `AI_GATEWAY_URL` and `AI_GATEWAY_API_KEY` below. These
+requests go through your gateway, not directly to Microsoft Learn.
+
+MCP uses an initialization handshake before listing tools. Responses may be
+JSON or server-sent events (SSE); for SSE, read the JSON in the `data:` lines.
+An HTTP success alone is not enough: check for a JSON-RPC `result`, not `error`.
+
+### Bash / curl
+
+Initialize the connection and display the response headers and body:
+
+```bash
+MCP_NAME="learn"
+MCP_URL="${AI_GATEWAY_URL%/}/default/toolservers/${MCP_NAME}/mcp"
+MCP_HEADERS=(-H "Api-Key: $AI_GATEWAY_API_KEY"
+  -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream")
+
+curl -fsS -i --max-time 60 "$MCP_URL" "${MCP_HEADERS[@]}" \
+  --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"aigateway-quickstart","version":"1.0"}}}'
+```
+
+From that response, copy `result.protocolVersion` and the `Mcp-Session-Id`
+header (if present). Leave `MCP_SESSION_ID` empty for a server that does not
+return that header. Then acknowledge initialization and list tools:
+
+```bash
+MCP_PROTOCOL_VERSION="<returned-protocol-version>"
+MCP_SESSION_ID=""
+SESSION_HEADERS=()
+if [ -n "$MCP_SESSION_ID" ]; then
+  SESSION_HEADERS=(-H "Mcp-Session-Id: $MCP_SESSION_ID")
+fi
+
+curl -fsS --max-time 60 "$MCP_URL" "${MCP_HEADERS[@]}" "${SESSION_HEADERS[@]}" \
+  -H "MCP-Protocol-Version: $MCP_PROTOCOL_VERSION" \
+  --data '{"jsonrpc":"2.0","method":"notifications/initialized"}'
+
+curl -fsS --max-time 60 "$MCP_URL" "${MCP_HEADERS[@]}" "${SESSION_HEADERS[@]}" \
+  -H "MCP-Protocol-Version: $MCP_PROTOCOL_VERSION" \
+  --data '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
+```
+
+### PowerShell / Invoke-RestMethod (`irm`)
+
+This MCP example needs **PowerShell 7 or later** to capture response headers
+with `-ResponseHeadersVariable`; it adds no requirement to the installer.
+
+```powershell
+$MCP_NAME = "learn"
+$request = @{
+  Method = "Post"
+  Uri = "$($AI_GATEWAY_URL.TrimEnd('/'))/default/toolservers/$MCP_NAME/mcp"
+  Headers = @{ "Api-Key" = $AI_GATEWAY_API_KEY; Accept = "application/json, text/event-stream" }
+  ContentType = "application/json"
+  TimeoutSec = 60
+  ErrorAction = "Stop"
+}
+$init = irm @request -ResponseHeadersVariable responseHeaders `
+  -Body '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"aigateway-quickstart","version":"1.0"}}}'
+if ($init -is [string]) { $init } else { $init | ConvertTo-Json -Depth 20 }
+```
+
+Copy `result.protocolVersion` from the JSON response (or SSE `data:` payload).
+The next block forwards the session ID automatically when the server returned
+one:
+
+```powershell
+$MCP_PROTOCOL_VERSION = "<returned-protocol-version>"
+$request.Headers["MCP-Protocol-Version"] = $MCP_PROTOCOL_VERSION
+if ($responseHeaders["Mcp-Session-Id"]) {
+  $request.Headers["Mcp-Session-Id"] = [string]($responseHeaders["Mcp-Session-Id"] | Select-Object -First 1)
+}
+irm @request -Body '{"jsonrpc":"2.0","method":"notifications/initialized"}' | Out-Null
+$tools = irm @request -Body '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
+if ($tools -is [string]) { $tools } else { $tools | ConvertTo-Json -Depth 20 }
+```
+
+Expect a non-empty `result.tools` array describing the registered Learn tools.
+An empty array means the registration is reachable but exposes no tools; check
+the backend source configuration before integrating a client. This smoke test
+checks initialization and tool discovery, not tool execution. Clear the key and
+header variables afterward:
+
+```bash
+unset AI_GATEWAY_API_KEY MCP_HEADERS SESSION_HEADERS MCP_SESSION_ID
+```
+
+```powershell
+Remove-Variable AI_GATEWAY_API_KEY, request, responseHeaders
+```
 
 ## Usage notes
 

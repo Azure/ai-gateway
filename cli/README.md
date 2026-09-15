@@ -53,6 +53,7 @@ Create a gateway, then register the public
 [Microsoft Learn MCP server](https://learn.microsoft.com/training/support/mcp),
 [add models through a provider](#3-add-models-through-a-provider), or both.
 The model path also shows how to [set common policies](#4-set-model-policies).
+Then [test the gateway](#5-test-the-gateway) with `curl` or PowerShell.
 These examples use **Bash**; replace the placeholder values before running them.
 The MCP path needs no model deployment or GitHub credential.
 
@@ -172,7 +173,63 @@ in the provider or calls made directly to the backend. See
 [common model policies](command-reference.md#common-model-policies) to change
 one policy at a time.
 
-### 5. Optional cleanup
+### 5. Test the gateway
+
+This happy-path example assumes the earlier model setup succeeded, the gateway's
+built-in `default` key is active, and your selected model supports
+`/openai/v1/chat/completions`. You need permission to read the key. Run the commands
+in order and stop if one reports an error. Model calls can incur inference charges.
+
+**Bash / curl** -- reuse the variables from the earlier steps:
+
+```bash
+AI_GATEWAY_URL="$(az aigateway show -g "$RG" -n "$GATEWAY" \
+  --query properties.gatewayUrl -o tsv)"
+AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets \
+  -g "$RG" --gateway-name "$GATEWAY" -n default --query primaryKey -o tsv)"
+RUNTIME_MODEL="$(az aigateway model show \
+  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --query properties.deployment.modelName -o tsv)"
+
+curl -fsS "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions" \
+  -H "Api-Key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
+  --data @- <<EOF
+{"model":"$RUNTIME_MODEL","messages":[{"role":"user","content":"Say hello in one sentence."}]}
+EOF
+unset AI_GATEWAY_API_KEY
+```
+
+**PowerShell / `irm`** -- set the same resource names in this shell:
+
+```powershell
+$RG = "rg-aigateway-quickstart"
+$GATEWAY = "<your-gateway-name>"
+$PROVIDER = "foundry-models"
+$MODEL = "<imported-model-name>"
+
+$AI_GATEWAY_URL = az aigateway show -g $RG -n $GATEWAY --query properties.gatewayUrl -o tsv
+$AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n default --query primaryKey -o tsv
+$RUNTIME_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL --query properties.deployment.modelName -o tsv
+$body = @{
+  model = $RUNTIME_MODEL
+  messages = @(@{ role = "user"; content = "Say hello in one sentence." })
+} | ConvertTo-Json -Depth 5
+
+$reply = irm -Method Post -Uri "$($AI_GATEWAY_URL.TrimEnd('/'))/default/models/openai/v1/chat/completions" `
+  -Headers @{ "Api-Key" = $AI_GATEWAY_API_KEY } -ContentType "application/json" `
+  -Body $body -ErrorAction Stop
+$reply.choices[0].message.content
+Remove-Variable AI_GATEWAY_API_KEY
+```
+
+Expect a short reply from the model (`choices[0].message.content` in the curl
+JSON response). Keep the key out of logs and source control. For key discovery,
+protocol checks, and troubleshooting, see the
+[expanded model test](command-reference.md#test-models-with-additional-checks).
+If you followed only the MCP path, use the
+[MCP smoke test](command-reference.md#test-mcp-tools).
+
+### 6. Optional cleanup
 
 Only run these commands for the dedicated tutorial resources. Gateway deletion
 removes its registrations and retains an API Management soft-delete record;
