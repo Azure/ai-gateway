@@ -1,8 +1,7 @@
 # AI Gateway CLI command reference
 
-Find a command, understand its arguments, and shape its output. This guide covers
-the public command groups in **aigateway 1.0.0b6**; use your installed CLI's
-`--help` for the full option list and examples for each command.
+This guide covers the public command groups in **aigateway 1.0.0b6**; use your
+installed CLI's `--help` for the full option list and examples for each command.
 
 New to the CLI? Start with the [installation and quickstart](README.md).
 
