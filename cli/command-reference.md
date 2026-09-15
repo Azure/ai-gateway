@@ -6,7 +6,7 @@ the public command groups in **aigateway 1.0.0b6**; use your installed CLI's
 
 New to the CLI? Start with the [installation and quickstart](README.md).
 
-[Find a command](#find-a-command) | [Command groups](#command-groups) | [Arguments](#read-the-arguments) | [Output and queries](#output-and-queries) | [Usage notes](#usage-notes)
+[Find a command](#find-a-command) | [Command groups](#command-groups) | [Arguments](#read-the-arguments) | [Model policies](#common-model-policies) | [Output and queries](#output-and-queries) | [Usage notes](#usage-notes)
 
 ## Find a command
 
@@ -55,11 +55,17 @@ commands; each group and command accepts `--help`.
 | `network` | `show`, `update`, `wait` | Configure public access and outbound virtual network integration. |
 | `network private-endpoint-connection` | `list`, `show`, `approve`, `reject`, `delete`, `wait` | Manage gateway-side private endpoint connections. |
 
-For example, to find the options for importing a Foundry account's deployments:
+For example, to find the options for importing a Foundry account's deployments
+through a provider:
 
 ```bash
 az aigateway model-provider create --help
 ```
+
+For the complete variable-based import and inspection example, see
+[Add models through a provider](README.md#3-add-models-through-a-provider).
+That path registers every current deployment in an existing account and sets up
+the gateway identity's access; it does not create the underlying deployments.
 
 To find the options for adding a source to an existing MCP registration:
 
@@ -152,6 +158,50 @@ az aigateway mcp create \
 
 This also avoids shell-specific JSON escaping. Do not commit files containing
 credentials.
+
+## Common model policies
+
+Use the [example variables](#set-up-example-variables) to target an existing
+gateway model. The [quickstart](README.md#4-set-model-policies) shows how to set
+token limits and content safety together. To change just one policy, use the
+commands below; the other policy types are preserved.
+
+**Token limit:** allow 10,000 tokens per minute for each identity:
+
+```bash
+az aigateway model policy set-token-limit \
+  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --token-limit 10000 --token-period minute --token-counter-key Identity
+```
+
+`--token-limit` must be a positive integer. `--token-period` accepts `minute`,
+`hour`, or `day`; `--token-counter-key` accepts `Identity` or `IPAddress`.
+The defaults are `minute` and `Identity`. This controls token usage, not the
+number of requests.
+
+**Content safety:** set Medium severity across the four supported categories:
+
+```bash
+az aigateway model policy set-content-safety \
+  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --content-safety Medium
+```
+
+`--content-safety` accepts `Low`, `Medium`, `High`, or `None`. It sets the
+severity for hate, self-harm, sexual, and violence. Category overrides such as
+`--hate-severity` and `--violence-severity` require `--content-safety` in the same
+command. Choose thresholds for your application's needs rather than treating
+these example settings as a universal recommendation.
+
+Inspect the resulting configuration:
+
+```bash
+az aigateway model policy list \
+  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL"
+```
+
+Policies apply to the selected gateway model only. Repeat for other models that
+need the same controls; they do not govern direct calls to the backend.
 
 ## Output and queries
 

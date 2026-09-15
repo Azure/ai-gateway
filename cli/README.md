@@ -20,7 +20,8 @@ using a current Azure CLI release is recommended.
 curl -fsSL https://aka.ms/aigateway-cli-install | sh
 ```
 
-Requires `curl` and either `shasum` or `sha256sum`.
+Requires `curl` and a SHA-256 utility (`shasum` or `sha256sum`, normally
+preinstalled).
 
 **PowerShell (Windows / macOS / Linux)**
 
@@ -48,10 +49,12 @@ and `apiVersion: 2025-09-01-preview`. Neither command needs an Azure login.
 
 ## Quickstart
 
-Create a gateway and register the public
-[Microsoft Learn MCP server](https://learn.microsoft.com/training/support/mcp).
-This example uses **Bash**; replace the placeholder values before running it.
-No model deployment or GitHub credential is needed.
+Create a gateway, then register the public
+[Microsoft Learn MCP server](https://learn.microsoft.com/training/support/mcp),
+[add models through a provider](#3-add-models-through-a-provider), or both.
+The model path also shows how to [set common policies](#4-set-model-policies).
+These examples use **Bash**; replace the placeholder values before running them.
+The MCP path needs no model deployment or GitHub credential.
 
 ### Before using Azure resources
 
@@ -108,12 +111,71 @@ configuration, not a tool invocation. Use the
 that consumes the gateway, or explore more commands in the
 [command reference](command-reference.md).
 
-### 3. Optional cleanup
+### 3. Add models through a provider
+
+For this path, you need an **existing Foundry AI Services or Azure OpenAI
+account with model deployments**. Use a test account outside the tutorial
+resource group. You need permission to read the account and its deployments,
+update the gateway, and create role assignments on the account.
+
+The command below imports **every current deployment** into one gateway provider.
+It enables the gateway's system-assigned identity and grants that identity the
+**Foundry User** role on the account. It does not create model deployments;
+normal charges still apply when you use them.
+
+Copy the account's resource ID from its Azure portal **Properties** page. Use the
+account ID ending in `Microsoft.CognitiveServices/accounts/<account-name>`,
+not a project or deployment ID.
+
+```bash
+FOUNDRY_RESOURCE_ID="<foundry-account-resource-id>"
+PROVIDER="foundry-models"
+
+az aigateway model-provider create \
+  -g "$RG" --gateway-name "$GATEWAY" --name "$PROVIDER" \
+  --foundry-resource-id "$FOUNDRY_RESOURCE_ID"
+
+az aigateway model list \
+  -g "$RG" --gateway-name "$GATEWAY" \
+  --model-provider "$PROVIDER" --output table
+```
+
+Review the import summary for any failed registrations. Successfully imported
+models use their deployment names. Choose one from the list for the next step.
+
+### 4. Set model policies
+
+Apply a token limit and content safety to the selected model. The example allows
+**10,000 tokens per minute per identity** and sets content safety severity to
+**Medium** for hate, self-harm, sexual, and violence categories. Adjust these
+example values to suit your application.
+
+```bash
+MODEL="<imported-model-name>"
+
+az aigateway model policy set \
+  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --token-limit 10000 --token-period minute --token-counter-key Identity \
+  --content-safety Medium
+
+az aigateway model policy list \
+  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL"
+```
+
+These policies apply only to this gateway model registration, not every model
+in the provider or calls made directly to the backend. See
+[common model policies](command-reference.md#common-model-policies) to change
+one policy at a time.
+
+### 5. Optional cleanup
 
 Only run these commands for the dedicated tutorial resources. Gateway deletion
 removes its registrations and retains an API Management soft-delete record;
 the name may not be immediately reusable. Resource group deletion removes
 **everything** remaining in that group. Both commands prompt for confirmation.
+An existing Foundry account outside the group and its deployments are not
+deleted. If you followed the model path, also review the account-scoped role
+assignment created for the gateway identity and remove it when no longer needed.
 
 ```bash
 az aigateway delete --resource-group "$RG" --name "$GATEWAY"
