@@ -322,7 +322,7 @@ if [ -z "$MODEL_PATH" ]; then
 fi
 BODY="$(az aigateway model show \
   -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
-  --query "properties.deployment.modelName && {model:properties.deployment.modelName,messages:[{role:'user',content:'Say hello in one sentence.'}]}" -o json)" || exit 1
+  --query "properties.deployment.modelName && {model:properties.deployment.modelName,messages:[{role:'user',content:'Describe the AI Gateway SKU of Azure API Management in one sentence.'}]}" -o json)" || exit 1
 if [ -z "$BODY" ] || [ "$BODY" = "null" ]; then
   echo "This model has no runtime model identifier." >&2
   exit 1
@@ -347,7 +347,7 @@ if (!$modelPath -or !$modelInfo.properties.deployment.modelName) {
 }
 $body = @{
   model = $modelInfo.properties.deployment.modelName
-  messages = @(@{ role = "user"; content = "Say hello in one sentence." })
+  messages = @(@{ role = "user"; content = "Describe the AI Gateway SKU of Azure API Management in one sentence." })
 } | ConvertTo-Json -Depth 5
 
 $reply = irm -Method Post -Uri "$($AI_GATEWAY_URL.TrimEnd('/'))/default/models$modelPath" `

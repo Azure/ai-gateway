@@ -204,7 +204,7 @@ RUNTIME_MODEL="$(az aigateway model show \
 curl -fsS "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions" \
   -H "Api-Key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
   --data @- <<EOF
-{"model":"$RUNTIME_MODEL","messages":[{"role":"user","content":"Say hello in one sentence."}]}
+{"model":"$RUNTIME_MODEL","messages":[{"role":"user","content":"Describe the AI Gateway SKU of Azure API Management in one sentence."}]}
 EOF
 unset AI_GATEWAY_API_KEY
 ```
@@ -226,7 +226,7 @@ if ($LASTEXITCODE -ne 0 -or !$AI_GATEWAY_API_KEY) { throw "Unable to read the AP
 $RUNTIME_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL --query properties.deployment.modelName -o tsv
 $body = @{
   model = $RUNTIME_MODEL
-  messages = @(@{ role = "user"; content = "Say hello in one sentence." })
+  messages = @(@{ role = "user"; content = "Describe the AI Gateway SKU of Azure API Management in one sentence." })
 } | ConvertTo-Json -Depth 5
 
 $reply = irm -Method Post -Uri "$($AI_GATEWAY_URL.TrimEnd('/'))/default/models/openai/v1/chat/completions" `
@@ -237,8 +237,10 @@ Remove-Variable AI_GATEWAY_API_KEY
 ```
 
 Expect a short reply from the model (`choices[0].message.content` in the curl
-JSON response). Keep the key out of logs and source control. For key discovery,
-protocol checks, and troubleshooting, see the
+JSON response). This direct model call does not invoke the registered Learn MCP
+server; an MCP-capable client or agent must connect and call its tools to ground
+the answer in retrieved documentation. Keep the key out of logs and source control.
+For key discovery, protocol checks, and troubleshooting, see the
 [expanded model test](command-reference.md#test-models-with-additional-checks).
 If you followed only the MCP path, use the
 [MCP smoke test](command-reference.md#test-mcp-tools).
