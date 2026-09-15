@@ -243,10 +243,10 @@ so you do not discard the token.
 
 ## Test models with additional checks
 
-The [quickstart](README.md#5-test-the-gateway) uses a fresh gateway's default key
-and a known Chat Completions route. The expanded examples below discover an
-active key and the selected model's advertised endpoint instead. They stop if
-required metadata or credentials are missing.
+The [quickstart](README.md#5-test-the-gateway) discovers an active key and uses a
+known Chat Completions route. The expanded examples below also discover the
+selected model's advertised endpoint and stop if required metadata or credentials
+are missing.
 
 Use the gateway's runtime URL and API key, not an Azure management token or
 Foundry backend credential. You need permission to read key values. Keep the key
@@ -255,15 +255,23 @@ Model calls can incur inference charges.
 
 ### Get the runtime URL and key
 
+Key names are service-defined; do not assume a key named `default` exists. If
+`list-secrets` reports "Subscription not found", check the key name with
+`az aigateway api-key list`: a missing API Management key/subscription can
+produce this message even when the Azure subscription is accessible.
+The examples select a key automatically only when exactly one is active. If
+there are several, choose a name from the list, set `KEY_NAME`, and resume at
+`list-secrets`; do not silently use the first key.
+
 **Bash** -- reuse `RG` and `GATEWAY` from the quickstart:
 
 ```bash
 AI_GATEWAY_URL="$(az aigateway show -g "$RG" -n "$GATEWAY" \
   --query properties.gatewayUrl -o tsv)" || exit 1
 KEY_NAME="$(az aigateway api-key list -g "$RG" --gateway-name "$GATEWAY" \
-  --query "[?properties.state=='active'].name | [0]" -o tsv)" || exit 1
-if [ -z "$AI_GATEWAY_URL" ] || [ -z "$KEY_NAME" ]; then
-  echo "No runtime URL or active API key found. Check the gateway configuration." >&2
+  --query "[?properties.state=='active'].name" -o tsv)" || exit 1
+if [ -z "$AI_GATEWAY_URL" ] || [ -z "$KEY_NAME" ] || [[ "$KEY_NAME" == *$'\n'* ]]; then
+  echo "A runtime URL and exactly one selected active API key are required." >&2
   exit 1
 fi
 AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets \
@@ -283,9 +291,10 @@ $GATEWAY = "<your-gateway-name>"
 
 $AI_GATEWAY_URL = az aigateway show -g $RG -n $GATEWAY --query properties.gatewayUrl -o tsv
 if ($LASTEXITCODE -ne 0) { throw "Unable to read the gateway URL." }
-$KEY_NAME = az aigateway api-key list -g $RG --gateway-name $GATEWAY --query "[?properties.state=='active'].name | [0]" -o tsv
+$KEY_NAMES = @(az aigateway api-key list -g $RG --gateway-name $GATEWAY --query "[?properties.state=='active'].name" -o tsv)
 if ($LASTEXITCODE -ne 0) { throw "Unable to list API keys." }
-if (!$AI_GATEWAY_URL -or !$KEY_NAME) { throw "No runtime URL or active API key found." }
+if (!$AI_GATEWAY_URL -or $KEY_NAMES.Count -ne 1) { throw "A runtime URL and exactly one selected active API key are required." }
+$KEY_NAME = $KEY_NAMES[0]
 $AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n $KEY_NAME --query primaryKey -o tsv
 if ($LASTEXITCODE -ne 0 -or !$AI_GATEWAY_API_KEY) { throw "Unable to read the API key." }
 ```

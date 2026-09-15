@@ -175,18 +175,28 @@ one policy at a time.
 
 ### 5. Test the gateway
 
-This happy-path example assumes the earlier model setup succeeded, the gateway's
-built-in `default` key is active, and your selected model supports
+This happy-path example assumes the earlier model setup succeeded, the gateway
+has an active API key, and your selected model supports
 `/openai/v1/chat/completions`. You need permission to read the key. Run the commands
-in order and stop if one reports an error. Model calls can incur inference charges.
+in order and stop if one reports an error. The examples select the sole active
+key; if there are several, list them with `az aigateway api-key list`, set
+`KEY_NAME` to your chosen name, and continue from `list-secrets`.
+Model calls can incur inference charges.
 
 **Bash / curl** -- reuse the variables from the earlier steps:
 
 ```bash
 AI_GATEWAY_URL="$(az aigateway show -g "$RG" -n "$GATEWAY" \
   --query properties.gatewayUrl -o tsv)"
+KEY_NAME="$(az aigateway api-key list -g "$RG" --gateway-name "$GATEWAY" \
+  --query "[?properties.state=='active'].name" -o tsv)" || exit 1
+if [ -z "$KEY_NAME" ] || [[ "$KEY_NAME" == *$'\n'* ]]; then
+  echo "Select exactly one active API key name before continuing." >&2
+  exit 1
+fi
 AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets \
-  -g "$RG" --gateway-name "$GATEWAY" -n default --query primaryKey -o tsv)"
+  -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" --query primaryKey -o tsv)" || exit 1
+: "${AI_GATEWAY_API_KEY:?No key value returned; check your key-read permissions.}"
 RUNTIME_MODEL="$(az aigateway model show \
   -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
   --query properties.deployment.modelName -o tsv)"
@@ -208,7 +218,11 @@ $PROVIDER = "foundry-models"
 $MODEL = "<imported-model-name>"
 
 $AI_GATEWAY_URL = az aigateway show -g $RG -n $GATEWAY --query properties.gatewayUrl -o tsv
-$AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n default --query primaryKey -o tsv
+$KEY_NAMES = @(az aigateway api-key list -g $RG --gateway-name $GATEWAY --query "[?properties.state=='active'].name" -o tsv)
+if ($LASTEXITCODE -ne 0 -or $KEY_NAMES.Count -ne 1) { throw "Select exactly one active API key name before continuing." }
+$KEY_NAME = $KEY_NAMES[0]
+$AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n $KEY_NAME --query primaryKey -o tsv
+if ($LASTEXITCODE -ne 0 -or !$AI_GATEWAY_API_KEY) { throw "Unable to read the API key; stop before calling the gateway." }
 $RUNTIME_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL --query properties.deployment.modelName -o tsv
 $body = @{
   model = $RUNTIME_MODEL
