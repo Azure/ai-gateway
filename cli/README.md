@@ -123,13 +123,18 @@ It enables the gateway's system-assigned identity and grants that identity the
 **Foundry User** role on the account. It does not create model deployments;
 normal charges still apply when you use them.
 
-Copy the account's resource ID from its Azure portal **Properties** page. Use the
-account ID ending in `Microsoft.CognitiveServices/accounts/<account-name>`,
-not a project or deployment ID.
+Use the existing account's name and resource group to look up its resource ID
+in your selected subscription. No need to copy a long ID from the portal.
+Use the account name, not a project or deployment name.
 
 ```bash
-FOUNDRY_RESOURCE_ID="<foundry-account-resource-id>"
+FOUNDRY_RG="<foundry-resource-group>"
+FOUNDRY_ACCOUNT="<foundry-account-name>"
 PROVIDER="foundry-models"
+
+FOUNDRY_RESOURCE_ID="$(az cognitiveservices account show \
+  --resource-group "$FOUNDRY_RG" --name "$FOUNDRY_ACCOUNT" \
+  --query id --output tsv)"
 
 az aigateway model-provider create \
   -g "$RG" --gateway-name "$GATEWAY" --name "$PROVIDER" \
