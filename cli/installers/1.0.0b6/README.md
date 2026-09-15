@@ -85,8 +85,8 @@ table, and execute only if equal. Do not bypass local execution policy.
 Proposed alias targets (the final public commit is not yet known):
 
 ```text
-https://raw.githubusercontent.com/Azure/ai-gateway/<APPROVED_PUBLIC_COMMIT>/installers/1.0.0b6/install.sh
-https://raw.githubusercontent.com/Azure/ai-gateway/<APPROVED_PUBLIC_COMMIT>/installers/1.0.0b6/install.ps1
+https://raw.githubusercontent.com/Azure/ai-gateway/<APPROVED_PUBLIC_COMMIT>/cli/installers/1.0.0b6/install.sh
+https://raw.githubusercontent.com/Azure/ai-gateway/<APPROVED_PUBLIC_COMMIT>/cli/installers/1.0.0b6/install.ps1
 ```
 
 These are script URLs, distinct from the wheel URL. Use a full reviewed commit,
