@@ -1,4 +1,21 @@
-# AI Gateway CLI 1.0.0b6 candidate
+# AI Gateway CLI
+
+## Repository layout and release versions
+
+The CLI entry points live at stable, unversioned repository paths:
+[`cli/install.sh`](install.sh), [`cli/install.ps1`](install.ps1), and this
+`cli/README.md`. This follows the flat installer layout used by the
+[Connector namespace CLI](https://github.com/Azure/Connectors/tree/main/public-preview/connector-namespace-cli).
+
+Stable source paths do not mean a mutable latest wheel. The current candidate
+is `1.0.0b6`; both installers embed its versioned release URL and required
+SHA-256. Future releases can update these same source files through review,
+without creating another version-named directory. Script distribution targets
+must still pin a full approved Git commit, while the wheel URL identifies the
+specific release artifact. Arbitrary version overrides or a latest-wheel
+fallback require a separate trusted digest policy and are not supported here.
+
+## Current candidate: 1.0.0b6
 
 **Locally enabled; not published or live.** These standalone installers embed
 the proposed wheel URL below and require its pinned SHA-256 before installing.
@@ -85,8 +102,8 @@ table, and execute only if equal. Do not bypass local execution policy.
 Proposed alias targets (the final public commit is not yet known):
 
 ```text
-https://raw.githubusercontent.com/Azure/ai-gateway/<APPROVED_PUBLIC_COMMIT>/cli/installers/1.0.0b6/install.sh
-https://raw.githubusercontent.com/Azure/ai-gateway/<APPROVED_PUBLIC_COMMIT>/cli/installers/1.0.0b6/install.ps1
+https://raw.githubusercontent.com/Azure/ai-gateway/<APPROVED_PUBLIC_COMMIT>/cli/install.sh
+https://raw.githubusercontent.com/Azure/ai-gateway/<APPROVED_PUBLIC_COMMIT>/cli/install.ps1
 ```
 
 These are script URLs, distinct from the wheel URL. Use a full reviewed commit,
