@@ -73,6 +73,29 @@ The general shape is `az aigateway [group] command [arguments]`. Replace values
 inside `<...>` with your own values; do not include the angle brackets.
 Examples below use Bash quoting and line continuation.
 
+### Set up example variables
+
+Set these once in your shell before using the resource examples. If you followed
+the quickstart, reuse your `RG`, `GATEWAY`, and `LOCATION` values. Set `PROVIDER`
+and `MODEL` only if you use the model examples, choosing existing registrations.
+
+```bash
+SUBSCRIPTION="<subscription-id>"
+RG="rg-aigateway-quickstart"
+GATEWAY="<gateway-name>"
+LOCATION="<supported-region>"
+MCP_NAME="learn"
+PROVIDER="<provider-name>"
+MODEL="<model-name>"
+
+az login
+az account set --subscription "$SUBSCRIPTION"
+```
+
+The examples are independent, not a script to run from top to bottom. Creation
+commands change Azure resources; see the [quickstart](README.md#quickstart) for
+permissions, cost considerations, and cleanup.
+
 ### Select the right resource
 
 | Target | Resource selectors in these examples |
@@ -86,30 +109,29 @@ Examples below use Bash quoting and line continuation.
 List commands generally omit the child name. Some commands accept `--ids`
 instead of the separate resource selectors; check that command's help.
 
-Create a gateway (all three arguments below are required):
+Create a gateway in an existing resource group (all three arguments below are
+required). Use a globally unique name for `GATEWAY`:
 
 ```bash
 az aigateway create \
-  --resource-group "<resource-group>" --name "<gateway-name>" \
-  --location "<supported-region>"
+  --resource-group "$RG" --name "$GATEWAY" --location "$LOCATION"
 ```
 
 Inspect an existing MCP registration or model:
 
 ```bash
 az aigateway mcp show \
-  -g "<resource-group>" --gateway-name "<gateway-name>" -n "<mcp-name>"
+  -g "$RG" --gateway-name "$GATEWAY" -n "$MCP_NAME"
 
 az aigateway model show \
-  -g "<resource-group>" --gateway-name "<gateway-name>" \
-  --provider-name "<provider-name>" -n "<model-name>"
+  -g "$RG" --gateway-name "$GATEWAY" \
+  --provider-name "$PROVIDER" -n "$MODEL"
 ```
 
-Select a subscription before working, or supply `--subscription` on a command:
+To override the selected subscription for one command, supply `--subscription`:
 
 ```bash
-az account set --subscription "<subscription-id>"
-az aigateway list --subscription "<subscription-id>" --output table
+az aigateway list --subscription "$SUBSCRIPTION" --output table
 ```
 
 ### Structured values and choices
@@ -124,7 +146,7 @@ endpoint array itself:
 
 ```bash
 az aigateway mcp create \
-  -g "<resource-group>" --gateway-name "<gateway-name>" -n "<mcp-name>" \
+  -g "$RG" --gateway-name "$GATEWAY" -n "$MCP_NAME" \
   --endpoints @endpoints.json
 ```
 
@@ -136,12 +158,13 @@ credentials.
 Use `--output table` (or `-o table`) for a quick overview, `--output json`
 for the full result, and `--query` with `--output tsv` for individual values
 in scripts. Queries use [JMESPath](https://learn.microsoft.com/cli/azure/query-azure-cli).
+These examples reuse the [variables above](#set-up-example-variables).
 
 ```bash
 az aigateway list --output table
-az aigateway show -g "<resource-group>" -n "<gateway-name>" --output json
+az aigateway show -g "$RG" -n "$GATEWAY" --output json
 
-az aigateway show -g "<resource-group>" -n "<gateway-name>" \
+az aigateway show -g "$RG" -n "$GATEWAY" \
   --query properties.gatewayUrl --output tsv
 
 az aigateway version --query extensionVersion --output tsv
@@ -151,7 +174,7 @@ Query JSON field names, not the formatted table headings. For example, the
 gateway's state is `properties.provisioningState`, not `State`:
 
 ```bash
-az aigateway show -g "<resource-group>" -n "<gateway-name>" \
+az aigateway show -g "$RG" -n "$GATEWAY" \
   --query "{name:name,state:properties.provisioningState}" --output json
 ```
 
@@ -159,8 +182,8 @@ To list only models from one provider, use the command's filter:
 
 ```bash
 az aigateway model list \
-  -g "<resource-group>" --gateway-name "<gateway-name>" \
-  --model-provider "<provider-name>" --output table
+  -g "$RG" --gateway-name "$GATEWAY" \
+  --model-provider "$PROVIDER" --output table
 ```
 
 List commands that advertise `--max-items` and `--next-token` support paging.

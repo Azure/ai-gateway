@@ -46,12 +46,6 @@ az aigateway --help
 `version` reports `extensionName: aigateway`, `extensionVersion: 1.0.0b6`,
 and `apiVersion: 2025-09-01-preview`. Neither command needs an Azure login.
 
-### Direct installation (without the installer script)
-
-```bash
-az extension add --upgrade --yes --source https://github.com/Azure/ai-gateway/releases/download/cli-v1.0.0b6/aigateway-1.0.0b6-py3-none-any.whl
-```
-
 ## Quickstart
 
 Create a gateway and register the public
