@@ -81,8 +81,8 @@ Examples below use Bash quoting and line continuation.
 ### Set up example variables
 
 Set these once in your shell before using the resource examples. If you followed
-the quickstart, reuse your `RG`, `GATEWAY`, and `LOCATION` values. Set `PROVIDER`
-and `MODEL` only if you use the model examples, choosing existing registrations.
+the quickstart, reuse your `RG`, `GATEWAY`, and `LOCATION` values. Set the child
+resource names for the commands you use, choosing existing registrations or keys.
 
 ```bash
 SUBSCRIPTION="<subscription-id>"
@@ -92,6 +92,7 @@ LOCATION="<supported-region>"
 MCP_NAME="learn"
 PROVIDER="<provider-name>"
 MODEL="<model-name>"
+KEY_NAME="<api-key-name>"
 
 az login
 az account set --subscription "$SUBSCRIPTION"
@@ -105,12 +106,15 @@ permissions, cost considerations, and cleanup.
 
 | Target | Resource selectors in these examples |
 | --- | --- |
-| Gateway | `--resource-group <group> --name <gateway>` |
-| MCP registration, model provider, or API key | `--resource-group <group> --gateway-name <gateway> --name <child>` |
-| Individual model | `--resource-group <group> --gateway-name <gateway> --provider-name <provider> --name <model>` |
+| Gateway | `--resource-group "$RG" --name "$GATEWAY"` |
+| MCP registration | `--resource-group "$RG" --gateway-name "$GATEWAY" --name "$MCP_NAME"` |
+| Model provider | `--resource-group "$RG" --gateway-name "$GATEWAY" --name "$PROVIDER"` |
+| API key | `--resource-group "$RG" --gateway-name "$GATEWAY" --name "$KEY_NAME"` |
+| Individual model | `--resource-group "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" --name "$MODEL"` |
 
 `-g` is short for `--resource-group`, and `-n` for `--name`. The meaning of
 `--name` follows the resource being operated on; it is not always the gateway.
+`KEY_NAME` identifies the API-key resource, not its secret value.
 List commands generally omit the child name. Some commands accept `--ids`
 instead of the separate resource selectors; check that command's help.
 
