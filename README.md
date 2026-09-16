@@ -15,6 +15,13 @@ platform teams enforce security, policy, networking, and observability.
 
 ---
 
+## Azure CLI
+
+Create and manage gateways, model registrations, MCP servers, and policies with
+`az aigateway`. See the **[CLI installation and quickstart](cli/README.md)** for
+one-line Bash and PowerShell installers, or browse the
+[command reference](cli/command-reference.md).
+
 ## Coding-agent plugin
 
 This repository hosts the official **plugin** for coding agents. It helps
