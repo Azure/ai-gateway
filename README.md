@@ -93,6 +93,12 @@ with a gateway **API key**, read from an environment variable
 (`AI_GATEWAY_API_KEY`) and never hardcoded. Scaffolded projects keep `.env` out of
 source control. If a key is ever exposed, rotate it in the [AI Gateway Portal](https://ai.gateway.azure.com).
 
+Standalone agent scaffolds use least-privilege tool configuration: only explicitly
+selected MCP tools are made available, and permission-requiring operations require
+an explicit user decision. Generated applications do not automatically approve
+tool requests. Review each requested operation and grant the application and its
+gateway credentials only the permissions it needs.
+
 To report a security issue, see [SECURITY.md](SECURITY.md).
 
 ## Samples
