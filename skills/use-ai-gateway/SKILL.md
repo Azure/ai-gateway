@@ -366,7 +366,9 @@ The generated code must:
 - Use model provider `type: "openai"` (the AI Gateway exposes an OpenAI-compatible passthrough, where the model is selected by name in the request body)
 - Construct the model `base_url` as the AI Gateway's unified model passthrough: `<ai-gateway-host>/default/models/openai/v1` — for example `https://my-gateway.westus2-01.ai.gateway-current.azure.com/default/models/openai/v1`. This is the same endpoint the [AI Gateway Portal](https://ai.gateway.azure.com) advertises to consumers (the SDK appends `/chat/completions`). The `/default/` workspace segment is required — dropping it returns `404`
 - Precisely specify the model parameter and match it exactly to the selected model's **`properties.deployment.modelName`** (e.g. `gpt-5.4-nano`) — same dots, same casing, same punctuation. Prefer it over the ARM resource `name` (e.g. `gpt-5-4-nano`) or `displayName`, which may be rejected with `unknown_model` on some gateways
-- Include `"on_permission_request": PermissionHandler.approve_all` in the session config (import `PermissionHandler` from `copilot`)
+- Generate a custom `on_permission_request` handler that requires an explicit user decision for ordinary permission requests and leaves managed approval requests unresolved for the managing client. Never use `PermissionHandler.approve_all` in generated applications
+- Restrict each MCP server's `tools` list to the individually selected tool names. Never generate `"tools": ["*"]`
+- Set `available_tools` to the selected MCP tools using the Copilot SDK's source-qualified `mcp:<server-key>-<tool-name>` format. This prevents unrelated built-in, custom, or newly added MCP tools from becoming available implicitly
 - Pass the session config to `create_session` as keyword arguments (e.g. `create_session(model=..., provider=..., mcp_servers=...)`), like in the example below
 - Read all credentials from environment variables — never hardcode secrets
 - Load environment variables from a `.env` file using `python-dotenv` (Python) or `dotenv` (TypeScript)
@@ -381,9 +383,39 @@ The generated code must:
 import asyncio
 import os
 from dotenv import load_dotenv
-from copilot import CopilotClient, PermissionHandler
+from copilot import (
+    CopilotClient,
+    PermissionNoResult,
+    PermissionRequest,
+    PermissionRequestResult,
+)
+from copilot.rpc import PermissionDecisionApproveOnce, PermissionDecisionReject
 
 load_dotenv()
+
+async def confirm_permission(
+    request: PermissionRequest,
+    invocation: dict,
+) -> PermissionRequestResult:
+    if getattr(request, "managed_approval_required", False) is True:
+        return PermissionNoResult()
+
+    request_type = type(request).__name__
+    details = []
+    for attribute in ("tool_name", "full_command_text", "path", "url", "server_name"):
+        value = getattr(request, attribute, None)
+        if value:
+            details.append(f"{attribute}={value}")
+
+    description = f"{request_type}: {', '.join(details)}" if details else request_type
+    answer = await asyncio.to_thread(
+        input,
+        f"Approve tool permission request ({description})? [y/N] ",
+    )
+    if answer.strip().lower() in {"y", "yes"}:
+        return PermissionDecisionApproveOnce()
+
+    return PermissionDecisionReject(feedback="The user denied this tool operation.")
 
 async def main():
     client = CopilotClient()
@@ -391,7 +423,7 @@ async def main():
 
     try:
         session = await client.create_session(
-            on_permission_request=PermissionHandler.approve_all,
+            on_permission_request=confirm_permission,
             model="<selected-model>",  # e.g. "gpt-4o"
             # BYOK provider — points to the AI Gateway unified model passthrough.
             # The gateway authenticates the model passthrough via the `Api-Key`
@@ -408,16 +440,21 @@ async def main():
             },
             # MCP tool servers from AI Gateway
             mcp_servers={
-                "<tool-name>": {
+                "<tool-server-name>": {
                     "type": "http",
                     "url": "<tool-endpoint>",
                     "headers": {
                         "Api-Key": os.environ["AI_GATEWAY_API_KEY"],
                     },
-                    "tools": ["*"],
+                    "tools": ["<selected-tool-name>"],
                 },
                 # Add more tools as needed
             },
+            # MCP tools are registered as <server-key>-<tool-name>. The
+            # source-qualified form keeps built-in and unselected tools out.
+            available_tools=[
+                "mcp:<tool-server-name>-<selected-tool-name>",
+            ],
         )
 
         def on_event(event):
@@ -466,6 +503,8 @@ After generating the agent code, create a complete, self-contained project the u
 
 5. **`README.md`** — a short, self-contained guide so the downloaded project runs without this chat. Include:
    - what the agent does and which gateway model + tool servers it uses (by name)
+   - that tool permission requests require explicit confirmation and should be approved only when the displayed operation is expected
+   - which individual MCP tools are allowlisted and how to update the allowlist intentionally
    - prerequisites (Python 3.10+, the Copilot CLI, `github-copilot-sdk >= 1.0.0`)
    - install steps (`pip install -r requirements.txt`)
    - how to set credentials (copy `.env.example` to `.env`, or use the pre-filled `.env`)
@@ -486,6 +525,7 @@ After generating the code, provide:
 Don't stop at "here's the code." Run the agent once and confirm the wiring actually works, then report the outcome to the user:
 
 - **Run it** (e.g. `python agent.py`) and read the output.
+- If the agent requests tool permission, verify the displayed operation and approve only the tool call expected for the test. An unexpected shell, file, URL, or unselected MCP operation must be denied and treated as a generated-code or prompt-safety defect.
 - **Distinguish config failures from benign backend conditions.** Treat these as a **healthy** end-to-end wiring (the gateway accepted the request) — report success and move on:
   - `429 ... exceeded rate limit` or quota errors from the model
   - empty/slow responses caused by the upstream model, not the client
