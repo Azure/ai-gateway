@@ -183,7 +183,7 @@ export async function build() {
     .map((f) => `/* ${f} */\n${fs.readFileSync(path.join(SITE_SRC, dir, f), 'utf8').trim()}\n`).join('\n');
   fs.writeFileSync(path.join(OUT, 'assets', 'site.css'), parts('css', '.css'));
   fs.writeFileSync(path.join(OUT, 'assets', 'site.js'), `(() => {\n'use strict';\n${parts('js', '.js')}\n})();\n`);
-  fs.copyFileSync(path.join(SITE_SRC, 'favicon.svg'), path.join(OUT, 'assets', 'favicon.svg'));
+  for (const f of ['favicon.svg', 'og-image.jpg']) fs.copyFileSync(path.join(SITE_SRC, f), path.join(OUT, 'assets', f));
   fs.writeFileSync(path.join(OUT, '.nojekyll'), '');
 
   const shared = {
