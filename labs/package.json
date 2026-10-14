@@ -10,7 +10,8 @@
     "serve": "node tools/serve.mjs 4173",
     "watch": "node build.mjs --watch",
     "diagrams": "node tools/diagrams.mjs",
-    "dev": "node build.mjs --watch & node tools/serve.mjs 4173"
+    "dev": "node build.mjs --watch & node tools/serve.mjs 4173",
+    "deploy:swa": "bash tools/deploy-swa.sh"
   },
   "engines": {
     "node": ">=20"

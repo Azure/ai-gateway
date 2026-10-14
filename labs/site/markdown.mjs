@@ -200,6 +200,7 @@ function stepify(html, prefix) {
 }
 
 function enhanceHtml(html) {
+  let tabGroup = 0;
   // Click paths: **A** › **B** › **C**
   html = html.replace(/(<strong>[^<]{1,60}<\/strong>)((?:\s*(?:›|&gt;|→)\s*<strong>[^<]{1,60}<\/strong>)+)/g, (all) => {
     const items = [...all.matchAll(/<strong>([^<]+)<\/strong>/g)].map((x) => x[1]);
@@ -210,7 +211,7 @@ function enhanceHtml(html) {
     const blocks = [...group.matchAll(/<div class="code" data-lang="([^"]+)" data-group="1"><div class="code-head"><span class="code-title">([^<]*)<\/span>[\s\S]*?(<pre class="shiki">[\s\S]*?<\/pre>)<\/div>/g)]
       .map(([, lang, title, pre]) => ({ lang, title: title.replace(/&amp;/g, '&'), pre }));
     if (blocks.length < 2) return group;
-    const id = `ct${Math.random().toString(36).slice(2, 8)}`;
+    const id = `ct${++tabGroup}`;
     const tabs = blocks.map((b, i) => `<button role="tab" class="code-tab" aria-selected="${i === 0}" data-tab-label="${escapeHtml(b.title)}" id="${id}-t${i}" aria-controls="${id}-p${i}" tabindex="${i ? -1 : 0}">${escapeHtml(b.title)}</button>`).join('');
     const panels = blocks.map((b, i) => `<div role="tabpanel" class="code-panel" id="${id}-p${i}" aria-labelledby="${id}-t${i}"${i ? ' hidden' : ''} data-lang="${b.lang}">${b.pre}</div>`).join('');
     return `<div class="code code-tabs"><div class="code-head"><div class="code-tablist" role="tablist">${tabs}</div>`

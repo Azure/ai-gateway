@@ -12,10 +12,11 @@ import { layout, homePage, catalogPage, labPage, notFoundPage } from './site/tem
 
 const LABS = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(LABS, '..');
-const OUT = path.join(ROOT, 'docs');
+// LABS_OUT and LABS_SITE_URL build a copy for another host (see tools/deploy-swa.sh).
+const OUT = process.env.LABS_OUT ? path.resolve(process.env.LABS_OUT) : path.join(ROOT, 'docs');
 const SITE_SRC = path.join(LABS, 'site');
-const BASE_PATH = '/ai-gateway/';
-const BASE_URL = `https://azure.github.io${BASE_PATH}`;
+const BASE_URL = (process.env.LABS_SITE_URL || 'https://azure.github.io/ai-gateway/').replace(/\/?$/, '/');
+const BASE_PATH = new URL(BASE_URL).pathname;
 const GENERATED = ['index.html', '404.html', 'labs', 'assets', 'search.json', 'llms.txt', 'llms-full.txt', 'sitemap.xml', 'robots.txt', '.nojekyll'];
 const MEDIA_RE = /\.(png|jpe?g|gif|webp|svg|mp4|webm|avif)$/i;
 const REQUIRED = ['title', 'summary', 'category', 'level', 'duration', 'tracks', 'objectives'];

@@ -74,6 +74,10 @@ npm run check      # strict build: fails on broken links, anchors, images, or fr
 npm run diagrams   # regenerate the SVG diagrams in assets/diagrams
 ```
 
+To publish a copy to Azure Static Web Apps (served from `/`), sign in with `az login` and run
+`npm run deploy:swa -- [app-name] [resource-group]`. It defaults to `swa-ai-gateway-labs` in `rg-ai-gateway-labs`,
+builds into the ignored `labs/.swa` folder, and deploys with the Static Web Apps CLI. `docs/` isn't touched.
+
 Commit both your changes under `labs/` and the regenerated `docs/` folder, and run `npm run check` before you open
 a pull request.
 
