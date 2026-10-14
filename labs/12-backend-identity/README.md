@@ -1,0 +1,554 @@
+---
+title: Call backends with managed identities
+summary: Let the gateway reach Microsoft Foundry with a managed identity instead of stored keys. Check the system-assigned identity, then create a user-assigned identity you can share across gateways, grant it Foundry User, attach it, and point a model provider at it from the portal, the Azure CLI, or Bicep.
+category: security
+level: Intermediate
+duration: 20
+tracks: [portal, cli, iac]
+order: 12
+illustration: diagrams/identity-boundaries.svg
+tags: [managed identity, user-assigned identity, Foundry User, RBAC, keyless, model provider, "403"]
+objectives:
+  - Explain how the gateway authenticates to backends, separately from how callers authenticate to the gateway
+  - Check the gateway's system-assigned identity and the assets that use it
+  - Create a user-assigned identity, attach it to the gateway, and grant it Foundry User on a Foundry account
+  - Point a Foundry model provider at the user-assigned identity and prove that calls still succeed
+  - Decide when a backend needs a stored API key instead
+prereqs:
+  - 02-first-model-call
+---
+
+# Call backends with managed identities
+
+Your platform team runs one gateway per region, and every gateway calls the same Foundry account. Today each
+gateway uses its own system-assigned identity, so every new gateway needs a fresh **Foundry User** grant, and
+recreating a gateway leaves a stale role assignment behind. The team wants one identity that it owns, grants
+once, and attaches to every gateway, with no backend key stored anywhere. In this lab you check the gateway's
+system-assigned identity, create a user-assigned identity, give it access to Foundry, and switch a model
+provider to it without changing a single client.
+
+![Callers authenticate inbound to the gateway, and the gateway authenticates outbound to each backend](../assets/diagrams/identity-boundaries.svg "Callers authenticate to the gateway with an API key or a Microsoft Entra token. The gateway then calls each backend with its own managed identity, which this lab configures.")
+
+## Before you begin
+
+- Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need a
+  gateway with a Foundry model provider that uses a managed identity, a model alias, and a runtime API key.
+- The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
+  `az login`, and the `aigateway` extension
+  ([install it](https://github.com/Azure/ai-gateway/tree/main/cli#install)). Every track uses it at least once:
+  the portal can't change the identity of a model provider that already exists.
+- Permissions:
+  - Create a managed identity in the resource group, for example **Contributor** or
+    **Managed Identity Contributor**.
+  - Attach the identity to the gateway: **Contributor** on the gateway and **Managed Identity Operator** on the
+    identity. **Contributor** on a resource group that holds both covers this.
+  - Create role assignments on the Foundry account, for example **Owner**, **User Access Administrator**, or
+    **Role Based Access Control Administrator**.
+
+Managed identities are free. Nothing in this lab adds charges beyond the model calls you make.
+
+Set these variables once. Every track and the **Verify** section reuse them.
+
+```bash title="Bash"
+export RG="<resource-group>"
+export GATEWAY="<gateway>"
+export PROVIDER="<provider-name>"                 # the Foundry provider from lab 02, for example foundry-models
+export FOUNDRY_RG="<foundry-resource-group>"      # resource group of the Foundry account
+export FOUNDRY_ACCOUNT="<foundry-account-name>"   # the account name, not a project or deployment name
+export IDENTITY="id-aigateway-backends"           # the user-assigned identity to create
+
+export FOUNDRY_ID="$(az cognitiveservices account show -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --query id -o tsv)"
+export AI_GATEWAY_URL="$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.gatewayUrl -o tsv)"
+export AI_GATEWAY_MODEL="<model-name>"            # the alias you called in lab 02
+# Paste the runtime key from lab 02. Don't commit it or write it to a file.
+read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
+```
+
+```powershell title="PowerShell"
+$RG              = "<resource-group>"
+$GATEWAY         = "<gateway>"
+$PROVIDER        = "<provider-name>"              # the Foundry provider from lab 02, for example foundry-models
+$FOUNDRY_RG      = "<foundry-resource-group>"     # resource group of the Foundry account
+$FOUNDRY_ACCOUNT = "<foundry-account-name>"       # the account name, not a project or deployment name
+$IDENTITY        = "id-aigateway-backends"        # the user-assigned identity to create
+
+$FOUNDRY_ID = az cognitiveservices account show -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT --query id -o tsv
+$env:AI_GATEWAY_URL = az aigateway show -g $RG -n $GATEWAY --query properties.gatewayUrl -o tsv
+$env:AI_GATEWAY_MODEL = "<model-name>"            # the alias you called in lab 02
+# Paste the runtime key from lab 02. Don't commit it or write it to a file.
+$env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
+```
+
+Don't remember the provider name? List the Foundry providers:
+`az aigateway model-provider list -g "$RG" --gateway-name "$GATEWAY" --query "[?properties.kind=='Foundry'].name" -o tsv`.
+
+## How it works
+
+Every call crosses two boundaries. **Inbound**, the caller proves who it is to the gateway with a runtime API key
+([lab 10](../10-api-keys/README.md)) or a Microsoft Entra token ([lab 11](../11-entra-rbac/README.md)).
+**Outbound**, the gateway proves who *it* is to the backend. The caller never sends a backend credential: you
+configure it once on the asset, such as a model provider or an MCP server backend.
+
+For Azure backends, use a managed identity. The gateway requests a Microsoft Entra token for the backend's
+audience, `https://cognitiveservices.azure.com/` for Foundry, and Azure RBAC on the backend decides what the
+identity can do. For Foundry and Azure OpenAI, grant **Foundry User** on the account. Keep backend API keys for
+backends that can't accept an Entra token.
+
+| | System-assigned identity | User-assigned identity | Stored backend key |
+|---|---|---|---|
+| Created by | Azure, with the gateway. The portal enables it by default. | You, as its own Azure resource | The backend's owner |
+| Lifecycle | Tied to the gateway. Deleting the gateway deletes it. | Independent. Attach it to many gateways and keep it when a gateway is recreated. | You store it in the gateway and rotate it |
+| Best for | One gateway calling Azure backends | Sharing one identity and its role assignments across gateways | Third-party providers and tools without Entra support |
+| Foundry provider setting | `managedIdentity` without `clientId` | `managedIdentity.clientId` set to the identity's client ID | `apiKey` |
+
+Attaching an identity to the gateway doesn't change which identity an asset uses. Each asset names its identity,
+so you can move assets one at a time.
+
+## Check the system-assigned identity
+
+Lab 02's provider calls Foundry with the gateway's system-assigned identity. See it before you change anything.
+
+<!-- steps -->
+
+### Look at the identity in the portal
+
+1. Open the [AI Gateway portal](https://ai.gateway.azure.com) and select your gateway.
+2. Select **Managed identities**. On **Configure identities**, the **System-assigned identity** card shows
+   **Enabled** with a **Principal ID** and a **Tenant ID**.
+3. Select **View access**. **Backend access** lists the assets that authenticate with a managed identity. Your
+   Foundry provider appears with **System-assigned** as its identity and **Foundry User** as its role.
+
+![The Managed identities page with the system-assigned identity enabled and no user-assigned identities](../assets/screens/managed-identities.png "Configure identities shows the system-assigned identity's principal and tenant IDs, and the user-assigned identities attached to the gateway.")
+
+### Check it with the CLI
+
+```bash title="Bash"
+az aigateway identity show -g "$RG" -n "$GATEWAY"
+```
+
+```powershell title="PowerShell"
+az aigateway identity show -g $RG -n $GATEWAY
+```
+
+The output shows `type` and the system-assigned `principalId`. If the command reports that no identity is
+assigned, enable one with `az aigateway identity assign -g "$RG" -n "$GATEWAY" --system-assigned true`.
+
+<!-- /steps -->
+
+> [!WARNING]
+> Don't turn off the system-assigned identity while assets use it. Disabling it recycles the service principal:
+> every backend configured with it fails until you enable it again, and a re-enabled identity gets a new
+> principal ID without the old role assignments.
+
+## Create a user-assigned identity and give it access
+
+Pick one track. Each track creates the identity, attaches it to the gateway, and grants it **Foundry User** on
+the Foundry account.
+
+<!-- track: portal | Portal -->
+
+### Create and attach the identity
+
+1. In **Managed identities** › **Configure identities**, under **User-assigned identities**, select
+   **Add identity**.
+2. Select **Create new** and enter the **Name** from `$IDENTITY`, for example `id-aigateway-backends`. The portal
+   creates the identity in the gateway's subscription, resource group, and region.
+3. Select **Add identity**. The new identity appears in the table with its **Principal** and **Client ID**.
+
+To reuse an identity that already exists, select **Use existing** instead, then pick its **Subscription** and
+**User-assigned managed identity**.
+
+### Read the identity's IDs
+
+You need the principal ID to grant access and the client ID to point the provider at the identity.
+
+```bash title="Bash"
+export IDENTITY_ID="$(az identity show -g "$RG" -n "$IDENTITY" --query id -o tsv)"
+export IDENTITY_CLIENT_ID="$(az identity show -g "$RG" -n "$IDENTITY" --query clientId -o tsv)"
+export IDENTITY_PRINCIPAL_ID="$(az identity show -g "$RG" -n "$IDENTITY" --query principalId -o tsv)"
+```
+
+```powershell title="PowerShell"
+$IDENTITY_ID           = az identity show -g $RG -n $IDENTITY --query id -o tsv
+$IDENTITY_CLIENT_ID    = az identity show -g $RG -n $IDENTITY --query clientId -o tsv
+$IDENTITY_PRINCIPAL_ID = az identity show -g $RG -n $IDENTITY --query principalId -o tsv
+```
+
+### Grant Foundry User on the Foundry account
+
+Attaching an identity doesn't grant it any access. In the [Azure portal](https://portal.azure.com), open the
+Foundry account and select **Access control (IAM)** › **Add** › **Add role assignment**. Select **Foundry User**,
+assign access to **Managed identity**, select your identity as the member, then select **Review + assign**.
+
+Or grant the role from the command line:
+
+```bash title="Bash"
+az role assignment create --assignee-object-id "$IDENTITY_PRINCIPAL_ID" --assignee-principal-type ServicePrincipal \
+  --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope "$FOUNDRY_ID"
+```
+
+```powershell title="PowerShell"
+az role assignment create --assignee-object-id $IDENTITY_PRINCIPAL_ID --assignee-principal-type ServicePrincipal `
+  --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope $FOUNDRY_ID
+```
+
+> **Checkpoint**
+> **User-assigned identities** lists your identity, and the Foundry account's **Access control (IAM)** ›
+> **Role assignments** shows it with **Foundry User**.
+
+<!-- track: cli | Azure CLI -->
+
+### Create the identity
+
+```bash title="Bash"
+az identity create -g "$RG" -n "$IDENTITY"
+
+export IDENTITY_ID="$(az identity show -g "$RG" -n "$IDENTITY" --query id -o tsv)"
+export IDENTITY_CLIENT_ID="$(az identity show -g "$RG" -n "$IDENTITY" --query clientId -o tsv)"
+export IDENTITY_PRINCIPAL_ID="$(az identity show -g "$RG" -n "$IDENTITY" --query principalId -o tsv)"
+```
+
+```powershell title="PowerShell"
+az identity create -g $RG -n $IDENTITY
+
+$IDENTITY_ID           = az identity show -g $RG -n $IDENTITY --query id -o tsv
+$IDENTITY_CLIENT_ID    = az identity show -g $RG -n $IDENTITY --query clientId -o tsv
+$IDENTITY_PRINCIPAL_ID = az identity show -g $RG -n $IDENTITY --query principalId -o tsv
+```
+
+The identity is created in the resource group's region. It can live in any resource group or subscription in
+the gateway's tenant.
+
+### Attach it to the gateway
+
+`assign` keeps the identities the gateway already has, so the system-assigned identity stays enabled.
+
+```bash title="Bash"
+az aigateway identity assign -g "$RG" -n "$GATEWAY" --user-assigned "$IDENTITY_ID"
+```
+
+```powershell title="PowerShell"
+az aigateway identity assign -g $RG -n $GATEWAY --user-assigned $IDENTITY_ID
+```
+
+### Grant Foundry User on the Foundry account
+
+```bash title="Bash"
+az role assignment create --assignee-object-id "$IDENTITY_PRINCIPAL_ID" --assignee-principal-type ServicePrincipal \
+  --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope "$FOUNDRY_ID"
+```
+
+```powershell title="PowerShell"
+az role assignment create --assignee-object-id $IDENTITY_PRINCIPAL_ID --assignee-principal-type ServicePrincipal `
+  --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope $FOUNDRY_ID
+```
+
+Grant the role on the Foundry account itself, the resource that the provider calls.
+
+> **Checkpoint**
+> `az aigateway identity show -g "$RG" -n "$GATEWAY" --query "userAssignedIdentities" -o json` lists your
+> identity, and
+> `az role assignment list --assignee "$IDENTITY_PRINCIPAL_ID" --scope "$FOUNDRY_ID" --query "[].roleDefinitionName" -o tsv`
+> prints `Foundry User`.
+
+<!-- track: iac | Bicep -->
+
+### Review the template
+
+[infra/main.bicep](infra/main.bicep) creates the user-assigned identity and calls
+[infra/foundry-user-role.bicep](infra/foundry-user-role.bicep) in the Foundry account's resource group to grant
+it **Foundry User**. The account can be in another resource group or subscription.
+
+<!-- include: infra/main.bicep -->
+
+<!-- include: infra/foundry-user-role.bicep -->
+
+### Deploy the template
+
+```bash title="Bash"
+az deployment group create -g "$RG" \
+  --template-file infra/main.bicep \
+  --parameters identityName="$IDENTITY" foundryAccountId="$FOUNDRY_ID" \
+  --query properties.outputs -o json
+
+export IDENTITY_ID="$(az identity show -g "$RG" -n "$IDENTITY" --query id -o tsv)"
+export IDENTITY_CLIENT_ID="$(az identity show -g "$RG" -n "$IDENTITY" --query clientId -o tsv)"
+export IDENTITY_PRINCIPAL_ID="$(az identity show -g "$RG" -n "$IDENTITY" --query principalId -o tsv)"
+```
+
+```powershell title="PowerShell"
+az deployment group create -g $RG `
+  --template-file infra/main.bicep `
+  --parameters identityName=$IDENTITY foundryAccountId=$FOUNDRY_ID `
+  --query properties.outputs -o json
+
+$IDENTITY_ID           = az identity show -g $RG -n $IDENTITY --query id -o tsv
+$IDENTITY_CLIENT_ID    = az identity show -g $RG -n $IDENTITY --query clientId -o tsv
+$IDENTITY_PRINCIPAL_ID = az identity show -g $RG -n $IDENTITY --query principalId -o tsv
+```
+
+The outputs show `identityId`, `clientId`, `principalId`, and the role assignment name.
+
+### Attach the identity to the gateway
+
+The template doesn't declare the gateway: an identity block in Bicep redeploys the whole gateway resource. Attach
+the identity with the CLI instead. `assign` keeps the identities the gateway already has.
+
+```bash title="Bash"
+az aigateway identity assign -g "$RG" -n "$GATEWAY" --user-assigned "$IDENTITY_ID"
+```
+
+```powershell title="PowerShell"
+az aigateway identity assign -g $RG -n $GATEWAY --user-assigned $IDENTITY_ID
+```
+
+> **Checkpoint**
+> The deployment succeeds, and `az aigateway identity show -g "$RG" -n "$GATEWAY" --query "userAssignedIdentities" -o json`
+> lists your identity.
+
+<!-- /tracks -->
+
+> [!IMPORTANT]
+> Role assignments can take several minutes to take effect. If you switch the provider before then, model calls
+> fail with `403` from the backend until the assignment propagates.
+
+## Point the model provider at the identity
+
+The provider still uses the system-assigned identity. Setting `clientId` in its managed identity settings
+switches it to your identity. Clients don't change: they keep calling the same alias with the same key or token.
+
+<!-- track: portal | Portal -->
+
+### Update the provider's authentication
+
+The portal picks the identity only when you import a Foundry account: the **Authentication method** step offers
+**Managed identity** with a choice of the system-assigned identity or any attached user-assigned identity, and
+grants the selected identity **Foundry User**. To switch a provider that already exists, run this Azure CLI
+command, for example in [Azure Cloud Shell](https://shell.azure.com):
+
+```bash title="Bash"
+az aigateway model-provider update -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" \
+  --foundry "{authentication:{kind:ManagedIdentity,managedIdentity:{clientId:$IDENTITY_CLIENT_ID,resource:'https://cognitiveservices.azure.com/'}}}" \
+  --query properties.foundry.authentication
+```
+
+```powershell title="PowerShell"
+az aigateway model-provider update -g $RG --gateway-name $GATEWAY -n $PROVIDER `
+  --foundry "{authentication:{kind:ManagedIdentity,managedIdentity:{clientId:$IDENTITY_CLIENT_ID,resource:'https://cognitiveservices.azure.com/'}}}" `
+  --query properties.foundry.authentication
+```
+
+<!-- track: cli | Azure CLI -->
+
+### Update the provider's authentication
+
+`update` changes only the properties you supply, so the endpoint, accounts, and models stay as they are. The
+`--foundry` value uses the CLI's shorthand syntax, which works the same in Bash and PowerShell. A JSON object
+with the same keys works too.
+
+```bash title="Bash"
+az aigateway model-provider update -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" \
+  --foundry "{authentication:{kind:ManagedIdentity,managedIdentity:{clientId:$IDENTITY_CLIENT_ID,resource:'https://cognitiveservices.azure.com/'}}}" \
+  --query properties.foundry.authentication
+```
+
+```powershell title="PowerShell"
+az aigateway model-provider update -g $RG --gateway-name $GATEWAY -n $PROVIDER `
+  --foundry "{authentication:{kind:ManagedIdentity,managedIdentity:{clientId:$IDENTITY_CLIENT_ID,resource:'https://cognitiveservices.azure.com/'}}}" `
+  --query properties.foundry.authentication
+```
+
+<!-- track: iac | Bicep -->
+
+### Redeploy the provider with the identity
+
+[infra/provider.bicep](infra/provider.bicep) redeploys the provider that lab 02's Bicep track creates, with the
+same endpoint and account, and adds `clientId` to its managed identity settings. A deployment replaces the
+provider's properties, so pass the display name and description you want to keep. Models and aliases are
+separate resources and aren't touched. If you created the provider in the portal or with
+`model-provider create`, use the **Azure CLI** track's `update` command instead, which changes only the
+authentication.
+
+```bicep
+authentication: {
+  kind: 'ManagedIdentity'
+  managedIdentity: {
+    clientId: identityClientId   // omit clientId to use the system-assigned identity
+    resource: 'https://cognitiveservices.azure.com/'
+  }
+}
+```
+
+<!-- include: infra/provider.bicep -->
+
+```bash title="Bash"
+az deployment group create -g "$RG" \
+  --template-file infra/provider.bicep \
+  --parameters gatewayName="$GATEWAY" providerName="$PROVIDER" foundryAccountId="$FOUNDRY_ID" \
+               identityClientId="$IDENTITY_CLIENT_ID" \
+  --query properties.outputs -o json
+```
+
+```powershell title="PowerShell"
+az deployment group create -g $RG `
+  --template-file infra/provider.bicep `
+  --parameters gatewayName=$GATEWAY providerName=$PROVIDER foundryAccountId=$FOUNDRY_ID `
+               identityClientId=$IDENTITY_CLIENT_ID `
+  --query properties.outputs -o json
+```
+
+<!-- /tracks -->
+
+> **Checkpoint**
+> The provider's `authentication` shows `kind: ManagedIdentity` and a `managedIdentity.clientId` equal to
+> `$IDENTITY_CLIENT_ID`.
+
+## Verify
+
+<!-- steps -->
+
+### Confirm which identity the provider uses
+
+```bash title="Bash"
+az aigateway model-provider show -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" \
+  --query properties.foundry.authentication.managedIdentity.clientId -o tsv
+echo "$IDENTITY_CLIENT_ID"
+```
+
+```powershell title="PowerShell"
+az aigateway model-provider show -g $RG --gateway-name $GATEWAY -n $PROVIDER `
+  --query properties.foundry.authentication.managedIdentity.clientId -o tsv
+$IDENTITY_CLIENT_ID
+```
+
+Both lines print the same client ID. In the portal, **Managed identities** › **View access** now lists your
+provider under your identity's name instead of **System-assigned**. The list reflects the configured binding,
+not the live role assignment on the Foundry account, so a missing role still shows up only as a failed call.
+
+### Call the model through the gateway
+
+```bash title="Bash"
+curl -sS -o /dev/null -w "HTTP %{http_code}\n" "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions" \
+  -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
+  -d "{\"model\":\"$AI_GATEWAY_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
+```
+
+```powershell title="PowerShell"
+$body = @{ model = $env:AI_GATEWAY_MODEL; messages = @(@{ role = "user"; content = "ping" }) } | ConvertTo-Json -Depth 5
+(Invoke-WebRequest -Method Post -Uri "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/models/openai/v1/chat/completions" `
+  -Headers @{ "api-key" = $env:AI_GATEWAY_API_KEY } -ContentType "application/json" -Body $body -SkipHttpErrorCheck).StatusCode
+```
+
+Expect `HTTP 200`. A `403` that mentions permissions on the Foundry account means the role assignment hasn't
+propagated yet: wait a few minutes and retry.
+
+You called the same alias with the same key as in lab 02. Only the gateway's outbound credential changed, and no
+backend key was stored or sent.
+
+<!-- /steps -->
+
+> **Checkpoint**
+> The provider names your user-assigned identity, **View access** shows the new binding, and the model still
+> answers with `200`.
+
+## Go further
+
+### Use stored credentials when a backend can't take a managed identity
+
+Managed identity needs a backend that accepts Microsoft Entra tokens. When it doesn't, store the backend's own
+credential in the gateway, never in the calling app.
+
+| Backend | How the gateway authenticates |
+|---|---|
+| Microsoft Foundry and Azure OpenAI | **Managed identity** (recommended) or **API key**, chosen in the import's **Authentication method** step |
+| OpenAI, Anthropic, AWS Bedrock, Google Vertex AI, and other custom models | The provider's API key, entered when you add the custom model ([lab 03](../03-multi-provider-aliases/README.md)) |
+| MCP server backends | **None**, **API key**, **OAuth 2.0**, or **Managed identity**, set per backend ([lab 04](../04-federate-mcp-tools/README.md)) |
+
+- Prefer managed identity whenever the backend supports it.
+- The gateway stores backend keys and tokens with the asset or connection and never returns them to clients.
+- Rotate backend credentials on their own schedule. They're independent of the runtime keys callers use.
+
+### Drop access the system identity no longer needs
+
+After every asset that calls the Foundry account uses the user-assigned identity, the system-assigned identity's
+**Foundry User** assignment on that account is unused. Check **View access** › **Backend access** first: remove
+the assignment only if no other asset lists **System-assigned** for that account, because later labs in this
+series use it. A call that still returns `200` a few minutes after you remove it also proves that the provider
+uses the user-assigned identity.
+
+## Clean up
+
+Keep the system-assigned identity and its **Foundry User** role. Later labs use them. Remove the user-assigned
+identity in this order, so the provider never points at an identity it can't use.
+
+<!-- steps -->
+
+### Switch the provider back to the system-assigned identity
+
+Setting `clientId` to `null` removes it, which selects the system-assigned identity again.
+
+```bash title="Bash"
+az aigateway model-provider update -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" \
+  --foundry "{authentication:{managedIdentity:{clientId:null}}}" \
+  --query properties.foundry.authentication
+```
+
+```powershell title="PowerShell"
+az aigateway model-provider update -g $RG --gateway-name $GATEWAY -n $PROVIDER `
+  --foundry "{authentication:{managedIdentity:{clientId:null}}}" `
+  --query properties.foundry.authentication
+```
+
+If you used the Bicep track, redeploy `infra/provider.bicep` without `identityClientId` instead.
+
+### Detach the identity from the gateway
+
+```bash title="Bash"
+az aigateway identity remove -g "$RG" -n "$GATEWAY" --user-assigned "$IDENTITY_ID"
+```
+
+```powershell title="PowerShell"
+az aigateway identity remove -g $RG -n $GATEWAY --user-assigned $IDENTITY_ID
+```
+
+In the portal, select the identity in **User-assigned identities**, select the delete button in the toolbar, then
+**Detach**. Detaching removes the identity from this gateway only.
+
+### Remove the role assignment and delete the identity
+
+```bash title="Bash"
+az role assignment delete --assignee "$IDENTITY_PRINCIPAL_ID" --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope "$FOUNDRY_ID"
+az identity delete -g "$RG" -n "$IDENTITY"
+```
+
+```powershell title="PowerShell"
+az role assignment delete --assignee $IDENTITY_PRINCIPAL_ID --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope $FOUNDRY_ID
+az identity delete -g $RG -n $IDENTITY
+```
+
+Delete the role assignment first. Deleting the identity alone leaves an orphaned assignment on the account.
+
+<!-- /steps -->
+
+> **Checkpoint**
+> The model call from **Verify** still returns `200`, and **View access** shows the provider under
+> **System-assigned** again.
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `403` mentioning permissions on the Foundry account right after the switch | The role assignment hasn't propagated, or it's at a different scope than the Foundry account | Wait a few minutes. Check `az role assignment list --assignee "$IDENTITY_PRINCIPAL_ID" --scope "$FOUNDRY_ID" -o table`. |
+| Calls fail after the switch and the role is in place | `clientId` holds the principal (object) ID, or the identity isn't attached to the gateway | Use the identity's **Client ID**, and check that `az aigateway identity show` lists the identity. |
+| `az aigateway identity assign` fails with an authorization error | You can't assign that identity to resources | Ask for **Managed Identity Operator** on the identity. |
+| `az aigateway identity show` reports that no identity exists | The gateway has no managed identity | Run `az aigateway identity assign -g "$RG" -n "$GATEWAY" --system-assigned true`, then grant it **Foundry User**. |
+| Calls fail after you detach an identity or disable the system identity | An asset still uses that identity | Check **View access** › **Backend access** before you remove an identity, and switch those assets first. |
+| `AuthorizationFailed` on `roleAssignments` | You can't create role assignments on the Foundry account | Ask for **Role Based Access Control Administrator** on the account, or have an owner grant the role. |
+
+## Next steps
+
+- [Go keyless with Microsoft Entra ID and RBAC](../11-entra-rbac/README.md): remove keys on the inbound side too.
+- [Federate MCP tools behind one endpoint](../04-federate-mcp-tools/README.md): set backend authentication for tool servers.
+- [Lock down the gateway with private networking](../18-private-networking/README.md): keep backend traffic off the public internet.
+- Docs: [Security and identity](https://ai.gateway.azure.com/docs/security-identity) and
+  [Microsoft Foundry and AI Gateway](https://ai.gateway.azure.com/docs/foundry).

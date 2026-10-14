@@ -1,0 +1,594 @@
+---
+title: Publish models from any provider behind stable aliases
+summary: Connect Anthropic or another non-Azure provider with a credential that stays in the gateway, publish its models behind callable aliases, call Claude with the native Messages API, and retarget an alias to a different backend model without changing a single client.
+category: models
+level: Intermediate
+duration: 30
+tracks: [portal, rest]
+order: 3
+illustration: diagrams/aliases.svg
+tags: [model alias, custom provider, Anthropic, OpenAI, AWS Bedrock, Google Vertex AI, Anthropic Messages, retarget]
+objectives:
+  - Add a custom model provider whose API key stays in the gateway
+  - Publish backend models behind gateway-wide callable aliases
+  - Call an Anthropic model through the gateway with the native Messages API
+  - Give one backend model several aliases, each with its own token limit
+  - Retarget an alias to another backend model without changing clients or losing its policies
+prereqs:
+  - 02-first-model-call
+---
+
+# Publish models from any provider behind stable aliases
+
+The support team wants to try Claude, and the batch team wants the same model for nightly summaries. You don't
+want either team to hold an Anthropic key, and you don't want to edit their code every time you switch models.
+In this lab you add Anthropic as a provider whose key only the gateway knows, publish two Claude models behind
+aliases such as `support-chat`, and then point `support-chat` at a bigger model while the clients keep sending
+the same name.
+
+![Clients call an alias, and the alias points to one backend model of one provider](../assets/diagrams/aliases.svg "An alias is the stable name in the request's model field. You can point it at a different backend model at any time.")
+
+<!-- widget: alias-retarget {"alias":"team-chat","targets":[{"provider":"Microsoft Foundry","model":"gpt-4.1-mini","note":"Lower cost","logo":"microsoft-foundry"},{"provider":"Microsoft Foundry","model":"gpt-4.1","note":"Higher quality","logo":"microsoft-foundry"},{"provider":"OpenAI","model":"gpt-4.1-mini","note":"Custom provider","logo":"openai"}]} -->
+
+## Before you begin
+
+- Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need the
+  gateway, a runtime API key, and the Foundry alias you created there.
+- An API key from the [Claude Console](https://console.anthropic.com) that can call two models, for example
+  `claude-haiku-4-5` and `claude-sonnet-4-5`. To use another provider instead, see the values in
+  [Add Anthropic as a custom provider](#add-anthropic-as-a-custom-provider).
+- Permission to change the gateway, for example **Contributor** on its resource group.
+- For the REST track and the **Verify** scripts: the
+  [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with `az login`,
+  and the `aigateway` extension ([install it](https://github.com/Azure/ai-gateway/tree/main/cli#install)). The
+  Bash scripts also use `jq`; the PowerShell scripts need PowerShell 7 or later.
+
+Set these variables once. Every track and the **Verify** section reuse them.
+
+```bash title="Bash"
+export RG="<resource-group>"
+export GATEWAY="<gateway>"
+export PROVIDER="anthropic"               # the gateway provider you create in this lab
+export FAST_MODEL="claude-haiku-4-5"      # two models that your Anthropic key can call
+export SMART_MODEL="claude-sonnet-4-5"
+
+export AI_GATEWAY_URL="$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.gatewayUrl -o tsv)"
+# Paste the gateway runtime key from lab 02, not the Anthropic key. Don't commit it or write it to a file.
+read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
+```
+
+```powershell title="PowerShell"
+$RG          = "<resource-group>"
+$GATEWAY     = "<gateway>"
+$PROVIDER    = "anthropic"                # the gateway provider you create in this lab
+$FAST_MODEL  = "claude-haiku-4-5"         # two models that your Anthropic key can call
+$SMART_MODEL = "claude-sonnet-4-5"
+
+$env:AI_GATEWAY_URL = az aigateway show -g $RG -n $GATEWAY --query properties.gatewayUrl -o tsv
+# Paste the gateway runtime key from lab 02, not the Anthropic key. Don't commit it or write it to a file.
+$env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
+```
+
+## How it works
+
+The gateway publishes models in three layers:
+
+| Object | What it holds | Unique within | Example |
+|---|---|---|---|
+| **Model provider** | A backend endpoint and the credential the gateway uses to call it | The gateway | `anthropic`, key sent in `x-api-key` |
+| **Backend model** | A model that the provider serves, and the interfaces it supports | Its provider | `claude-haiku-4-5` |
+| **Alias** | The callable name that clients put in the `model` field. It points to exactly one backend model and can carry its own policies. | The gateway | `support-chat` |
+
+Clients only ever see the gateway URL, their runtime key, and the alias. The provider key stays in the gateway.
+
+Each interface has its own route under `https://<gateway>.azure-api.net/default/models`:
+
+| Interface | Route |
+|---|---|
+| OpenAI Chat Completions | `/openai/v1/chat/completions` |
+| OpenAI Responses | `/openai/v1/responses` |
+| Anthropic Messages | `/anthropic/v1/messages` |
+
+Every model runs in passthrough mode. The gateway keeps the provider's request and response format and doesn't
+translate between OpenAI and Anthropic, so call each model on an interface it advertises, and retarget an
+alias only to a model that supports the same interface.
+
+## Add Anthropic as a custom provider
+
+The gateway connects to these providers. Microsoft Foundry and Azure OpenAI can use the gateway's managed
+identity. Every other provider is a custom provider, and the gateway stores its API key.
+
+| | Provider | How you add it | Gateway authenticates with |
+|---|---|---|---|
+| <img src="../assets/providers/microsoft-foundry.png" alt="" height="24"> | Microsoft Foundry | **Models from Microsoft Foundry** | Managed identity (recommended) or API key |
+| <img src="../assets/providers/azure-openai.png" alt="" height="24"> | Azure OpenAI | **Models from Microsoft Foundry** | Managed identity (recommended) or API key |
+| <img src="../assets/providers/openai.png" alt="" height="24"> | OpenAI | **Models from a custom provider** | API key |
+| <img src="../assets/providers/anthropic.png" alt="" height="24"> | Anthropic | **Models from a custom provider** | API key |
+| <img src="../assets/providers/aws-bedrock.png" alt="" height="24"> | AWS Bedrock | **Models from a custom provider** | API key |
+| <img src="../assets/providers/google-vertex.png" alt="" height="24"> | Google Vertex AI | **Models from a custom provider** | API key |
+| <img src="../assets/providers/custom-models.png" alt="" height="24"> | Any other OpenAI-compatible endpoint | **Models from a custom provider** | API key |
+
+Pick one track. Both tracks create the same result: a provider named `anthropic`, two backend models, and two
+aliases. `support-chat` points to the fast model, and `anthropic/claude-sonnet-4-5` points to the bigger one.
+
+<!-- track: portal | Portal -->
+
+### Start the custom provider wizard
+
+Open the [AI Gateway portal](https://ai.gateway.azure.com) and select your gateway from the gateway switcher.
+Select **Models** › **Add models** › **Models from a custom provider**. The **Add a custom model** card on
+**Home** opens the same wizard.
+
+On the **Provider** step, select **Create new provider** and fill in **Basic info**:
+
+| Field | Value |
+|---|---|
+| **Display name** | `Anthropic` |
+| **Provider name** | `anthropic` (used in the resource ID; you can't change it later) |
+| **Description** | Optional |
+
+Select **Next**.
+
+### Connect the endpoint
+
+On the **Endpoint** step, fill in **Endpoint and authentication**:
+
+| Field | Value for Anthropic |
+|---|---|
+| **Base endpoint URL** | `https://api.anthropic.com` |
+| **Header name** | `x-api-key` |
+| **API key** | Your Anthropic API key |
+| **Authentication scheme** | Leave **Include Bearer in the authorization header value** cleared. Anthropic expects the raw key. |
+
+The wizard lists the provider's models by calling `<base endpoint URL>/v1/models`, so leave `/v1` off the base
+URL. The key is stored in the gateway. Apps that call the gateway never receive it.
+
+For other providers, change these values:
+
+| Provider | Base endpoint URL | Header name | Authentication scheme |
+|---|---|---|---|
+| OpenAI | `https://api.openai.com` | `Authorization` | Selected, so the gateway sends `Bearer <key>` |
+| Other OpenAI-compatible endpoints | The URL in front of `/v1/...` | The header the endpoint expects | As the endpoint expects |
+| AWS Bedrock, Google Vertex AI | The provider's OpenAI-compatible endpoint, without the `/v1/...` path | The header that the provider's API key goes in | As the provider expects |
+
+Select **Next**.
+
+### Choose the models and their aliases
+
+The **Models** step shows **Discovering available models…** while it calls the provider. Then select **Add** ›
+**Individual model** and add each model:
+
+| Field | First model | Second model |
+|---|---|---|
+| **Backend model** | `claude-haiku-4-5` | `claude-sonnet-4-5` |
+| **Supported endpoints** | **Anthropic messages** | **Anthropic messages** |
+| **Callable alias** | Change it to `support-chat` | Keep the default, `anthropic/claude-sonnet-4-5` |
+
+If discovery fails or times out, you can still add the models by hand. Select **Add models**.
+
+> **Checkpoint**
+> **Models** lists the two Claude models of the `Anthropic` provider and the aliases `support-chat` and
+> `anthropic/claude-sonnet-4-5`. Open a model: its **Overview** shows the Anthropic Messages endpoint,
+> `https://<gateway>.azure-api.net/default/models/anthropic/v1/messages`.
+
+<!-- track: rest | REST API -->
+
+### Set the REST variables
+
+The provider, its models, and the aliases are child resources of the gateway's `default` workspace.
+
+```bash title="Bash"
+SUB="$(az account show --query id -o tsv)"
+WS="https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/service/$GATEWAY/workspaces/default"
+API="api-version=2025-09-01-preview"
+```
+
+```powershell title="PowerShell"
+$SUB = az account show --query id -o tsv
+$WS  = "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/service/$GATEWAY/workspaces/default"
+$API = "api-version=2025-09-01-preview"
+```
+
+### Create the provider
+
+The request reads the Anthropic key from a hidden prompt, so it never lands in your shell history.
+
+```bash title="Bash"
+read -rsp "Anthropic API key: " ANTHROPIC_API_KEY && echo
+az rest --method put --url "$WS/modelProviders/$PROVIDER?$API" \
+  --body "$(jq -cn --arg key "$ANTHROPIC_API_KEY" '{properties: {
+      kind: "Custom", displayName: "Anthropic",
+      custom: {endpoint: "https://api.anthropic.com",
+               authentication: {kind: "ApiKey", apiKey: {headerName: "x-api-key", value: $key}}}}}')" \
+  --query "{name:name,kind:properties.kind,endpoint:properties.custom.endpoint}"
+unset ANTHROPIC_API_KEY
+```
+
+```powershell title="PowerShell"
+$key = Read-Host "Anthropic API key" -MaskInput
+@{ properties = @{
+    kind        = 'Custom'
+    displayName = 'Anthropic'
+    custom      = @{
+      endpoint       = 'https://api.anthropic.com'
+      authentication = @{ kind = 'ApiKey'; apiKey = @{ headerName = 'x-api-key'; value = $key } }
+    }
+  } } | ConvertTo-Json -Depth 10 -Compress | Set-Content -Path provider.json
+az rest --method put --url "$WS/modelProviders/$PROVIDER`?$API" --body '@provider.json' `
+  --query "{name:name,kind:properties.kind,endpoint:properties.custom.endpoint}"
+Remove-Item provider.json; Remove-Variable key   # the file held the key, so delete it right away
+```
+
+For OpenAI, use `https://api.openai.com`, the header `Authorization`, and the value `Bearer <key>`.
+
+### Register the backend models
+
+The resource name of a backend model in the URL may only contain lowercase letters, digits, and hyphens. If the
+provider's model ID contains other characters, replace them with `-` in the URL and keep the real ID in
+`deployment.modelName`.
+
+```bash title="Bash"
+for MODEL in "$FAST_MODEL" "$SMART_MODEL"; do
+  az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$MODEL?$API" \
+    --body "$(jq -cn --arg m "$MODEL" \
+      '{properties: {displayName: $m, supportedEndpoints: ["/v1/messages"], deployment: {modelName: $m}}}')" \
+    --query "{name:name,endpoints:properties.supportedEndpoints}" -o json
+done
+```
+
+```powershell title="PowerShell"
+foreach ($model in $FAST_MODEL, $SMART_MODEL) {
+  @{ properties = @{ displayName = $model; supportedEndpoints = @('/v1/messages'); deployment = @{ modelName = $model } } } |
+    ConvertTo-Json -Depth 10 -Compress | Set-Content -Path model.json
+  az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$model`?$API" --body '@model.json' `
+    --query "{name:name,endpoints:properties.supportedEndpoints}" -o json
+}
+Remove-Item model.json
+```
+
+> [!NOTE]
+> The provider and model bodies mirror what the portal sends during the preview, and the provider body matches
+> the `az aigateway model-provider create --kind Custom` example. For custom providers, `supportedEndpoints`
+> holds the provider path: `/v1/messages` for Anthropic, `/v1/chat/completions` or `/v1/responses` for
+> OpenAI-compatible endpoints. The model has no `apiFormat`. If the service rejects either request, create the
+> provider and models with the **Portal** tab, then continue here with the aliases.
+
+### Create the aliases
+
+An alias names one backend model by its resource ID. The callable name goes in `properties.aliasName`. Callable
+names may contain `/`, but resource names can't, so the script derives the resource name the same way the
+portal does: `anthropic/claude-sonnet-4-5` is stored as `anthropic-claude-sonnet-4-5`.
+
+```bash title="Bash"
+./infra/alias.sh put support-chat "$PROVIDER" "$FAST_MODEL"
+./infra/alias.sh put "$PROVIDER/$SMART_MODEL" "$PROVIDER" "$SMART_MODEL"
+```
+
+```powershell title="PowerShell"
+./infra/alias.ps1 -ResourceGroup $RG -Gateway $GATEWAY put support-chat $PROVIDER $FAST_MODEL
+./infra/alias.ps1 -ResourceGroup $RG -Gateway $GATEWAY put "$PROVIDER/$SMART_MODEL" $PROVIDER $SMART_MODEL
+```
+
+On GitHub, open [alias.sh](infra/alias.sh) or [alias.ps1](infra/alias.ps1). Each `put` sends a request like this:
+
+```text
+PUT .../workspaces/default/aliases/support-chat?api-version=2025-09-01-preview
+{
+  "properties": {
+    "aliasName": "support-chat",
+    "backendModels": [ { "resourceId": ".../workspaces/default/modelProviders/anthropic/models/claude-haiku-4-5" } ],
+    "policies": []
+  }
+}
+```
+
+> **Checkpoint**
+> `./infra/alias.sh list` shows `support-chat` → `anthropic/claude-haiku-4-5` and
+> `anthropic/claude-sonnet-4-5` → `anthropic/claude-sonnet-4-5`, next to your Foundry alias from lab 02.
+
+<!-- /tracks -->
+
+## Call Claude through the gateway
+
+Send a native Anthropic Messages request to the gateway's Anthropic route. Three things differ from a direct
+call to Anthropic: the URL is the gateway's, the `api-key` header carries your gateway runtime key, and `model`
+is the alias. Keep the `anthropic-version` header that the Messages API expects.
+
+```bash title="Bash"
+curl -sS "${AI_GATEWAY_URL%/}/default/models/anthropic/v1/messages" \
+  -H "api-key: $AI_GATEWAY_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "support-chat", "max_tokens": 256,
+       "messages": [{"role": "user", "content": "In one sentence, what is an AI gateway?"}]}' \
+  | jq '{model, text: .content[0].text, usage}'
+```
+
+```powershell title="PowerShell"
+$headers = @{ 'api-key' = $env:AI_GATEWAY_API_KEY; 'anthropic-version' = '2023-06-01' }
+$body = @{
+  model      = 'support-chat'
+  max_tokens = 256
+  messages   = @(@{ role = 'user'; content = 'In one sentence, what is an AI gateway?' })
+} | ConvertTo-Json -Depth 5
+$r = Invoke-RestMethod -Method Post -Uri "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/models/anthropic/v1/messages" `
+  -Headers $headers -ContentType 'application/json' -Body $body
+[pscustomobject]@{ model = $r.model; text = $r.content[0].text; usage = $r.usage }
+```
+
+The response uses Anthropic's own format, with `content` blocks, `stop_reason`, and `usage.input_tokens`. It
+doesn't use OpenAI's `choices`. The `model` field names the backend model that answered, for example
+`claude-haiku-4-5-20251001`.
+
+> **Checkpoint**
+> The call returns a Claude reply, and `model` starts with `claude-haiku-4-5`. Your app never sent an Anthropic
+> key.
+
+## Give one backend model two aliases
+
+The batch team's nightly job shouldn't be able to use up the capacity that the support app needs. Point a second
+alias, `batch-chat`, at the same fast model and give each alias its own per-caller token limit: 2,000 tokens per
+minute for `batch-chat` and 20,000 for `support-chat`. Alias policies apply only to callers that use that name.
+Policies on the backend model apply to every alias that targets it.
+
+<!-- track: portal | Portal -->
+
+### Add the batch-chat alias
+
+Select **Models** › **Add models** › **Alias for an existing model**. In **Create alias**, set:
+
+| Field | Value |
+|---|---|
+| **Alias** | `batch-chat` |
+| **Backend model** | `claude-haiku-4-5` from the `Anthropic` provider |
+| **Description** | `Nightly batch summaries` |
+
+Select **Create**. You can also open the backend model, select its **Aliases** tab, and then **Add alias**.
+
+### Limit each alias
+
+Select **Policies** › **Add policy**. On the **Type** step, select **Token rate limit**, then **Next**. On the
+**Scope** step, select **Individual assets**, select the `batch-chat` alias, then **Next**. On the
+**Configure** step, set **Time period** to **Per minute**, **Allowed tokens** to `2000`, and **Counter
+dimensions** to **Caller identity**. Select **Create**.
+
+Repeat for the `support-chat` alias with `20000` **Allowed tokens**.
+
+> **Checkpoint**
+> **Policies** lists two **Token rate limit** policies, one scoped to `batch-chat` and one scoped to
+> `support-chat`.
+
+<!-- track: rest | REST API -->
+
+### Put both aliases with their limits
+
+The optional fourth argument adds a per-caller token limit to the alias. It's the same `tokenLimit` policy
+object that models use.
+
+```bash title="Bash"
+./infra/alias.sh put batch-chat   "$PROVIDER" "$FAST_MODEL" 2000
+./infra/alias.sh put support-chat "$PROVIDER" "$FAST_MODEL" 20000
+```
+
+```powershell title="PowerShell"
+./infra/alias.ps1 -ResourceGroup $RG -Gateway $GATEWAY put batch-chat   $PROVIDER $FAST_MODEL 2000
+./infra/alias.ps1 -ResourceGroup $RG -Gateway $GATEWAY put support-chat $PROVIDER $FAST_MODEL 20000
+```
+
+The body now carries a policy:
+
+```json
+"policies": [ { "type": "tokenLimit", "count": 2000, "period": "minute", "counterKey": "Identity" } ]
+```
+
+A `PUT` replaces the whole alias, including its policies. To change only the target, use `retarget` in the
+next section.
+
+> **Checkpoint**
+> Each command prints the alias with `tokenLimit 2000/minute` or `tokenLimit 20000/minute`.
+
+<!-- /tracks -->
+
+## Retarget an alias without touching clients
+
+The support team wants better answers. Point `support-chat` at the bigger model. The clients keep sending
+`"model": "support-chat"`, and the alias keeps its 20,000-token limit.
+
+<!-- track: portal | Portal -->
+
+### Edit the alias
+
+In **Models**, open the `support-chat` alias and select **Edit**. In **Edit alias**, change **Backend model** to
+`claude-sonnet-4-5` from the `Anthropic` provider, then select **Save**. New requests use the selected backend
+model immediately.
+
+![The Edit alias panel with the Alias, Backend model, and Description fields](../assets/screens/models-aliases.png "Edit alias changes only the backend model. The alias name that clients send stays the same. This example shows a Foundry alias.")
+
+### Check that the policy stayed
+
+On the `support-chat` alias page, select the **Policies** tab.
+
+> **Checkpoint**
+> The alias page shows `claude-sonnet-4-5` under **Target details**, and the **Policies** tab still lists the
+> 20,000-token **Token rate limit**.
+
+<!-- track: rest | REST API -->
+
+### Patch only the backend model
+
+`retarget` sends a `PATCH` that contains only `backendModels`, so the alias name, description, and policies stay
+as they are.
+
+```bash title="Bash"
+./infra/alias.sh retarget support-chat "$PROVIDER" "$SMART_MODEL"
+```
+
+```powershell title="PowerShell"
+./infra/alias.ps1 -ResourceGroup $RG -Gateway $GATEWAY retarget support-chat $PROVIDER $SMART_MODEL
+```
+
+```text
+PATCH .../workspaces/default/aliases/support-chat?api-version=2025-09-01-preview
+{ "properties": { "backendModels": [ { "resourceId": ".../modelProviders/anthropic/models/claude-sonnet-4-5" } ] } }
+```
+
+> **Checkpoint**
+> The output shows `support-chat` → `anthropic/claude-sonnet-4-5` and still `tokenLimit 20000/minute`.
+
+<!-- /tracks -->
+
+> [!NOTE]
+> Retarget only between backend models that support the same interface. An alias that clients call with the
+> Anthropic Messages API must keep pointing to a model that supports Anthropic Messages.
+
+## Verify
+
+<!-- steps -->
+
+### List the aliases
+
+```bash title="Bash"
+./infra/alias.sh list
+```
+
+```powershell title="PowerShell"
+./infra/alias.ps1 -ResourceGroup $RG -Gateway $GATEWAY list
+```
+
+Expected output (the order and your Foundry alias differ):
+
+```text
+ALIAS                        PROVIDER/BACKEND MODEL       ALIAS POLICIES
+anthropic/claude-sonnet-4-5  anthropic/claude-sonnet-4-5  -
+batch-chat                   anthropic/claude-haiku-4-5   tokenLimit 2000/minute
+contoso-ai/gpt-4-1-mini      contoso-ai/gpt-4.1-mini      -
+support-chat                 anthropic/claude-sonnet-4-5  tokenLimit 20000/minute
+```
+
+Your Foundry and Anthropic models sit side by side behind one gateway. In the portal, **Models** shows the same
+list.
+
+### Call both aliases
+
+The script sends a Messages request and prints the status, the backend model that answered, and the reply.
+
+```bash title="Bash"
+./infra/call-anthropic.sh support-chat
+./infra/call-anthropic.sh batch-chat
+```
+
+```powershell title="PowerShell"
+./infra/call-anthropic.ps1 -Alias support-chat
+./infra/call-anthropic.ps1 -Alias batch-chat
+```
+
+On GitHub, open [call-anthropic.sh](infra/call-anthropic.sh) or [call-anthropic.ps1](infra/call-anthropic.ps1).
+
+Expected output (dates in the model IDs can differ):
+
+```text
+Alias:   support-chat
+Status:  200
+Model:   claude-sonnet-4-5-20250929
+Reply:   An AI gateway is a control point between applications and AI models that ...
+Alias:   batch-chat
+Status:  200
+Model:   claude-haiku-4-5-20251001
+Reply:   An AI gateway sits between your apps and AI models to ...
+```
+
+> **Checkpoint**
+> `support-chat` now answers with Sonnet and `batch-chat` with Haiku, and you didn't change the client request.
+
+### Confirm the alias kept its policy
+
+```bash title="Bash"
+./infra/alias.sh show support-chat | jq '.properties.policies'
+```
+
+```powershell title="PowerShell"
+(./infra/alias.ps1 -ResourceGroup $RG -Gateway $GATEWAY show support-chat | ConvertFrom-Json).properties.policies
+```
+
+The output lists the `tokenLimit` policy with `"count": 20000`. In the portal, open `support-chat` and select
+**Policies**.
+
+<!-- /steps -->
+
+## Go further
+
+- **Use the Anthropic SDK.** Point the SDK at the gateway's Anthropic base URL. The SDK appends `/v1/messages`
+  itself and sends `anthropic-version` for you.
+
+  ```python
+  import os
+  from anthropic import Anthropic  # pip install anthropic
+
+  client = Anthropic(
+      base_url=os.environ["AI_GATEWAY_URL"].rstrip("/") + "/default/models/anthropic",
+      api_key="unused",  # required by the SDK; the gateway reads the api-key header
+      default_headers={"api-key": os.environ["AI_GATEWAY_API_KEY"]},
+  )
+  message = client.messages.create(
+      model="support-chat",
+      max_tokens=256,
+      messages=[{"role": "user", "content": "Hello"}],
+  )
+  print(message.model, message.content[0].text)
+  ```
+
+- **Move one alias between providers.** Add OpenAI as a second custom provider with the values from the
+  provider table, and register `gpt-4.1-mini` with **OpenAI chat completions**. Create an alias such as
+  `team-chat` on your Foundry `gpt-4.1-mini`, then retarget it to the OpenAI model. Both speak Chat Completions,
+  so clients don't notice the switch.
+- **Layer the limits.** Add a token limit to the `claude-haiku-4-5` backend model as in
+  [Throttle tokens per caller with token limits](../06-token-limits/README.md). It applies to every alias that
+  targets the model, on top of each alias's own limit.
+
+## Clean up
+
+Keep the gateway, the runtime key, and the Foundry model from lab 02. Later labs use them. Remove what you added
+in this lab in this order: aliases, then backend models, then the provider.
+
+In the portal, open each of the `support-chat`, `batch-chat`, and `anthropic/claude-sonnet-4-5` aliases in
+**Models** and delete them. Then delete the two Claude backend models and the `Anthropic` provider.
+
+From a shell:
+
+```bash title="Bash"
+for ALIAS in support-chat batch-chat "$PROVIDER/$SMART_MODEL"; do ./infra/alias.sh delete "$ALIAS"; done
+for MODEL in "$FAST_MODEL" "$SMART_MODEL"; do
+  az aigateway model delete -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" --yes
+done
+az aigateway model-provider delete -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --yes
+```
+
+```powershell title="PowerShell"
+foreach ($alias in 'support-chat', 'batch-chat', "$PROVIDER/$SMART_MODEL") {
+  ./infra/alias.ps1 -ResourceGroup $RG -Gateway $GATEWAY delete $alias
+}
+foreach ($model in $FAST_MODEL, $SMART_MODEL) {
+  az aigateway model delete -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $model --yes
+}
+az aigateway model-provider delete -g $RG --gateway-name $GATEWAY -n $PROVIDER --yes
+```
+
+Deleting the provider removes the stored Anthropic key from the gateway. It doesn't revoke the key itself. If
+you created the key only for this lab, delete it in the Claude Console.
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| The wizard discovers no models, or times out | The base endpoint URL includes `/v1`, the header name is wrong, or the provider doesn't serve `/v1/models` | Use `https://api.anthropic.com` and `x-api-key`. If the provider can't list models, add them with **Individual model**. |
+| `401` from the gateway | The `api-key` header is missing or holds the Anthropic key instead of a gateway runtime key | Send a runtime key from **Access** › **Keys** in the `api-key` header. |
+| An authentication error from Anthropic in the response body | The stored provider key is wrong or expired, or **Include Bearer** is selected for Anthropic | Update the provider's API key and clear **Authentication scheme**. |
+| `400` that mentions `anthropic-version` | The request doesn't send the `anthropic-version` header | Add `anthropic-version: 2023-06-01`. |
+| `404` or a "model not found" error | The `model` value doesn't exactly match an alias, or you called the OpenAI route for an Anthropic model | Copy the alias from **Models**, and call `/default/models/anthropic/v1/messages`. |
+| "Callable aliases must be unique" | Another alias in the gateway already uses that name | Pick a different alias, or retarget the existing one. |
+
+## Next steps
+
+- [Throttle tokens per caller with token limits](../06-token-limits/README.md)
+- [Enforce cost budgets with per-caller overrides](../07-cost-budgets/README.md)
+- [Monitor usage, cost, and traces](../13-monitoring/README.md)

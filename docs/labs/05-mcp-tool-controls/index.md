@@ -1,0 +1,390 @@
+---
+title: Control which tools agents can call
+summary: Publish only approved MCP tools with name patterns, block risky tools, take a whole MCP server offline, and cap tool traffic per caller with a request rate limit.
+category: tools
+level: Intermediate
+duration: 20
+tracks: [portal, rest]
+order: 5
+illustration: diagrams/mcp-federation.svg
+tags: [MCP, tools, allow list, blocked tools, glob patterns, requestRateLimit, "429", Retry-After]
+objectives:
+  - Choose between allowing all tools, exact tools, and name patterns for an MCP server
+  - Block specific tools with patterns that take precedence over the allow list
+  - Take a whole MCP server offline without deleting it
+  - Add a request rate limit to an MCP server in the portal or with the REST API, and trigger a 429
+prereqs:
+  - 04-federate-mcp-tools
+---
+
+# Control which tools agents can call
+
+The `learn` MCP server that you federated now publishes every tool from two backends. Your security team has
+two requests: agents should **search** documentation but not fetch arbitrary pages, and the code sample tool
+stays off until its review is done. Operations adds a third: a looping agent must not flood the backends. In
+this lab you publish only the approved tools, block one explicitly, and give each caller a request budget.
+
+![Tool controls on the MCP server decide which federated tools agents can list and call](../assets/diagrams/mcp-federation.svg "The gateway applies tool availability, blocked tools, and policies on the MCP server before it calls any backend.")
+
+<!-- widget: tool-patterns {"tools":["learn___microsoft_docs_search","learn___microsoft_code_sample_search","learn___microsoft_docs_fetch","docs___microsoft_docs_search","docs___microsoft_code_sample_search","docs___microsoft_docs_fetch"],"allow":["*_search"],"block":["*code_sample*"]} -->
+
+## Before you begin
+
+- Complete [Federate MCP tools behind one endpoint](../04-federate-mcp-tools/README.md). You need the `learn`
+  MCP server with its `learn` and `docs` backends, and a runtime API key from **Access** › **Keys**.
+- For the REST track: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later,
+  signed in with `az login`, the `aigateway` extension
+  ([install it](https://github.com/Azure/ai-gateway/tree/main/cli#install)), and `jq`.
+- For the **Verify** scripts: `curl` and `jq` (Bash) or PowerShell 7 or later.
+- Permission to change the gateway, for example **Contributor** on the resource group.
+
+Set these variables once. Every track and the **Verify** section reuse them.
+
+```bash title="Bash"
+export RG="<resource-group>"
+export GATEWAY="<gateway>"
+
+export AI_GATEWAY_URL="$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.gatewayUrl -o tsv)"
+# Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
+read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
+```
+
+```powershell title="PowerShell"
+$RG      = "<resource-group>"
+$GATEWAY = "<gateway>"
+
+$env:AI_GATEWAY_URL = az aigateway show -g $RG -n $GATEWAY --query properties.gatewayUrl -o tsv
+# Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
+$env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
+```
+
+## How it works
+
+An MCP server has three layers of tool control. The gateway applies all of them before it calls a backend.
+
+| Control | Where | Effect |
+|---|---|---|
+| **Tool availability** | The server's **Tools** step | **Allow all tools** publishes every tool, including tools that backends add later. **Select exact tools** (a static list) or name patterns publish only matching tools. Tools that don't match aren't listed and can't be called. |
+| **Blocked tools** | The server's **Tools** step | Names or patterns that the gateway refuses to run. Blocked patterns take precedence over the allow list. Blocked tools remain visible to clients, but the gateway blocks their execution. |
+| **MCP server access** | The server's **Basic info** step, in edit mode | **Active** or **Blocked**. Blocked MCP servers can't be reached by clients, whatever their tool rules say. |
+| **Request rate limit** policy | **Policies** | A number of **Calls** per **Renewal period** for each counter. Over the limit, the gateway answers `429` with `Retry-After`. |
+
+Patterns use `*` for any number of characters and `?` for exactly one. This lab uses `*_search` to allow
+both search tools and `*code_sample*` to block the code sample tool. Both patterns match whether or not you
+include the namespace prefix, such as `learn___`, so they cover every backend of the server.
+
+> [!NOTE]
+> Tool availability, blocked tools, and server access are configured in the portal. There's no documented CLI
+> or REST shape for them yet, so this lab doesn't show one. The request rate limit has both a portal and a REST
+> track.
+
+## Publish only approved tools
+
+These steps edit the `learn` server in the portal. Make sure the patterns cover every tool that your agents
+legitimately need before you save. Tools that don't match are no longer listed or callable.
+
+<!-- steps -->
+
+### Open the Tools step
+
+Open the [AI Gateway portal](https://ai.gateway.azure.com) and select your gateway. Select **MCP servers**,
+open `learn`, select **Edit**, and go to the **Tools** step.
+
+### Allow the search tools by pattern
+
+Under **Tool availability**, select **Match tools by name pattern**. Depending on your portal version, the
+option is labeled **Use name patterns**, and **Select exact tools** is also offered. In
+**Allowed tool name patterns**, enter `*_search`. If your portal shows **Add pattern**, use it to add each
+pattern on its own row.
+
+### Block the code sample tool
+
+Under **Blocked tools**, select **Add blocked tool** (or **Add**). In **Tool name or pattern**, enter
+`*code_sample*` and select **Add**. The pattern appears under **Blocked tools**, with a note on whether it
+matches tools in the discovered catalog.
+
+![The Tools step with an allowed tool name pattern and a blocked pattern](../assets/screens/mcp-tool-controls.png "Edit MCP server › Tools: allowed name patterns publish matching tools, and blocked patterns stop matching tools from running. This example uses a pet store backend.")
+
+### Save the server
+
+Select **Save**.
+
+### Check the catalog
+
+Run the script from [Federate MCP tools behind one endpoint](../04-federate-mcp-tools/README.md). This lab
+includes a copy, so run it from this lab's folder. It lists the tools and calls an allowed one.
+
+```bash title="Bash"
+./infra/list-tools.sh learn learn___microsoft_docs_search "What is AI Gateway?"
+```
+
+```powershell title="PowerShell"
+./infra/list-tools.ps1 -Server learn -Tool learn___microsoft_docs_search -Query "What is AI Gateway?"
+```
+
+On GitHub, open [list-tools.sh](infra/list-tools.sh) or [list-tools.ps1](infra/list-tools.ps1).
+
+The list has four tools, the search tools and the code sample tools of both backends. The `*_fetch` tools are
+gone because they don't match `*_search`. The code sample tools are still listed, because blocked tools stay
+visible. The call to `learn___microsoft_docs_search` returns Microsoft Learn results.
+
+<!-- /steps -->
+
+> **Checkpoint**
+> `tools/list` returns four tools and no `*_fetch` tool, and an allowed search tool still works.
+
+## Take the whole server offline
+
+Sometimes you need to stop all tool traffic at once, for example while you investigate a misbehaving backend.
+Blocking the server keeps its backends, tool rules, and policies, so you can turn it back on in one step.
+
+<!-- steps -->
+
+### Block the server
+
+On the `learn` details page, select **Edit**. On **Basic info**, set **MCP server access** to **Blocked**, then
+select **Save**.
+
+### Confirm that clients can't connect
+
+```bash title="Bash"
+./infra/list-tools.sh learn
+```
+
+```powershell title="PowerShell"
+./infra/list-tools.ps1 -Server learn
+```
+
+The script stops at `initialize` with an HTTP error from the gateway. No backend is called.
+
+### Turn the server back on
+
+Select **Edit** again, set **MCP server access** to **Active**, and select **Save**. Run the script again to
+confirm that the four tools are back.
+
+<!-- /steps -->
+
+## Rate-limit the MCP server
+
+A request rate limit counts calls instead of tokens. That suits tools, where one agent in a loop can send
+hundreds of calls a minute. Pick one track. Both produce the same policy on the `learn` server: **5 calls per
+30 seconds for each caller identity**. The limit is deliberately low so you can trigger it quickly.
+
+<!-- widget: request-rate {"calls":5,"window":30} -->
+
+<!-- track: portal | Portal -->
+
+### Start the policy wizard
+
+Select **Policies** › **Add policy**. On the **Type** step, under **Cost & Rate Limits**, select
+**Request rate limit**, then **Next**.
+
+### Choose the MCP server
+
+On the **Scope** step, select **Individual assets** ("Apply only to selected models, aliases, or MCP servers").
+Select the `learn` MCP server, then **Next**.
+
+### Configure the limit
+
+On the **Details** step (**Configure** in some portal versions), under **Parameters**, set:
+
+| Field | Value |
+|---|---|
+| **Calls** | `5` |
+| **Renewal period** | **30 seconds** |
+| **Counter dimensions** | **Identity** |
+
+The other renewal periods are **60 seconds**, **2 minutes**, and **5 minutes**. **Identity** gives each API
+key, and each Entra caller, its own counter. If you select no counter dimension, all callers share one
+counter. Select **Create**.
+
+> **Checkpoint**
+> **Policies** lists a **Request rate limit** with the `learn` MCP server as its scope.
+
+<!-- track: rest | REST API -->
+
+### Read the current policies
+
+Policies live inline in the MCP server's `properties.policies` array. A `PATCH` **replaces the whole array**,
+so always read it first and keep the policies you didn't mean to change.
+
+```bash
+SUB="$(az account show --query id -o tsv)"
+URL="https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/service/$GATEWAY/workspaces/default/toolServers/learn?api-version=2025-09-01-preview"
+
+az rest --method get --url "$URL" --query properties.policies
+```
+
+### Replace the request rate limit and keep everything else
+
+```bash title="Bash"
+POLICIES="$(az rest --method get --url "$URL" | jq -c '
+  [(.properties.policies // [])[] | select(.type != "requestRateLimit")]
+  + [{"type":"requestRateLimit","callsPerPeriod":5,"periodSeconds":30,"counterKey":"Identity"}]')"
+
+az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}"
+```
+
+```powershell title="PowerShell"
+$SUB = az account show --query id -o tsv
+$URL = "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/service/$GATEWAY/workspaces/default/toolServers/learn`?api-version=2025-09-01-preview"
+
+$current  = az rest --method get --url $URL | ConvertFrom-Json
+$policies = @($current.properties.policies | Where-Object { $_ -and $_.type -ne 'requestRateLimit' })
+$policies += [pscustomobject]@{ type = 'requestRateLimit'; callsPerPeriod = 5; periodSeconds = 30; counterKey = 'Identity' }
+
+$body = @{ properties = @{ policies = $policies } } | ConvertTo-Json -Depth 10 -Compress
+$body | Set-Content -Path patch.json
+az rest --method patch --url $URL --body '@patch.json'
+Remove-Item patch.json
+```
+
+`periodSeconds` accepts the portal's renewal periods: `30`, `60`, `120`, or `300`. `counterKey` accepts
+`Identity` or `IPAddress`.
+
+> [!TIP]
+> `az aigateway mcp update -g "$RG" --gateway-name "$GATEWAY" -n learn --policies '<json-array>'` also sets
+> an MCP server's policies, but it replaces the whole array, just like `PATCH`. Build the array from the
+> current policies first.
+
+> **Checkpoint**
+> Running the `GET` again returns your other policies unchanged plus one `requestRateLimit` entry with
+> `"callsPerPeriod": 5` and `"periodSeconds": 30`.
+
+<!-- /tracks -->
+
+## Verify
+
+The rate limit counts the calls you make while you verify, too. Every MCP request counts, including the two
+handshake messages that each script run starts with. Wait 30 seconds between steps so each one starts with a
+fresh window.
+
+<!-- steps -->
+
+### Call a blocked tool
+
+The code sample tool is still listed, but the gateway refuses to run it:
+
+```bash title="Bash"
+./infra/list-tools.sh learn learn___microsoft_code_sample_search "Python MCP client"
+```
+
+```powershell title="PowerShell"
+./infra/list-tools.ps1 -Server learn -Tool learn___microsoft_code_sample_search -Query "Python MCP client"
+```
+
+The tool list prints as before, and then the script reports that the `tools/call` request failed and prints
+the gateway's error. The Learn backend never receives the call.
+
+### Run the burst
+
+Wait 30 seconds, then send a handshake followed by eight `tools/list` requests:
+
+```bash title="Bash"
+./infra/trigger-request-rate.sh learn 8
+```
+
+```powershell title="PowerShell"
+./infra/trigger-request-rate.ps1 -Server learn -Requests 8
+```
+
+On GitHub, open [trigger-request-rate.sh](infra/trigger-request-rate.sh) or
+[trigger-request-rate.ps1](infra/trigger-request-rate.ps1).
+
+Expected output (your `Retry-After` values will differ, and the first `429` can come a call earlier or later
+depending on how the window lines up):
+
+```text
+Request  Method                      Status  Retry-After
+1        initialize                  200     -
+2        notifications/initialized   202     -
+3        tools/list                  200     -
+4        tools/list                  200     -
+5        tools/list                  200     -
+6        tools/list                  429     27
+7        tools/list                  429     27
+8        tools/list                  429     26
+9        tools/list                  429     26
+10       tools/list                  429     26
+```
+
+### Inspect one throttled response
+
+While you're still throttled, send one raw request and look at the status line and headers:
+
+```bash
+curl -i "${AI_GATEWAY_URL%/}/default/toolservers/learn/mcp" \
+  -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+The status is `429`, and `Retry-After` tells the client how many seconds to wait. Agent frameworks should back
+off for that long instead of retrying in a tight loop.
+
+<!-- /steps -->
+
+> **Checkpoint**
+> The `*_fetch` tools are no longer listed, a call to the blocked code sample tool fails, an allowed search
+> tool works, and the sixth call in a 30-second window gets `429` with `Retry-After`.
+
+## Go further
+
+- **Prefer exact names for sensitive servers.** Patterns also publish tools that a backend adds later. Where
+  your portal offers **Select exact tools**, use it for servers whose new tools need a review first.
+- **Block destructive operations everywhere.** For a server built from an OpenAPI spec, keep
+  **Allow all tools** and add blocked patterns such as `*_delete_*` so new read operations appear
+  automatically but deletions never run.
+- **Set a default for every MCP server.** Add a **Request rate limit** with **Gateway** scope in
+  [Set gateway-wide policy baselines](../09-gateway-baselines/README.md).
+- **Inspect tool calls for attacks.** Add Agent 365 tool threat protection in
+  [Protect tool calls with Agent 365 threat protection](../19-tool-threat-protection/README.md).
+
+## Clean up
+
+A 5-call limit will throttle real agents. Remove it, and open the tool catalog again, before you continue.
+
+<!-- track: portal | Portal -->
+
+### Remove the policy and restore the catalog
+
+1. Select **Policies**, open the **Request rate limit** that's scoped to `learn`, and delete it.
+2. Open **MCP servers** › `learn` › **Edit** › **Tools**. Select **Allow all tools**, remove the
+   `*code_sample*` blocked pattern, and select **Save**.
+
+<!-- track: rest | REST API -->
+
+### Remove the policy
+
+```bash
+POLICIES="$(az rest --method get --url "$URL" | jq -c '[(.properties.policies // [])[] | select(.type != "requestRateLimit")]')"
+az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}"
+```
+
+Then restore the catalog in the portal: open **MCP servers** › `learn` › **Edit** › **Tools**, select
+**Allow all tools**, remove the `*code_sample*` blocked pattern, and select **Save**.
+
+<!-- /tracks -->
+
+Keep the gateway, the `learn` MCP server, and your key. The next labs reuse them.
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| A tool you blocked still appears in `tools/list` | Expected. Blocked tools remain visible, but the gateway blocks their execution | Call the tool to confirm that it's blocked. To hide a tool, leave it out of the allow list instead. |
+| `tools/list` returns no tools | The allow list matches nothing, or the server access is **Blocked** | Check the patterns against the exact tool names, and set **MCP server access** to **Active**. |
+| An allowed tool is blocked | A blocked pattern also matches it. Blocked patterns take precedence | Make the blocked pattern narrower, for example `*code_sample*` instead of `*sample*`. |
+| `429` on the first request of a run | The previous step used up the window, or a **Gateway** scope rate limit also applies | Wait for `Retry-After`, and review **Policies** for every limit that covers the MCP server. |
+| Never `429` | The policy is on another asset, or the burst spans two windows | Check the policy's scope, and run the burst without pauses. |
+| Other policies vanished after the REST call | `PATCH` replaces the whole `policies` array | Always `GET`, merge, then `PATCH`, as shown in the REST track. |
+
+## Next steps
+
+- [Screen prompts and responses with content safety](../08-content-safety/README.md): screen tool inputs and
+  responses, too.
+- [Set gateway-wide policy baselines](../09-gateway-baselines/README.md): apply defaults to every model and
+  MCP server.
+- [Protect tool calls with Agent 365 threat protection](../19-tool-threat-protection/README.md): inspect tool
+  calls for prompt injection and sensitive data.
+- Docs: [Connect to MCP tools through AI Gateway](https://ai.gateway.azure.com/docs/mcp-access).

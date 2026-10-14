@@ -1,0 +1,23 @@
+{
+  "name": "ai-gateway-labs",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Builds the Azure AI Gateway labs site (GitHub Pages, served from /docs).",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node build.mjs --strict",
+    "serve": "node tools/serve.mjs 4173",
+    "watch": "node build.mjs --watch",
+    "diagrams": "node tools/diagrams.mjs",
+    "dev": "node build.mjs --watch & node tools/serve.mjs 4173"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "gray-matter": "^4.0.3",
+    "marked": "^18.0.0",
+    "shiki": "^4.0.0"
+  }
+}

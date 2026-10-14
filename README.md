@@ -15,6 +15,18 @@ platform teams enforce security, policy, networking, and observability.
 
 ---
 
+## Hands-on labs
+
+**[Browse the labs → azure.github.io/ai-gateway](https://azure.github.io/ai-gateway/)**
+
+22 step-by-step labs for customers and field teams. They start with the core AI gateway use cases (publishing
+models behind aliases, federating MCP tools, token limits and cost budgets, content safety, keys and Entra ID,
+monitoring, and chargeback) and continue to emerging ones (agent frameworks, Foundry hosted agents, coding agents,
+Agent 365, private networking, and an enterprise reference architecture). Each lab has portal, Azure CLI, Bicep, or
+code tracks, so you can follow it in the way that fits how you work.
+
+Sources and contributor guide: [labs/README.md](labs/README.md).
+
 ## Azure CLI
 
 Create and manage gateways, model registrations, MCP servers, and policies with
