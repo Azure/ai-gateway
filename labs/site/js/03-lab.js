@@ -275,7 +275,22 @@ function initVideos() {
     const btn = h(`<button class="video-expand" type="button" title="Expand (F)">${IC.expand}<span>Expand</span></button>`);
     frame.append(btn);
     btn.addEventListener('click', () => open(frame));
-    video.addEventListener('dblclick', (e) => { e.preventDefault(); toggle(frame); }, true);
+    const onBar = (e) => e.clientY > video.getBoundingClientRect().bottom - 72;
+    const setPaused = (p) => { if (video.paused !== p) { if (p) video.pause(); else video.play().catch(() => {}); } };
+    let before;
+    // Chromium has no click-to-play on the video surface (Firefox does), so toggle only when the browser didn't.
+    video.addEventListener('click', (e) => {
+      if (e.detail > 1 || onBar(e)) return;
+      const was = before = video.paused;
+      setTimeout(() => { if (video.paused === was) setPaused(!was); }, 0);
+    });
+    // Double-click only expands/collapses: restore the play state from before the first click.
+    video.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      const restore = onBar(e) ? undefined : before;
+      toggle(frame);
+      if (restore !== undefined) setTimeout(() => setPaused(restore), 0);
+    }, true);
     video.addEventListener('keydown', (e) => {
       if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); toggle(frame); }
     });

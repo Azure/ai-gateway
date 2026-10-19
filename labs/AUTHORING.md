@@ -189,7 +189,8 @@ name in the lab's `media/` folder:
 
 The site shows a player and a **Watch video** button in the lab header. The player has no browser full-screen
 mode: Edge's scareware blocker scans full-screen pages and can flag narrated product UI as a scam, so
-**Expand**, double-click, and <kbd>F</kbd> open an in-page theater view instead. GitHub can't play MP4s in a
+**Expand**, double-click, and <kbd>F</kbd> open an in-page theater view instead. Clicking the picture plays or
+pauses, so the play button drawn on the poster works in every browser. GitHub can't play MP4s in a
 README, so the GitHub view shows the poster linked to the site player, plus download and captions links.
 Keep the video optional: every step it shows must also be written in the lab.
 
