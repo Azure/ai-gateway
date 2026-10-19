@@ -138,7 +138,7 @@ function footer(rel, site) {
   <div class="footer-inner">
     <div class="footer-brand">
       <a class="brand" href="${rel}index.html"><img class="brand-logo" src="${rel}assets/favicon.svg" width="24" height="24" alt=""><span class="brand-name">AI Gateway</span><span class="brand-badge">Labs</span></a>
-      <p>Hands-on labs for the AI Gateway tier of Azure API Management. Public preview: features and labels can change.</p>
+      <p>Hands-on labs for the Azure AI Gateway.</p>
     </div>
     <div class="footer-cols">
       <div><h2>Labs</h2><a href="${rel}labs/">All labs</a><a href="${rel}index.html#paths">Learning paths</a><a href="${rel}index.html#use-cases">Use cases</a><a href="${rel}llms.txt">llms.txt</a></div>
