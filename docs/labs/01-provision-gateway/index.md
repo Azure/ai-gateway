@@ -6,7 +6,7 @@ level: Beginner
 duration: 15
 tracks: [portal, cli, iac]
 order: 1
-illustration: illustrations/portal-provision-gateway.svg
+illustration: diagrams/provisioning.svg
 tags: [provisioning, aigateways, az rest, Bicep, managed identity, regions]
 objectives:
   - Create an AI Gateway in East US 2 or Sweden Central from the portal, the Azure CLI, or Bicep
@@ -23,7 +23,7 @@ governed entry point. Before anyone can publish a model, issue a key, or set a b
 itself. In this lab you create a shared AI Gateway, find its runtime URL and managed identity, and learn your
 way around the portal so you're ready for the rest of the labs.
 
-![Provisioning an AI Gateway](../assets/illustrations/portal-provision-gateway.svg "One gateway per environment is the usual starting point. Every later lab publishes models, tools, keys, and policies on it.")
+![What provisioning creates: you choose a name, resource group, and region; Azure creates the connector gateway, the AI Gateway, and its managed identity; you get a runtime URL, a default workspace, and the portal](../assets/diagrams/provisioning.svg "One gateway per environment is the usual starting point. Every later lab publishes models, tools, keys, and policies on it.")
 
 ## Before you begin
 
@@ -113,7 +113,7 @@ In **Create AI gateway**, enter a globally unique **Name** of 24 characters or f
 **Public routing**. **Private routing** connects the gateway to private backends through a virtual network and
 can only be chosen at creation. [Lab 18](../18-private-networking/README.md) covers it.
 
-![Creating a gateway in the AI Gateway portal](../assets/illustrations/portal-create-gateway.svg "Choose a subscription, resource group, name, and preview region, then create the gateway.")
+![What to choose in Create AI gateway: a unique name, a subscription, a resource group, and a preview region, with the Advanced defaults kept](../assets/diagrams/create-gateway.svg "Fill in the basics, keep the Advanced defaults, then select Create gateway.")
 
 > [!NOTE]
 > The subscription picker lists every subscription you can see. Subscriptions where you lack write permission

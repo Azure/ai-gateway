@@ -8,7 +8,7 @@ on the **labs site** (`docs/`, published with GitHub Pages) and a self-contained
 ```text
 labs/
 ├── catalog.json                 # categories, learning paths, use-case map
-├── assets/                      # shared images: screens/, diagrams/, providers/, illustrations/
+├── assets/                      # shared images: screens/, diagrams/, providers/
 ├── 06-token-limits/
 │   ├── README.md                # the lab (metadata + Markdown + generated GitHub chrome)
 │   ├── 06-token-limits.ipynb    # optional: the lab as a Jupyter notebook

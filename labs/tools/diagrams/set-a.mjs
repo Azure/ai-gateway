@@ -1,4 +1,4 @@
-import { box, node, zone, pill, pills, arrow, label, list, text, icon, svgDoc } from './lib.mjs';
+import { box, node, zone, pill, pillW, pills, arrow, label, list, text, icon, svgDoc } from './lib.mjs';
 
 export const architecture = () => svgDoc('architecture', {
   title: 'Azure AI Gateway architecture',
@@ -20,6 +20,56 @@ export const architecture = () => svgDoc('architecture', {
     o += zone(714, 252, 230, 178, 'Tool sources', { ic: 'tools', tone: 'amber' });
     o += list(732, 296, ['Remote MCP servers', 'OpenAPI specifications', 'Built-in connectors', 'Foundry Toolbox'], { tone: 'amber', gap: 25, cls: 'dg-t' });
     o += arrow('M672 130 H710', { tone: 'azure' }) + arrow('M672 341 H710', { tone: 'amber' });
+    return o;
+  },
+});
+
+export const provisioning = () => svgDoc('provisioning', {
+  title: 'What provisioning an AI Gateway creates',
+  desc: 'You choose a name, a resource group, and a preview region. Azure creates the connector gateway first, then the AI Gateway with a system-assigned managed identity, and sets the SKU and capacity. You get a runtime URL, a default workspace for model and MCP routes, and the AI Gateway portal.',
+  h: 356,
+  body: () => {
+    let o = zone(16, 20, 220, 316, 'You choose', { ic: 'user', tone: 'azure' });
+    [['Name', 'Up to 24 characters', 'Globally unique', 'doc'], ['Resource group', 'New or existing', 'Holds both resources', 'layers'], ['Region (preview)', 'East US 2', 'Sweden Central', 'globe']]
+      .forEach(([t, s, s2, ic], i) => { o += box(28, 56 + i * 96, 196, 72, { t, s, s2, icon: ic, tone: 'azure' }); });
+    o += zone(270, 20, 340, 316, 'Azure creates', { gw: true, ic: 'sparkle' });
+    o += box(282, 56, 316, 72, { t: '1 · Connector gateway', s: 'Same name, created first', s2: 'Microsoft.Web/connectorGateways', icon: 'plug', mono: true });
+    o += arrow('M440 130 V150', { flow: false });
+    o += box(282, 152, 316, 72, { t: '2 · AI Gateway', s: 'SKU and capacity set for you', s2: 'Microsoft.ApiManagement/aigateways', icon: 'sparkle', mono: true, accent: true });
+    o += box(282, 248, 316, 72, { t: 'Managed identity', s: 'System-assigned, on by default', s2: 'Calls backends without keys', icon: 'key', tone: 'green' });
+    o += zone(644, 20, 300, 316, 'You get', { ic: 'check', tone: 'green' });
+    o += box(656, 56, 276, 72, { t: 'Runtime URL', s: 'https://<gateway>.eastus2-01', s2: '.ai.gateway.azure.com', icon: 'globe', tone: 'green', mono: 'all' });
+    o += box(656, 152, 276, 72, { t: 'Default workspace', s: '/default/models/…', s2: '/default/toolservers/…', icon: 'grid', tone: 'green', mono: 'all' });
+    o += box(656, 248, 276, 72, { t: 'AI Gateway portal', s: 'Home shows a setup guide', s2: 'ai.gateway.azure.com', icon: 'app', tone: 'green', mono: true });
+    o += arrow('M236 188 H266', { tone: 'azure' }) + arrow('M610 188 H640', { tone: 'green' });
+    return o;
+  },
+});
+
+export const createGateway = () => svgDoc('create-gateway', {
+  title: 'What to choose in Create AI gateway',
+  desc: 'Basics: a globally unique name of 24 characters or fewer, a subscription where you can create API Management and connector gateways, a new or existing resource group, and East US 2 or Sweden Central. Advanced: keep the system-assigned managed identity enabled, public network access enabled, and public routing. Private routing is for virtual network backends and can only be chosen at creation. Then select Create gateway; provisioning takes a few minutes and Home opens with a setup guide.',
+  h: 424,
+  body: () => {
+    const row = (x, y, lbl, chips, help) => {
+      let r = text(x, y, lbl, 'dg-t'), cx = x;
+      for (const [c, tone, mono] of chips) { const w = pillW(c, mono); r += pill(cx, y + 10, c, { tone, mono, w }); cx += w + 6; }
+      return r + text(chips.length ? cx + 6 : x, y + 26, help, 'dg-s');
+    };
+    let o = zone(16, 20, 456, 304, 'Basics', { ic: 'doc', tone: 'azure' });
+    o += row(36, 74, 'Name', [['<gateway>', 'azure', true]], 'Globally unique, 24 characters or fewer');
+    o += row(36, 140, 'Subscription', [], 'Needs write access to API Management and connector gateways');
+    o += row(36, 206, 'Resource group', [['New', 'azure'], ['Existing', 'azure']], 'Holds the gateway and its connector');
+    o += row(36, 272, 'Region', [['East US 2', 'azure'], ['Sweden Central', 'azure']], 'Preview regions');
+    o += zone(488, 20, 456, 304, 'Advanced · keep the defaults', { ic: 'shield', tone: 'green' });
+    o += row(508, 74, 'System-assigned managed identity', [['Enabled', 'green']], 'The gateway uses it to call Foundry');
+    o += row(508, 140, 'Public network access', [['Enabled', 'green']], 'Apps reach the runtime URL over HTTPS');
+    o += row(508, 206, 'Routing', [['Public routing', 'green'], ['Private routing', 'amber']], 'Private: creation only');
+    o += text(508, 276, 'Private routing reaches backends in a virtual network.', 'dg-s') + text(508, 294, 'Lab 18 covers it.', 'dg-s');
+    o += box(16, 348, 284, 56, { t: 'Create gateway', s: 'Select it to start', icon: 'check', accent: true });
+    o += box(338, 348, 284, 56, { t: 'Provisioning', s: 'A few minutes, often less', icon: 'clock', tone: 'azure' });
+    o += box(660, 348, 284, 56, { t: 'Home', s: 'Opens with a setup guide', icon: 'app', tone: 'green' });
+    o += arrow('M300 376 H334') + arrow('M622 376 H656', { tone: 'azure' });
     return o;
   },
 });

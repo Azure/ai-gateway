@@ -95,7 +95,10 @@ export function box(x, y, w, h, { t, s, s2, icon: ic, tone = 'violet', mono = fa
   const ty = y + (h - block) / 2 + 13;
   const avail = x + w - tx - 10;
   if (t) { fit(t, avail, 14, 0.56, 'title'); out += text(tx, ty, t, 'dg-t'); }
-  subs.forEach((line, i) => { fit(line, avail, mono ? 11.5 : 12, mono ? 0.62 : 0.52, 'sub'); out += text(tx, ty + 17 + i * 16, line, mono && i === subs.length - 1 ? 'dg-m' : 'dg-s'); });
+  subs.forEach((line, i) => {
+    const m = mono === 'all' || (mono && i === subs.length - 1);
+    fit(line, avail, m ? 11.5 : 12, m ? 0.62 : 0.52, 'sub'); out += text(tx, ty + 17 + i * 16, line, m ? 'dg-m' : 'dg-s');
+  });
   return `${out}</g>`;
 }
 // A square node with a large icon and a caption underneath (pipelines).
