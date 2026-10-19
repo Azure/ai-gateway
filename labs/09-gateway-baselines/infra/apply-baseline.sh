@@ -47,7 +47,7 @@ if [ "$MODE" != "remove" ] && jq -e 'any(.[]; .type == "ipFilter")' >/dev/null <
 fi
 
 SUB="$(az account show --query id -o tsv)"
-URL="https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/service/$GATEWAY/workspaces/default?api-version=2025-09-01-preview"
+URL="https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY/workspaces/default?api-version=2025-09-01-preview"
 
 # A PATCH replaces the whole properties.policies array, so always merge with the current array.
 CURRENT="$(az rest --method get --url "$URL")"

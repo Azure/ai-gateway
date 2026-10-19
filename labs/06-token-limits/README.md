@@ -33,36 +33,45 @@ you give each caller its own token allowance at the gateway, so a noisy neighbor
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need a gateway, an imported
   model, a callable alias, and a runtime API key from **Access** › **Keys**.
 - For the CLI, REST, and IaC tracks: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)
-  2.75 or later, signed in with `az login`, and the `aigateway` extension
-  ([install it](https://github.com/Azure/ai-gateway/tree/main/cli#install)). The REST track also uses `jq`.
+  2.75 or later, signed in with `az login`, plus `jq` for the Bash snippets. The CLI track calls the Azure
+  Resource Manager REST API with `az rest`, because the `az aigateway` extension doesn't manage the new
+  `aigateways` resource type yet.
 - Permission to change the gateway, for example **Contributor** on the resource group.
 
 Set these variables once. Every track and the **Verify** section reuse them.
 
 ```bash title="Bash"
 export RG="<resource-group>"
-export GATEWAY="<gateway>"
+export GATEWAY="<gateway>"                 # 24 characters or fewer
 export PROVIDER="<provider-name>"          # for example foundry-models
 export MODEL="<model-name>"                # the backend model name under that provider
 
-export AI_GATEWAY_URL="$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.gatewayUrl -o tsv)"
+export API="api-version=2025-09-01-preview"
+export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
+export GW="https://management.azure.com$GATEWAY_ID"
+export WS="$GW/workspaces/default"
+export MODEL_URL="$WS/modelProviders/$PROVIDER/models/$MODEL"
+export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
 # A starting guess for the alias. Confirm it on the model's Aliases tab (lab 02) and replace it if it differs.
-export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" \
-  --provider-name "$PROVIDER" -n "$MODEL" --query properties.deployment.modelName -o tsv)"
+export AI_GATEWAY_MODEL="$(az rest --url "$MODEL_URL?$API" --query properties.deployment.modelName -o tsv)"
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
 ```
 
 ```powershell title="PowerShell"
-$RG       = "<resource-group>"
-$GATEWAY  = "<gateway>"
-$PROVIDER = "<provider-name>"              # for example foundry-models
-$MODEL    = "<model-name>"                 # the backend model name under that provider
+$RG         = "<resource-group>"
+$GATEWAY    = "<gateway>"                 # 24 characters or fewer
+$PROVIDER   = "<provider-name>"           # for example foundry-models
+$MODEL      = "<model-name>"              # the backend model name under that provider
 
-$env:AI_GATEWAY_URL = az aigateway show -g $RG -n $GATEWAY --query properties.gatewayUrl -o tsv
+$API        = "api-version=2025-09-01-preview"
+$GATEWAY_ID = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
+$GW         = "https://management.azure.com$GATEWAY_ID"
+$WS         = "$GW/workspaces/default"
+$MODEL_URL  = "$WS/modelProviders/$PROVIDER/models/$MODEL"
+$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
 # A starting guess for the alias. Confirm it on the model's Aliases tab (lab 02) and replace it if it differs.
-$env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY `
-  --provider-name $PROVIDER -n $MODEL --query properties.deployment.modelName -o tsv
+$env:AI_GATEWAY_MODEL = az rest --url "$MODEL_URL`?$API" --query properties.deployment.modelName -o tsv
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 ```
@@ -82,7 +91,7 @@ gateway answers `429 Too Many Requests` with a `Retry-After` header and never ca
 |---|---|---|---|
 | Allowance | **Allowed tokens** | `count` | Positive integer |
 | Window | **Time period** | `period` | `minute` (TPM), `hour`, `day` (quota) |
-| Who gets a counter | **Counter dimensions** | `counterKey` | `Identity` (API key, or Entra tenant + object ID) or `IPAddress` |
+| Who gets a counter | **Counter dimensions** | `counterKey` | An array: `["identity"]` (each API key, or each Entra tenant + object ID), `["ipAddress"]`, or both |
 
 You can attach a token limit to a **model** (applies to every alias that targets it), to an **alias** (only
 callers that use that name), or to the **gateway** (a default for every compatible model, including models you
@@ -140,25 +149,41 @@ Select **Create**. The policy appears in the **Policies** list with your model a
 
 ### Set the token limit
 
-```bash
-az aigateway model policy set-token-limit \
-  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
-  --token-limit 1000 --token-period minute --token-counter-key Identity
+Policies live in the model's `properties.policies` array, and a `PATCH` replaces the whole array. So read the
+array, swap in the token limit, keep every other policy, and write it back.
+
+```bash title="Bash"
+az rest --url "$MODEL_URL?$API" \
+  | jq -c '{properties:{policies:([(.properties.policies // [])[] | select(.type != "tokenLimit")]
+      + [{type:"tokenLimit",count:1000,period:"minute",counterKey:["identity"]}])}}' > policies.json
+az rest --method patch --url "$MODEL_URL?$API" --body @policies.json --query properties.policies
+rm policies.json
 ```
 
-`--token-period` accepts `minute`, `hour`, or `day`. `--token-counter-key` accepts `Identity` or `IPAddress`.
-The defaults are `minute` and `Identity`.
+```powershell title="PowerShell"
+$p = (az rest --url "$MODEL_URL`?$API" | ConvertFrom-Json).properties.policies
+$p = @($p | Where-Object { $_ -and $_.type -ne 'tokenLimit' }) +
+     @(@{ type = 'tokenLimit'; count = 1000; period = 'minute'; counterKey = @('identity') })
+@{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
+az rest --method patch --url "$MODEL_URL`?$API" --body "@policies.json" --query properties.policies
+Remove-Item policies.json
+```
+
+`period` accepts `minute`, `hour`, or `day`. `counterKey` is an array with `identity`, `ipAddress`, or both.
 
 ### Confirm the policy
 
-```bash
-az aigateway model policy list \
-  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" -o json
+```bash title="Bash"
+az rest --url "$MODEL_URL?$API" --query properties.policies -o json
+```
+
+```powershell title="PowerShell"
+az rest --url "$MODEL_URL`?$API" --query properties.policies -o json
 ```
 
 > **Checkpoint**
-> The output contains `"type": "tokenLimit"` with `"count": 1000`, `"period": "minute"`, and
-> `"counterKey": "Identity"`.
+> The output contains `"type": "tokenLimit"` with `"count": 1000`, `"period": "minute"`,
+> `"counterKey": ["identity"]`, and `"scope": "resource"`, which the service adds to every model policy.
 
 <!-- track: rest | REST API -->
 
@@ -169,7 +194,7 @@ always read it first and keep the policies you didn't mean to change.
 
 ```bash
 SUB="$(az account show --query id -o tsv)"
-URL="https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/service/$GATEWAY/workspaces/default/modelProviders/$PROVIDER/models/$MODEL?api-version=2025-09-01-preview"
+URL="https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY/workspaces/default/modelProviders/$PROVIDER/models/$MODEL?api-version=2025-09-01-preview"
 
 az rest --method get --url "$URL" --query properties.policies
 ```
@@ -179,18 +204,18 @@ az rest --method get --url "$URL" --query properties.policies
 ```bash title="Bash"
 POLICIES="$(az rest --method get --url "$URL" | jq -c '
   [(.properties.policies // [])[] | select(.type != "tokenLimit")]
-  + [{"type":"tokenLimit","count":1000,"period":"minute","counterKey":"Identity"}]')"
+  + [{"type":"tokenLimit","count":1000,"period":"minute","counterKey":["identity"]}]')"
 
 az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}"
 ```
 
 ```powershell title="PowerShell"
 $SUB = az account show --query id -o tsv
-$URL = "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/service/$GATEWAY/workspaces/default/modelProviders/$PROVIDER/models/$MODEL`?api-version=2025-09-01-preview"
+$URL = "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY/workspaces/default/modelProviders/$PROVIDER/models/$MODEL`?api-version=2025-09-01-preview"
 
 $current  = az rest --method get --url $URL | ConvertFrom-Json
 $policies = @($current.properties.policies | Where-Object { $_ -and $_.type -ne 'tokenLimit' })
-$policies += [pscustomobject]@{ type = 'tokenLimit'; count = 1000; period = 'minute'; counterKey = 'Identity' }
+$policies += [pscustomobject]@{ type = 'tokenLimit'; count = 1000; period = 'minute'; counterKey = @('identity') }
 
 $body = @{ properties = @{ policies = $policies } } | ConvertTo-Json -Depth 10 -Compress
 $body | Set-Content -Path patch.json
@@ -199,7 +224,8 @@ Remove-Item patch.json
 ```
 
 > **Checkpoint**
-> Running the `GET` again returns your other policies unchanged plus one `tokenLimit` entry.
+> Running the `GET` again returns your other policies unchanged plus one `tokenLimit` entry with
+> `"counterKey": ["identity"]` and `"scope": "resource"`.
 
 <!-- track: iac | Bicep -->
 
@@ -225,7 +251,7 @@ On GitHub, open [infra/main.bicep](infra/main.bicep).
 az deployment group create -g "$RG" \
   --template-file infra/main.bicep \
   --parameters gatewayName="$GATEWAY" providerName="$PROVIDER" modelName="$MODEL" \
-               allowedTokens=1000 period=minute counterKey=Identity \
+               allowedTokens=1000 period=minute counterKey="['identity']" \
   --query properties.outputs
 
 export AI_GATEWAY_MODEL="$MODEL-limited"
@@ -235,11 +261,14 @@ export AI_GATEWAY_MODEL="$MODEL-limited"
 az deployment group create -g $RG `
   --template-file infra/main.bicep `
   --parameters gatewayName=$GATEWAY providerName=$PROVIDER modelName=$MODEL `
-               allowedTokens=1000 period=minute counterKey=Identity `
+               allowedTokens=1000 period=minute counterKey="['identity']" `
   --query properties.outputs
 
 $env:AI_GATEWAY_MODEL = "$MODEL-limited"
 ```
+
+`counterKey` is an array parameter. Pass `"['ipAddress']"` to count per client IP address, or
+`"['identity','ipAddress']"` for both. The single quotes inside the value survive both Bash and PowerShell.
 
 > **Checkpoint**
 > In the portal, **Models** shows the `<model-name>-limited` alias, and **Policies** lists a
@@ -342,14 +371,23 @@ key for testing, revoke it in **Access** › **Keys**.
 
 ### Remove the policy
 
-```bash
-az aigateway model policy remove \
-  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
-  --remove-token-limit true
+```bash title="Bash"
+az rest --url "$MODEL_URL?$API" \
+  | jq -c '{properties:{policies:[(.properties.policies // [])[] | select(.type != "tokenLimit")]}}' > policies.json
+az rest --method patch --url "$MODEL_URL?$API" --body @policies.json --query properties.policies
+rm policies.json
 ```
 
-`policy remove` deletes only the token limit and keeps every other policy on the model. To keep a limit for
-real traffic instead, run `set-token-limit` again with a production value such as `--token-limit 100000`.
+```powershell title="PowerShell"
+$p = (az rest --url "$MODEL_URL`?$API" | ConvertFrom-Json).properties.policies
+$p = @($p | Where-Object { $_ -and $_.type -ne 'tokenLimit' })
+@{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
+az rest --method patch --url "$MODEL_URL`?$API" --body "@policies.json" --query properties.policies
+Remove-Item policies.json
+```
+
+This removes only the token limit and keeps every other policy on the model. To keep a limit for real traffic
+instead, run the **Set the token limit** step again with a production `count`, such as `100000`.
 
 <!-- track: rest | REST API -->
 
@@ -364,8 +402,12 @@ az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLIC
 
 ### Delete the limited alias
 
-```bash
-az rest --method delete --url "https://management.azure.com/subscriptions/$(az account show --query id -o tsv)/resourceGroups/$RG/providers/Microsoft.ApiManagement/service/$GATEWAY/workspaces/default/aliases/$MODEL-limited?api-version=2025-09-01-preview"
+```bash title="Bash"
+az rest --method delete --url "$WS/aliases/$MODEL-limited?$API"
+```
+
+```powershell title="PowerShell"
+az rest --method delete --url "$WS/aliases/$MODEL-limited?$API"
 ```
 
 Or select the alias in **Models** and delete it in the portal. The backend model and its original alias stay.
@@ -383,7 +425,7 @@ Keep the gateway, model, and key. The next labs reuse them.
 | `403` with `LlmCostQuotaExceeded` | A **Cost limit** blocked the call, not the token limit | See [Enforce cost budgets](../07-cost-budgets/README.md). |
 | `429` without a gateway token limit | The backend deployment ran out of TPM | Raise the deployment's capacity in Foundry, or lower per-caller gateway limits so their sum fits. |
 | Other policies vanished after the REST call | `PATCH` replaces the whole `policies` array | Always `GET`, merge, then `PATCH`, as shown in the REST track. |
-| `az aigateway: 'model' is misspelled or not recognized` | The CLI extension isn't installed | [Install the extension](https://github.com/Azure/ai-gateway/tree/main/cli#install) and run `az aigateway version`. |
+| `ValidationError` with target `counterKey` | `counterKey` is a string such as `"Identity"`, uses another value, or is missing | Send an array with `identity`, `ipAddress`, or both, for example `"counterKey": ["identity"]`. |
 
 ## Next steps
 

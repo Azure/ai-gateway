@@ -47,7 +47,7 @@ if (-not $Remove -and $ipFilters.Count -gt 0) {
 
 $sub = az account show --query id -o tsv
 if ($LASTEXITCODE -ne 0) { throw 'Sign in with az login first.' }
-$url = "https://management.azure.com/subscriptions/$sub/resourceGroups/$ResourceGroup/providers/Microsoft.ApiManagement/service/$Gateway/workspaces/default?api-version=2025-09-01-preview"
+$url = "https://management.azure.com/subscriptions/$sub/resourceGroups/$ResourceGroup/providers/Microsoft.ApiManagement/aigateways/$Gateway/workspaces/default?api-version=2025-09-01-preview"
 
 # A PATCH replaces the whole properties.policies array, so always merge with the current array.
 $current = az rest --method get --url $url | ConvertFrom-Json

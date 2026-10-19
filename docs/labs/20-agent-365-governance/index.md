@@ -29,7 +29,7 @@ enforce each decision on live traffic.
 
 ![Microsoft Agent 365 keeps the inventory and the decisions, and the gateway enforces them inline on MCP traffic](../assets/diagrams/agent-365.svg "Agent 365 defines governance intent, inventory, and access decisions. API Management enforces them on every request to the MCP server.")
 
-<!-- widget: tool-patterns {"tools":["learn___microsoft_docs_search","learn___microsoft_code_sample_search","learn___microsoft_docs_fetch"],"allow":["learn___microsoft_docs_search","learn___microsoft_code_sample_search","learn___microsoft_docs_fetch"],"block":["learn___microsoft_docs_fetch"]} -->
+<!-- widget: tool-patterns {"tools":["learn_microsoft_docs_search","learn_microsoft_code_sample_search","learn_microsoft_docs_fetch"],"allow":["learn_microsoft_docs_search","learn_microsoft_code_sample_search","learn_microsoft_docs_fetch"],"block":["learn_microsoft_docs_fetch"]} -->
 
 ## Before you begin
 
@@ -42,8 +42,9 @@ enforce each decision on live traffic.
 - Permission to edit the MCP server in the AI Gateway portal, for example **Contributor** on the gateway's resource
   group, and a runtime API key from **Access** › **Keys**.
 - For the test script: `curl` and `jq` (Bash) or PowerShell 7 or later. Get the gateway URL from the portal or
-  with the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) and the `aigateway` extension
-  ([install it](https://github.com/Azure/ai-gateway/tree/main/cli#install)).
+  with the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
+  `az login`. The CLI reads the new `aigateways` resource type with `az resource`, because the `az aigateway`
+  extension doesn't manage it yet.
 
 > [!NOTE]
 > The Agent 365 integration is an emerging preview capability. Labels and behavior can change; see the
@@ -57,7 +58,8 @@ export RG="<resource-group>"
 export GATEWAY="<gateway>"
 export MCP_SERVER="learn"
 
-export AI_GATEWAY_URL="$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.gatewayUrl -o tsv)"
+export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
+export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
 ```
@@ -67,7 +69,8 @@ $RG         = "<resource-group>"
 $GATEWAY    = "<gateway>"
 $MCP_SERVER = "learn"
 
-$env:AI_GATEWAY_URL = az aigateway show -g $RG -n $GATEWAY --query properties.gatewayUrl -o tsv
+$GATEWAY_ID         = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
+$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 ```
@@ -118,8 +121,8 @@ Select **MCP servers**, then `learn`, then **Edit**, and go to the **Tools** ste
 
 ### Select exact tools
 
-Under **Tool availability**, choose **Select exact tools**, and select the three `learn___` tools:
-`learn___microsoft_docs_search`, `learn___microsoft_code_sample_search`, and `learn___microsoft_docs_fetch`.
+Under **Tool availability**, choose **Select exact tools**, and select the three `learn_` tools:
+`learn_microsoft_docs_search`, `learn_microsoft_code_sample_search`, and `learn_microsoft_docs_fetch`.
 Leave **Blocked tools** empty, so the only blocks in this lab come from Agent 365. Select **Save**.
 
 If your portal doesn't offer **Select exact tools** yet, Agent 365 can't read this server's tool list. You can
@@ -145,11 +148,11 @@ chmod +x infra/call-tool.sh
 ```
 
 ```text title="Expected output"
-MCP endpoint: https://<gateway>.azure-api.net/default/toolservers/learn/mcp
+MCP endpoint: https://<gateway>.eastus2-01.ai.gateway.azure.com/default/toolservers/learn/mcp
 tools/list: HTTP 200
-  learn___microsoft_docs_search
-  learn___microsoft_code_sample_search
-  learn___microsoft_docs_fetch
+  learn_microsoft_docs_search
+  learn_microsoft_code_sample_search
+  learn_microsoft_docs_fetch
 ```
 
 <!-- /steps -->
@@ -195,29 +198,29 @@ of the server working.
 ### Turn off the tool in Agent 365
 
 In the admin center, under **Agents**, select **Tools**, then the `learn` server. Select the **Tools** tab and
-disable `learn___microsoft_docs_fetch`. Agent 365 inserts a managed policy into the server to stop that tool from
+disable `learn_microsoft_docs_fetch`. Agent 365 inserts a managed policy into the server to stop that tool from
 running.
 
 ### Call the blocked tool
 
 ```bash
-./infra/call-tool.sh "$MCP_SERVER" learn___microsoft_docs_fetch \
+./infra/call-tool.sh "$MCP_SERVER" learn_microsoft_docs_fetch \
   '{"url":"https://learn.microsoft.com/azure/api-management/agent-365"}'
 ```
 
 ```powershell
-./infra/call-tool.ps1 -Server $MCP_SERVER -Tool learn___microsoft_docs_fetch `
+./infra/call-tool.ps1 -Server $MCP_SERVER -Tool learn_microsoft_docs_fetch `
   -Arguments '{"url":"https://learn.microsoft.com/azure/api-management/agent-365"}'
 ```
 
 ```text title="Expected output"
 ...
-tools/call: learn___microsoft_docs_fetch {"url":"https://learn.microsoft.com/azure/api-management/agent-365"}
+tools/call: learn_microsoft_docs_fetch {"url":"https://learn.microsoft.com/azure/api-management/agent-365"}
 HTTP status: 200
 isError: true
 Denial code: ToolNotAvailable
 Correlation ID: <guid>
-Tool 'learn___microsoft_docs_fetch' is blocked by the gateway. Do not retry this tool.
+Tool 'learn_microsoft_docs_fetch' is blocked by the gateway. Do not retry this tool.
 ```
 
 The message text can differ; the denial code is what matters. The call returns HTTP `200` with a JSON-RPC
@@ -246,11 +249,11 @@ purpose, so a well-behaved agent stops retrying it. The documented response, for
 ### Call a tool that's still allowed
 
 ```bash
-./infra/call-tool.sh "$MCP_SERVER" learn___microsoft_docs_search '{"query":"What is Microsoft Agent 365?"}'
+./infra/call-tool.sh "$MCP_SERVER" learn_microsoft_docs_search '{"query":"What is Microsoft Agent 365?"}'
 ```
 
 ```powershell
-./infra/call-tool.ps1 -Server $MCP_SERVER -Tool learn___microsoft_docs_search `
+./infra/call-tool.ps1 -Server $MCP_SERVER -Tool learn_microsoft_docs_search `
   -Arguments '{"query":"What is Microsoft Agent 365?"}'
 ```
 
@@ -258,7 +261,7 @@ The search returns results with `isError: false`.
 
 ### Turn the tool back on
 
-In the admin center, on the `learn` server's **Tools** tab, enable `learn___microsoft_docs_fetch` again.
+In the admin center, on the `learn` server's **Tools** tab, enable `learn_microsoft_docs_fetch` again.
 
 <!-- /steps -->
 
@@ -288,7 +291,7 @@ In the admin center, under **Agents**, select **Tools**, select the `learn` serv
 ```
 
 ```text title="Expected output"
-MCP endpoint: https://<gateway>.azure-api.net/default/toolservers/learn/mcp
+MCP endpoint: https://<gateway>.eastus2-01.ai.gateway.azure.com/default/toolservers/learn/mcp
 initialize: HTTP 403 (x-correlation-id: <guid>)
 {
   "error": {
@@ -326,11 +329,11 @@ publisher, isn't blocked, and its **Tools** tab shows all three tools enabled.
 ### Confirm the server works end to end
 
 ```bash
-./infra/call-tool.sh "$MCP_SERVER" learn___microsoft_docs_search '{"query":"What is Microsoft Agent 365?"}'
+./infra/call-tool.sh "$MCP_SERVER" learn_microsoft_docs_search '{"query":"What is Microsoft Agent 365?"}'
 ```
 
 ```powershell
-./infra/call-tool.ps1 -Server $MCP_SERVER -Tool learn___microsoft_docs_search `
+./infra/call-tool.ps1 -Server $MCP_SERVER -Tool learn_microsoft_docs_search `
   -Arguments '{"query":"What is Microsoft Agent 365?"}'
 ```
 
@@ -392,6 +395,6 @@ select **Save**.
 ## Next steps
 
 - [Protect tool calls with Agent 365 threat protection](../19-tool-threat-protection/README.md)
-- [Lock down the gateway with private networking](../18-private-networking/README.md)
+- [Lock down backend traffic with private networking](../18-private-networking/README.md)
 - [Control which tools agents can call](../05-mcp-tool-controls/README.md)
 - [Govern tools with Microsoft Agent 365 and Azure API Management](https://learn.microsoft.com/azure/api-management/agent-365) on Microsoft Learn

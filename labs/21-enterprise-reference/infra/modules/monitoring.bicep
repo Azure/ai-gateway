@@ -1,6 +1,5 @@
 // Observability destination for the gateway: a Log Analytics workspace and a workspace-based Application Insights
-// component. Same resource shapes as infra/ai-gateway/main.bicep in the reference sample
-// (Azure-Samples/simple-foundry-hosted-agent-python-aigateway).
+// component.
 targetScope = 'resourceGroup'
 
 @description('Location for the monitoring resources.')

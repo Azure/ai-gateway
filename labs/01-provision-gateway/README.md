@@ -7,7 +7,7 @@ duration: 15
 tracks: [portal, cli, iac]
 order: 1
 illustration: illustrations/portal-provision-gateway.svg
-tags: [provisioning, AIGateway SKU, az aigateway create, Bicep, managed identity, regions]
+tags: [provisioning, aigateways, az rest, Bicep, managed identity, regions]
 objectives:
   - Create an AI Gateway in East US 2 or Sweden Central from the portal, the Azure CLI, or Bicep
   - Find the gateway's runtime URL and its system-assigned managed identity
@@ -34,8 +34,9 @@ way around the portal so you're ready for the rest of the labs.
   connector gateways.
 - For the portal track: a browser and your Azure account.
 - For the CLI and IaC tracks: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or
-  later, signed in with `az login`. The CLI track and the **Verify** section also use the `aigateway` extension
-  ([install it](https://github.com/Azure/ai-gateway/tree/main/cli#install)).
+  later, signed in with `az login`, plus `jq` for the Bash snippets. The CLI track calls the Azure Resource
+  Manager REST API with `az rest`, because the `az aigateway` extension doesn't manage the new `aigateways`
+  resource type yet.
 - Recommended reading: [How AI Gateway works](../00-how-ai-gateway-works/README.md).
 
 Set these variables once. Every track and the **Verify** section reuse them.
@@ -44,37 +45,44 @@ Set these variables once. Every track and the **Verify** section reuse them.
 az account set --subscription "<subscription-id>"
 
 export RG="<resource-group>"               # for example rg-ai-gateway-labs
-export GATEWAY="<gateway>"                 # globally unique, it becomes part of the runtime URL
+export GATEWAY="<gateway>"                 # globally unique, 24 characters or fewer, part of the runtime URL
 export LOCATION="<location>"               # eastus2 or swedencentral
+export SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+export GATEWAY_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
 ```
 
 ```powershell title="PowerShell"
 az account set --subscription "<subscription-id>"
 
-$RG       = "<resource-group>"             # for example rg-ai-gateway-labs
-$GATEWAY  = "<gateway>"                    # globally unique, it becomes part of the runtime URL
-$LOCATION = "<location>"                   # eastus2 or swedencentral
+$RG              = "<resource-group>"      # for example rg-ai-gateway-labs
+$GATEWAY         = "<gateway>"             # globally unique, 24 characters or fewer, part of the runtime URL
+$LOCATION        = "<location>"            # eastus2 or swedencentral
+$SUBSCRIPTION_ID = az account show --query id -o tsv
+$GATEWAY_ID      = "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
 ```
 
 > [!IMPORTANT]
 > During public preview, AI Gateway is available in **East US 2** (`eastus2`) and **Sweden Central**
-> (`swedencentral`). Create the resource group in one of these regions so that defaults line up.
+> (`swedencentral`). Create the resource group in one of these regions so that defaults line up. The gateway
+> name must be 1–24 characters: letters, digits, and hyphens, starting with a letter and not ending with a hyphen.
 
 ## How it works
 
-An AI Gateway is an Azure API Management service that runs the **AI Gateway** tier (SKU `AIGateway`). You
-manage it in the [AI Gateway portal](https://ai.gateway.azure.com), which is separate from the Azure portal,
-or through Azure Resource Manager with the CLI, REST, or Bicep. The capacity is defined by the service, so the
-only real decisions are the name, the region, and the resource group.
+An AI Gateway is an Azure Resource Manager resource of type `Microsoft.ApiManagement/aigateways`. You manage it
+in the [AI Gateway portal](https://ai.gateway.azure.com), which is separate from the Azure portal, or through
+Azure Resource Manager with the CLI, REST, or Bicep. Each gateway has a companion connector gateway
+(`Microsoft.Web/connectorGateways`) with the same name, which is created first. The service sets the SKU and
+capacity itself, so the only real decisions are the name, the region, and the resource group.
 
 | Property | Value |
 |---|---|
-| Resource type | `Microsoft.ApiManagement/service` with SKU `AIGateway` |
+| Resource type | `Microsoft.ApiManagement/aigateways` (API version `2025-09-01-preview`), plus `Microsoft.Web/connectorGateways` with the same name |
 | Regions (preview) | East US 2 (`eastus2`), Sweden Central (`swedencentral`) |
-| Runtime URL | `properties.gatewayUrl`, for example `https://<gateway>.azure-api.net` |
+| Name | 1–24 characters: letters, digits, and hyphens. It becomes the first label of the runtime host name |
+| Runtime URL | `https://` + `properties.frontend.defaultHostname`, for example `https://<gateway>.eastus2-01.ai.gateway.azure.com` |
 | Runtime routes | Models under `/default/models/…`, MCP servers under `/default/toolservers/<server>/mcp` |
 | Outbound identity | A system-assigned managed identity, used to call Foundry and other Microsoft Entra–protected backends |
-| Provisioning time | About a minute |
+| Provisioning time | A few minutes, often less |
 
 Everything you publish later lives in the gateway's `default` workspace. That's why every runtime route
 starts with `/default/`. Applications authenticate **inbound** with an API key or a Microsoft Entra token. The
@@ -98,8 +106,12 @@ gateway switcher in the top bar and start creating a new one from there.
 
 ### Enter the gateway details
 
-Choose the subscription, the resource group, a globally unique gateway name, and the region (**East US 2** or
-**Sweden Central**).
+In **Create AI gateway**, enter a globally unique **Name** of 24 characters or fewer, or select
+**Generate a new name**. Then choose the subscription, a **Resource group** (**New** or **Existing**), and the
+**Region** (**East US 2** or **Sweden Central**). Under **Advanced**, keep
+**Enable system-assigned managed identity** selected, **Public network access** set to **Enabled**, and
+**Public routing**. **Private routing** connects the gateway to private backends through a virtual network and
+can only be chosen at creation. [Lab 18](../18-private-networking/README.md) covers it.
 
 ![Creating a gateway in the AI Gateway portal](../assets/illustrations/portal-create-gateway.svg "Choose a subscription, resource group, name, and preview region, then create the gateway.")
 
@@ -109,8 +121,8 @@ Choose the subscription, the resource group, a globally unique gateway name, and
 
 ### Watch it provision
 
-Create the gateway. The portal shows provisioning progress in place, and a new gateway is typically ready in
-about a minute.
+Select **Create gateway**. The portal shows provisioning progress in place, and a new gateway is typically ready
+in a few minutes.
 
 ### Open the setup guide on Home
 
@@ -123,53 +135,110 @@ on **Home** until you finish it.
 
 <!-- track: cli | Azure CLI -->
 
+### Register the resource providers
+
+The gateway lives in the `Microsoft.ApiManagement` resource provider and its connector gateway in
+`Microsoft.Web`. Registering is a one-time step per subscription, and it returns quickly when a provider is
+already registered.
+
+```bash
+az provider register -n Microsoft.ApiManagement --wait
+az provider register -n Microsoft.Web --wait
+```
+
 ### Create a resource group
 
 ```bash
 az group create --name "$RG" --location "$LOCATION"
 ```
 
-### Start creating the gateway
+### Create the connector gateway
 
-`az aigateway create` selects the AI Gateway SKU for you. `--no-wait` returns as soon as Azure accepts the
-request, which is handy in scripts. Leave it out and the command waits for provisioning instead.
+Every AI gateway has a companion `Microsoft.Web/connectorGateways` resource with the same name. The portal and
+the Bicep template create it first, so do the same.
 
-```bash
-az aigateway create -g "$RG" -n "$GATEWAY" --location "$LOCATION" \
-  --system-assigned true --tags workload=ai-gateway-labs owner=platform-team \
-  --no-wait
+```bash title="Bash"
+az rest --method put \
+  --url "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Web/connectorGateways/$GATEWAY?api-version=2026-05-01-preview" \
+  --body "$(jq -cn --arg location "$LOCATION" '{location: $location, properties: {}}')"
 ```
 
-The managed identity is shown explicitly here. `--publisher-email` and `--publisher-name` are optional and
-default to `noreply@aigateway.azure.com` and `AI Gateway Administrator`.
+```powershell title="PowerShell"
+@{ location = $LOCATION; properties = @{} } | ConvertTo-Json -Compress | Set-Content body.json
+az rest --method put `
+  --url "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Web/connectorGateways/${GATEWAY}?api-version=2026-05-01-preview" `
+  --body "@body.json"
+```
+
+### Start creating the gateway
+
+The request body only needs the region, a system-assigned managed identity, and public network access. There's
+no SKU, capacity, or publisher to set: the service picks them. Azure accepts the request and provisioning
+continues in the background.
+
+```bash title="Bash"
+az rest --method put --url "https://management.azure.com$GATEWAY_ID?api-version=2025-09-01-preview" \
+  --body "$(jq -cn --arg location "$LOCATION" \
+    '{location: $location, identity: {type: "SystemAssigned"}, properties: {publicNetworkAccess: "Enabled"}}')"
+```
+
+```powershell title="PowerShell"
+@{
+  location   = $LOCATION
+  identity   = @{ type = "SystemAssigned" }
+  properties = @{ publicNetworkAccess = "Enabled" }
+} | ConvertTo-Json -Depth 5 -Compress | Set-Content body.json
+az rest --method put --url "https://management.azure.com${GATEWAY_ID}?api-version=2025-09-01-preview" --body "@body.json"
+Remove-Item body.json
+```
 
 ### Wait for provisioning
 
-```bash
-az aigateway wait -g "$RG" -n "$GATEWAY" --created --interval 15
+```bash title="Bash"
+az resource wait --ids "$GATEWAY_ID" --api-version 2025-09-01-preview \
+  --custom "properties.provisioningState=='Succeeded'"
 ```
 
-The command returns when `provisioningState` reaches `Succeeded`, usually in about a minute.
+```powershell title="PowerShell"
+az resource wait --ids $GATEWAY_ID --api-version 2025-09-01-preview `
+  --custom "properties.provisioningState=='Succeeded'"
+```
+
+The command returns when `provisioningState` reaches `Succeeded`, usually within a few minutes.
 
 ### Read the runtime URL and identity
 
-```bash
-az aigateway show -g "$RG" -n "$GATEWAY" \
-  --query "{name:name, location:location, state:properties.provisioningState, url:properties.gatewayUrl, principalId:identity.principalId}" \
+```bash title="Bash"
+az resource show --ids "$GATEWAY_ID" \
+  --query "{name:name, location:location, state:properties.provisioningState, host:properties.frontend.defaultHostname, principalId:identity.principalId}" \
+  -o table
+```
+
+```powershell title="PowerShell"
+az resource show --ids $GATEWAY_ID `
+  --query "{name:name, location:location, state:properties.provisioningState, host:properties.frontend.defaultHostname, principalId:identity.principalId}" `
   -o table
 ```
 
 > **Checkpoint**
-> The table shows `Succeeded`, a `url` that starts with `https://`, and a `principalId` GUID.
+> The table shows `Succeeded`, a `Host` like `<gateway>.eastus2-01.ai.gateway.azure.com`, and a `PrincipalId`
+> GUID.
 
 <!-- track: iac | Bicep -->
 
 ### Review the template
 
-The template mirrors the [reference sample](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway):
-an API Management service with SKU `AIGateway`, capacity `1`, and a system-assigned identity, plus a
-`Microsoft.Web/connectorGateways` resource with the same name. Keep both resources together in your own
+The template creates what the portal creates: a `Microsoft.Web/connectorGateways` resource first, then the AI
+gateway (`Microsoft.ApiManagement/aigateways`) with the same name, a system-assigned identity, and public
+network access enabled. There's no SKU, capacity, or publisher to set. Keep both resources together in your own
 templates.
+
+| Parameter | Description |
+|---|---|
+| `gatewayName` | Required. The gateway name, 24 characters or fewer |
+| `location` | `eastus2` (default) or `swedencentral` |
+| `tags` | Optional. Tags applied to both resources |
+| `backendSubnetId` | Optional. A subnet for outbound virtual network integration, which can only be set at creation. See [Lab 18](../18-private-networking/README.md) |
 
 <!-- include: infra/main.bicep -->
 
@@ -183,20 +252,20 @@ az group create --name "$RG" --location "$LOCATION"
 
 ### Deploy the template
 
-Run the deployment from the lab folder. The gateway inherits the resource group's region unless you pass
-`location`.
+Run the deployment from the lab folder. The template defaults `location` to `eastus2`, so pass your region
+explicitly.
 
 ```bash title="Bash"
 az deployment group create -g "$RG" \
   --template-file infra/main.bicep \
-  --parameters gatewayName="$GATEWAY" \
+  --parameters gatewayName="$GATEWAY" location="$LOCATION" \
   --query properties.outputs
 ```
 
 ```powershell title="PowerShell"
 az deployment group create -g $RG `
   --template-file infra/main.bicep `
-  --parameters gatewayName=$GATEWAY `
+  --parameters gatewayName=$GATEWAY location=$LOCATION `
   --query properties.outputs
 ```
 
@@ -204,16 +273,17 @@ Expected output (trimmed):
 
 ```json
 {
+  "connectorGatewayId": { "type": "String", "value": "/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.Web/connectorGateways/<gateway>" },
+  "gatewayId":   { "type": "String", "value": "/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.ApiManagement/aigateways/<gateway>" },
   "gatewayName": { "type": "String", "value": "<gateway>" },
-  "gatewayUrl":  { "type": "String", "value": "https://<gateway>.azure-api.net" },
-  "gatewayId":   { "type": "String", "value": "/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.ApiManagement/service/<gateway>" },
+  "gatewayUrl":  { "type": "String", "value": "https://<gateway>.eastus2-01.ai.gateway.azure.com" },
   "principalId": { "type": "String", "value": "00000000-0000-0000-0000-000000000000" }
 }
 ```
 
 > [!TIP]
-> `BCP081` warnings about `Microsoft.Web/connectorGateways` mean that Bicep has no local type definitions
-> for this preview resource. They don't block the deployment.
+> `BCP081` warnings about `Microsoft.ApiManagement/aigateways` and `Microsoft.Web/connectorGateways` mean that
+> Bicep has no local type definitions for these preview resources. They don't block the deployment.
 
 > **Checkpoint**
 > The deployment succeeds and the outputs show `gatewayUrl` and `principalId`.
@@ -226,18 +296,19 @@ Expected output (trimmed):
 
 ### Call the runtime URL
 
-Read the URL from the gateway rather than building it yourself, then send a request without a key. Any HTTP
-status, typically `401`, proves that DNS, TLS, and the gateway are up. You add a model and a key in the next lab.
+Read the host name from the gateway rather than building it yourself, then send a request without a key. Any
+HTTP status, such as `400` or `401`, proves that DNS, TLS, and the gateway are up. You add a model and a key in
+the next lab.
 
 ```bash title="Bash"
-export AI_GATEWAY_URL="$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.gatewayUrl -o tsv)"
+export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
 echo "$AI_GATEWAY_URL"
 
 curl -sS -o /dev/null -w "HTTP %{http_code}\n" "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions"
 ```
 
 ```powershell title="PowerShell"
-$env:AI_GATEWAY_URL = az aigateway show -g $RG -n $GATEWAY --query properties.gatewayUrl -o tsv
+$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
 $env:AI_GATEWAY_URL
 
 (Invoke-WebRequest -Uri "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/models/openai/v1/chat/completions" `
@@ -272,7 +343,7 @@ Use the left navigation to get familiar with each area. You visit most of them i
 | **MCP servers** | Publish MCP servers and control which tools are available | [Lab 04](../04-federate-mcp-tools/README.md), [Lab 05](../05-mcp-tool-controls/README.md) |
 | **Policies** | Add token and request rate limits, cost limits, content safety, and IP filters at gateway or asset scope | [Lab 06](../06-token-limits/README.md), [Lab 09](../09-gateway-baselines/README.md) |
 | **Monitoring** | Send telemetry to an OTLP destination and use the built-in dashboard and traces | [Lab 13](../13-monitoring/README.md) |
-| **Networking** | Configure private endpoints and outbound virtual network integration | [Lab 18](../18-private-networking/README.md) |
+| **Networking** | Review network access and outbound virtual network integration | [Lab 18](../18-private-networking/README.md) |
 | **Managed identities** | Manage the identities that the gateway uses to call backends | [Lab 12](../12-backend-identity/README.md) |
 
 The top bar holds the gateway switcher, **What's new**, notifications, and a command palette (Ctrl+K) to jump
@@ -292,11 +363,13 @@ to any page.
 
 - **One gateway per environment.** Repeat the IaC track with a different `gatewayName` for dev, test, and
   production, and keep the template in source control next to your app.
-- **Tag for ownership and chargeback.** `az aigateway update` sets tags, and it replaces the whole tag set, so
-  include every tag you want to keep:
+- **Tag for ownership and chargeback.** The template's `tags` parameter applies the same tags to the gateway
+  and its connector gateway, so set them when you create each environment's gateway:
 
   ```bash
-  az aigateway update -g "$RG" -n "$GATEWAY" --tags workload=ai-gateway-labs owner=platform-team costCenter=1234
+  az deployment group create -g "$RG" --template-file infra/main.bicep \
+    --parameters gatewayName="$GATEWAY" location="$LOCATION" \
+                 tags='{"workload":"ai-gateway-labs","owner":"platform-team","costCenter":"1234"}'
   ```
 - **Use a user-assigned identity.** When several gateways must share one backend identity, add a
   user-assigned identity on **Managed identities**. See
@@ -307,8 +380,8 @@ to any page.
 The gateway is free during preview, and every later lab reuses it. **Keep it** until you finish the labs you
 plan to do.
 
-When you're done with all the labs, delete the resource group. That removes the gateway and everything else in
-the group. The command asks for confirmation.
+When you're done with all the labs, delete the resource group. That removes the gateway, its connector gateway,
+and everything else in the group. The command asks for confirmation.
 
 ```bash title="Bash"
 az group delete --name "$RG"
@@ -318,11 +391,17 @@ az group delete --name "$RG"
 az group delete --name $RG
 ```
 
-Deleting a gateway keeps an API Management soft-delete record, so the name might not be reusable right away. To
-reuse the name immediately, purge the record. Purging is permanent.
+To keep the resource group, delete the AI gateway first and then its connector gateway. Deleting the gateway
+also deletes everything you published on it.
 
-```bash
-az apim deletedservice purge --service-name "$GATEWAY" --location "$LOCATION"
+```bash title="Bash"
+az resource delete --ids "$GATEWAY_ID" --api-version 2025-09-01-preview
+az resource delete -g "$RG" -n "$GATEWAY" --resource-type Microsoft.Web/connectorGateways --api-version 2026-05-01-preview
+```
+
+```powershell title="PowerShell"
+az resource delete --ids $GATEWAY_ID --api-version 2025-09-01-preview
+az resource delete -g $RG -n $GATEWAY --resource-type Microsoft.Web/connectorGateways --api-version 2026-05-01-preview
 ```
 
 ## Troubleshooting
@@ -330,11 +409,11 @@ az apim deletedservice purge --service-name "$GATEWAY" --location "$LOCATION"
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Your subscription is disabled in the portal's subscription picker | You lack write permission for API Management or connector gateways in that subscription | Ask for **Contributor** on the subscription or resource group, or pick another subscription. |
-| The deployment fails because the region isn't supported | The resource group or `--location` is outside the preview regions | Use `eastus2` or `swedencentral`. In Bicep, pass `location=eastus2` if the resource group is elsewhere. |
-| The name is rejected as unavailable | Gateway names are globally unique, or a soft-deleted gateway still holds the name | Pick another name, or purge your own soft-deleted gateway with `az apim deletedservice purge`. |
-| `MissingSubscriptionRegistration` | The resource provider isn't registered in the subscription | Run `az provider register --namespace Microsoft.ApiManagement` (and `Microsoft.Web` for the Bicep track), or ask your subscription administrator. |
-| `Could not resolve host` when you call the URL | Provisioning or DNS isn't finished | Run `az aigateway wait -g "$RG" -n "$GATEWAY" --created` and retry. |
-| `az aigateway: 'create' is misspelled or not recognized` | The CLI extension isn't installed | [Install the extension](https://github.com/Azure/ai-gateway/tree/main/cli#install) and run `az aigateway version`. |
+| The deployment fails because the region isn't supported | `$LOCATION` or the template's `location` is outside the preview regions | Use `eastus2` or `swedencentral`. The template accepts only these two values and defaults to `eastus2`. |
+| The name is rejected | Gateway names are globally unique and limited to 24 characters: letters, digits, and hyphens, starting with a letter | Pick another name that follows the rules. |
+| `MissingSubscriptionRegistration` | A resource provider isn't registered in the subscription | Run `az provider register -n Microsoft.ApiManagement --wait` and `az provider register -n Microsoft.Web --wait`, or ask your subscription administrator. |
+| `Could not resolve host` when you call the URL | Provisioning or DNS isn't finished | Run the `az resource wait` command from the CLI track and retry. |
+| `az aigateway` commands can't find your gateway | The `aigateway` CLI extension doesn't manage the new `aigateways` resource type yet | Use `az rest` and `az resource` as shown in this lab. |
 
 ## Next steps
 

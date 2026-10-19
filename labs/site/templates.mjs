@@ -245,7 +245,7 @@ export function homePage({ rel, site, catalog, labs, totals }) {
 
   const trackCards = [
     { id: 'portal', title: 'Portal', text: 'Click-by-click guides in the AI Gateway portal, with exact labels and screenshots.' },
-    { id: 'cli', title: 'Azure CLI', text: 'Repeatable az aigateway commands you can paste into Bash or PowerShell.' },
+    { id: 'cli', title: 'Azure CLI', text: 'Repeatable az rest and az deployment commands you can paste into Bash or PowerShell.' },
     { id: 'iac', title: 'Bicep & azd', text: 'Infrastructure as code that compiles, deploys, and cleans up in one command.' },
     { id: 'code', title: 'Code & REST', text: 'Python, TypeScript, and .NET clients, agent frameworks, and REST calls.' },
   ];
@@ -368,8 +368,8 @@ export function homePage({ rel, site, catalog, labs, totals }) {
       <a class="resource" href="${site.portal}" target="_blank" rel="noopener"><span class="resource-icon">${I.portal}</span><span><b>AI Gateway portal</b><span>Create and manage gateways, models, tools, and policies.</span></span>${I.external}</a>
       <a class="resource" href="${site.docs}" target="_blank" rel="noopener"><span class="resource-icon">${I.book}</span><span><b>Documentation</b><span>Concepts, quickstarts, and release notes.</span></span>${I.external}</a>
       <a class="resource" href="${site.learn}" target="_blank" rel="noopener"><span class="resource-icon">${I.layers}</span><span><b>Microsoft Learn overview</b><span>How the AI Gateway tier fits API Management.</span></span>${I.external}</a>
-      <a class="resource" href="${site.repo}/tree/${site.branch}/cli" target="_blank" rel="noopener"><span class="resource-icon">${I.cli}</span><span><b>az aigateway CLI</b><span>Install the extension and browse the command reference.</span></span>${I.external}</a>
-      <a class="resource" href="https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway" target="_blank" rel="noopener"><span class="resource-icon">${I.agent}</span><span><b>Hosted agent sample</b><span>A Foundry hosted agent wired to AI Gateway with azd.</span></span>${I.external}</a>
+      <a class="resource" href="${site.repo}/tree/${site.branch}/cli" target="_blank" rel="noopener"><span class="resource-icon">${I.cli}</span><span><b>AI Gateway CLI extension</b><span>The az aigateway extension and its command reference.</span></span>${I.external}</a>
+      <a class="resource" href="https://learn.microsoft.com/azure/foundry/agents/quickstarts/quickstart-hosted-agent" target="_blank" rel="noopener"><span class="resource-icon">${I.agent}</span><span><b>Foundry hosted agents</b><span>Build agent code and deploy it to Microsoft Foundry with azd.</span></span>${I.external}</a>
       <a class="resource" href="${site.repo}" target="_blank" rel="noopener"><span class="resource-icon">${I.sparkle}</span><span><b>Coding-agent plugin</b><span>Skills for Copilot, Claude Code, Cursor, and Gemini.</span></span>${I.external}</a>
     </div>
   </div></section>

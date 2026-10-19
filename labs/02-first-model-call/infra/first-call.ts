@@ -1,9 +1,9 @@
 // Calls a model through AI Gateway with the OpenAI npm package: once with the Responses API and once with
-// Chat Completions. The gateway authenticates the api-key header, so the SDK's own API key is a placeholder.
+// Chat Completions. The SDK sends the gateway key as a bearer token, which the model endpoint accepts.
 //
 // Usage (Node.js 22.18 or later runs TypeScript directly; on older versions use `npx tsx first-call.ts`):
 //   npm install
-//   export AI_GATEWAY_URL="https://<gateway>.azure-api.net"
+//   export AI_GATEWAY_URL="https://<gateway>.eastus2-01.ai.gateway.azure.com"
 //   export AI_GATEWAY_MODEL="<model-alias>"
 //   export AI_GATEWAY_API_KEY="..."      // never commit this value
 //   node first-call.ts
@@ -20,8 +20,7 @@ const model: string = required("AI_GATEWAY_MODEL");
 
 const client = new OpenAI({
   baseURL: `${gatewayUrl}/default/models/openai/v1`,
-  apiKey: "unused",
-  defaultHeaders: { "api-key": required("AI_GATEWAY_API_KEY") },
+  apiKey: required("AI_GATEWAY_API_KEY"),
 });
 
 const response = await client.responses.create({

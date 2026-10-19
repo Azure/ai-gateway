@@ -36,11 +36,11 @@ and keep tighter asset policies on top of it.
   [Screen prompts and responses with content safety](../08-content-safety/README.md), including their
   **Clean up** sections. You need a gateway, an imported model, a callable alias, and a runtime API key from
   **Access** › **Keys**.
-- For the REST and Policy as code tracks: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)
-  2.75 or later, signed in with `az login`, plus `jq` (Bash) or PowerShell 7 or later. There's no
-  `az aigateway` command for Gateway scope policies, so these tracks call the management API with `az rest`.
-- For **Verify**: `curl` and `jq` (Bash) or PowerShell 7 or later, and the `aigateway` CLI extension
-  ([install it](https://github.com/Azure/ai-gateway/tree/main/cli#install)).
+- The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
+  `az login`, plus `jq` (Bash) or PowerShell 7 or later. The REST and Policy as code tracks and **Verify** call
+  the Azure Resource Manager REST API with `az rest`, because the `az aigateway` extension doesn't manage the new
+  `aigateways` resource type yet.
+- For **Verify**: `curl` (Bash) or PowerShell 7 or later.
 - Permission to change the gateway, for example **Contributor** on the resource group.
 - The public IP addresses or CIDR ranges your callers use. Once the IP filter is on, calls from anywhere else get
   `403`.
@@ -49,14 +49,18 @@ Set these variables once. Every track and the **Verify** section reuse them.
 
 ```bash title="Bash"
 export RG="<resource-group>"
-export GATEWAY="<gateway>"
+export GATEWAY="<gateway>"                 # 24 characters or fewer
 export PROVIDER="<provider-name>"          # for example foundry-models
 export MODEL="<model-name>"                # the backend model name under that provider
 
-export AI_GATEWAY_URL="$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.gatewayUrl -o tsv)"
+export API="api-version=2025-09-01-preview"
+export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
+export GW="https://management.azure.com$GATEWAY_ID"
+export WS="$GW/workspaces/default"
+export MODEL_URL="$WS/modelProviders/$PROVIDER/models/$MODEL"
+export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
 # For Foundry imports, the default alias matches the deployment's model name.
-export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" \
-  --provider-name "$PROVIDER" -n "$MODEL" --query properties.deployment.modelName -o tsv)"
+export AI_GATEWAY_MODEL="$(az rest --url "$MODEL_URL?$API" --query properties.deployment.modelName -o tsv)"
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
 
@@ -66,15 +70,19 @@ export ALLOWED_CIDRS="$MY_IP/32"           # comma-separated, for example "$MY_I
 ```
 
 ```powershell title="PowerShell"
-$RG       = "<resource-group>"
-$GATEWAY  = "<gateway>"
-$PROVIDER = "<provider-name>"              # for example foundry-models
-$MODEL    = "<model-name>"                 # the backend model name under that provider
+$RG         = "<resource-group>"
+$GATEWAY    = "<gateway>"                 # 24 characters or fewer
+$PROVIDER   = "<provider-name>"           # for example foundry-models
+$MODEL      = "<model-name>"              # the backend model name under that provider
 
-$env:AI_GATEWAY_URL = az aigateway show -g $RG -n $GATEWAY --query properties.gatewayUrl -o tsv
+$API        = "api-version=2025-09-01-preview"
+$GATEWAY_ID = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
+$GW         = "https://management.azure.com$GATEWAY_ID"
+$WS         = "$GW/workspaces/default"
+$MODEL_URL  = "$WS/modelProviders/$PROVIDER/models/$MODEL"
+$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
 # For Foundry imports, the default alias matches the deployment's model name.
-$env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY `
-  --provider-name $PROVIDER -n $MODEL --query properties.deployment.modelName -o tsv
+$env:AI_GATEWAY_MODEL = az rest --url "$MODEL_URL`?$API" --query properties.deployment.modelName -o tsv
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 
@@ -111,8 +119,8 @@ protection can't be set at Gateway scope; it applies to individual MCP servers.
 
 ## Apply the baseline
 
-Pick one track. Each track creates the same four policies at **Gateway** scope. There's no Azure CLI track:
-the `aigateway` extension manages model policies only.
+Pick one track. Each track creates the same four policies at **Gateway** scope. Both scripted tracks use
+`az rest` against the gateway's `default` workspace.
 
 <!-- track: portal | Portal -->
 
@@ -179,14 +187,14 @@ change.
 
 ```bash title="Bash"
 SUB="$(az account show --query id -o tsv)"
-URL="https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/service/$GATEWAY/workspaces/default?api-version=2025-09-01-preview"
+URL="https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY/workspaces/default?api-version=2025-09-01-preview"
 
 az rest --method get --url "$URL" --query properties.policies
 ```
 
 ```powershell title="PowerShell"
 $SUB = az account show --query id -o tsv
-$URL = "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/service/$GATEWAY/workspaces/default`?api-version=2025-09-01-preview"
+$URL = "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY/workspaces/default`?api-version=2025-09-01-preview"
 
 az rest --method get --url $URL --query properties.policies
 ```
@@ -198,8 +206,8 @@ Gateway scope cost limit.
 
 ```bash title="Bash"
 BASELINE="$(jq -cn --arg cidrs "$ALLOWED_CIDRS" '[
-  {"type":"tokenLimit","count":100000,"period":"minute","counterKey":"Identity","scope":"workspace"},
-  {"type":"requestRateLimit","callsPerPeriod":600,"periodSeconds":60,"counterKey":"Identity","scope":"workspace"},
+  {"type":"tokenLimit","count":100000,"period":"minute","counterKey":["identity"],"scope":"workspace"},
+  {"type":"requestRateLimit","callsPerPeriod":600,"periodSeconds":60,"counterKey":["identity"],"scope":"workspace"},
   {"type":"contentSafety","hateSeverity":"Medium","violenceSeverity":"Medium","sexualSeverity":"Medium","selfHarmSeverity":"Medium"},
   {"type":"ipFilter","action":"Allow","cidrRanges":($cidrs | split(",") | map(gsub("\\s"; "")) | map(select(length > 0)))}
 ]')"
@@ -213,8 +221,8 @@ az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLIC
 
 ```powershell title="PowerShell"
 $baseline = @(
-  [pscustomobject]@{ type = 'tokenLimit'; count = 100000; period = 'minute'; counterKey = 'Identity'; scope = 'workspace' }
-  [pscustomobject]@{ type = 'requestRateLimit'; callsPerPeriod = 600; periodSeconds = 60; counterKey = 'Identity'; scope = 'workspace' }
+  [pscustomobject]@{ type = 'tokenLimit'; count = 100000; period = 'minute'; counterKey = @('identity'); scope = 'workspace' }
+  [pscustomobject]@{ type = 'requestRateLimit'; callsPerPeriod = 600; periodSeconds = 60; counterKey = @('identity'); scope = 'workspace' }
   [pscustomobject]@{ type = 'contentSafety'; hateSeverity = 'Medium'; violenceSeverity = 'Medium'; sexualSeverity = 'Medium'; selfHarmSeverity = 'Medium' }
   [pscustomobject]@{ type = 'ipFilter'; action = 'Allow'; cidrRanges = @($env:ALLOWED_CIDRS -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
 )
@@ -233,12 +241,13 @@ Remove-Item patch.json
 > [!NOTE]
 > When you create a token or request rate limit at **Gateway** scope, the portal writes `"scope": "workspace"`
 > into the policy object. The REST and Policy as code tracks include the same field so that every track creates
-> the same policy. If the API rejects a field, create the policy once in the portal, then copy its shape from
-> the `GET` response.
+> the same policy. `counterKey` is an array: `["identity"]` gives each API key or Entra caller its own counter.
+> If the API rejects a field, create the policy once in the portal, then copy its shape from the `GET` response.
 
 > **Checkpoint**
-> Running the `GET` again returns your other policies unchanged plus `tokenLimit`, `requestRateLimit`,
-> `contentSafety`, and `ipFilter` entries, with your ranges in `cidrRanges`.
+> Running the `GET` again returns your other policies unchanged plus `tokenLimit` and `requestRateLimit` entries
+> with `"counterKey": ["identity"]` and `"scope": "workspace"`, and `contentSafety` and `ipFilter` entries
+> with your ranges in `cidrRanges`. The service adds `"scope": "resource"` to the last two.
 
 <!-- track: iac | Policy as code -->
 
@@ -342,12 +351,24 @@ filter, request rate limit, and content safety policies, and it still lists its 
 
 ### Layer a stricter model policy
 
-Add a deliberately low token limit to your model only, the same one you used in lab 06:
+Add a deliberately low token limit to your model only, the same one you used in lab 06. A model `PATCH`
+replaces the model's whole `policies` array, so merge it with what's there:
 
-```bash
-az aigateway model policy set-token-limit \
-  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
-  --token-limit 1000 --token-period minute --token-counter-key Identity
+```bash title="Bash"
+az rest --url "$MODEL_URL?$API" \
+  | jq -c '{properties:{policies:([(.properties.policies // [])[] | select(.type != "tokenLimit")]
+      + [{type:"tokenLimit",count:1000,period:"minute",counterKey:["identity"]}])}}' > policies.json
+az rest --method patch --url "$MODEL_URL?$API" --body @policies.json --query properties.policies
+rm policies.json
+```
+
+```powershell title="PowerShell"
+$p = (az rest --url "$MODEL_URL`?$API" | ConvertFrom-Json).properties.policies
+$p = @($p | Where-Object { $_ -and $_.type -ne 'tokenLimit' }) +
+     @(@{ type = 'tokenLimit'; count = 1000; period = 'minute'; counterKey = @('identity') })
+@{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
+az rest --method patch --url "$MODEL_URL`?$API" --body "@policies.json" --query properties.policies
+Remove-Item policies.json
 ```
 
 Then send a burst with the script from lab 06:
@@ -363,10 +384,19 @@ Then send a burst with the script from lab 06:
 After three or four requests, the gateway returns `429`. The baseline allows 100,000 tokens per minute, but the
 model's tighter limit is evaluated too, and it blocks. Remove the model limit and run the burst again:
 
-```bash
-az aigateway model policy remove \
-  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
-  --remove-token-limit true
+```bash title="Bash"
+az rest --url "$MODEL_URL?$API" \
+  | jq -c '{properties:{policies:[(.properties.policies // [])[] | select(.type != "tokenLimit")]}}' > policies.json
+az rest --method patch --url "$MODEL_URL?$API" --body @policies.json --query properties.policies
+rm policies.json
+```
+
+```powershell title="PowerShell"
+$p = (az rest --url "$MODEL_URL`?$API" | ConvertFrom-Json).properties.policies
+$p = @($p | Where-Object { $_ -and $_.type -ne 'tokenLimit' })
+@{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
+az rest --method patch --url "$MODEL_URL`?$API" --body "@policies.json" --query properties.policies
+Remove-Item policies.json
 ```
 
 All eight requests now return `200`, because only the generous baseline applies.
@@ -404,9 +434,11 @@ If you configured Application Insights in [Monitor usage, cost, and traces](../1
 - **Tighten tool traffic.** Keep the baseline and add stricter controls to individual MCP servers in
   [Control which tools agents can call](../05-mcp-tool-controls/README.md) and
   [Protect tool calls with Agent 365 threat protection](../19-tool-threat-protection/README.md).
-- **Replace the allow list with private networking.** For production ingress, keep traffic off the public
-  internet with [Lock down the gateway with private networking](../18-private-networking/README.md).
-- **Count Entra callers.** With **Identity** counters, each Entra caller gets its own allowance. Move clients to
+- **Keep the allow list for inbound traffic.** Inbound private endpoints and turning off public network access
+  aren't available for AI Gateway yet, so the IP filter is how you restrict who can call the gateway. To keep
+  the gateway's traffic to your backends private, see
+  [Lock down backend traffic with private networking](../18-private-networking/README.md).
+- **Count Entra callers.** With `identity` counters, each Entra caller gets its own allowance. Move clients to
   keyless calls in [Go keyless with Microsoft Entra ID and RBAC](../11-entra-rbac/README.md).
 
 ## Clean up
@@ -461,7 +493,7 @@ Keep the gateway, model, and key. The next labs reuse them.
 | Teammates, pipelines, or hosted agents get `403` | Their egress addresses aren't on the allow list | Add their CIDR ranges, or remove the IP filter until you know them. |
 | Ordinary prompts return `400` | Content safety blocked them, from the baseline or from a stricter asset policy | Review every **Content safety** policy that covers the asset in **Policies**, and retest with representative prompts. |
 | `429` much earlier than the baseline allows | A tighter token or request rate limit on the model, alias, or MCP server applies | Review **Policies** for every limit that covers the asset. The lowest applicable limit wins. |
-| The `PATCH` returns a validation error about `counterKey` or `scope` | The API version expects a different shape for workspace limits | Create that policy once in the portal at **Gateway** scope, read the shape with the `GET`, and use it in your script or policy file. |
+| The `PATCH` returns a validation error about `counterKey` or `scope` | `counterKey` is a string such as `"Identity"` instead of an array, or the shape differs from what the API version expects | Use `"counterKey": ["identity"]`. If it still fails, create that policy once in the portal at **Gateway** scope, read the shape with the `GET`, and use it in your script or policy file. |
 | `Set ALLOWED_CIDRS ...` or `Use CIDR notation ...` from the script | `ALLOWED_CIDRS` is empty, or an entry has no prefix length | Set it to comma-separated CIDR ranges, for example `"$MY_IP/32"`. |
 | Other Gateway scope policies vanished after the REST call | `PATCH` replaces the whole `policies` array | Always `GET`, merge, then `PATCH`, as shown in the REST track and the script. |
 | `jq: command not found` | `jq` isn't installed | Install `jq`, or use the PowerShell commands. |
@@ -472,6 +504,6 @@ Keep the gateway, model, and key. The next labs reuse them.
   baseline.
 - [Monitor usage, cost, and traces](../13-monitoring/README.md): track `400`, `403`, and `429` outcomes per
   policy.
-- [Lock down the gateway with private networking](../18-private-networking/README.md): move from IP allow lists
-  to private ingress.
+- [Lock down backend traffic with private networking](../18-private-networking/README.md): route the gateway's
+  backend traffic through your virtual network.
 - Docs: [Policies in AI Gateway](https://ai.gateway.azure.com/docs/policies).

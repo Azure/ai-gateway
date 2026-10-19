@@ -40,8 +40,8 @@ baseline, prove it works with a smoke test, and wire it all into GitHub Actions.
   there, not on the resources you created: it deploys a new, separate environment.
 - The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
   `az login` to the subscription you deploy to. The CLI installs Bicep the first time you deploy. You also need
-  `curl` and `jq` (Bash) or PowerShell 7 or later. You don't need the `aigateway` extension: the scripts call
-  the management API with `az rest`.
+  `curl` and `jq` (Bash) or PowerShell 7 or later. You don't need a CLI extension: the scripts call the
+  management API with `az rest`.
 - **Owner**, or **Contributor** plus **Role Based Access Control Administrator**, on the subscription. The
   template creates two resource groups and several role assignments.
 - Quota for `gpt-5.4-mini` with the `GlobalStandard` SKU in the region you deploy to. The dev environment uses
@@ -86,15 +86,12 @@ workspace in a template would replace it. Instead, a script merges them in after
 |---|---|---|
 | `modules/monitoring.bicep` | `…-gateway` | Log Analytics workspace and a workspace-based Application Insights component, `<gateway>-insights` |
 | `modules/foundry.bicep` | `…-foundrymodels` | Foundry account with key authentication turned off, and the `gpt-5.4-mini` deployment |
-| `modules/gateway.bicep` | `…-gateway` | The gateway (`AIGateway` SKU, system-assigned identity), its connector gateway, and **Foundry User** for the identity on the Foundry account |
+| `modules/gateway.bicep` | `…-gateway` | The AI Gateway (`Microsoft.ApiManagement/aigateways`, system-assigned identity), its connector gateway, and **Foundry User** for the identity on the Foundry account |
 | `modules/models.bicep` | `…-gateway` | A Foundry model provider that authenticates with the managed identity, the backend model with a token limit and content safety, the alias `chat`, and **AI Gateway Models User** on the alias |
 | `modules/tools.bicep` | `…-gateway` | The Microsoft Learn MCP server `learn`, and **AI Gateway Tools User** on it |
 | `modules/keys.bicep` | `…-gateway` | One runtime API key per app: `web-chat` and `batch-jobs` |
-| `modules/telemetry.bicep` | `…-gateway` | The sample's legacy telemetry exporter, off by default |
+| `modules/telemetry.bicep` | `…-gateway` | The legacy Application Insights telemetry exporter, off by default |
 | `scripts/apply-baselines.sh` | Not applicable | Gateway scope **Request rate limit** and **Cost limit** from `baselines.json` |
-
-The resource shapes match the reference sample
-[Azure-Samples/simple-foundry-hosted-agent-python-aigateway](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway).
 
 ## Make the architecture decisions
 
@@ -154,9 +151,9 @@ deployments leave that connection alone. The sample's exporter is still availabl
 - **Two resource groups.** `rg-<env>-<token>-gateway` holds the gateway and its monitoring, and
   `rg-<env>-<token>-foundrymodels` holds model capacity. You can secure, scale, and delete them separately, and
   only the gateway's identity needs access to Foundry.
-- **A globally unique gateway name.** The gateway is `aigw-<token>`, which becomes
-  `https://aigw-<token>.azure-api.net`. Set `aiGatewayName` to choose your own. A deleted gateway keeps its name
-  in a soft-delete record until you purge it.
+- **A unique gateway name.** The gateway is `aigw-<token>`, which becomes
+  `https://aigw-<token>.<region>-01.ai.gateway.azure.com`. Set `aiGatewayName` to choose your own: up to 24
+  letters, digits, and hyphens, starting with a letter.
 - **Tags.** Resource groups and top-level resources get `environment` and `workload: ai-gateway`, plus the
   `tags` from the parameter file, such as `costCenter`.
 - **Preview regions.** `aiGatewayLocation` only allows `eastus2` and `swedencentral`, where the AI Gateway tier
@@ -207,9 +204,11 @@ On GitHub, open [infra/modules/gateway.bicep](infra/modules/gateway.bicep).
 
 > [!WARNING]
 > Each deployment sends a `PUT` for the gateway with exactly the properties in `gateway.bicep`. If you change
-> gateway settings outside Bicep, for example networking in
-> [Lock down the gateway with private networking](../18-private-networking/README.md), add them to this module.
-> Otherwise, the next deployment can reset them.
+> gateway settings outside Bicep, add them to this module. Otherwise, the next deployment can reset them.
+> Outbound virtual network integration is the exception: you can set it only when the gateway is created.
+> `gateway.bicep` accepts it as `backendSubnetId`, but `main.bicep` doesn't pass it. To use it, add a parameter
+> to `main.bicep` before the first deployment and keep passing the same subnet on every later deployment. See
+> [Lock down backend traffic with private networking](../18-private-networking/README.md).
 
 `models.bicep` declares the model-level policies right on the backend model, so they're versioned with it:
 
@@ -308,7 +307,7 @@ Expected output:
 ```text
 rg-aigw-dev-<token>-gateway
 aigw-<token>
-https://aigw-<token>.azure-api.net
+https://aigw-<token>.eastus2-01.ai.gateway.azure.com
 chat
 ```
 
@@ -543,12 +542,12 @@ On GitHub, open [infra/scripts/smoke-test.sh](infra/scripts/smoke-test.sh) or
 Expected output (the tool list can change as the Learn server evolves):
 
 ```text
-Gateway: https://aigw-<token>.azure-api.net
+Gateway: https://aigw-<token>.eastus2-01.ai.gateway.azure.com
 Model  : HTTP 200, model=<model>, reply=ok, total_tokens=<n>
 Tools  : HTTP 200, 3 tools on learn
-         learn___microsoft_docs_search
-         learn___microsoft_code_sample_search
-         learn___microsoft_docs_fetch
+         learn_microsoft_docs_search
+         learn_microsoft_code_sample_search
+         learn_microsoft_docs_fetch
 Smoke test passed.
 ```
 
@@ -634,9 +633,11 @@ test a few more times if the charts are still empty.
   it too.
 - **Go keyless everywhere.** Remove entries from `appNames`, move apps to Entra groups in `modelUsers` and
   `toolUsers`, and follow [Go keyless with Microsoft Entra ID and RBAC](../11-entra-rbac/README.md).
-- **Keep traffic private.** Add a virtual network, private endpoints, and outbound integration from
-  [Lock down the gateway with private networking](../18-private-networking/README.md), and put the gateway's
-  network settings in `gateway.bicep`.
+- **Keep backend traffic private.** Create the gateway with outbound virtual network integration, and give the
+  Foundry account a private endpoint, as in
+  [Lock down backend traffic with private networking](../18-private-networking/README.md). Pass the integration
+  subnet to `gateway.bicep` as `backendSubnetId` on the first deployment. Inbound private endpoints and turning
+  off the gateway's public endpoint aren't available for AI Gateway yet.
 - **Protect and govern tools.** Add [Agent 365 tool threat protection](../19-tool-threat-protection/README.md)
   to sensitive MCP servers in the portal, and [govern MCP servers with Agent 365](../20-agent-365-governance/README.md).
 - **Charge back by team.** Attribute tokens and cost to callers with
@@ -658,16 +659,14 @@ az group delete -n $env:RG --yes
 az group delete -n $env:FOUNDRY_RG --yes
 ```
 
-Deleted gateways and Foundry accounts keep soft-delete records that hold their names. To reuse the names right
-away, purge them. Purging is permanent.
+Deleted Foundry accounts keep soft-delete records that hold their names. To reuse the name right away, purge
+it. Purging is permanent.
 
 ```bash title="Bash"
-az apim deletedservice purge --service-name "$GATEWAY" --location "$AI_GATEWAY_LOCATION"
 az cognitiveservices account purge -g "$FOUNDRY_RG" -n "$FOUNDRY_NAME" -l "$LOCATION"
 ```
 
 ```powershell title="PowerShell"
-az apim deletedservice purge --service-name $env:GATEWAY --location $env:AI_GATEWAY_LOCATION
 az cognitiveservices account purge -g $env:FOUNDRY_RG -n $env:FOUNDRY_NAME -l $env:LOCATION
 ```
 
@@ -691,16 +690,16 @@ If you deployed prod, repeat the clean-up with the `aigw-prod` deployment's outp
 | Symptom | Cause | Fix |
 |---|---|---|
 | The deployment fails with `InsufficientQuota`, or the model or version isn't available | The region has no `GlobalStandard` quota for `gpt-5.4-mini`, or doesn't offer that version | Lower `modelCapacity`, request quota, or change `modelName`, `modelVersion`, or `--location` in your parameter file and command. |
-| The gateway ends in `FailedIdentityOperation` or `ActivationFailed` | Azure hit an activation or managed identity conflict, often after a gateway with the same name was deleted moments before | Delete the failed gateway, purge its soft-delete record with `az apim deletedservice purge`, wait about three minutes for the identity to be cleaned up, and deploy again. |
+| The gateway's `provisioningState` ends in `Failed` | Azure hit an activation or managed identity conflict, often after a gateway with the same name was deleted moments before | Delete the failed gateway and its connector gateway, wait about three minutes for the identity to be cleaned up, and deploy again. |
 | The smoke test prints `Waiting for the model route` until it fails with `401`, `403`, or `404` | The new Foundry User role assignment or the model route hasn't propagated yet | Wait a few minutes and run the smoke test again. If it still fails, run the backend identity checks in [Verify](#verify). |
 | **Settings** in **Monitoring** shows "This legacy exporter no longer activates OTLP signals" | You deployed with `enableLegacyAppInsightsExporter` set to `true` | Select **Settings** › **General** › **Disable monitoring**, then **Configure telemetry** again with the same Application Insights resource. |
-| `apply-baselines` fails with a validation error from the `PATCH` | A field in `baselines.json`, such as `scope` or `counterKey`, doesn't match the current API contract | Create the policy once in the portal at **Gateway** scope, read the workspace with `az rest`, and copy that shape into `baselines.json`. |
+| `apply-baselines` fails with a validation error from the `PATCH` | A field in `baselines.json` doesn't match the current API contract, for example `counterKey` as a string instead of an array such as `["identity"]` | Create the policy once in the portal at **Gateway** scope, read the workspace with `az rest`, and copy that shape into `baselines.json`. |
 | `azure/login` fails with `AADSTS70021: No matching federated identity record found` | The token subject doesn't match a federated credential | Check that the subject is exactly `repo:<github-org>/<github-repo>:environment:<name>` and that the GitHub environment name matches the job's `environment:`. |
 
 ## Next steps
 
-- Keep traffic off the public internet with
-  [Lock down the gateway with private networking](../18-private-networking/README.md).
+- Keep backend traffic off the public internet with
+  [Lock down backend traffic with private networking](../18-private-networking/README.md).
 - Attribute usage to teams with
   [Attribute tokens and cost with OpenTelemetry](../14-otel-chargeback/README.md).
 - Govern your MCP servers across the organization with

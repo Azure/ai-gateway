@@ -4,7 +4,7 @@
 # prompt and response, and borderline themes can land on either side of a threshold.
 #
 # Usage:
-#   export AI_GATEWAY_URL="https://<gateway>.azure-api.net"
+#   export AI_GATEWAY_URL="https://<gateway>.eastus2-01.ai.gateway.azure.com"
 #   export AI_GATEWAY_API_KEY="..."      # never commit this value
 #   ./test-content-safety.sh <model-alias> ["your own benign prompt"]
 #
@@ -13,7 +13,7 @@ set -euo pipefail
 
 MODEL="${1:?Pass the callable model alias as the first argument}"
 CUSTOM_PROMPT="${2:-}"
-: "${AI_GATEWAY_URL:?Set AI_GATEWAY_URL to https://<gateway>.azure-api.net}"
+: "${AI_GATEWAY_URL:?Set AI_GATEWAY_URL to https://<gateway>.eastus2-01.ai.gateway.azure.com}"
 : "${AI_GATEWAY_API_KEY:?Set AI_GATEWAY_API_KEY to a runtime key from Access > Keys}"
 command -v jq >/dev/null || { echo "This script needs jq." >&2; exit 1; }
 

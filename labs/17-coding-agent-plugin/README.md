@@ -37,9 +37,10 @@ developers build on top of your governance instead of around it.
   documents its plugin support: [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/plugins-finding-installing),
   [Claude Code](https://code.claude.com/docs/en/plugins), [Cursor](https://cursor.com/docs/plugins), and
   [Gemini CLI](https://geminicli.com/docs/extensions/).
-- The Azure CLI, signed in with `az login`, with the `aigateway` extension
-  ([install it](https://github.com/Azure/ai-gateway/tree/main/cli#install)). The plugin uses your Azure sign-in to
-  read the gateway, so your account needs read access to it.
+- The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with `az login`.
+  The plugin uses your Azure sign-in to read the gateway, so your account needs read access to it. The commands in
+  this lab call the Azure Resource Manager REST API with `az rest`, because the `az aigateway` extension doesn't
+  manage the new `aigateways` resource type yet.
 - Python 3.10 or later to run the generated app. To scaffold a standalone agent, you also need the GitHub Copilot
   CLI, because the GitHub Copilot SDK uses it.
 
@@ -50,38 +51,46 @@ revoke it on its own later.
 export RG="<resource-group>"
 export GATEWAY="<gateway>"
 export AI_GATEWAY_MODEL="<model-name>"   # the alias from lab 02
-export AI_GATEWAY_URL="$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.gatewayUrl -o tsv)"
+export API="api-version=2025-09-01-preview"
+export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
+export GW="https://management.azure.com$GATEWAY_ID"
+export WS="$GW/workspaces/default"
+export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
 
-az aigateway api-key create -g "$RG" --gateway-name "$GATEWAY" \
-  -n app-coding-agent --display-name "Coding agent app" -o none
-AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" \
-  -n app-coding-agent --query primaryKey -o tsv)" && export AI_GATEWAY_API_KEY
+az rest --method put --url "$GW/apiKeys/app-coding-agent?$API" --body '{"properties":{}}' -o none
+AI_GATEWAY_API_KEY="$(az rest --method post --url "$GW/apiKeys/app-coding-agent/listSecrets?$API" \
+  --query primaryKey -o tsv)" && export AI_GATEWAY_API_KEY
 ```
 
 ```powershell title="PowerShell"
 $RG      = "<resource-group>"
 $GATEWAY = "<gateway>"
 $env:AI_GATEWAY_MODEL = "<model-name>"   # the alias from lab 02
-$env:AI_GATEWAY_URL   = az aigateway show -g $RG -n $GATEWAY --query properties.gatewayUrl -o tsv
+$API        = "api-version=2025-09-01-preview"
+$GATEWAY_ID = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
+$GW         = "https://management.azure.com$GATEWAY_ID"
+$WS         = "$GW/workspaces/default"
+$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
 
-az aigateway api-key create -g $RG --gateway-name $GATEWAY `
-  -n app-coding-agent --display-name "Coding agent app" -o none
-$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY `
-  -n app-coding-agent --query primaryKey -o tsv
+@{ properties = @{} } | ConvertTo-Json -Compress | Set-Content body.json
+az rest --method put --url "$GW/apiKeys/app-coding-agent?$API" --body "@body.json" -o none
+Remove-Item body.json
+$env:AI_GATEWAY_API_KEY = az rest --method post --url "$GW/apiKeys/app-coding-agent/listSecrets?$API" `
+  --query primaryKey -o tsv
 ```
 
 Then print the gateway's Azure resource ID. You pass it to the plugin.
 
 ```bash title="Bash"
-az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv
+echo "$GATEWAY_ID"
 ```
 
 ```powershell title="PowerShell"
-az aigateway show -g $RG -n $GATEWAY --query id -o tsv
+$GATEWAY_ID
 ```
 
 It looks like
-`/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.ApiManagement/service/<gateway>`.
+`/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.ApiManagement/aigateways/<gateway>`.
 
 ## How it works
 
@@ -177,10 +186,10 @@ Answer with the ID you printed, or continue with the next step.
 
 ### Run discover with your resource ID
 
-Paste the ID that `az aigateway show` printed:
+Paste the gateway ID that you printed in [Before you begin](#before-you-begin):
 
 ```text
-/ai-gateway:discover /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.ApiManagement/service/<gateway>
+/ai-gateway:discover /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.ApiManagement/aigateways/<gateway>
 ```
 
 When your agent asks to run `az` or `curl` commands, approve the ones that read: getting a token, `GET` requests
@@ -215,7 +224,7 @@ Run `build` with the same resource ID and a short description. To use the key yo
 letting the plugin pick one, say so in the description:
 
 ```text
-/ai-gateway:build /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.ApiManagement/service/<gateway> a Python command-line script that summarizes a support ticket from a text file. Use the <model-name> model and read the key from the AI_GATEWAY_API_KEY environment variable.
+/ai-gateway:build /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.ApiManagement/aigateways/<gateway> a Python command-line script that summarizes a support ticket from a text file. Use the <model-name> model and read the key from the AI_GATEWAY_API_KEY environment variable.
 ```
 
 Other descriptions to try:
@@ -335,8 +344,9 @@ check again with that key in `AI_GATEWAY_API_KEY`.
 
 VS Code reads MCP servers from `.vscode/mcp.json`. To give agent mode the tools that you federated in
 [Federate MCP tools behind one endpoint](../04-federate-mcp-tools/README.md), save this file as
-`.vscode/mcp.json` in your project. Replace `https://<gateway>.azure-api.net` with your gateway URL
-(`echo $AI_GATEWAY_URL`) and `learn` with any tool server name that discover listed.
+`.vscode/mcp.json` in your project. Replace `https://<gateway>.eastus2-01.ai.gateway.azure.com` with your gateway
+URL (`echo $AI_GATEWAY_URL`) and `learn` with any tool server name that discover listed. To copy a tool server's
+exact MCP URL, run `az rest --url "$WS/toolServers/learn?$API" --query "properties.gatewayEndpoints[0].url" -o tsv`.
 
 <!-- include: infra/mcp.json -->
 
@@ -359,11 +369,11 @@ Delete the key you created for this lab. Then delete the `ticket-summarizer` fol
 `.env` file can hold a live key.
 
 ```bash title="Bash"
-az aigateway api-key delete -g "$RG" --gateway-name "$GATEWAY" -n app-coding-agent --yes
+az rest --method delete --url "$GW/apiKeys/app-coding-agent?$API"
 ```
 
 ```powershell title="PowerShell"
-az aigateway api-key delete -g $RG --gateway-name $GATEWAY -n app-coding-agent --yes
+az rest --method delete --url "$GW/apiKeys/app-coding-agent?$API"
 ```
 
 If the plugin wrote another gateway key to `.env` and that file was shared or committed, regenerate that key as
@@ -395,7 +405,8 @@ gemini extensions uninstall ai-gateway
 | The plugin stops at the credential step | Your account can't list key secrets on the gateway | Create or get a key as in **Before you begin**, and tell the agent to read it from `AI_GATEWAY_API_KEY`. |
 | `404 Resource not found` from the gateway | The URL is missing the `/default/` segment | Use `<gateway URL>/default/models/openai/v1` or `<gateway URL>/default/toolservers/<name>/mcp`. |
 | `unknown_model` | The model name isn't one the gateway publishes, the client uses another protocol than the model supports, or a GitHub Copilot SDK older than 1.0.0 drops the key header | Use the name that discover reported or your alias. Pin `github-copilot-sdk>=1.0.0`. |
-| `401` from the gateway | The key is missing, deleted, or sent in `Authorization` instead of `api-key` | Send the key in the `api-key` header. Create a new key if you deleted it. |
+| `401` from the gateway | The key is missing or deleted, or an MCP call sends it as a bearer token. The MCP endpoint reads keys only from the `api-key` header. | Send the key in the `api-key` header. Create a new key if you deleted it. |
+| `400` "Specify either an API key or an Authorization header, not both" | The client sends the key in `api-key` and also an `Authorization` header, as SDKs do when you pass a placeholder key | Send only one. For the model endpoint, pass the runtime key as the SDK's API key and drop the extra `api-key` header. |
 | `KeyError: 'AI_GATEWAY_API_KEY'` | `.env` wasn't loaded, often because PowerShell saved it with a byte order mark | Export the variable in your shell, or save `.env` as UTF-8 without a byte order mark. |
 | `429` | A token limit or the backend's quota | The wiring works. See [Throttle tokens per caller with token limits](../06-token-limits/README.md). |
 | A tool server shows `0` tools | The server exposes no tools, or tool availability hides them | Check the server's tools in the portal, or see [Federate MCP tools behind one endpoint](../04-federate-mcp-tools/README.md). |

@@ -6,7 +6,7 @@
 // aliases are separate resources and stay as they are.
 targetScope = 'resourceGroup'
 
-@description('Name of the existing AI Gateway (API Management service with the AIGateway SKU) in this resource group.')
+@description('Name of the existing AI Gateway (Microsoft.ApiManagement/aigateways) in this resource group.')
 param gatewayName string
 
 @description('Name of the existing Foundry model provider in the gateway.')
@@ -29,11 +29,11 @@ var foundrySubscriptionId = split(foundryAccountId, '/')[2]
 var foundryResourceGroup = split(foundryAccountId, '/')[4]
 var cognitiveServicesAudience = 'https://cognitiveservices.azure.com/'
 
-resource aiGateway 'Microsoft.ApiManagement/service@2025-09-01-preview' existing = {
+resource aiGateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' existing = {
   name: gatewayName
 }
 
-resource defaultWorkspace 'Microsoft.ApiManagement/service/workspaces@2025-09-01-preview' existing = {
+resource defaultWorkspace 'Microsoft.ApiManagement/aigateways/workspaces@2025-09-01-preview' existing = {
   parent: aiGateway
   name: 'default'
 }
@@ -46,7 +46,7 @@ resource foundryAccount 'Microsoft.CognitiveServices/accounts@2025-04-01-preview
 var foundryEndpoint = foundryAccount.properties.endpoint
 var normalizedFoundryEndpoint = endsWith(foundryEndpoint, '/') ? foundryEndpoint : '${foundryEndpoint}/'
 
-resource foundryProvider 'Microsoft.ApiManagement/service/workspaces/modelProviders@2025-09-01-preview' = {
+resource foundryProvider 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders@2025-09-01-preview' = {
   parent: defaultWorkspace
   name: providerName
   properties: {

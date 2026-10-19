@@ -8,7 +8,7 @@ sends the result as `Authorization: Bearer <token>`.
 Usage:
   pip install -r requirements.txt
   az login
-  export AI_GATEWAY_URL="https://<gateway>.azure-api.net"
+  export AI_GATEWAY_URL="https://<gateway>.eastus2-01.ai.gateway.azure.com"
   export AI_GATEWAY_MODEL="<model-alias>"
   python call_with_entra.py
 """

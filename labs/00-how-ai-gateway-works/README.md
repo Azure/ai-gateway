@@ -44,13 +44,14 @@ This lab is a guided reading. You don't need to deploy anything.
 
 The gateway sits on the path of every model call and every tool call. It has two faces:
 
-- **Data plane**: the runtime endpoints your code calls, at `https://<gateway>.azure-api.net`.
-- **Control plane**: the product portal at [ai.gateway.azure.com](https://ai.gateway.azure.com), the
-  `az aigateway` CLI extension, and the Azure Resource Manager API (`Microsoft.ApiManagement/service`, SKU `AIGateway`).
+- **Data plane**: the runtime endpoints your code calls, at `https://<gateway>.eastus2-01.ai.gateway.azure.com`.
+- **Control plane**: the product portal at [ai.gateway.azure.com](https://ai.gateway.azure.com) and the Azure
+  Resource Manager API for the `Microsoft.ApiManagement/aigateways` resource type, which you call with
+  `az rest`, Bicep, or any REST client.
 
 | Building block | What it is | Example |
 |---|---|---|
-| **Gateway** | An Azure API Management service on the AI Gateway tier | `https://<gateway>.azure-api.net` |
+| **Gateway** | An AI Gateway resource (`Microsoft.ApiManagement/aigateways`) in your subscription | `https://<gateway>.eastus2-01.ai.gateway.azure.com` |
 | **Backend model** | A model at a provider, such as a Foundry deployment or an Anthropic model | `gpt-4.1-mini` at Microsoft Foundry |
 | **Alias** | The stable, gateway-wide name clients send in the `model` field | `chat` |
 | **MCP server** | One governed MCP endpoint that federates tools from one or more sources | `/default/toolservers/<server-name>/mcp` |
@@ -60,7 +61,7 @@ The gateway sits on the path of every model call and every tool call. It has two
 | **Monitoring** | OpenTelemetry metrics, logs, and traces for every call | Application Insights or any OTLP endpoint |
 
 Model calls use protocols developers already know. The OpenAI-compatible base URL is
-`https://<gateway>.azure-api.net/default/models/openai/v1` (append `/responses` or `/chat/completions`), and
+`https://<gateway-host>/default/models/openai/v1` (append `/responses` or `/chat/completions`), and
 Anthropic Messages lives at `/default/models/anthropic/v1/messages`. The gateway passes requests through without
 translating between OpenAI and Anthropic formats, so call each model on an interface it advertises.
 

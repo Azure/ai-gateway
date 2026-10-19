@@ -27,7 +27,7 @@ $roles = @{
 }
 $roleId = $roles[$Role].Id
 
-$gatewayId = az aigateway show -g $ResourceGroup -n $GatewayName --query id -o tsv
+$gatewayId = az resource show -g $ResourceGroup -n $GatewayName --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
 if ($LASTEXITCODE -ne 0) { throw "Couldn't read gateway $GatewayName." }
 
 switch -Regex ($Scope) {

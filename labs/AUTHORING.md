@@ -66,7 +66,7 @@ In the [AI Gateway portal](https://ai.gateway.azure.com), select **Policies** �
 <!-- track: cli | Azure CLI -->
 ### Set the policy
 ```bash
-az aigateway model policy set-token-limit ...
+az rest --method patch --url "$WS/modelProviders/$PROVIDER/models/$MODEL?$API" --body @policies.json
 ```
 
 <!-- /tracks -->
@@ -107,7 +107,7 @@ For secrets, use shell variables (`$AI_GATEWAY_API_KEY`) and show how to set the
 > Start limits above observed traffic, then lower them with evidence.
 
 > **Checkpoint**
-> `az aigateway model policy list` shows a `tokenLimit` entry with `count: 1000`.
+> `az rest --url "$MODEL_URL?$API" --query properties.policies` shows a `tokenLimit` entry with `count: 1000`.
 ```
 
 Kinds: `NOTE`, `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`. A blockquote starting with **Checkpoint**,
@@ -138,7 +138,7 @@ never put essential instructions in a widget).
 | `request-lifecycle` | Animated request through auth → policies → backend → telemetry, with failure toggles | `{"focus":"tokenLimit"}` optional |
 | `token-limit` | Rolling-window token limit simulator with 429 and Retry-After | `{"limit":1000,"period":"minute"}` |
 | `request-rate` | Calls-per-window simulator for tools | `{"calls":5,"window":30}` |
-| `tool-patterns` | Try allow and block patterns against a tool catalog | `{"tools":["learn___search","…"],"allow":["*"],"block":["*delete*"]}` |
+| `tool-patterns` | Try allow and block patterns against a tool catalog | `{"tools":["learn_search","…"],"allow":["*"],"block":["*delete*"]}` |
 | `budget` | Cost-limit simulator with per-key overrides | `{"amount":5,"period":"day"}` |
 | `alias-retarget` | Retarget an alias between backend models without client changes | none |
 | `policy-layers` | Which gateway and asset policies apply to a request | none |
@@ -159,8 +159,32 @@ never put essential instructions in a widget).
 - Bicep files live in the lab's `infra/` folder and must compile: `az bicep build --file infra/main.bicep --stdout > /dev/null`.
   `BCP081` warnings for preview types are acceptable.
 - Use API version `2025-09-01-preview` for `Microsoft.ApiManagement/*` resources.
+- Gateways are the dedicated `Microsoft.ApiManagement/aigateways` type, never `Microsoft.ApiManagement/service`.
+  Create a `Microsoft.Web/connectorGateways` resource with the same name first (API version `2026-05-01-preview`),
+  as [lab 01's template](01-provision-gateway/infra/main.bicep) does. Don't set `sku` or publisher properties.
+  Gateway names have 24 characters or fewer, and the runtime URL is `https://` plus
+  `properties.frontend.defaultHostname` (`<name>.<region>-01.ai.gateway.azure.com`).
+- Policy `counterKey` values are arrays: `counterKey: [ 'identity' ]` or `[ 'ipAddress' ]`.
+- CLI tracks call ARM with `az rest`, because the `az aigateway` extension doesn't manage `aigateways` yet.
+  Set `GATEWAY_ID`, `GW`, `WS` (`$GW/workspaces/default`), and `API` (`api-version=2025-09-01-preview`) once at the
+  top of the track. `PATCH` replaces whole arrays such as `properties.policies`, so read, edit, then write.
 - Parameterize names and locations; default `location` to `resourceGroup().location`.
-- Mirror the structure of the [reference sample](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway).
+- Mirror the structure of the existing labs: lab 01 for a single template, lab 21 for modules, and lab 16 for an
+  azd project.
+- Python hosted agents ship a pinned `requirements.txt`. Don't ship a `pyproject.toml` without its `uv.lock`, because
+  the Foundry remote build then treats the project as Poetry and fails. Never commit lock files that point to a private
+  package index.
+
+## Runtime calls
+
+- The model endpoint (`<gateway URL>/default/models/openai/v1`) accepts a runtime key in the `api-key` header, the
+  same key as `Authorization: Bearer <key>`, or a Microsoft Entra token. With an OpenAI SDK, pass the key as the
+  client's API key and add no `api-key` header: a request with both headers fails with `400` "Specify either an API
+  key or an Authorization header, not both".
+- The MCP endpoint (`<gateway URL>/default/toolservers/<name>/mcp`) reads keys only from the `api-key` header. A
+  bearer token there must be a Microsoft Entra token.
+- The gateway publishes federated tools as `<namespace>_<tool>`, with one underscore, for example
+  `learn_microsoft_docs_search`.
 
 ## Build and preview
 

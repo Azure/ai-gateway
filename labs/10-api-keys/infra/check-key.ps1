@@ -4,7 +4,7 @@
   runtime API key. Only the last four characters of the key are printed.
 
 .EXAMPLE
-  $env:AI_GATEWAY_URL     = "https://<gateway>.azure-api.net"
+  $env:AI_GATEWAY_URL     = "https://<gateway>.eastus2-01.ai.gateway.azure.com"
   $env:AI_GATEWAY_MODEL   = "<model-alias>"
   $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
   ./check-key.ps1 -Label "app-dev"
@@ -23,7 +23,7 @@ param(
 )
 $ErrorActionPreference = "Stop"
 
-if (-not $env:AI_GATEWAY_URL)   { throw "Set `$env:AI_GATEWAY_URL to https://<gateway>.azure-api.net" }
+if (-not $env:AI_GATEWAY_URL)   { throw "Set `$env:AI_GATEWAY_URL to https://<gateway>.eastus2-01.ai.gateway.azure.com" }
 if (-not $env:AI_GATEWAY_MODEL) { throw "Set `$env:AI_GATEWAY_MODEL to a callable model alias" }
 
 $uri  = "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/models/openai/v1/chat/completions"
@@ -40,16 +40,22 @@ if ($NoKey) {
 }
 
 try {
-  $status = (Invoke-WebRequest -Method Post -Uri $uri -Headers $headers -ContentType "application/json" `
-    -Body $body -SkipHttpErrorCheck).StatusCode
+  $response = Invoke-WebRequest -Method Post -Uri $uri -Headers $headers -ContentType "application/json" `
+    -Body $body -SkipHttpErrorCheck
+  $status  = $response.StatusCode
+  $content = "$($response.Content)"
 } catch {
   Write-Warning $_.Exception.Message
-  $status = 0
+  $status  = 0
+  $content = ""
 }
 
 $result = switch ($status) {
   { $_ -ge 200 -and $_ -lt 300 } { "accepted"; break }
-  401     { "rejected: the key is missing, invalid, rotated, or deleted"; break }
+  401     { "rejected: the key is missing, invalid, rotated, suspended, or deleted"; break }
+  { $_ -eq 404 -and $content -match 'model_not_found' } {
+    "not checked: the gateway doesn't know the alias in AI_GATEWAY_MODEL"; break
+  }
   0       { "no response: check AI_GATEWAY_URL and your network"; break }
   default { "key accepted, but the call failed: check AI_GATEWAY_MODEL and the gateway's policies" }
 }

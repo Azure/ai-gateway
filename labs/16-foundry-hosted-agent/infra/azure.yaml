@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+# Lab 16: a Foundry hosted agent that reaches its model and its MCP tools only through Azure AI Gateway.
+# The Foundry project has no model deployments: the agent calls the gateway alias set in AI_GATEWAY_MODEL.
+requiredVersions:
+  azd: '>=1.34.2'
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.19'
+name: aigw-lab16-hosted-agent
+services:
+  ai-project:
+    host: azure.ai.project
+  gateway-agent:
+    host: azure.ai.agent
+    project: src/gateway-agent
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: gateway-agent
+    description: Answers Microsoft technology questions with Microsoft Learn tools, through Azure AI Gateway.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    env:
+      AI_GATEWAY_URL: ${AI_GATEWAY_URL}
+      AI_GATEWAY_MODEL: ${AI_GATEWAY_MODEL}
+      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY}
+      AI_GATEWAY_MCP_SERVER: ${AI_GATEWAY_MCP_SERVER}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry

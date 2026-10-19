@@ -21,7 +21,7 @@ export const enterpriseReference = () => svgDoc('enterprise-reference', {
     o += box(32, 216, 164, 60, { t: 'App Insights', s: 'Dashboards', icon: 'chart', tone: 'green', accent: true });
     o += box(32, 286, 164, 60, { t: 'Workspace', s: 'Log Analytics', icon: 'doc', tone: 'green' });
     o += pill(32, 386, 'Connect in portal', { tone: 'green' });
-    o += zone(228, 182, 412, 236, 'AI Gateway · AIGateway SKU', { gw: true, ic: 'sparkle' });
+    o += zone(228, 182, 412, 236, 'AI Gateway · aigateways', { gw: true, ic: 'sparkle' });
     o += box(240, 216, 190, 60, { t: 'Alias: chat', s: 'Token limit, safety', icon: 'route', tone: 'violet', accent: true });
     o += box(438, 216, 190, 60, { t: 'Model provider', s: 'Managed identity', icon: 'models', tone: 'violet' });
     o += box(240, 286, 190, 60, { t: 'MCP: learn', s: 'Learn docs tools', icon: 'tools', tone: 'amber' });

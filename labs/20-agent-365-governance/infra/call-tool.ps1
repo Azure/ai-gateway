@@ -4,21 +4,21 @@
 # how Agent 365 and gateway controls reach the caller. Requires PowerShell 7 or later.
 #
 # Usage:
-#   $env:AI_GATEWAY_URL = "https://<gateway>.azure-api.net"
+#   $env:AI_GATEWAY_URL = "https://<gateway>.eastus2-01.ai.gateway.azure.com"
 #   $env:AI_GATEWAY_API_KEY = "..."      # never commit this value
 #   ./call-tool.ps1 [-Server learn] [-Tool <tool-name>] [-Arguments '<json-object>']
 #
 # Examples:
 #   ./call-tool.ps1 -Server learn
-#   ./call-tool.ps1 -Server learn -Tool learn___microsoft_docs_search -Arguments '{"query":"What is Microsoft Agent 365?"}'
-#   ./call-tool.ps1 -Server learn -Tool learn___microsoft_docs_fetch -Arguments '{"url":"https://learn.microsoft.com/azure/api-management/agent-365"}'
+#   ./call-tool.ps1 -Server learn -Tool learn_microsoft_docs_search -Arguments '{"query":"What is Microsoft Agent 365?"}'
+#   ./call-tool.ps1 -Server learn -Tool learn_microsoft_docs_fetch -Arguments '{"url":"https://learn.microsoft.com/azure/api-management/agent-365"}'
 param(
   [string]$Server = 'learn',
   [string]$Tool,
   [string]$Arguments = '{}'
 )
 $ErrorActionPreference = 'Stop'
-if (-not $env:AI_GATEWAY_URL) { throw 'Set $env:AI_GATEWAY_URL to https://<gateway>.azure-api.net' }
+if (-not $env:AI_GATEWAY_URL) { throw 'Set $env:AI_GATEWAY_URL to https://<gateway>.eastus2-01.ai.gateway.azure.com' }
 if (-not $env:AI_GATEWAY_API_KEY) { throw 'Set $env:AI_GATEWAY_API_KEY to a runtime key from Access > Keys' }
 $toolArguments = $Arguments | ConvertFrom-Json -AsHashtable
 if ($toolArguments -isnot [System.Collections.IDictionary]) { throw '-Arguments must be a JSON object.' }

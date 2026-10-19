@@ -3,13 +3,13 @@
 # and optionally calls one tool with a {"query": "..."} argument. Requires PowerShell 7 or later.
 #
 # Usage:
-#   $env:AI_GATEWAY_URL = "https://<gateway>.azure-api.net"
+#   $env:AI_GATEWAY_URL = "https://<gateway>.eastus2-01.ai.gateway.azure.com"
 #   $env:AI_GATEWAY_API_KEY = "..."      # never commit this value
 #   ./list-tools.ps1 [-Server learn] [-Tool <tool-name>] [-Query "..."]
 #
 # Examples:
 #   ./list-tools.ps1 -Server learn
-#   ./list-tools.ps1 -Server learn -Tool learn___microsoft_docs_search -Query "What is AI Gateway?"
+#   ./list-tools.ps1 -Server learn -Tool learn_microsoft_docs_search -Query "What is AI Gateway?"
 #
 # Set $env:AI_GATEWAY_MCP_ENDPOINT to use a full MCP endpoint URL instead of building it from AI_GATEWAY_URL.
 param(
@@ -21,7 +21,7 @@ $ErrorActionPreference = 'Stop'
 if (-not $env:AI_GATEWAY_API_KEY) { throw 'Set $env:AI_GATEWAY_API_KEY to a runtime key from Access > Keys' }
 $uri = $env:AI_GATEWAY_MCP_ENDPOINT
 if (-not $uri) {
-  if (-not $env:AI_GATEWAY_URL) { throw 'Set $env:AI_GATEWAY_URL to https://<gateway>.azure-api.net' }
+  if (-not $env:AI_GATEWAY_URL) { throw 'Set $env:AI_GATEWAY_URL to https://<gateway>.eastus2-01.ai.gateway.azure.com' }
   $uri = "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/toolservers/$Server/mcp"
 }
 $headers = @{ 'api-key' = $env:AI_GATEWAY_API_KEY; Accept = 'application/json, text/event-stream' }

@@ -2,7 +2,7 @@
 # Post-deployment smoke test for the enterprise reference gateway. It proves the two runtime paths work end to end:
 #   1. Model: a chat completion through the alias with an app's runtime API key (gateway -> managed identity -> Foundry).
 #   2. Tools: the MCP handshake and tools/list on the federated Microsoft Learn MCP server.
-# It reads the gateway URL and the key with az rest, so it doesn't need the aigateway CLI extension, and it never
+# It reads the gateway host name and the key with az rest, so it needs no CLI extension, and it never
 # prints the key. In GitHub Actions the key is also masked in the log.
 #
 # Usage:
@@ -22,9 +22,11 @@ API_VERSION="2025-09-01-preview"
 command -v jq >/dev/null || { echo "This script needs jq." >&2; exit 1; }
 
 SUB="$(az account show --query id -o tsv)"
-GATEWAY_ID="/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/service/$GATEWAY"
-GATEWAY_URL="$(az rest --method get --url "https://management.azure.com${GATEWAY_ID}?api-version=$API_VERSION" \
-  --query properties.gatewayUrl -o tsv)"
+GATEWAY_ID="/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
+GATEWAY_HOST="$(az rest --method get --url "https://management.azure.com${GATEWAY_ID}?api-version=$API_VERSION" \
+  --query properties.frontend.defaultHostname -o tsv)"
+if [ -z "$GATEWAY_HOST" ]; then echo "Couldn't read the host name of gateway '$GATEWAY'." >&2; exit 1; fi
+GATEWAY_URL="https://$GATEWAY_HOST"
 API_KEY="$(az rest --method post \
   --url "https://management.azure.com${GATEWAY_ID}/apiKeys/${KEY_NAME}/listSecrets?api-version=$API_VERSION" \
   --body '{}' --query "primaryKey || properties.primaryKey" -o tsv)"

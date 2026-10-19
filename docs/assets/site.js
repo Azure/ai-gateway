@@ -1003,11 +1003,11 @@ WIDGETS['alias-retarget'] = (el, cfg) => {
 const globRe = (g) => new RegExp(`^${g.trim().replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')}$`);
 const splitPats = (v) => (Array.isArray(v) ? v : String(v || '').split(/[,\n]/)).map((x) => x.trim()).filter(Boolean);
 WIDGETS['tool-patterns'] = (el, cfg) => {
-  const tools = cfg.tools || ['aigw-github___github_list_issues', 'aigw-github___github_get_issue', 'aigw-github___github_create_issue', 'aigw-github___github_delete_repository',
-    'learn___microsoft_docs_search', 'learn___microsoft_docs_fetch', 'crm___get_customer', 'crm___update_customer', 'crm___delete_customer'];
+  const tools = cfg.tools || ['aigw-github_github_list_issues', 'aigw-github_github_get_issue', 'aigw-github_github_create_issue', 'aigw-github_github_delete_repository',
+    'learn_microsoft_docs_search', 'learn_microsoft_docs_fetch', 'crm_get_customer', 'crm_update_customer', 'crm_delete_customer'];
   const s = { mode: 'patterns', allow: splitPats(cfg.allow || ['*']).join(', '), block: splitPats(cfg.block || ['*_delete_*']).join(', ') };
   const controls = wdGroup('Tool availability', wdSeg('mode', [['all', 'Allow all tools'], ['patterns', 'Use name patterns'], ['server', 'Block the MCP server']], s.mode))
-    + wdField('Allowed patterns', `<input type="text" data-k="allow" value="${escHtml(s.allow)}" spellcheck="false" placeholder="aigw-github___github_*">`, 'grow')
+    + wdField('Allowed patterns', `<input type="text" data-k="allow" value="${escHtml(s.allow)}" spellcheck="false" placeholder="aigw-github_github_*">`, 'grow')
     + wdField('Blocked tool patterns', `<input type="text" data-k="block" value="${escHtml(s.block)}" spellcheck="false" placeholder="*_delete_*">`, 'grow');
   const body = `<div class="wd-body"><div class="wd-pane"><p class="wd-pane-title">Backend tools</p><div class="wd-tools"></div><div class="wd-summary"></div></div><div class="wd-pane"><p class="wd-pane-title">What clients get from tools/list</p><div class="wd-client"><pre data-r="list"></pre></div><p class="wd-note">${IC.info} Use <code>*</code> for any characters and <code>?</code> for one. Blocked patterns win over allowed ones. Separate patterns with commas.</p></div></div>`;
   el.innerHTML = wdShell({ icon: 'tools', title: 'Try tool availability patterns', desc: 'Decide which backend tools an MCP server exposes. Names are namespaced per backend, so one pattern can cover a whole backend or a single verb.', controls, body });

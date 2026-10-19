@@ -1,12 +1,11 @@
-// Creates the Application Insights destination for AI Gateway telemetry with the same resource shapes as the
-// reference sample (Azure-Samples/simple-foundry-hosted-agent-python-aigateway, infra/ai-gateway/main.bicep):
-// a Log Analytics workspace and a workspace-based Application Insights component.
+// Creates the Application Insights destination for AI Gateway telemetry: a Log Analytics workspace and a
+// workspace-based Application Insights component.
 //
 // After you deploy it, connect the gateway in the portal: Monitoring › Configure telemetry ›
 // Existing Azure Application Insights resource. The portal enables OTLP ingestion on the component, grants the
 // gateway's managed identity the Monitoring Metrics Publisher role, and creates an OpenTelemetry exporter.
 
-@description('Name of the existing AI Gateway (API Management service with the AIGateway SKU).')
+@description('Name of the existing AI Gateway (Microsoft.ApiManagement/aigateways).')
 param gatewayName string
 
 @description('Location for the monitoring resources.')
@@ -50,17 +49,17 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   }
 }
 
-resource gateway 'Microsoft.ApiManagement/service@2025-09-01-preview' existing = {
+resource gateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' existing = {
   name: gatewayName
 }
 
-resource defaultWorkspace 'Microsoft.ApiManagement/service/workspaces@2025-09-01-preview' existing = {
+resource defaultWorkspace 'Microsoft.ApiManagement/aigateways/workspaces@2025-09-01-preview' existing = {
   parent: gateway
   name: 'default'
 }
 
 // The reference sample's exporter, unchanged. Kept for reference only: see deployLegacyExporter.
-resource telemetryExporter 'Microsoft.ApiManagement/service/workspaces/telemetryExporters@2025-09-01-preview' = if (deployLegacyExporter) {
+resource telemetryExporter 'Microsoft.ApiManagement/aigateways/workspaces/telemetryExporters@2025-09-01-preview' = if (deployLegacyExporter) {
   parent: defaultWorkspace
   name: 'appinsights'
   properties: {

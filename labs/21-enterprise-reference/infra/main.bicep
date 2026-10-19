@@ -3,14 +3,13 @@
 //
 //   rg-<env>-<token>-foundrymodels   foundry.bicep         Foundry account (keyless) + model deployment
 //   rg-<env>-<token>-gateway         monitoring.bicep      Log Analytics + Application Insights
-//                                    gateway.bicep         AIGateway SKU + connector gateway + Foundry User role for the gateway identity
+//                                    gateway.bicep         aigateways resource + connector gateway + Foundry User role for the gateway identity
 //                                    models.bicep          Foundry provider + backend model (tokenLimit, contentSafety) + alias
 //                                    tools.bicep           Microsoft Learn MCP server
 //                                    keys.bicep            one runtime API key per app
 //                                    telemetry.bicep       optional legacy exporter (off by default)
 //
 // Gateway-wide baseline policies are applied after deployment by scripts/apply-baselines.sh (or .ps1).
-// Resource shapes mirror the reference sample Azure-Samples/simple-foundry-hosted-agent-python-aigateway.
 targetScope = 'subscription'
 
 import { principal } from './modules/types.bicep'
@@ -36,7 +35,7 @@ param principalId string = ''
 @description('Extra tags merged into the default tags on every resource group and resource.')
 param tags object = {}
 
-@description('Gateway name. Defaults to aigw-<token>. It becomes https://<name>.azure-api.net, so it must be globally unique.')
+@description('Gateway name, max 24 characters. Defaults to aigw-<token>. It becomes https://<name>.<region>-01.ai.gateway.azure.com.')
 param aiGatewayName string = ''
 
 @description('Foundry model name to deploy.')

@@ -3,8 +3,7 @@
 # Gateway-scope policies live in the policies array of the gateway's default workspace. A PATCH replaces the whole
 # array, so the script reads the current array, merges the baselines into it, and writes it back:
 #   - A baseline whose type already exists updates that policy in place and keeps its id, overrides, and any other
-#     fields you set in the portal. Updating a costLimit this way keeps its accumulated spend. If the existing
-#     policy stores counterKey as a list, the baseline value is written as a list too.
+#     fields you set in the portal. Updating a costLimit this way keeps its accumulated spend.
 #   - A baseline whose type doesn't exist is appended. A new costLimit gets a fresh, stable id.
 #   - Policies of other types (for example ones you added in the portal) are left untouched.
 # Running it twice gives the same result. Requires PowerShell 7 or later and Azure CLI.
@@ -23,7 +22,7 @@ if (-not $env:GATEWAY) { throw 'Set $env:GATEWAY to the gateway name' }
 $baselinePolicies = @(Get-Content -Raw -Path $Baselines | ConvertFrom-Json -AsHashtable)
 $apiVersion = '2025-09-01-preview'
 $sub = az account show --query id -o tsv
-$url = "https://management.azure.com/subscriptions/$sub/resourceGroups/$($env:RG)/providers/Microsoft.ApiManagement/service/$($env:GATEWAY)/workspaces/default?api-version=$apiVersion"
+$url = "https://management.azure.com/subscriptions/$sub/resourceGroups/$($env:RG)/providers/Microsoft.ApiManagement/aigateways/$($env:GATEWAY)/workspaces/default?api-version=$apiVersion"
 
 $current = az rest --method get --url $url | ConvertFrom-Json -AsHashtable
 if ($LASTEXITCODE -ne 0) { throw "Couldn't read $url" }
@@ -34,9 +33,7 @@ foreach ($b in $baselinePolicies) {
   $existing = @($policies | Where-Object { $_.type -eq $b.type })
   if ($existing.Count -gt 0) {
     foreach ($policy in $existing) {
-      $listCounter = $policy['counterKey'] -is [System.Collections.IList]
       foreach ($key in $b.Keys) { $policy[$key] = $b[$key] }
-      if ($listCounter -and $b['counterKey'] -is [string]) { $policy['counterKey'] = @($b['counterKey']) }
     }
   } else {
     $new = [ordered]@{}

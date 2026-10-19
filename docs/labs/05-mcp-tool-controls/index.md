@@ -26,15 +26,15 @@ this lab you publish only the approved tools, block one explicitly, and give eac
 
 ![Tool controls on the MCP server decide which federated tools agents can list and call](../assets/diagrams/mcp-federation.svg "The gateway applies tool availability, blocked tools, and policies on the MCP server before it calls any backend.")
 
-<!-- widget: tool-patterns {"tools":["learn___microsoft_docs_search","learn___microsoft_code_sample_search","learn___microsoft_docs_fetch","docs___microsoft_docs_search","docs___microsoft_code_sample_search","docs___microsoft_docs_fetch"],"allow":["*_search"],"block":["*code_sample*"]} -->
+<!-- widget: tool-patterns {"tools":["learn_microsoft_docs_search","learn_microsoft_code_sample_search","learn_microsoft_docs_fetch","docs_microsoft_docs_search","docs_microsoft_code_sample_search","docs_microsoft_docs_fetch"],"allow":["*_search"],"block":["*code_sample*"]} -->
 
 ## Before you begin
 
 - Complete [Federate MCP tools behind one endpoint](../04-federate-mcp-tools/README.md). You need the `learn`
   MCP server with its `learn` and `docs` backends, and a runtime API key from **Access** › **Keys**.
-- For the REST track: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later,
-  signed in with `az login`, the `aigateway` extension
-  ([install it](https://github.com/Azure/ai-gateway/tree/main/cli#install)), and `jq`.
+- The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
+  `az login`, to set the variables below. The REST track calls the Azure Resource Manager REST API with
+  `az rest`, and its Bash snippets also need `jq`.
 - For the **Verify** scripts: `curl` and `jq` (Bash) or PowerShell 7 or later.
 - Permission to change the gateway, for example **Contributor** on the resource group.
 
@@ -44,16 +44,24 @@ Set these variables once. Every track and the **Verify** section reuse them.
 export RG="<resource-group>"
 export GATEWAY="<gateway>"
 
-export AI_GATEWAY_URL="$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.gatewayUrl -o tsv)"
+export API="api-version=2025-09-01-preview"
+export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
+export GW="https://management.azure.com$GATEWAY_ID"
+export WS="$GW/workspaces/default"
+export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
 ```
 
 ```powershell title="PowerShell"
-$RG      = "<resource-group>"
-$GATEWAY = "<gateway>"
+$RG         = "<resource-group>"
+$GATEWAY    = "<gateway>"
 
-$env:AI_GATEWAY_URL = az aigateway show -g $RG -n $GATEWAY --query properties.gatewayUrl -o tsv
+$API        = "api-version=2025-09-01-preview"
+$GATEWAY_ID = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
+$GW         = "https://management.azure.com$GATEWAY_ID"
+$WS         = "$GW/workspaces/default"
+$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 ```
@@ -71,7 +79,7 @@ An MCP server has three layers of tool control. The gateway applies all of them 
 
 Patterns use `*` for any number of characters and `?` for exactly one. This lab uses `*_search` to allow
 both search tools and `*code_sample*` to block the code sample tool. Both patterns match whether or not you
-include the namespace prefix, such as `learn___`, so they cover every backend of the server.
+include the namespace prefix, such as `learn_`, so they cover every backend of the server.
 
 > [!NOTE]
 > Tool availability, blocked tools, and server access are configured in the portal. There's no documented CLI
@@ -115,18 +123,18 @@ Run the script from [Federate MCP tools behind one endpoint](../04-federate-mcp-
 includes a copy, so run it from this lab's folder. It lists the tools and calls an allowed one.
 
 ```bash title="Bash"
-./infra/list-tools.sh learn learn___microsoft_docs_search "What is AI Gateway?"
+./infra/list-tools.sh learn learn_microsoft_docs_search "What is AI Gateway?"
 ```
 
 ```powershell title="PowerShell"
-./infra/list-tools.ps1 -Server learn -Tool learn___microsoft_docs_search -Query "What is AI Gateway?"
+./infra/list-tools.ps1 -Server learn -Tool learn_microsoft_docs_search -Query "What is AI Gateway?"
 ```
 
 On GitHub, open [list-tools.sh](infra/list-tools.sh) or [list-tools.ps1](infra/list-tools.ps1).
 
 The list has four tools, the search tools and the code sample tools of both backends. The `*_fetch` tools are
 gone because they don't match `*_search`. The code sample tools are still listed, because blocked tools stay
-visible. The call to `learn___microsoft_docs_search` returns Microsoft Learn results.
+visible. The call to `learn_microsoft_docs_search` returns Microsoft Learn results.
 
 <!-- /steps -->
 
@@ -208,48 +216,59 @@ counter. Select **Create**.
 Policies live inline in the MCP server's `properties.policies` array. A `PATCH` **replaces the whole array**,
 so always read it first and keep the policies you didn't mean to change.
 
-```bash
-SUB="$(az account show --query id -o tsv)"
-URL="https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/service/$GATEWAY/workspaces/default/toolServers/learn?api-version=2025-09-01-preview"
-
-az rest --method get --url "$URL" --query properties.policies
+```bash title="Bash"
+URL="$WS/toolServers/learn"
+az rest --url "$URL?$API" --query properties.policies
 ```
+
+```powershell title="PowerShell"
+$URL = "$WS/toolServers/learn"
+az rest --url "$URL`?$API" --query properties.policies
+```
+
+The command prints nothing if the server has never had a policy.
 
 ### Replace the request rate limit and keep everything else
 
 ```bash title="Bash"
-POLICIES="$(az rest --method get --url "$URL" | jq -c '
-  [(.properties.policies // [])[] | select(.type != "requestRateLimit")]
-  + [{"type":"requestRateLimit","callsPerPeriod":5,"periodSeconds":30,"counterKey":"Identity"}]')"
-
-az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}"
+az rest --url "$URL?$API" -o json | jq -c '{properties: {policies: (
+    [(.properties.policies // [])[] | select(.type != "requestRateLimit")]
+    + [{type: "requestRateLimit", callsPerPeriod: 5, periodSeconds: 30, counterKey: ["identity"]}])}}' > policies.json
+az rest --method patch --url "$URL?$API" --body @policies.json --query properties.policies
+rm policies.json
 ```
 
 ```powershell title="PowerShell"
-$SUB = az account show --query id -o tsv
-$URL = "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/service/$GATEWAY/workspaces/default/toolServers/learn`?api-version=2025-09-01-preview"
-
-$current  = az rest --method get --url $URL | ConvertFrom-Json
+$current  = az rest --url "$URL`?$API" -o json | ConvertFrom-Json
 $policies = @($current.properties.policies | Where-Object { $_ -and $_.type -ne 'requestRateLimit' })
-$policies += [pscustomobject]@{ type = 'requestRateLimit'; callsPerPeriod = 5; periodSeconds = 30; counterKey = 'Identity' }
+$policies += [pscustomobject]@{ type = 'requestRateLimit'; callsPerPeriod = 5; periodSeconds = 30; counterKey = @('identity') }
 
-$body = @{ properties = @{ policies = $policies } } | ConvertTo-Json -Depth 10 -Compress
-$body | Set-Content -Path patch.json
-az rest --method patch --url $URL --body '@patch.json'
-Remove-Item patch.json
+@{ properties = @{ policies = $policies } } | ConvertTo-Json -Depth 10 -Compress | Set-Content -Path policies.json
+az rest --method patch --url "$URL`?$API" --body '@policies.json' --query properties.policies
+Remove-Item policies.json
 ```
 
-`periodSeconds` accepts the portal's renewal periods: `30`, `60`, `120`, or `300`. `counterKey` accepts
-`Identity` or `IPAddress`.
+The commands read the whole MCP server, not just `properties.policies`, because the array is missing until the
+server has had a policy. `periodSeconds` is the renewal period in seconds. The portal offers `30`, `60`, `120`, and
+`300`. `counterKey` is an array with `identity`, `ipAddress`, or both. An empty array gives all callers one
+shared counter.
 
 > [!TIP]
-> `az aigateway mcp update -g "$RG" --gateway-name "$GATEWAY" -n learn --policies '<json-array>'` also sets
-> an MCP server's policies, but it replaces the whole array, just like `PATCH`. Build the array from the
-> current policies first.
+> The same `GET`, merge, `PATCH` pattern sets policies on models, aliases, and the `default` workspace. Only the
+> URL changes.
 
 > **Checkpoint**
-> Running the `GET` again returns your other policies unchanged plus one `requestRateLimit` entry with
-> `"callsPerPeriod": 5` and `"periodSeconds": 30`.
+> The `PATCH` returns your other policies unchanged plus one entry like this:
+>
+> ```json
+> {
+>   "callsPerPeriod": 5,
+>   "counterKey": ["identity"],
+>   "periodSeconds": 30,
+>   "scope": "resource",
+>   "type": "requestRateLimit"
+> }
+> ```
 
 <!-- /tracks -->
 
@@ -266,11 +285,11 @@ fresh window.
 The code sample tool is still listed, but the gateway refuses to run it:
 
 ```bash title="Bash"
-./infra/list-tools.sh learn learn___microsoft_code_sample_search "Python MCP client"
+./infra/list-tools.sh learn learn_microsoft_code_sample_search "Python MCP client"
 ```
 
 ```powershell title="PowerShell"
-./infra/list-tools.ps1 -Server learn -Tool learn___microsoft_code_sample_search -Query "Python MCP client"
+./infra/list-tools.ps1 -Server learn -Tool learn_microsoft_code_sample_search -Query "Python MCP client"
 ```
 
 The tool list prints as before, and then the script reports that the `tools/call` request failed and prints
@@ -291,8 +310,7 @@ Wait 30 seconds, then send a handshake followed by eight `tools/list` requests:
 On GitHub, open [trigger-request-rate.sh](infra/trigger-request-rate.sh) or
 [trigger-request-rate.ps1](infra/trigger-request-rate.ps1).
 
-Expected output (your `Retry-After` values will differ, and the first `429` can come a call earlier or later
-depending on how the window lines up):
+Expected output (your `Retry-After` values will differ):
 
 ```text
 Request  Method                      Status  Retry-After
@@ -301,16 +319,24 @@ Request  Method                      Status  Retry-After
 3        tools/list                  200     -
 4        tools/list                  200     -
 5        tools/list                  200     -
-6        tools/list                  429     27
-7        tools/list                  429     27
-8        tools/list                  429     26
-9        tools/list                  429     26
-10       tools/list                  429     26
+6        tools/list                  200     -
+7        tools/list                  200     -
+8        tools/list                  429     4
+9        tools/list                  429     3
+10       tools/list                  429     2
+
+Last response body:
+{ "statusCode": 429, "message": "Rate limit is exceeded. Try again in 2 seconds." }
 ```
+
+The counter is approximate, so the gateway can let a call or two beyond the limit through before the first
+`429`. `Retry-After` counts down to the end of the current 30-second window, so it can be anything from 1 to 30
+seconds.
 
 ### Inspect one throttled response
 
-While you're still throttled, send one raw request and look at the status line and headers:
+Right after the burst, while you're still throttled, send one raw request and look at the status line and
+headers. If it returns `200`, the window has already renewed. Run the burst again, then this command.
 
 ```bash
 curl -i "${AI_GATEWAY_URL%/}/default/toolservers/learn/mcp" \
@@ -319,14 +345,15 @@ curl -i "${AI_GATEWAY_URL%/}/default/toolservers/learn/mcp" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
-The status is `429`, and `Retry-After` tells the client how many seconds to wait. Agent frameworks should back
+The status line is `HTTP/2 429`, the headers include `retry-after`, and the body is the same JSON error. The
+`Retry-After` value tells the client how many seconds to wait. Agent frameworks should back
 off for that long instead of retrying in a tight loop.
 
 <!-- /steps -->
 
 > **Checkpoint**
 > The `*_fetch` tools are no longer listed, a call to the blocked code sample tool fails, an allowed search
-> tool works, and the sixth call in a 30-second window gets `429` with `Retry-After`.
+> tool works, and calls over the limit in a 30-second window get `429` with `Retry-After`.
 
 ## Go further
 
@@ -356,9 +383,21 @@ A 5-call limit will throttle real agents. Remove it, and open the tool catalog a
 
 ### Remove the policy
 
-```bash
-POLICIES="$(az rest --method get --url "$URL" | jq -c '[(.properties.policies // [])[] | select(.type != "requestRateLimit")]')"
-az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}"
+```bash title="Bash"
+URL="$WS/toolServers/learn"
+az rest --url "$URL?$API" -o json \
+  | jq -c '{properties: {policies: [(.properties.policies // [])[] | select(.type != "requestRateLimit")]}}' > policies.json
+az rest --method patch --url "$URL?$API" --body @policies.json --query properties.policies
+rm policies.json
+```
+
+```powershell title="PowerShell"
+$URL      = "$WS/toolServers/learn"
+$current  = az rest --url "$URL`?$API" -o json | ConvertFrom-Json
+$policies = @($current.properties.policies | Where-Object { $_ -and $_.type -ne 'requestRateLimit' })
+@{ properties = @{ policies = $policies } } | ConvertTo-Json -Depth 10 -Compress | Set-Content -Path policies.json
+az rest --method patch --url "$URL`?$API" --body '@policies.json' --query properties.policies
+Remove-Item policies.json
 ```
 
 Then restore the catalog in the portal: open **MCP servers** › `learn` › **Edit** › **Tools**, select
@@ -376,7 +415,7 @@ Keep the gateway, the `learn` MCP server, and your key. The next labs reuse them
 | `tools/list` returns no tools | The allow list matches nothing, or the server access is **Blocked** | Check the patterns against the exact tool names, and set **MCP server access** to **Active**. |
 | An allowed tool is blocked | A blocked pattern also matches it. Blocked patterns take precedence | Make the blocked pattern narrower, for example `*code_sample*` instead of `*sample*`. |
 | `429` on the first request of a run | The previous step used up the window, or a **Gateway** scope rate limit also applies | Wait for `Retry-After`, and review **Policies** for every limit that covers the MCP server. |
-| Never `429` | The policy is on another asset, or the burst spans two windows | Check the policy's scope, and run the burst without pauses. |
+| Never `429` | The policy is on another asset, it was saved moments ago, or the burst spans two windows | Check the policy's scope, wait a minute after you save it, and run a longer burst, for example `./infra/trigger-request-rate.sh learn 12`. |
 | Other policies vanished after the REST call | `PATCH` replaces the whole `policies` array | Always `GET`, merge, then `PATCH`, as shown in the REST track. |
 
 ## Next steps

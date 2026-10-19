@@ -1,8 +1,8 @@
 """An OpenAI Agents SDK agent whose model and MCP tool calls both go through AI Gateway.
 
 The agent uses the Chat Completions model class with an AsyncOpenAI client pointed at the gateway's
-OpenAI-compatible endpoint, and an MCP server connection to the gateway's MCP endpoint. Both send the runtime key in
-the api-key header.
+OpenAI-compatible endpoint, and an MCP server connection to the gateway's MCP endpoint. The client sends the runtime
+key as its API key, and the MCP connection sends it in the api-key header.
 
 Usage:
     cp .env.example .env      # then fill in the values
@@ -44,8 +44,7 @@ async def main() -> None:
 
     client = AsyncOpenAI(
         base_url=f"{gateway_url}/default/models/openai/v1",
-        api_key="unused",
-        default_headers={"api-key": api_key},
+        api_key=api_key,
     )
 
     async with MCPServerStreamableHttp(

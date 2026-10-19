@@ -1,54 +1,53 @@
-// Provisions an Azure AI Gateway: an API Management service with the AIGateway SKU and a system-assigned
-// managed identity, plus the companion connector gateway resource with the same name.
-// Mirrors infra/ai-gateway/main.bicep in the reference sample
-// (https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway).
+// Provisions an Azure AI Gateway (Microsoft.ApiManagement/aigateways) with a system-assigned managed
+// identity, plus the companion connector gateway (Microsoft.Web/connectorGateways) with the same name.
+// This matches what the AI Gateway portal creates: the connector gateway first, then the AI gateway.
 targetScope = 'resourceGroup'
 
-@description('Globally unique gateway name. It becomes part of the runtime URL, so use letters, numbers, and hyphens.')
+@description('Gateway name. It becomes the first label of the runtime host name, so use letters, numbers, and hyphens (max 24 characters).')
 @minLength(1)
-@maxLength(50)
+@maxLength(24)
 param gatewayName string
 
-@description('Region for the gateway. During public preview, use eastus2 (East US 2) or swedencentral (Sweden Central).')
-param location string = resourceGroup().location
+@description('Region for the gateway. During public preview, Azure AI Gateway is available in East US 2 and Sweden Central.')
+@allowed([
+  'eastus2'
+  'swedencentral'
+])
+param location string = 'eastus2'
 
-@description('Tags applied to the gateway.')
+@description('Tags applied to both resources.')
 param tags object = {}
 
-@description('Publisher email required by the underlying API Management service.')
-param publisherEmail string = 'noreply@example.com'
+@description('Optional subnet resource ID for outbound virtual network integration. It can only be set when the gateway is created.')
+param backendSubnetId string = ''
 
-@description('Publisher name required by the underlying API Management service.')
-param publisherName string = 'AI Gateway'
+resource connectorGateway 'Microsoft.Web/connectorGateways@2026-05-01-preview' = {
+  name: gatewayName
+  location: location
+  tags: tags
+  properties: {}
+}
 
-resource aiGateway 'Microsoft.ApiManagement/service@2025-09-01-preview' = {
+resource aiGateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' = {
   name: gatewayName
   location: location
   tags: tags
   identity: {
     type: 'SystemAssigned'
   }
-  sku: {
-    name: 'AIGateway'
-    capacity: 1
-  }
-  properties: {
-    publisherEmail: publisherEmail
-    publisherName: publisherName
-  }
-}
-
-resource connectorGateway 'Microsoft.Web/connectorGateways@2026-05-01-preview' = {
-  name: gatewayName
-  location: location
-  properties: {}
+  properties: union(
+    {
+      publicNetworkAccess: 'Enabled'
+    },
+    empty(backendSubnetId) ? {} : { backend: { subnet: { id: backendSubnetId } } }
+  )
   dependsOn: [
-    aiGateway
+    connectorGateway
   ]
 }
 
 output gatewayName string = aiGateway.name
-output gatewayUrl string = aiGateway.properties.gatewayUrl
+output gatewayUrl string = 'https://${aiGateway.properties.frontend.defaultHostname}'
 output gatewayId string = aiGateway.id
 output principalId string = aiGateway.identity.principalId
 output connectorGatewayId string = connectorGateway.id

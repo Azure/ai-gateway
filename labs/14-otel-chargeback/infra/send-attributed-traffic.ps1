@@ -5,7 +5,7 @@
 # The Entra calls need the AI Gateway Models User role (or AI Gateway User) on the gateway or the model.
 #
 # Usage:
-#   $env:AI_GATEWAY_URL = "https://<gateway>.azure-api.net"
+#   $env:AI_GATEWAY_URL = "https://<gateway>.eastus2-01.ai.gateway.azure.com"
 #   $env:AI_GATEWAY_API_KEY = "..."      # never commit this value
 #   az login
 #   ./send-attributed-traffic.ps1 -Model <model-alias> [-Requests 5]
@@ -14,7 +14,7 @@ param(
   [int]$Requests = 5
 )
 $ErrorActionPreference = 'Stop'
-if (-not $env:AI_GATEWAY_URL) { throw 'Set $env:AI_GATEWAY_URL to https://<gateway>.azure-api.net' }
+if (-not $env:AI_GATEWAY_URL) { throw 'Set $env:AI_GATEWAY_URL to https://<gateway>.eastus2-01.ai.gateway.azure.com' }
 if (-not $env:AI_GATEWAY_API_KEY) { throw 'Set $env:AI_GATEWAY_API_KEY to a runtime key from Access > Keys' }
 
 $uri = "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/models/openai/v1/chat/completions"

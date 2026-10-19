@@ -9,7 +9,7 @@ order: 15
 illustration: diagrams/architecture.svg
 tags: [Microsoft Agent Framework, OpenAI Agents SDK, LangChain, LangGraph, MCP, OpenAI-compatible, Python]
 objectives:
-  - Configure a framework's model client with the gateway's OpenAI-compatible endpoint, an alias, and the api-key header
+  - Configure a framework's model client with the gateway's OpenAI-compatible endpoint, an alias, and a runtime key
   - Load governed tools from the gateway's MCP endpoint in each framework
   - Run the same agent in Microsoft Agent Framework, the OpenAI Agents SDK, and LangGraph
   - Prove that the gateway authenticates and records every model and tool call the agent makes
@@ -43,8 +43,9 @@ governed and observable in the same place.
 ## How it works
 
 Agent frameworks talk to models through an OpenAI-compatible client and to tools through an MCP client. Point both at
-the gateway and put the runtime key in the `api-key` header. The SDK's own API key becomes a placeholder, because
-the gateway doesn't use the `Authorization` header that SDKs send for it.
+the gateway. The model client takes the runtime key as its API key, which it sends as a bearer token that the
+model endpoint accepts. The MCP client sends the same key in the `api-key` header, the only place the MCP endpoint
+reads it.
 
 The framework still owns orchestration, memory, and state. The gateway authenticates each call, applies the policies
 on the alias, the MCP server, and the gateway, routes the alias to its provider, and records telemetry for every call
@@ -58,8 +59,8 @@ that leaves the agent. Changing a model, a policy, or a tool list then needs no 
 
 All three use the same two endpoints. The gateway serves both model APIs on the model endpoint:
 
-- Model: `https://<gateway>.azure-api.net/default/models/openai/v1`
-- MCP: `https://<gateway>.azure-api.net/default/toolservers/<server-name>/mcp`
+- Model: `https://<gateway>.eastus2-01.ai.gateway.azure.com/default/models/openai/v1`
+- MCP: `https://<gateway>.eastus2-01.ai.gateway.azure.com/default/toolservers/<server-name>/mcp`
 
 ## Set up the samples
 
@@ -113,28 +114,26 @@ Copy-Item .env.example .env
 
 ## Point the model client at the gateway
 
-Each framework takes the gateway's model endpoint as its base URL and the alias as the model name. The key goes in a
-default header on every request.
+Each framework takes the gateway's model endpoint as its base URL, the alias as the model name, and the runtime key
+as its API key.
 
 <!-- steps -->
 
 ### Configure the model client
 
 ```python title="Agent Framework"
-# The gateway ignores the SDK's Authorization header, so api_key is a placeholder and the key goes in Api-Key.
+# The model endpoint accepts the key as the SDK's bearer token. Adding an api-key header as well gets a 400.
 client = OpenAIChatClient(
     model=model,
     base_url=f"{gateway_url}/default/models/openai/v1/",
-    api_key="unused",
-    default_headers={"Api-Key": api_key},
+    api_key=api_key,
 )
 ```
 
 ```python title="OpenAI Agents SDK"
 client = AsyncOpenAI(
     base_url=f"{gateway_url}/default/models/openai/v1",
-    api_key="unused",
-    default_headers={"api-key": api_key},
+    api_key=api_key,
 )
 # ...
 model=OpenAIChatCompletionsModel(model=model, openai_client=client),
@@ -144,14 +143,12 @@ model=OpenAIChatCompletionsModel(model=model, openai_client=client),
 model = ChatOpenAI(
     model=model_name,
     base_url=f"{gateway_url}/default/models/openai/v1",
-    api_key="unused",
-    default_headers={"api-key": api_key},
+    api_key=api_key,
 )
 ```
 
-The Agent Framework client mirrors the
-[Foundry hosted agent sample](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway), which
-writes the header as `Api-Key`. Header names are case-insensitive, so `Api-Key` and `api-key` are the same header.
+Don't add an `api-key` default header to the model client as well: the gateway rejects a request that has both an
+`api-key` and an `Authorization` header with `400`.
 
 > [!NOTE]
 > The OpenAI Agents SDK sample turns off the SDK's built-in tracing, which otherwise exports traces to OpenAI. The
@@ -172,7 +169,7 @@ the server publishes, after the gateway's tool controls.
 mcp_tool = MCPStreamableHTTPTool(
     name="gateway-tools",
     url=f"{gateway_url}/default/toolservers/{server}/mcp",
-    static_headers={"Api-Key": api_key},
+    static_headers={"api-key": api_key},
     approval_mode="never_require",
     request_timeout=60,
 )
@@ -261,7 +258,7 @@ python openai_agents_agent.py
 python langgraph_agent.py
 ```
 
-Expected output: a line such as `Model <model-name> and MCP server learn through https://<gateway>.azure-api.net`
+Expected output: a line such as `Model <model-name> and MCP server learn through https://<gateway>.eastus2-01.ai.gateway.azure.com`
 (the LangGraph sample also prints how many tools it loaded), then a short answer about AI Gateway that cites
 Microsoft Learn URLs. The answer differs between runs and frameworks.
 
@@ -326,7 +323,8 @@ usually makes at least two model calls: one that asks for a tool and one that wr
   [Publish models from any provider behind stable aliases](../03-multi-provider-aliases/README.md). The agents keep
   working with the same `AI_GATEWAY_MODEL`.
 - **Use .NET.** The [.NET hosted agent sample](https://github.com/Azure-Samples/simple-foundry-hosted-agent-dotnet-aigateway)
-  connects Microsoft Agent Framework for .NET to the gateway the same way.
+  connects Microsoft Agent Framework for .NET to a gateway. With the AI Gateway tier, pass the runtime key as the
+  client's API key and don't add an `api-key` header to model calls.
 - **Other SDKs.** For the GitHub Copilot SDK and other frameworks, use their model and MCP configuration points with
   the same endpoints, and confirm the endpoint formats and authentication they support.
 

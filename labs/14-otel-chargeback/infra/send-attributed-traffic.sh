@@ -6,7 +6,7 @@
 # The Entra calls need the AI Gateway Models User role (or AI Gateway User) on the gateway or the model.
 #
 # Usage:
-#   export AI_GATEWAY_URL="https://<gateway>.azure-api.net"
+#   export AI_GATEWAY_URL="https://<gateway>.eastus2-01.ai.gateway.azure.com"
 #   export AI_GATEWAY_API_KEY="..."      # never commit this value
 #   az login
 #   ./send-attributed-traffic.sh <model-alias> [requests-per-caller]
@@ -14,7 +14,7 @@ set -euo pipefail
 
 MODEL="${1:?Pass the callable model alias as the first argument}"
 REQUESTS="${2:-5}"
-: "${AI_GATEWAY_URL:?Set AI_GATEWAY_URL to https://<gateway>.azure-api.net}"
+: "${AI_GATEWAY_URL:?Set AI_GATEWAY_URL to https://<gateway>.eastus2-01.ai.gateway.azure.com}"
 : "${AI_GATEWAY_API_KEY:?Set AI_GATEWAY_API_KEY to a runtime key from Access > Keys}"
 
 URL="${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions"

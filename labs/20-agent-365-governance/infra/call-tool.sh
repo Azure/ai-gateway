@@ -5,14 +5,14 @@
 # how Agent 365 and gateway controls reach the caller.
 #
 # Usage:
-#   export AI_GATEWAY_URL="https://<gateway>.azure-api.net"
+#   export AI_GATEWAY_URL="https://<gateway>.eastus2-01.ai.gateway.azure.com"
 #   export AI_GATEWAY_API_KEY="..."      # never commit this value
 #   ./call-tool.sh [server-name] [tool-name] [arguments-json]
 #
 # Examples:
 #   ./call-tool.sh learn
-#   ./call-tool.sh learn learn___microsoft_docs_search '{"query":"What is Microsoft Agent 365?"}'
-#   ./call-tool.sh learn learn___microsoft_docs_fetch '{"url":"https://learn.microsoft.com/azure/api-management/agent-365"}'
+#   ./call-tool.sh learn learn_microsoft_docs_search '{"query":"What is Microsoft Agent 365?"}'
+#   ./call-tool.sh learn learn_microsoft_docs_fetch '{"url":"https://learn.microsoft.com/azure/api-management/agent-365"}'
 #
 # Requires curl and jq.
 set -euo pipefail
@@ -21,7 +21,7 @@ SERVER="${1:-learn}"
 TOOL="${2:-}"
 ARGS="${3:-}"
 if [ -z "$ARGS" ]; then ARGS="{}"; fi
-: "${AI_GATEWAY_URL:?Set AI_GATEWAY_URL to https://<gateway>.azure-api.net}"
+: "${AI_GATEWAY_URL:?Set AI_GATEWAY_URL to https://<gateway>.eastus2-01.ai.gateway.azure.com}"
 : "${AI_GATEWAY_API_KEY:?Set AI_GATEWAY_API_KEY to a runtime key from Access > Keys}"
 command -v jq >/dev/null || { echo "This script needs jq." >&2; exit 1; }
 printf '%s' "$ARGS" | jq -e 'type == "object"' >/dev/null || { echo "arguments-json must be a JSON object." >&2; exit 1; }

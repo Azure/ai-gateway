@@ -14,7 +14,7 @@ follow the one that fits how you work:
 | Track | What you use |
 |---|---|
 | **Portal** | Click-by-click steps in the [AI Gateway portal](https://ai.gateway.azure.com) |
-| **CLI** | `az aigateway` commands for Bash and PowerShell. See [cli/README.md](../cli/README.md) to install. |
+| **CLI** | Azure CLI (`az rest`, `az resource`, `az deployment`) commands for Bash and PowerShell against the `Microsoft.ApiManagement/aigateways` resource |
 | **Bicep** | Infrastructure as code in each lab's `infra/` folder, deployed with `az deployment` or `azd` |
 | **Code** | Python, TypeScript, and .NET clients, agent frameworks, and REST calls |
 
@@ -38,9 +38,9 @@ follow the one that fits how you work:
 | 13 | [Monitor usage, cost, and traces](13-monitoring/README.md) | Observability & FinOps | Beginner | 25 min | Portal, Bicep |
 | 14 | [Attribute tokens and cost with OpenTelemetry](14-otel-chargeback/README.md) | Observability & FinOps | Advanced | 35 min | Portal, REST |
 | 15 | [Connect agent frameworks to models and tools](15-agent-frameworks/README.md) | Agents | Intermediate | 30 min | Code |
-| 16 | [Deploy a Foundry hosted agent behind AI Gateway](16-foundry-hosted-agent/README.md) | Agents | Intermediate | 45 min | Bicep, Code |
+| 16 | [Deploy a Foundry hosted agent behind AI Gateway](16-foundry-hosted-agent/README.md) | Agents | Intermediate | 40 min | Portal, CLI, Code |
 | 17 | [Build on your gateway with coding agents](17-coding-agent-plugin/README.md) | Agents | Beginner | 15 min | Code |
-| 18 | [Lock down the gateway with private networking](18-private-networking/README.md) | Production & emerging | Advanced | 45 min | Portal, CLI, Bicep |
+| 18 | [Lock down backend traffic with private networking](18-private-networking/README.md) | Production & emerging | Advanced | 45 min | Portal, CLI, Bicep |
 | 19 | [Protect tool calls with Agent 365 threat protection](19-tool-threat-protection/README.md) | Production & emerging | Advanced | 30 min | Portal |
 | 20 | [Govern MCP servers with Agent 365](20-agent-365-governance/README.md) | Production & emerging | Intermediate | 20 min | Portal |
 | 21 | [Deploy an enterprise reference architecture](21-enterprise-reference/README.md) | Production & emerging | Advanced | 60 min | Bicep |
@@ -50,9 +50,12 @@ your role: platform engineer, app and agent developer, security and compliance, 
 
 ## Prerequisites
 
-- An Azure subscription where you can create resources. AI Gateway is in public preview in a limited set of
-  regions; each lab lists what it needs under **Before you begin**.
-- For the CLI and Bicep tracks: Azure CLI 2.75.0 or later with the `aigateway` extension, and Bicep.
+- An Azure subscription where you can create resources. AI Gateway is in public preview in **East US 2**
+  (`eastus2`) and **Sweden Central** (`swedencentral`); each lab lists what it needs under **Before you begin**.
+- For the CLI and Bicep tracks: Azure CLI 2.75.0 or later, Bicep, and `jq` for the Bash snippets. Every lab
+  creates the dedicated `Microsoft.ApiManagement/aigateways` resource type. The CLI track calls the Azure Resource
+  Manager REST API with `az rest`, because the `az aigateway` extension doesn't manage the new `aigateways`
+  resource type yet.
 - For the Code track: Python, Node.js, or the .NET 8 SDK, depending on the sample. Each lab lists the exact
   versions under **Before you begin**.
 

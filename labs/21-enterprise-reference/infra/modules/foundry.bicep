@@ -1,6 +1,5 @@
 // Microsoft Foundry (Azure AI Services) account that owns only model deployments. The gateway calls it with its
-// managed identity, so local (key) authentication is disabled. Mirrors infra/foundry-models/main.bicep in the
-// reference sample (Azure-Samples/simple-foundry-hosted-agent-python-aigateway).
+// managed identity, so local (key) authentication is disabled.
 targetScope = 'resourceGroup'
 
 @description('Location for the Foundry account. The model and SKU you deploy must be available here.')

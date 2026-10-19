@@ -1,8 +1,7 @@
 """A Microsoft Agent Framework agent whose model and MCP tool calls both go through AI Gateway.
 
-The model client mirrors the Foundry hosted agent sample: an OpenAIChatClient (Responses API) pointed at the
-gateway's OpenAI-compatible endpoint, with the runtime key in the Api-Key header. Tools come from the gateway's MCP
-endpoint for one MCP server.
+An OpenAIChatClient (Responses API) points at the gateway's OpenAI-compatible endpoint and sends the runtime key as
+its API key. Tools come from the gateway's MCP endpoint for one MCP server, with the key in the api-key header.
 
 Usage:
     cp .env.example .env      # then fill in the values
@@ -38,18 +37,17 @@ async def main() -> None:
     gateway_url, model, api_key, server = settings()
     question = " ".join(sys.argv[1:]) or QUESTION
 
-    # The gateway ignores the SDK's Authorization header, so api_key is a placeholder and the key goes in Api-Key.
+    # The model endpoint accepts the key as the SDK's bearer token. Adding an api-key header as well gets a 400.
     client = OpenAIChatClient(
         model=model,
         base_url=f"{gateway_url}/default/models/openai/v1/",
-        api_key="unused",
-        default_headers={"Api-Key": api_key},
+        api_key=api_key,
     )
 
     mcp_tool = MCPStreamableHTTPTool(
         name="gateway-tools",
         url=f"{gateway_url}/default/toolservers/{server}/mcp",
-        static_headers={"Api-Key": api_key},
+        static_headers={"api-key": api_key},
         approval_mode="never_require",
         request_timeout=60,
     )

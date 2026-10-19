@@ -4,14 +4,14 @@
 # so you also get one failed request to find in Monitoring › Traces.
 #
 # Usage:
-#   export AI_GATEWAY_URL="https://<gateway>.azure-api.net"
+#   export AI_GATEWAY_URL="https://<gateway>.eastus2-01.ai.gateway.azure.com"
 #   export AI_GATEWAY_API_KEY="..."      # never commit this value
 #   ./generate-traffic.sh <model-alias> [requests]
 set -euo pipefail
 
 MODEL="${1:?Pass the callable model alias as the first argument}"
 REQUESTS="${2:-10}"
-: "${AI_GATEWAY_URL:?Set AI_GATEWAY_URL to https://<gateway>.azure-api.net}"
+: "${AI_GATEWAY_URL:?Set AI_GATEWAY_URL to https://<gateway>.<region>.ai.gateway.azure.com}"
 : "${AI_GATEWAY_API_KEY:?Set AI_GATEWAY_API_KEY to a runtime key from Access > Keys}"
 
 URL="${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions"

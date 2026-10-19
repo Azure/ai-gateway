@@ -1,6 +1,6 @@
 # Lists, creates, retargets, and deletes AI Gateway model aliases with the REST API.
-# The Azure CLI aigateway extension has no alias commands, so this script wraps `az rest`.
-# Requires PowerShell 7 or later, the Azure CLI (signed in), and the aigateway extension.
+# The `az aigateway` extension doesn't manage the aigateways resource type yet, so this script wraps `az rest`.
+# Requires PowerShell 7 or later and the Azure CLI 2.75 or later (signed in).
 #
 # Usage:
 #   $RG = "<resource-group>"; $GATEWAY = "<gateway>"
@@ -25,7 +25,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $api = 'api-version=2025-09-01-preview'
-$gatewayId = az aigateway show -g $ResourceGroup -n $Gateway --query id -o tsv
+$gatewayId = az resource show -g $ResourceGroup -n $Gateway --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
 if (-not $gatewayId) { throw "Gateway '$Gateway' not found in resource group '$ResourceGroup'." }
 $wsId = "$gatewayId/workspaces/default"
 $arm = 'https://management.azure.com'
@@ -78,7 +78,7 @@ switch ($Action) {
     Assert-Value $Alias 'Pass the alias.'; Assert-Value $Provider 'Pass the model provider name.'; Assert-Value $Model 'Pass the backend model name.'
     $policies = @()
     if ($TokensPerMinute -gt 0) {
-      $policies = @(@{ type = 'tokenLimit'; count = $TokensPerMinute; period = 'minute'; counterKey = 'Identity' })
+      $policies = @(@{ type = 'tokenLimit'; count = $TokensPerMinute; period = 'minute'; counterKey = @('identity') })
     }
     Send-Alias put (Get-ResourceName $Alias) @{ properties = @{
         aliasName     = $Alias

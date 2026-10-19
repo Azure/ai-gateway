@@ -29,7 +29,7 @@ case "$ROLE" in
   *) echo "Unknown role '$ROLE'. Use user, models, or tools." >&2; exit 2 ;;
 esac
 
-GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
+GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
 
 case "$TARGET" in
   gateway) SCOPE="$GATEWAY_ID" ;;

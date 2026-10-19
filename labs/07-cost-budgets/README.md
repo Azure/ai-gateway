@@ -42,36 +42,43 @@ called.
 - Optional, for the Entra override: a user or service principal that can call the gateway with Microsoft
   Entra ID. [Go keyless with Microsoft Entra ID and RBAC](../11-entra-rbac/README.md) shows how.
 - For the REST track: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later,
-  signed in with `az login`, the `aigateway` extension
-  ([install it](https://github.com/Azure/ai-gateway/tree/main/cli#install)), and `jq`.
+  signed in with `az login`, plus `jq` for the Bash snippets.
 - Permission to change the gateway, for example **Contributor** on the resource group.
 
 Set these variables once. Both tracks and the **Verify** section reuse them. Use the `app-dev` key here.
 
 ```bash title="Bash"
 export RG="<resource-group>"
-export GATEWAY="<gateway>"
+export GATEWAY="<gateway>"                 # 24 characters or fewer
 export PROVIDER="<provider-name>"          # for example foundry-models
 export MODEL="<model-name>"                # the backend model name under that provider
 
-export AI_GATEWAY_URL="$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.gatewayUrl -o tsv)"
+export API="api-version=2025-09-01-preview"
+export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
+export GW="https://management.azure.com$GATEWAY_ID"
+export WS="$GW/workspaces/default"
+export MODEL_URL="$WS/modelProviders/$PROVIDER/models/$MODEL"
+export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
 # For Foundry imports, the default alias matches the deployment's model name.
-export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" \
-  --provider-name "$PROVIDER" -n "$MODEL" --query properties.deployment.modelName -o tsv)"
+export AI_GATEWAY_MODEL="$(az rest --url "$MODEL_URL?$API" --query properties.deployment.modelName -o tsv)"
 # Paste the app-dev runtime key from Access › Keys. Don't commit it or write it to a file.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
 ```
 
 ```powershell title="PowerShell"
-$RG       = "<resource-group>"
-$GATEWAY  = "<gateway>"
-$PROVIDER = "<provider-name>"              # for example foundry-models
-$MODEL    = "<model-name>"                 # the backend model name under that provider
+$RG         = "<resource-group>"
+$GATEWAY    = "<gateway>"                 # 24 characters or fewer
+$PROVIDER   = "<provider-name>"           # for example foundry-models
+$MODEL      = "<model-name>"              # the backend model name under that provider
 
-$env:AI_GATEWAY_URL = az aigateway show -g $RG -n $GATEWAY --query properties.gatewayUrl -o tsv
+$API        = "api-version=2025-09-01-preview"
+$GATEWAY_ID = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
+$GW         = "https://management.azure.com$GATEWAY_ID"
+$WS         = "$GW/workspaces/default"
+$MODEL_URL  = "$WS/modelProviders/$PROVIDER/models/$MODEL"
+$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
 # For Foundry imports, the default alias matches the deployment's model name.
-$env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY `
-  --provider-name $PROVIDER -n $MODEL --query properties.deployment.modelName -o tsv
+$env:AI_GATEWAY_MODEL = az rest --url "$MODEL_URL`?$API" --query properties.deployment.modelName -o tsv
 # Paste the app-dev runtime key from Access › Keys. Don't commit it or write it to a file.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 ```
@@ -88,7 +95,7 @@ calls the backend. Responses also carry a header with the remaining budget.
 |---|---|---|---|
 | Budget | **Budget amount** | `amount` | US dollars, for example `5` |
 | Window | **Renewal period** | `period` | `hour`, `day`, `week`, `month`, `year` (**Hourly** … **Yearly**) |
-| Who gets a counter | **Counter dimensions** (shown as **Budget counted by**) | `counterKey` | `Identity`: the API key, or the Entra tenant ID + object ID |
+| Who gets a counter | **Counter dimensions** (shown as **Budget counted by**) | `counterKey` | An array: `["identity"]` (the API key, or the Entra tenant ID + object ID) or `["ipAddress"]` |
 | Exceptions | **Overrides** | Portal only | A different amount for an API key or Entra identity |
 | Policy identity | Not shown | `id` | Stable ID. Editing the amount keeps accumulated spend. |
 
@@ -180,13 +187,14 @@ Select **Create**. Back in **Policies**, open the new **Cost limit** to review i
 
 ### Read the current policies
 
-There's no Azure CLI command for cost limits, so use `az rest`. Policies live inline in the model's
+This track calls the Azure Resource Manager REST API with `az rest`, because the `az aigateway` extension
+doesn't manage the new `aigateways` resource type yet. Policies live inline in the model's
 `properties.policies` array. A `PATCH` **replaces the whole array**, so always read it first and keep the
 policies you didn't mean to change.
 
 ```bash
 SUB="$(az account show --query id -o tsv)"
-URL="https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/service/$GATEWAY/workspaces/default/modelProviders/$PROVIDER/models/$MODEL?api-version=2025-09-01-preview"
+URL="https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY/workspaces/default/modelProviders/$PROVIDER/models/$MODEL?api-version=2025-09-01-preview"
 
 az rest --method get --url "$URL" --query properties.policies
 ```
@@ -205,9 +213,9 @@ POLICIES="$(az rest --method get --url "$URL" | jq -c \
   .properties.policies // [] | . as $p
   | if any($p[]; .type == "costLimit")
     then [$p[] | if .type == "costLimit"
-                 then (.amount = $amount | .period = $period | .counterKey = "Identity")
+                 then (.amount = $amount | .period = $period | .counterKey = ["identity"])
                  else . end]
-    else $p + [{"type":"costLimit","id":$id,"amount":$amount,"period":$period,"counterKey":"Identity"}]
+    else $p + [{"type":"costLimit","id":$id,"amount":$amount,"period":$period,"counterKey":["identity"]}]
     end')"
 
 az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}"
@@ -217,7 +225,7 @@ az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLIC
 $BUDGET = 5
 $PERIOD = 'day'
 $SUB = az account show --query id -o tsv
-$URL = "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/service/$GATEWAY/workspaces/default/modelProviders/$PROVIDER/models/$MODEL`?api-version=2025-09-01-preview"
+$URL = "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY/workspaces/default/modelProviders/$PROVIDER/models/$MODEL`?api-version=2025-09-01-preview"
 
 $current  = az rest --method get --url $URL | ConvertFrom-Json
 $policies = @($current.properties.policies | Where-Object { $_ })
@@ -225,10 +233,10 @@ $cost     = $policies | Where-Object { $_.type -eq 'costLimit' } | Select-Object
 if ($cost) {
   $cost | Add-Member -NotePropertyName amount -NotePropertyValue $BUDGET -Force
   $cost | Add-Member -NotePropertyName period -NotePropertyValue $PERIOD -Force
-  $cost | Add-Member -NotePropertyName counterKey -NotePropertyValue 'Identity' -Force
+  $cost | Add-Member -NotePropertyName counterKey -NotePropertyValue @('identity') -Force
 } else {
   $policies += [pscustomobject]@{
-    type = 'costLimit'; id = [guid]::NewGuid().ToString(); amount = $BUDGET; period = $PERIOD; counterKey = 'Identity'
+    type = 'costLimit'; id = [guid]::NewGuid().ToString(); amount = $BUDGET; period = $PERIOD; counterKey = @('identity')
   }
 }
 
@@ -238,7 +246,8 @@ az rest --method patch --url $URL --body '@patch.json'
 Remove-Item patch.json
 ```
 
-`period` accepts `hour`, `day`, `week`, `month`, or `year`.
+`period` accepts `hour`, `day`, `week`, `month`, or `year`. `counterKey` is an array: `["identity"]`, or
+`["ipAddress"]` to count per client IP address.
 
 ### Add overrides in the portal
 
@@ -247,8 +256,8 @@ Configure overrides for API keys and Microsoft Entra identities in the portal: s
 above keeps those overrides when you change the amount later.
 
 > **Checkpoint**
-> Running the `GET` again returns your other policies unchanged plus one `costLimit` entry with
-> `"amount": 5`, `"period": "day"`, and `"counterKey": "Identity"`.
+> Running the `GET` again returns your other policies unchanged plus one `costLimit` entry with its `id`,
+> `"amount": 5.0`, `"period": "day"`, `"counterKey": ["identity"]`, and `"scope": "resource"`.
 
 <!-- /tracks -->
 
@@ -340,7 +349,8 @@ the spend the gateway estimated, and the dashboard attributes it to individual A
 - **Cap spend across all models.** Add a second **Cost limit** with **Gateway** scope, for example $200
   **Monthly**. Each caller then has one budget across every model, including models you import later. With
   REST, run the same merge against the gateway workspace:
-  `https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/service/$GATEWAY/workspaces/default?api-version=2025-09-01-preview`.
+  `https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY/workspaces/default?api-version=2025-09-01-preview`
+  (`"${WS}?$API"` from the variable block).
 - **Combine with token limits.** Keep a per-minute **Token rate limit** to smooth bursts and a **Cost limit**
   to cap spend. Both are checked on every request, and either one can block.
 - **Budget by role or app.** Use **Custom token claim combination** overrides, for example a `roles` claim with
@@ -386,6 +396,7 @@ Keep the gateway, model, and keys. The next labs reuse them.
 | **IP address** can't be selected in **Counter dimensions** | The policy has overrides | Remove all overrides, or keep **Identity**. |
 | `429` instead of `403` | A **Token rate limit** or **Request rate limit** blocked the call, or the backend ran out of capacity | See [Throttle tokens per caller with token limits](../06-token-limits/README.md). |
 | Other policies vanished after the REST call | `PATCH` replaces the whole `policies` array | Always `GET`, merge, then `PATCH`, as shown in the REST track. |
+| `ValidationError` with target `counterKey` | `counterKey` is a string such as `"Identity"`, or it's missing | Send an array, for example `"counterKey": ["identity"]`. A cost limit always needs `counterKey`. |
 
 ## Next steps
 

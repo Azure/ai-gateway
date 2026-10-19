@@ -33,8 +33,9 @@ gateway, tune it per category, and see what a blocked call looks like to a clien
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need a
   gateway, an imported model, a callable alias, and a runtime API key from **Access** › **Keys**.
 - For the CLI and REST tracks: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75
-  or later, signed in with `az login`, and the `aigateway` extension
-  ([install it](https://github.com/Azure/ai-gateway/tree/main/cli#install)). The REST track also uses `jq`.
+  or later, signed in with `az login`, plus `jq` for the Bash snippets. The CLI track calls the Azure Resource
+  Manager REST API with `az rest`, because the `az aigateway` extension doesn't manage the new `aigateways`
+  resource type yet.
 - For the **Verify** script: `curl` and `jq` (Bash) or PowerShell 7 or later.
 - Permission to change the gateway, for example **Contributor** on the resource group.
 
@@ -42,28 +43,36 @@ Set these variables once. Every track and the **Verify** section reuse them.
 
 ```bash title="Bash"
 export RG="<resource-group>"
-export GATEWAY="<gateway>"
+export GATEWAY="<gateway>"                 # 24 characters or fewer
 export PROVIDER="<provider-name>"          # for example foundry-models
 export MODEL="<model-name>"                # the backend model name under that provider
 
-export AI_GATEWAY_URL="$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.gatewayUrl -o tsv)"
+export API="api-version=2025-09-01-preview"
+export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
+export GW="https://management.azure.com$GATEWAY_ID"
+export WS="$GW/workspaces/default"
+export MODEL_URL="$WS/modelProviders/$PROVIDER/models/$MODEL"
+export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
 # For Foundry imports, the default alias matches the deployment's model name.
-export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" \
-  --provider-name "$PROVIDER" -n "$MODEL" --query properties.deployment.modelName -o tsv)"
+export AI_GATEWAY_MODEL="$(az rest --url "$MODEL_URL?$API" --query properties.deployment.modelName -o tsv)"
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
 ```
 
 ```powershell title="PowerShell"
-$RG       = "<resource-group>"
-$GATEWAY  = "<gateway>"
-$PROVIDER = "<provider-name>"              # for example foundry-models
-$MODEL    = "<model-name>"                 # the backend model name under that provider
+$RG         = "<resource-group>"
+$GATEWAY    = "<gateway>"                 # 24 characters or fewer
+$PROVIDER   = "<provider-name>"           # for example foundry-models
+$MODEL      = "<model-name>"              # the backend model name under that provider
 
-$env:AI_GATEWAY_URL = az aigateway show -g $RG -n $GATEWAY --query properties.gatewayUrl -o tsv
+$API        = "api-version=2025-09-01-preview"
+$GATEWAY_ID = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
+$GW         = "https://management.azure.com$GATEWAY_ID"
+$WS         = "$GW/workspaces/default"
+$MODEL_URL  = "$WS/modelProviders/$PROVIDER/models/$MODEL"
+$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
 # For Foundry imports, the default alias matches the deployment's model name.
-$env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY `
-  --provider-name $PROVIDER -n $MODEL --query properties.deployment.modelName -o tsv
+$env:AI_GATEWAY_MODEL = az rest --url "$MODEL_URL`?$API" --query properties.deployment.modelName -o tsv
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 ```
@@ -136,26 +145,42 @@ Select **Create**. The policy appears in the **Policies** list with your model a
 
 ### Set the policy
 
-```bash
-az aigateway model policy set-content-safety \
-  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
-  --content-safety Medium --violence-severity Low
+Policies live in the model's `properties.policies` array, and a `PATCH` replaces the whole array. So read the
+array, swap in the content safety policy, keep every other policy, and write it back.
+
+```bash title="Bash"
+az rest --url "$MODEL_URL?$API" \
+  | jq -c '{properties:{policies:([(.properties.policies // [])[] | select(.type != "contentSafety")]
+      + [{type:"contentSafety",hateSeverity:"Medium",selfHarmSeverity:"Medium",sexualSeverity:"Medium",violenceSeverity:"Low"}])}}' > policies.json
+az rest --method patch --url "$MODEL_URL?$API" --body @policies.json --query properties.policies
+rm policies.json
 ```
 
-`--content-safety` sets the default threshold for all four categories. The category overrides
-`--hate-severity`, `--self-harm-severity`, `--sexual-severity`, and `--violence-severity` change only their
-category, and they require `--content-safety`. Each flag accepts `None`, `Low`, `Medium`, or `High`.
+```powershell title="PowerShell"
+$p = (az rest --url "$MODEL_URL`?$API" | ConvertFrom-Json).properties.policies
+$p = @($p | Where-Object { $_ -and $_.type -ne 'contentSafety' }) +
+     @(@{ type = 'contentSafety'; hateSeverity = 'Medium'; selfHarmSeverity = 'Medium'; sexualSeverity = 'Medium'; violenceSeverity = 'Low' })
+@{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
+az rest --method patch --url "$MODEL_URL`?$API" --body "@policies.json" --query properties.policies
+Remove-Item policies.json
+```
+
+Each of `hateSeverity`, `selfHarmSeverity`, `sexualSeverity`, and `violenceSeverity` accepts `None`, `Low`,
+`Medium`, or `High`. Set all four explicitly.
 
 ### Confirm the policy
 
-```bash
-az aigateway model policy list \
-  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" -o json
+```bash title="Bash"
+az rest --url "$MODEL_URL?$API" --query properties.policies -o json
+```
+
+```powershell title="PowerShell"
+az rest --url "$MODEL_URL`?$API" --query properties.policies -o json
 ```
 
 > **Checkpoint**
-> The output contains `"type": "contentSafety"` with `"violenceSeverity": "Low"` and `"Medium"` for the
-> other three categories.
+> The output contains `"type": "contentSafety"` with `"violenceSeverity": "Low"`, `"Medium"` for the other
+> three categories, and `"scope": "resource"`, which the service adds to every model policy.
 
 <!-- track: rest | REST API -->
 
@@ -166,7 +191,7 @@ always read it first and keep the policies you didn't mean to change.
 
 ```bash
 SUB="$(az account show --query id -o tsv)"
-URL="https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/service/$GATEWAY/workspaces/default/modelProviders/$PROVIDER/models/$MODEL?api-version=2025-09-01-preview"
+URL="https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY/workspaces/default/modelProviders/$PROVIDER/models/$MODEL?api-version=2025-09-01-preview"
 
 az rest --method get --url "$URL" --query properties.policies
 ```
@@ -183,7 +208,7 @@ az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLIC
 
 ```powershell title="PowerShell"
 $SUB = az account show --query id -o tsv
-$URL = "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/service/$GATEWAY/workspaces/default/modelProviders/$PROVIDER/models/$MODEL`?api-version=2025-09-01-preview"
+$URL = "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY/workspaces/default/modelProviders/$PROVIDER/models/$MODEL`?api-version=2025-09-01-preview"
 
 $current  = az rest --method get --url $URL | ConvertFrom-Json
 $policies = @($current.properties.policies | Where-Object { $_ -and $_.type -ne 'contentSafety' })
@@ -198,7 +223,8 @@ Remove-Item patch.json
 ```
 
 > **Checkpoint**
-> Running the `GET` again returns your other policies unchanged plus one `contentSafety` entry.
+> Running the `GET` again returns your other policies unchanged plus one `contentSafety` entry with
+> `"violenceSeverity": "Low"` and `"scope": "resource"`.
 
 <!-- /tracks -->
 
@@ -247,12 +273,22 @@ Violence threshold. If it returns `400`, the gateway blocked it and the error me
 ### Relax one category
 
 Set **Violence** back to **Balanced** (`Medium`) with the track you used, then run the script again. For
-example, with the CLI:
+example, with the CLI, change only `violenceSeverity` and keep everything else:
 
-```bash
-az aigateway model policy set-content-safety \
-  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
-  --content-safety Medium
+```bash title="Bash"
+az rest --url "$MODEL_URL?$API" \
+  | jq -c '{properties:{policies:[(.properties.policies // [])[]
+      | if .type == "contentSafety" then .violenceSeverity = "Medium" else . end]}}' > policies.json
+az rest --method patch --url "$MODEL_URL?$API" --body @policies.json --query properties.policies
+rm policies.json
+```
+
+```powershell title="PowerShell"
+$p = @((az rest --url "$MODEL_URL`?$API" | ConvertFrom-Json).properties.policies | Where-Object { $_ })
+$p | Where-Object type -eq 'contentSafety' | ForEach-Object { $_.violenceSeverity = 'Medium' }
+@{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
+az rest --method patch --url "$MODEL_URL`?$API" --body "@policies.json" --query properties.policies
+Remove-Item policies.json
 ```
 
 A prompt that **Strict** blocked is more likely to pass at **Balanced**. Prompts that passed before still pass.
@@ -300,13 +336,22 @@ Select **Policies**, open the **Content safety** policy that's scoped to your mo
 
 ### Remove the policy
 
-```bash
-az aigateway model policy remove \
-  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
-  --remove-content-safety true
+```bash title="Bash"
+az rest --url "$MODEL_URL?$API" \
+  | jq -c '{properties:{policies:[(.properties.policies // [])[] | select(.type != "contentSafety")]}}' > policies.json
+az rest --method patch --url "$MODEL_URL?$API" --body @policies.json --query properties.policies
+rm policies.json
 ```
 
-`policy remove` deletes only the content safety policy and keeps every other policy on the model.
+```powershell title="PowerShell"
+$p = (az rest --url "$MODEL_URL`?$API" | ConvertFrom-Json).properties.policies
+$p = @($p | Where-Object { $_ -and $_.type -ne 'contentSafety' })
+@{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
+az rest --method patch --url "$MODEL_URL`?$API" --body "@policies.json" --query properties.policies
+Remove-Item policies.json
+```
+
+This removes only the content safety policy and keeps every other policy on the model.
 
 <!-- track: rest | REST API -->
 
@@ -329,8 +374,8 @@ Keep the gateway, model, and key. The next labs reuse them.
 | Nothing is ever blocked | The policy is on a different model or alias than the one you call, or a category is **Off** | Check the policy's scope and that the request `model` matches an alias of that model. |
 | `400` that mentions `content_filter`, or `finish_reason` is `content_filter` | The Foundry deployment's **Content filter** acted, not the gateway | Review the deployment's content filter in Foundry. The gateway policy is managed separately. |
 | `400` that isn't about content | The request itself is invalid, for example an unknown model alias | Read the error message, and check the request body and the alias. |
-| `--violence-severity` fails and asks for `--content-safety` | Category overrides need the default threshold | Pass `--content-safety` with the override. |
-| `az aigateway: 'model' is misspelled or not recognized` | The CLI extension isn't installed | [Install the extension](https://github.com/Azure/ai-gateway/tree/main/cli#install) and run `az aigateway version`. |
+| `ValidationError` such as `contentSafety.violenceSeverity must be one of: Low, Medium, High, None.` | A severity uses a portal label such as `Strict` or `Balanced` | Use the API values from the table in [How it works](#how-it-works): `Low`, `Medium`, `High`, or `None`. |
+| Other policies vanished after the `PATCH` | `PATCH` replaces the whole `policies` array | Always `GET`, merge, then `PATCH`, as shown in the CLI and REST tracks. |
 
 ## Next steps
 

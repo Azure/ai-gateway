@@ -1,8 +1,7 @@
 // Publishes Foundry model deployments through the gateway: one Foundry model provider that authenticates with the
 // gateway's managed identity, one backend model per deployment with model-level policies (a per-caller token limit
 // and content safety), a stable client-facing alias, and optional AI Gateway Models User role assignments on that
-// alias for Microsoft Entra callers. Provider and model shapes mirror infra/ai-gateway/main.bicep in the reference
-// sample (Azure-Samples/simple-foundry-hosted-agent-python-aigateway).
+// alias for Microsoft Entra callers.
 targetScope = 'resourceGroup'
 
 import { principal } from './types.bicep'
@@ -53,16 +52,16 @@ param aliasUsers principal[] = []
 var normalizedFoundryEndpoint = endsWith(foundryEndpoint, '/') ? foundryEndpoint : '${foundryEndpoint}/'
 var aiGatewayModelsUserRoleDefinitionId = 'a6b68e3d-a1f0-4c60-8678-237c050cf4ea'
 
-resource aiGateway 'Microsoft.ApiManagement/service@2025-09-01-preview' existing = {
+resource aiGateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' existing = {
   name: gatewayName
 }
 
-resource defaultWorkspace 'Microsoft.ApiManagement/service/workspaces@2025-09-01-preview' existing = {
+resource defaultWorkspace 'Microsoft.ApiManagement/aigateways/workspaces@2025-09-01-preview' existing = {
   parent: aiGateway
   name: 'default'
 }
 
-resource foundryProvider 'Microsoft.ApiManagement/service/workspaces/modelProviders@2025-09-01-preview' = {
+resource foundryProvider 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders@2025-09-01-preview' = {
   parent: defaultWorkspace
   name: providerName
   properties: {
@@ -82,7 +81,7 @@ resource foundryProvider 'Microsoft.ApiManagement/service/workspaces/modelProvid
   }
 }
 
-resource foundryCatalogModels 'Microsoft.ApiManagement/service/workspaces/modelProviders/models@2025-09-01-preview' = [for model in foundryModels: {
+resource foundryCatalogModels 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders/models@2025-09-01-preview' = [for model in foundryModels: {
   parent: foundryProvider
   name: model.armName
   properties: {
@@ -100,7 +99,7 @@ resource foundryCatalogModels 'Microsoft.ApiManagement/service/workspaces/modelP
         type: 'tokenLimit'
         period: 'minute'
         count: model.?tokenLimit ?? 10000
-        counterKey: 'Identity'
+        counterKey: [ 'identity' ]
       }
       {
         type: 'contentSafety'
@@ -113,7 +112,7 @@ resource foundryCatalogModels 'Microsoft.ApiManagement/service/workspaces/modelP
   }
 }]
 
-resource alias 'Microsoft.ApiManagement/service/workspaces/aliases@2025-09-01-preview' = {
+resource alias 'Microsoft.ApiManagement/aigateways/workspaces/aliases@2025-09-01-preview' = {
   parent: defaultWorkspace
   name: aliasName
   properties: {

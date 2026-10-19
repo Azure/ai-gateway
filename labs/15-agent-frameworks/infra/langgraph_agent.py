@@ -1,8 +1,9 @@
 """A LangChain agent (built on LangGraph) whose model and MCP tool calls both go through AI Gateway.
 
 ChatOpenAI points at the gateway's OpenAI-compatible endpoint, and langchain-mcp-adapters loads tools from the
-gateway's MCP endpoint over streamable HTTP. Both send the runtime key in the api-key header. LangGraph keeps
-orchestration and state; the gateway applies policies and records telemetry for every call that leaves the agent.
+gateway's MCP endpoint over streamable HTTP. The model takes the runtime key as its API key, and the MCP client
+sends it in the api-key header. LangGraph keeps orchestration and state; the gateway applies policies and records
+telemetry for every call that leaves the agent.
 
 Usage:
     cp .env.example .env      # then fill in the values
@@ -42,8 +43,7 @@ async def main() -> None:
     model = ChatOpenAI(
         model=model_name,
         base_url=f"{gateway_url}/default/models/openai/v1",
-        api_key="unused",
-        default_headers={"api-key": api_key},
+        api_key=api_key,
     )
 
     mcp_client = MultiServerMCPClient(

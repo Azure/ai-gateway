@@ -4,13 +4,13 @@
 # and optionally calls one tool with a {"query": "..."} argument.
 #
 # Usage:
-#   export AI_GATEWAY_URL="https://<gateway>.azure-api.net"
+#   export AI_GATEWAY_URL="https://<gateway>.eastus2-01.ai.gateway.azure.com"
 #   export AI_GATEWAY_API_KEY="..."      # never commit this value
 #   ./list-tools.sh [server-name] [tool-name] [query]
 #
 # Examples:
 #   ./list-tools.sh learn
-#   ./list-tools.sh learn learn___microsoft_docs_search "What is AI Gateway?"
+#   ./list-tools.sh learn learn_microsoft_docs_search "What is AI Gateway?"
 #
 # Set AI_GATEWAY_MCP_ENDPOINT to use a full MCP endpoint URL instead of building it from AI_GATEWAY_URL.
 # Requires curl and jq.
@@ -21,7 +21,7 @@ TOOL="${2:-}"
 QUERY="${3:-What is the AI gateway in Azure API Management?}"
 : "${AI_GATEWAY_API_KEY:?Set AI_GATEWAY_API_KEY to a runtime key from Access > Keys}"
 if [ -z "${AI_GATEWAY_MCP_ENDPOINT:-}" ]; then
-  : "${AI_GATEWAY_URL:?Set AI_GATEWAY_URL to https://<gateway>.azure-api.net}"
+  : "${AI_GATEWAY_URL:?Set AI_GATEWAY_URL to https://<gateway>.eastus2-01.ai.gateway.azure.com}"
   AI_GATEWAY_MCP_ENDPOINT="${AI_GATEWAY_URL%/}/default/toolservers/${SERVER}/mcp"
 fi
 command -v jq >/dev/null || { echo "This script needs jq." >&2; exit 1; }

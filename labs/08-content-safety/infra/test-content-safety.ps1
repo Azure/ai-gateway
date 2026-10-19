@@ -4,7 +4,7 @@
 # Requires PowerShell 7 or later.
 #
 # Usage:
-#   $env:AI_GATEWAY_URL = "https://<gateway>.azure-api.net"
+#   $env:AI_GATEWAY_URL = "https://<gateway>.eastus2-01.ai.gateway.azure.com"
 #   $env:AI_GATEWAY_API_KEY = "..."      # never commit this value
 #   ./test-content-safety.ps1 -Model <model-alias> [-Prompt "your own benign prompt"]
 param(
@@ -12,7 +12,7 @@ param(
   [string]$Prompt
 )
 $ErrorActionPreference = 'Stop'
-if (-not $env:AI_GATEWAY_URL) { throw 'Set $env:AI_GATEWAY_URL to https://<gateway>.azure-api.net' }
+if (-not $env:AI_GATEWAY_URL) { throw 'Set $env:AI_GATEWAY_URL to https://<gateway>.eastus2-01.ai.gateway.azure.com' }
 if (-not $env:AI_GATEWAY_API_KEY) { throw 'Set $env:AI_GATEWAY_API_KEY to a runtime key from Access > Keys' }
 
 $uri = "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/models/openai/v1/chat/completions"

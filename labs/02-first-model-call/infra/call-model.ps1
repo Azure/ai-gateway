@@ -2,7 +2,7 @@
 # and prints the HTTP status and the model's reply for each call. Requires PowerShell 7 or later.
 #
 # Usage:
-#   $env:AI_GATEWAY_URL = "https://<gateway>.azure-api.net"
+#   $env:AI_GATEWAY_URL = "https://<gateway>.eastus2-01.ai.gateway.azure.com"
 #   $env:AI_GATEWAY_MODEL = "<model-alias>"
 #   $env:AI_GATEWAY_API_KEY = "..."      # never commit this value
 #   ./call-model.ps1 [-Prompt "Your prompt"]
@@ -10,7 +10,7 @@ param(
   [string]$Prompt = 'Write a one-sentence status update.'
 )
 $ErrorActionPreference = 'Stop'
-if (-not $env:AI_GATEWAY_URL) { throw 'Set $env:AI_GATEWAY_URL to https://<gateway>.azure-api.net' }
+if (-not $env:AI_GATEWAY_URL) { throw 'Set $env:AI_GATEWAY_URL to https://<gateway>.eastus2-01.ai.gateway.azure.com' }
 if (-not $env:AI_GATEWAY_MODEL) { throw 'Set $env:AI_GATEWAY_MODEL to the callable model alias' }
 if (-not $env:AI_GATEWAY_API_KEY) { throw 'Set $env:AI_GATEWAY_API_KEY to a runtime key from Access > Keys' }
 

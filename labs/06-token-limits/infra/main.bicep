@@ -2,7 +2,7 @@
 // The alias points at the same backend model as your default alias, but carries its own token limit,
 // so you can give a "batch" or "trial" audience a smaller allowance without touching the model.
 
-@description('Name of the existing AI Gateway (API Management service with the AIGateway SKU).')
+@description('Name of the existing AI Gateway (Microsoft.ApiManagement/aigateways).')
 param gatewayName string
 
 @description('Name of the existing model provider in the gateway, for example foundry-models.')
@@ -22,30 +22,30 @@ param allowedTokens int = 1000
 @allowed([ 'minute', 'hour', 'day' ])
 param period string = 'minute'
 
-@description('Count tokens per caller identity (API key or Entra principal) or per client IP address.')
-@allowed([ 'Identity', 'IPAddress' ])
-param counterKey string = 'Identity'
+@description('Who gets a token counter: identity (each API key or Entra principal), ipAddress (each client IP address), or both.')
+@allowed([ 'identity', 'ipAddress' ])
+param counterKey array = [ 'identity' ]
 
-resource gateway 'Microsoft.ApiManagement/service@2025-09-01-preview' existing = {
+resource gateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' existing = {
   name: gatewayName
 }
 
-resource workspace 'Microsoft.ApiManagement/service/workspaces@2025-09-01-preview' existing = {
+resource workspace 'Microsoft.ApiManagement/aigateways/workspaces@2025-09-01-preview' existing = {
   parent: gateway
   name: 'default'
 }
 
-resource provider 'Microsoft.ApiManagement/service/workspaces/modelProviders@2025-09-01-preview' existing = {
+resource provider 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders@2025-09-01-preview' existing = {
   parent: workspace
   name: providerName
 }
 
-resource model 'Microsoft.ApiManagement/service/workspaces/modelProviders/models@2025-09-01-preview' existing = {
+resource model 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders/models@2025-09-01-preview' existing = {
   parent: provider
   name: modelName
 }
 
-resource limitedAlias 'Microsoft.ApiManagement/service/workspaces/aliases@2025-09-01-preview' = {
+resource limitedAlias 'Microsoft.ApiManagement/aigateways/workspaces/aliases@2025-09-01-preview' = {
   parent: workspace
   name: aliasName
   properties: {
@@ -64,4 +64,4 @@ resource limitedAlias 'Microsoft.ApiManagement/service/workspaces/aliases@2025-0
 }
 
 output aliasName string = limitedAlias.name
-output chatCompletionsUrl string = 'https://${gatewayName}.azure-api.net/default/models/openai/v1/chat/completions'
+output chatCompletionsUrl string = 'https://${gateway.properties.frontend.defaultHostname}/default/models/openai/v1/chat/completions'

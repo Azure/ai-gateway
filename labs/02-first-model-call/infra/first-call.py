@@ -1,9 +1,9 @@
 """Calls a model through AI Gateway with the OpenAI Python SDK: once with the Responses API and once with
-Chat Completions. The gateway authenticates the api-key header, so the SDK's own API key is a placeholder.
+Chat Completions. The SDK sends the gateway key as a bearer token, which the model endpoint accepts.
 
 Usage:
   pip install -r requirements.txt
-  export AI_GATEWAY_URL="https://<gateway>.azure-api.net"
+  export AI_GATEWAY_URL="https://<gateway>.eastus2-01.ai.gateway.azure.com"
   export AI_GATEWAY_MODEL="<model-alias>"
   export AI_GATEWAY_API_KEY="..."      # never commit this value
   python first-call.py
@@ -18,8 +18,7 @@ model = os.environ["AI_GATEWAY_MODEL"]
 
 client = OpenAI(
     base_url=f"{gateway_url}/default/models/openai/v1",
-    api_key="unused",
-    default_headers={"api-key": os.environ["AI_GATEWAY_API_KEY"]},
+    api_key=os.environ["AI_GATEWAY_API_KEY"],
 )
 
 response = client.responses.create(

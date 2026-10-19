@@ -5,7 +5,7 @@
 // Mirrors the Foundry provider and model registration in infra/ai-gateway/main.bicep of the reference sample.
 targetScope = 'resourceGroup'
 
-@description('Name of the existing AI Gateway (API Management service with the AIGateway SKU) in this resource group.')
+@description('Name of the existing AI Gateway (Microsoft.ApiManagement/aigateways) in this resource group.')
 param gatewayName string
 
 @description('Resource ID of the Foundry (Azure AI Services) or Azure OpenAI account. It can be in another resource group or subscription.')
@@ -35,11 +35,11 @@ var foundrySubscriptionId = split(foundryAccountId, '/')[2]
 var foundryResourceGroup = split(foundryAccountId, '/')[4]
 var deploymentId = '${foundryAccountId}/deployments/${deploymentName}'
 
-resource aiGateway 'Microsoft.ApiManagement/service@2025-09-01-preview' existing = {
+resource aiGateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' existing = {
   name: gatewayName
 }
 
-resource defaultWorkspace 'Microsoft.ApiManagement/service/workspaces@2025-09-01-preview' existing = {
+resource defaultWorkspace 'Microsoft.ApiManagement/aigateways/workspaces@2025-09-01-preview' existing = {
   parent: aiGateway
   name: 'default'
 }
@@ -62,7 +62,7 @@ module foundryUserRole './foundry-user-role.bicep' = {
   }
 }
 
-resource foundryProvider 'Microsoft.ApiManagement/service/workspaces/modelProviders@2025-09-01-preview' = {
+resource foundryProvider 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders@2025-09-01-preview' = {
   parent: defaultWorkspace
   name: providerName
   dependsOn: [
@@ -87,7 +87,7 @@ resource foundryProvider 'Microsoft.ApiManagement/service/workspaces/modelProvid
   }
 }
 
-resource model 'Microsoft.ApiManagement/service/workspaces/modelProviders/models@2025-09-01-preview' = {
+resource model 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders/models@2025-09-01-preview' = {
   parent: foundryProvider
   name: deploymentName
   properties: {
@@ -108,13 +108,15 @@ resource model 'Microsoft.ApiManagement/service/workspaces/modelProviders/models
         type: 'tokenLimit'
         period: 'minute'
         count: tokensPerMinute
-        counterKey: 'Identity'
+        counterKey: [
+          'identity'
+        ]
       }
     ]
   }
 }
 
-resource alias 'Microsoft.ApiManagement/service/workspaces/aliases@2025-09-01-preview' = {
+resource alias 'Microsoft.ApiManagement/aigateways/workspaces/aliases@2025-09-01-preview' = {
   parent: defaultWorkspace
   name: aliasName
   properties: {
@@ -124,7 +126,7 @@ resource alias 'Microsoft.ApiManagement/service/workspaces/aliases@2025-09-01-pr
   }
 }
 
-resource runtimeApiKey 'Microsoft.ApiManagement/service/apiKeys@2025-09-01-preview' = {
+resource runtimeApiKey 'Microsoft.ApiManagement/aigateways/apiKeys@2025-09-01-preview' = {
   parent: aiGateway
   name: apiKeyName
   properties: {
@@ -136,6 +138,6 @@ output providerName string = foundryProvider.name
 output modelName string = model.name
 output aliasName string = alias.name
 output apiKeyName string = runtimeApiKey.name
-output gatewayUrl string = aiGateway.properties.gatewayUrl
-output modelEndpoint string = '${aiGateway.properties.gatewayUrl}/default/models/openai/v1'
+output gatewayUrl string = 'https://${aiGateway.properties.frontend.defaultHostname}'
+output modelEndpoint string = 'https://${aiGateway.properties.frontend.defaultHostname}/default/models/openai/v1'
 output foundryUserRoleAssignmentName string = foundryUserRole.outputs.roleAssignmentName

@@ -1,7 +1,7 @@
 # Post-deployment smoke test for the enterprise reference gateway. It proves the two runtime paths work end to end:
 #   1. Model: a chat completion through the alias with an app's runtime API key (gateway -> managed identity -> Foundry).
 #   2. Tools: the MCP handshake and tools/list on the federated Microsoft Learn MCP server.
-# It reads the gateway URL and the key with az rest, so it doesn't need the aigateway CLI extension, and it never
+# It reads the gateway host name and the key with az rest, so it needs no CLI extension, and it never
 # prints the key. In GitHub Actions the key is also masked in the log. Requires PowerShell 7 or later and Azure CLI.
 #
 # Usage:
@@ -20,23 +20,25 @@ if (-not $env:GATEWAY) { throw 'Set $env:GATEWAY to the gateway name' }
 
 $apiVersion = '2025-09-01-preview'
 $sub = az account show --query id -o tsv
-$gatewayId = "/subscriptions/$sub/resourceGroups/$($env:RG)/providers/Microsoft.ApiManagement/service/$($env:GATEWAY)"
-$gatewayUrl = az rest --method get --url "https://management.azure.com$gatewayId`?api-version=$apiVersion" `
-  --query properties.gatewayUrl -o tsv
+$gatewayId = "/subscriptions/$sub/resourceGroups/$($env:RG)/providers/Microsoft.ApiManagement/aigateways/$($env:GATEWAY)"
+$gatewayHost = az rest --method get --url "https://management.azure.com$gatewayId`?api-version=$apiVersion" `
+  --query properties.frontend.defaultHostname -o tsv
+if (-not $gatewayHost) { Write-Error "Couldn't read the host name of gateway '$($env:GATEWAY)'."; exit 1 }
+$runtimeUrl = "https://$gatewayHost"
 $apiKey = az rest --method post `
   --url "https://management.azure.com$gatewayId/apiKeys/$KeyName/listSecrets?api-version=$apiVersion" `
   --body '{}' --query 'primaryKey || properties.primaryKey' -o tsv
 if (-not $apiKey) { Write-Error "Couldn't read the secret of API key '$KeyName'."; exit 1 }
 if ($env:GITHUB_ACTIONS -eq 'true') { Write-Host "::add-mask::$apiKey" }
 
-Write-Host "Gateway: $gatewayUrl"
+Write-Host "Gateway: $runtimeUrl"
 
 function Get-Body($Response) {
   if ($Response.Content -is [byte[]]) { [Text.Encoding]::UTF8.GetString($Response.Content) } else { [string]$Response.Content }
 }
 
 # 1. Model route. New role assignments and new models can take a few minutes to start answering, so retry.
-$chatUrl = "$($gatewayUrl.TrimEnd('/'))/default/models/openai/v1/chat/completions"
+$chatUrl = "$($runtimeUrl.TrimEnd('/'))/default/models/openai/v1/chat/completions"
 $chatBody = @{
   model = $Alias
   messages = @(@{ role = 'user'; content = 'Reply with exactly one word: ok' })
@@ -64,7 +66,7 @@ Write-Host ("Model  : HTTP {0}, model={1}, reply={2}, total_tokens={3}" -f $chat
   ($completion.choices[0].message.content -replace '\s+', ' '), $completion.usage.total_tokens)
 
 # 2. MCP route: initialize -> notifications/initialized -> tools/list (Streamable HTTP).
-$uri = "$($gatewayUrl.TrimEnd('/'))/default/toolservers/$Server/mcp"
+$uri = "$($runtimeUrl.TrimEnd('/'))/default/toolservers/$Server/mcp"
 $headers = @{ 'api-key' = $apiKey; Accept = 'application/json, text/event-stream' }
 
 # Sends one JSON-RPC message and returns the raw HTTP response. Prints the gateway's answer and stops on non-2xx.

@@ -37,8 +37,9 @@ is missing.
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need a gateway with at least
   one model alias.
 - The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
-  `az login` to the tenant that holds the gateway, and the `aigateway` extension
-  ([install it](https://github.com/Azure/ai-gateway/tree/main/cli#install)).
+  `az login` to the tenant that holds the gateway. The commands call the Azure Resource Manager REST API with
+  `az rest`, because the `az aigateway` extension doesn't manage the new `aigateways` resource type yet.
+- For the CLI track in Bash: [jq](https://jqlang.org/download/), which decodes the token and reads the reply.
 - Permission to **create role assignments** on the gateway: **Owner**, **User Access Administrator**, or
   **Role Based Access Control Administrator**. **Contributor** can manage the gateway but can't grant roles.
   If you don't have one of these, ask an administrator to run the role assignment step for you.
@@ -53,11 +54,14 @@ export GATEWAY="<gateway>"
 export PROVIDER="<provider-name>"          # for example foundry-models
 export MODEL="<model-name>"                # the backend model name under that provider
 
-export AI_GATEWAY_URL="$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.gatewayUrl -o tsv)"
+export API="api-version=2025-09-01-preview"
+export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
+export GW="https://management.azure.com$GATEWAY_ID"
+export WS="$GW/workspaces/default"
+export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
 # For Foundry imports, the default alias matches the deployment's model name.
-export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" \
-  --provider-name "$PROVIDER" -n "$MODEL" --query properties.deployment.modelName -o tsv)"
-export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
+export AI_GATEWAY_MODEL="$(az rest --url "$WS/modelProviders/$PROVIDER/models/$MODEL?$API" \
+  --query properties.deployment.modelName -o tsv)"
 export MY_OBJECT_ID="$(az ad signed-in-user show --query id -o tsv)"
 # Prove that nothing in this lab uses a key.
 unset AI_GATEWAY_API_KEY
@@ -69,11 +73,14 @@ $GATEWAY  = "<gateway>"
 $PROVIDER = "<provider-name>"              # for example foundry-models
 $MODEL    = "<model-name>"                 # the backend model name under that provider
 
-$env:AI_GATEWAY_URL = az aigateway show -g $RG -n $GATEWAY --query properties.gatewayUrl -o tsv
+$API        = "api-version=2025-09-01-preview"
+$GATEWAY_ID = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
+$GW         = "https://management.azure.com$GATEWAY_ID"
+$WS         = "$GW/workspaces/default"
+$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
 # For Foundry imports, the default alias matches the deployment's model name.
-$env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY `
-  --provider-name $PROVIDER -n $MODEL --query properties.deployment.modelName -o tsv
-$GATEWAY_ID   = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
+$env:AI_GATEWAY_MODEL = az rest --url "$WS/modelProviders/$PROVIDER/models/${MODEL}?$API" `
+  --query properties.deployment.modelName -o tsv
 $MY_OBJECT_ID = az ad signed-in-user show --query id -o tsv
 # Prove that nothing in this lab uses a key.
 Remove-Item Env:AI_GATEWAY_API_KEY -ErrorAction SilentlyContinue
@@ -114,7 +121,7 @@ call the gateway afterward. Role scopes are Azure resource IDs:
 
 | Scope | Resource ID |
 |---|---|
-| Gateway | `/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.ApiManagement/service/<gateway>` |
+| Gateway | `/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.ApiManagement/aigateways/<gateway>` |
 | Model alias | `<gateway resource ID>/workspaces/default/aliases/<alias>` |
 | MCP server | `<gateway resource ID>/workspaces/default/toolServers/<mcp-server-name>` |
 
@@ -305,7 +312,7 @@ $response.choices[0].message.content
 ```
 
 > [!WARNING]
-> The `Authorization` header is only for Entra tokens. A gateway API key always goes in the `api-key` header.
+> Send a token or a key, never both. A request with an `Authorization` header and an `api-key` header gets `400`.
 
 > **Checkpoint**
 > The model replies, and no `api-key` header was sent.

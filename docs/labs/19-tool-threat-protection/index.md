@@ -41,9 +41,9 @@ allowed calls through.
 - Permission to manage policies on the gateway, for example **Contributor** on its resource group, and permission
   to create role assignments if your user doesn't have a data-plane role yet.
 - The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
-  `az login` as a **user** (not a service principal), and the `aigateway` extension
-  ([install it](https://github.com/Azure/ai-gateway/tree/main/cli#install)).
-- For the test scripts: `curl` and `jq` (Bash) or PowerShell 7 or later.
+  `az login` as a **user** (not a service principal). The CLI snippets call the Azure Resource Manager REST API
+  with `az rest`, because the `az aigateway` extension doesn't manage the new `aigateways` resource type yet.
+- For the test scripts and the Bash snippets: `curl` and `jq` (Bash) or PowerShell 7 or later.
 
 > [!NOTE]
 > Agent 365 tool threat protection is an emerging capability of the AI Gateway tier preview, which is available
@@ -58,8 +58,11 @@ export RG="<resource-group>"
 export GATEWAY="<gateway>"
 export MCP_SERVER="learn"                    # the MCP server you protect in this lab
 
-export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
-export AI_GATEWAY_URL="$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.gatewayUrl -o tsv)"
+export API="api-version=2025-09-01-preview"
+export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
+export GW="https://management.azure.com$GATEWAY_ID"
+export WS="$GW/workspaces/default"
+export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
 # Paste the runtime key you created in Access › Keys. You use it once to see a key-only call fail closed.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
 ```
@@ -69,8 +72,11 @@ $RG         = "<resource-group>"
 $GATEWAY    = "<gateway>"
 $MCP_SERVER = "learn"                        # the MCP server you protect in this lab
 
-$GATEWAY_ID         = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
-$env:AI_GATEWAY_URL = az aigateway show -g $RG -n $GATEWAY --query properties.gatewayUrl -o tsv
+$API                = "api-version=2025-09-01-preview"
+$GATEWAY_ID         = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
+$GW                 = "https://management.azure.com$GATEWAY_ID"
+$WS                 = "$GW/workspaces/default"
+$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
 # Paste the runtime key you created in Access › Keys. You use it once to see a key-only call fail closed.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 ```
@@ -151,9 +157,9 @@ chmod +x infra/call-protected-tool.sh
 
 ```text title="Expected output"
 Delegated token for the signed-in user (scp: ...)
-MCP endpoint: https://<gateway>.azure-api.net/default/toolservers/learn/mcp
+MCP endpoint: https://<gateway>.eastus2-01.ai.gateway.azure.com/default/toolservers/learn/mcp
 tools/list: HTTP 200, <n> tools (discovery isn't evaluated)
-tools/call: learn___microsoft_docs_search with query: What is Azure API Management?
+tools/call: learn_microsoft_docs_search with query: What is Azure API Management?
 HTTP status: 200
 isError: false (the result was returned)
 ...
@@ -208,19 +214,15 @@ The new policy appears in the **Policies** overview. The policy is stored on the
 it with a control-plane `GET`:
 
 ```bash
-az rest --method get \
-  --url "https://management.azure.com$GATEWAY_ID/workspaces/default/toolServers/$MCP_SERVER?api-version=2025-09-01-preview" \
-  --query "properties.policies"
+az rest --method get --url "$WS/toolServers/$MCP_SERVER?$API" --query "properties.policies"
 ```
 
 ```powershell
-az rest --method get `
-  --url "https://management.azure.com$GATEWAY_ID/workspaces/default/toolServers/${MCP_SERVER}?api-version=2025-09-01-preview" `
-  --query "properties.policies"
+az rest --method get --url "$WS/toolServers/${MCP_SERVER}?$API" --query "properties.policies"
 ```
 
 The list includes an entry with `"type": "toolThreatProtection"`, `"preInvocation": true`, and
-`"postInvocation": true`.
+`"postInvocation": true`. The service adds `"scope": "resource"` when it returns a policy set on the server.
 
 <!-- /steps -->
 
@@ -300,7 +302,7 @@ round trip.
 ```text title="Expected output"
 ...
 tools/list: HTTP 200, <n> tools (discovery isn't evaluated)
-tools/call: learn___microsoft_docs_search with query: What is Azure API Management?
+tools/call: learn_microsoft_docs_search with query: What is Azure API Management?
 HTTP status: 200
 isError: false (the result was returned)
 ...
@@ -326,7 +328,7 @@ gateway can't run one, so it fails closed.
 ```text title="Expected output"
 ...
 tools/list: HTTP 200, <n> tools (discovery isn't evaluated)
-tools/call: learn___microsoft_docs_search with query: What is Azure API Management?
+tools/call: learn_microsoft_docs_search with query: What is Azure API Management?
 HTTP status: 200
 isError: true
 Denial code: ToolEvaluationIdentityRequired
@@ -361,10 +363,29 @@ steps. Find your calls by time and compare the allowed call with the key-only ca
   [runtime protection guidance](https://learn.microsoft.com/defender-endpoint/configure-ai-agent-runtime-protection#enable-runtime-protection)
   recommends the same phased rollout, with alerts reviewed in the Microsoft Defender portal.
 - **Automate the policy.** The policy is the `toolThreatProtection` entry in the MCP server's
-  `properties.policies`. A `PATCH` with `application/merge-patch+json` sets it, as shown in
+  `properties.policies`, as described in
   [Protect tool calls with Defender and Purview](https://learn.microsoft.com/azure/api-management/ai-gateway-policy-tool-threat).
-  The patch replaces the whole `policies` array, so read the current array first and include any other policies,
-  such as the request rate limits from [Control which tools agents can call](../05-mcp-tool-controls/README.md).
+  A `PATCH` replaces the whole `policies` array, so read the current array first and keep any other policies,
+  such as the request rate limits from [Control which tools agents can call](../05-mcp-tool-controls/README.md):
+
+  ```bash title="Bash"
+  TS_URL="$WS/toolServers/$MCP_SERVER"
+  az rest --url "$TS_URL?$API" --query properties -o json \
+    | jq -c '{properties:{policies:([(.policies // [])[] | select(.type != "toolThreatProtection") | del(.scope)]
+        + [{type:"toolThreatProtection",preInvocation:true,postInvocation:true}])}}' > policies.json
+  az rest --method patch --url "$TS_URL?$API" --body @policies.json --query properties.policies
+  rm policies.json
+  ```
+
+  ```powershell title="PowerShell"
+  $TS_URL = "$WS/toolServers/$MCP_SERVER"
+  $p = az rest --url "$TS_URL`?$API" --query properties.policies -o json | ConvertFrom-Json
+  $p = @($p | Where-Object { $_ -and $_.type -ne 'toolThreatProtection' } | Select-Object * -ExcludeProperty scope) +
+       @(@{ type = 'toolThreatProtection'; preInvocation = $true; postInvocation = $true })
+  @{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
+  az rest --method patch --url "$TS_URL`?$API" --body "@policies.json" --query properties.policies
+  Remove-Item policies.json
+  ```
 - **Govern servers centrally.** [Govern MCP servers with Agent 365](../20-agent-365-governance/README.md) adds
   inventory and blocking from the Microsoft 365 admin center on top of this policy.
 
@@ -412,5 +433,5 @@ az role assignment delete `
 
 - [Govern MCP servers with Agent 365](../20-agent-365-governance/README.md)
 - [Control which tools agents can call](../05-mcp-tool-controls/README.md)
-- [Lock down the gateway with private networking](../18-private-networking/README.md)
+- [Lock down backend traffic with private networking](../18-private-networking/README.md)
 - [Protect tool calls with Defender and Purview](https://learn.microsoft.com/azure/api-management/ai-gateway-policy-tool-threat) on Microsoft Learn

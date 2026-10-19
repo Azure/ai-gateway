@@ -3,14 +3,14 @@
     "type": "tokenLimit",
     "count": 100000,
     "period": "minute",
-    "counterKey": "Identity",
+    "counterKey": ["identity"],
     "scope": "workspace"
   },
   {
     "type": "requestRateLimit",
     "callsPerPeriod": 600,
     "periodSeconds": 60,
-    "counterKey": "Identity",
+    "counterKey": ["identity"],
     "scope": "workspace"
   },
   {

@@ -97,7 +97,7 @@ export const mcpFederation = () => svgDoc('mcp-federation', {
     o += box(286, 148, 368, 64, { t: 'Tool availability', s: 'Allow all · exact list · patterns · block', icon: 'filter', tone: 'amber' });
     o += box(286, 226, 368, 78, { t: 'Policies', s: 'IP filter · request rate · content safety', s2: 'Agent 365 tool threat protection', icon: 'shield', tone: 'magenta' });
     o += text(290, 332, 'Tools are namespaced per backend:', 'dg-s');
-    o += text(290, 354, 'aigw-github___github_list_issues', 'dg-m') + text(290, 374, 'learn___microsoft_docs_search', 'dg-m');
+    o += text(290, 354, 'aigw-github_github_list_issues', 'dg-m') + text(290, 374, 'learn_microsoft_docs_search', 'dg-m');
     o += zone(714, 20, 230, 380, 'Tool sources', { ic: 'tools', tone: 'amber' });
     [['globe', 'Remote MCP server', 'SSE or Streamable HTTP'], ['doc', 'OpenAPI spec', 'Operations as tools'], ['plug', 'Connector', 'Microsoft 365, GitHub'], ['toolbox', 'Foundry Toolbox', 'Tools from Foundry']].forEach(([ic, t, s], i) => {
       const y = 60 + i * 86;

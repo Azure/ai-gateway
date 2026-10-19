@@ -1,7 +1,6 @@
-// The AI Gateway itself: an API Management service with the AIGateway SKU and a system-assigned managed identity,
-// the connector gateway the sample deploys next to it, and the Foundry User role for the gateway identity on every
-// Foundry account it calls. Mirrors infra/ai-gateway/main.bicep in the reference sample
-// (Azure-Samples/simple-foundry-hosted-agent-python-aigateway).
+// The AI Gateway itself: a Microsoft.ApiManagement/aigateways resource with a system-assigned managed identity,
+// the companion connector gateway (created first, as the AI Gateway portal does), and the Foundry User role for the
+// gateway identity on every Foundry account it calls.
 targetScope = 'resourceGroup'
 
 @description('Location of the gateway. The AI Gateway tier preview is available in East US 2 and Sweden Central.')
@@ -11,44 +10,41 @@ targetScope = 'resourceGroup'
 ])
 param location string
 
-@description('Gateway name. It becomes the runtime host name, https://<name>.azure-api.net, so it must be globally unique.')
+@description('Gateway name, max 24 characters. It becomes the first label of the runtime host name, https://<name>.<region>-01.ai.gateway.azure.com.')
+@maxLength(24)
 param gatewayName string
 
 @description('Tags applied to the gateway.')
 param tags object = {}
 
-@description('Publisher email required by API Management.')
-param publisherEmail string = 'noreply@example.com'
-
-@description('Publisher name required by API Management.')
-param publisherName string = 'AI Gateway'
+@description('Optional subnet resource ID for outbound virtual network integration. It can only be set when the gateway is created.')
+param backendSubnetId string = ''
 
 @description('Resource IDs of the Foundry accounts the gateway calls with its managed identity.')
 param foundryResourceIds array = []
 
-resource aiGateway 'Microsoft.ApiManagement/service@2025-09-01-preview' = {
+resource connectorNamespace 'Microsoft.Web/connectorGateways@2026-05-01-preview' = {
+  name: gatewayName
+  location: location
+  tags: tags
+  properties: {}
+}
+
+resource aiGateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' = {
   name: gatewayName
   location: location
   tags: tags
   identity: {
     type: 'SystemAssigned'
   }
-  sku: {
-    name: 'AIGateway'
-    capacity: 1
-  }
-  properties: {
-    publisherEmail: publisherEmail
-    publisherName: publisherName
-  }
-}
-
-resource connectorNamespace 'Microsoft.Web/connectorGateways@2026-05-01-preview' = {
-  name: gatewayName
-  location: location
-  properties: {}
+  properties: union(
+    {
+      publicNetworkAccess: 'Enabled'
+    },
+    empty(backendSubnetId) ? {} : { backend: { subnet: { id: backendSubnetId } } }
+  )
   dependsOn: [
-    aiGateway
+    connectorNamespace
   ]
 }
 
@@ -64,8 +60,8 @@ module foundryUserRoleAssignments './foundry-user-role.bicep' = [for (foundryRes
 
 output gatewayName string = aiGateway.name
 output gatewayId string = aiGateway.id
-output gatewayUrl string = aiGateway.properties.gatewayUrl
-output runtimeHostname string = replace(aiGateway.properties.gatewayUrl, 'https://', '')
+output gatewayUrl string = 'https://${aiGateway.properties.frontend.defaultHostname}'
+output runtimeHostname string = aiGateway.properties.frontend.defaultHostname
 output gatewayPrincipalId string = aiGateway.identity.principalId
 output connectorNamespaceId string = connectorNamespace.id
 output foundryUserRoleAssignmentNames array = [for (foundryResourceId, i) in foundryResourceIds: foundryUserRoleAssignments[i].outputs.roleAssignmentName]

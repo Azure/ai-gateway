@@ -37,10 +37,10 @@ send the gateway's OpenTelemetry signals to Application Insights and answer all 
   create role assignments, for example **Owner** or **Role Based Access Control Administrator**. Setup grants the
   gateway's managed identity a role on the telemetry destination. To reuse an existing Application Insights
   resource, you also need **Application Insights Contributor** on it.
-- To generate traffic: `curl` (Bash) or PowerShell 7. For the IaC track: the
+- To generate traffic: `curl` (Bash) or PowerShell 7. For the variable block below and the IaC track: the
   [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with `az login`.
-  The variable block below also uses the `aigateway` extension
-  ([install it](https://github.com/Azure/ai-gateway/tree/main/cli#install)).
+  The commands read the gateway with `az resource` and `az rest`, because the `az aigateway` extension doesn't
+  manage the new `aigateways` resource type yet.
 
 Set these variables once. The tracks and the traffic script reuse them.
 
@@ -49,7 +49,10 @@ export RG="<resource-group>"
 export GATEWAY="<gateway>"
 export AI_GATEWAY_MODEL="<model-name>"     # a callable alias, for example the one you used in lab 02
 
-export AI_GATEWAY_URL="$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.gatewayUrl -o tsv)"
+export API="api-version=2025-09-01-preview"
+export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
+export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
+export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
 ```
@@ -59,7 +62,10 @@ $RG      = "<resource-group>"
 $GATEWAY = "<gateway>"
 $env:AI_GATEWAY_MODEL = "<model-name>"     # a callable alias, for example the one you used in lab 02
 
-$env:AI_GATEWAY_URL = az aigateway show -g $RG -n $GATEWAY --query properties.gatewayUrl -o tsv
+$API        = "api-version=2025-09-01-preview"
+$GATEWAY_ID = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
+$WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
+$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 ```
@@ -137,9 +143,8 @@ the denied operation.
 
 ### Choose what to declare
 
-The [reference sample](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway) declares
-three resources for monitoring: a Log Analytics workspace, a workspace-based Application Insights component, and a
-gateway telemetry exporter of kind `applicationInsights`. The current portal treats that exporter kind as
+A complete monitoring setup declares three resources: a Log Analytics workspace, a workspace-based Application
+Insights component, and a gateway telemetry exporter of kind `applicationInsights`. The current portal treats that exporter kind as
 **legacy**: it no longer activates the OTLP signals the dashboard needs. The OpenTelemetry exporter that replaces it
 depends on OTLP endpoints and a role assignment that Azure creates on the fly, and that wiring isn't documented for
 automation yet.
@@ -356,6 +361,19 @@ with **1H** selected. **Model calls** grows by at least five.
 
 Open **Settings**. All three signals point at your Application Insights resource, and the dashboard doesn't show
 "Enable all telemetry signals".
+
+To check the exporter from the CLI, list the gateway's telemetry exporters:
+
+```bash title="Bash"
+az rest --url "$WS/telemetryExporters?$API" --query "value[].{name:name, kind:properties.kind}" -o table
+```
+
+```powershell title="PowerShell"
+az rest --url "$WS/telemetryExporters?$API" --query "value[].{name:name, kind:properties.kind}" -o table
+```
+
+The exporter that the portal creates has kind `openTelemetry`. Kind `applicationInsights` is the legacy exporter
+from [Troubleshooting](#troubleshooting).
 
 <!-- /steps -->
 

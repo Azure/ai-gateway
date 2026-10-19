@@ -3,7 +3,7 @@
 # and prints the HTTP status and the model's reply for each call.
 #
 # Usage:
-#   export AI_GATEWAY_URL="https://<gateway>.azure-api.net"
+#   export AI_GATEWAY_URL="https://<gateway>.eastus2-01.ai.gateway.azure.com"
 #   export AI_GATEWAY_MODEL="<model-alias>"
 #   export AI_GATEWAY_API_KEY="..."      # never commit this value
 #   ./call-model.sh ["Your prompt"]
@@ -11,7 +11,7 @@
 set -euo pipefail
 
 PROMPT="${1:-Write a one-sentence status update.}"
-: "${AI_GATEWAY_URL:?Set AI_GATEWAY_URL to https://<gateway>.azure-api.net}"
+: "${AI_GATEWAY_URL:?Set AI_GATEWAY_URL to https://<gateway>.eastus2-01.ai.gateway.azure.com}"
 : "${AI_GATEWAY_MODEL:?Set AI_GATEWAY_MODEL to the callable model alias}"
 : "${AI_GATEWAY_API_KEY:?Set AI_GATEWAY_API_KEY to a runtime key from Access > Keys}"
 
