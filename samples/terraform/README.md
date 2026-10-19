@@ -1,88 +1,85 @@
 # AI Gateway and Foundry infrastructure with Terraform
 
-Provision the three infrastructure building blocks used by the
-[Foundry AI Gateway Python sample](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway):
-AI Gateway, a dedicated Foundry model account, and a separate Foundry hosted-agent
-account/project. This is a standalone Terraform sample, not an `azd` application.
+**Use this sample to deploy an AI Gateway and call Foundry models through it.**
+It also prepares a separate Foundry project for a hosted-agent application, but
+does not deploy or run that application.
 
-## Disclaimer and current limitations
+This is standalone Terraform infrastructure for the
+[Foundry AI Gateway Python sample](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway),
+not an `azd` application.
 
-**Preview PoC, not a production or private-only reference architecture.**
-The following distinguishes Microsoft-documented constraints from observations
-in this sample's test environment. Documentation checked **October 19, 2026**;
-verify the linked Microsoft Learn pages before deploying because preview
-features, APIs, availability and restrictions can change.
-
-| Area | Limitation and deployment implication | Official Microsoft Learn guidance |
-| --- | --- | --- |
-| AI Gateway preview | Best-effort availability with **no SLA**. APIs, limits, regions and pricing can change. Currently documented gateway regions are East US 2 and Sweden Central; access and capacity can vary by subscription. Connected services remain billable. | [AI Gateway overview and preview FAQ](https://learn.microsoft.com/azure/api-management/ai-gateway-overview) |
-| Hosted-agent networking must be designed before account creation | **Hosted-agent VNet injection must be included when the Foundry account is first created; adding it to an existing account is not supported.** This sample does not configure that injection. If private hosted-agent execution is required, select a supported network-secured Foundry deployment before creating the agent account; do not expect to retrofit this sample's account by adding private endpoints. | [Foundry Agent Service networking limitations](https://learn.microsoft.com/azure/foundry/agents/how-to/virtual-networks#limitations) |
-| Private endpoints are not the same as VNet injection | The creation-time restriction above is **not a blanket restriction on adding private endpoints**. AI Gateway documentation describes adding an inbound private endpoint to an existing gateway and configuring outbound VNet integration separately. Inbound Private Link alone does not give the gateway or hosted agents private backend access. | [AI Gateway private networking](https://learn.microsoft.com/azure/api-management/ai-gateway-configure-private-networking) |
-| Gateway public-access disablement | Microsoft documents disabling public access after private connectivity is verified. **Our October 18 Sweden Central tests failed that update**, including on a separate minimal gateway. The PoC therefore leaves gateway public access enabled. This is an observed unresolved failure, not a Microsoft-documented universal SKU limitation. | [Documented inbound Private Link sequence](https://learn.microsoft.com/azure/api-management/ai-gateway-configure-private-networking#inbound-private-link); [sample findings](#known-blocker-private-only-gateway-ingress) |
-| Private hosted-agent image pulls | Current guidance supports private ACR for Foundry projects created after June 25, 2026; older projects require public ACR reachability. This does not remove the account-creation requirement for hosted-agent VNet injection. The sample leaves ACR public and does not prove hosted-agent execution. | [Foundry networking limitations](https://learn.microsoft.com/azure/foundry/agents/how-to/virtual-networks#limitations) |
-
-**Decide on hosted-agent isolation before running `terraform apply`.** The
-optional private profile covers only the gateway/model path, not the agent
-account, Storage or ACR. It also uses a temporary-public-model staging step;
-if your policies prohibit that step, do not use the walkthrough unchanged.
-Infrastructure provisioning, private endpoints and successful gateway model
-calls do not establish end-to-end private hosted-agent execution.
-
-## Choose your deployment
-
-| Goal | Start here | Network posture |
-| --- | --- | --- |
-| Deploy the basic infrastructure sample | [Configure and provision](#configure-and-provision) | Gateway and model endpoints are public by default; authentication is required. |
-| Try the verified private gateway-to-model path | [Private-connectivity PoC profile](#private-connectivity-poc-profile) | Gateway and model have private endpoints; model public access is disabled, but gateway public access remains enabled. |
-| Require private-only gateway ingress | [Known blocker: private-only gateway ingress](#known-blocker-private-only-gateway-ingress) | **Not verified in the tested environment.** Disabling gateway public access failed; do not use this PoC to satisfy a no-public-ingress requirement. |
-
-**Recommended first run:** provision the basic sample, then
-[test a model through the gateway](#test-a-model-through-the-gateway).
-If your policies do not permit public model endpoints, do not run that default
-deployment: review the private profile's temporary-public-model staging with
-your network/security owner first. Neither walkthrough establishes private-only
-gateway ingress or a production-ready hosted-agent deployment.
-If hosted agents must run inside your VNet, first review the
-[creation-time networking constraint](#disclaimer-and-current-limitations)
-instead of provisioning the default agent account.
-
-The sections below cover [prerequisites](#prerequisites),
-[deployment inputs](#inputs), [state and security](#state-and-security),
-[private-network details and the test VM](#private-network-details-and-test-client),
-and [offline checks](#offline-checks).
-
-### Implementation background
-
-The configuration follows the upstream
-[Bicep infrastructure](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway/tree/c572db847e4bff5278bc5f8630c2acb4b6991119/infra).
-It uses the AzAPI provider to express the preview ARM resources directly.
-The current token-policy shape and runtime model aliases incorporate the
-[upstream model-registration fix](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway/commit/03fcd3788aea06cf6000af19890f8164303348d5).
+**Read in this order:** [understand the components](#what-is-provisioned),
+[choose a path](#choose-your-deployment), complete the
+[shared setup](#configure-and-provision), then follow **only Path A or Path B**.
+The [technical reference](#technical-reference) is for looking up details,
+not a second deployment walkthrough.
 
 ## What is provisioned
 
-| Building block | Resources |
-| --- | --- |
-| [AI Gateway](ai-gateway.tf) | API Management with the **AIGateway** SKU and system-assigned identity, connector gateway, Foundry model provider, model catalog entries with per-identity token limits, runtime model aliases, runtime API key resource, and Application Insights telemetry exporter. |
-| [Foundry Models](foundry-models.tf) | Separate AI Services account with local authentication disabled and explicitly versioned model deployments. The gateway identity receives Foundry User access on this account. |
-| [Foundry Hosted Agent infrastructure](foundry-agents.tf) | Project-enabled AI Services account, project identity, Storage, Premium Container Registry, project connections, and agent tracing through Application Insights. |
-| [Shared resources](main.tf) and [RBAC](rbac.tf) | Three resource groups, separate gateway/agent Log Analytics workspaces and Application Insights components, project access to its account/storage/registry, and optional developer access. |
-| Optional [private-connectivity PoC profile](#private-connectivity-poc-profile) | Gateway/model private endpoints and DNS, gateway outbound VNet integration, private model access, and an optional private test client. Keeps the dedicated AIGateway SKU and explicitly leaves gateway public access enabled. |
+### What each component is for
 
-Model operations are serialized per account using AzAPI resource locks. The
-gateway's automatically created `default` workspace is referenced rather than
-created a second time.
-Each catalog entry has a matching workspace alias; the alias is required to route
-runtime requests to the model. Token policies use the current `["identity"]`
-counter-key format rather than the older scalar `"Identity"` format.
+| Component | Its job | What you get from this sample |
+| --- | --- | --- |
+| **AI Gateway** | The front door for model calls: authenticates clients, applies token limits, routes requests and records telemetry. It does not run the model itself. | A dedicated **AIGateway** preview SKU, model registrations/aliases, a runtime API key resource and monitoring. |
+| **Foundry model account** | Runs the deployed models that answer requests forwarded by the gateway. | A separate AI Services account with the model versions and capacity you choose. The gateway uses its managed identity to access it, not a backend API key. |
+| **Foundry hosted-agent account and project** | The foundation for a later application that runs an agent. Storage holds project artifacts; Container Registry holds its container image. | Account/project, Storage, Premium Container Registry, access roles, connections and monitoring. **No agent image, definition or running container.** |
+| **Optional private network and test VM** | Adds and verifies a private route between a client, the gateway and the models. | Gateway/model private endpoints, private DNS, gateway outbound VNet integration and an optional VM that runs a probe. **Does not privately network the hosted-agent component.** |
 
-**Infrastructure only:** this does not build/push an agent image, create an agent
-definition, start a hosted-agent container, register GitHub MCP tools, configure
-GitHub credentials, or create a daily-digest schedule. Use the end-to-end sample
-for application setup after provisioning. It does not replace its `azd` hooks or
-produce an `azd` environment. It also does not configure the creation-time
-hosted-agent VNet injection required for private agent execution; review the
-[disclaimer](#disclaimer-and-current-limitations) before creating that account.
+**Both deployment paths create all three core components.** Choosing the private
+profile changes networking; it does not select a smaller gateway-only deployment.
+Hosted-agent infrastructure is provisioned even if you only test model calls.
+
+### How a model request flows
+
+```text
+Your application or test client
+    |
+    | Runtime API key: authenticates the client to the gateway
+    v
+AI Gateway: validates the key, applies token limits, selects a model alias
+    |
+    | Managed identity: authenticates the gateway to the model account
+    v
+Foundry model account: runs the selected model and returns the answer
+```
+
+A **model alias** is the name your client sends, such as `gpt-mini`; it is not
+necessarily the underlying model name, such as `gpt-4.1-mini`.
+The hosted-agent project is not needed to execute this test request. Deploying
+an actual agent, building/pushing its image, configuring GitHub MCP credentials
+and setting a daily-digest schedule are separate application steps in the
+end-to-end sample. This Terraform configuration does not replace its `azd` hooks.
+
+## Choose your deployment
+
+| | Path A: public-endpoint sample | Path B: private-connectivity PoC |
+| --- | --- | --- |
+| **Use it to** | Make a first authenticated model call through the gateway. | Demonstrate private client-to-gateway and gateway-to-model connectivity. |
+| **Client location** | Your local machine can call the public gateway. | A client inside or connected to the VNet; the included test VM is the walkthrough's example. |
+| **Gateway public access** | Enabled. | **Still enabled**; valid-key public calls can still work. |
+| **Model public access** | Enabled. | Disabled after a temporary-public setup stage. |
+| **Additional resources** | No sample VNet or test VM by default. | VNet, private endpoints/DNS and optional billable test VM. |
+| **Instructions after shared setup** | [Path A](#path-a-public-endpoint-sample) | [Path B](#private-connectivity-poc-profile) |
+| **Completion means** | Every configured alias returns a model response. | Every alias works from the VNet with model public access disabled; no pending Terraform changes. |
+
+### Stop and check these constraints first
+
+**Preview PoC, not a production security baseline.** Review the full
+[disclaimer and official Microsoft Learn sources](#disclaimer-and-current-limitations)
+before applying. In particular:
+
+- **No public gateway ingress allowed? Neither path meets that requirement.**
+  Gateway public-access disablement failed in the tested environment;
+  [private-only ingress remains blocked](#known-blocker-private-only-gateway-ingress).
+- **Need private hosted-agent execution? Decide before creating the account.**
+  Microsoft requires hosted-agent VNet injection at Foundry account creation;
+  this sample does not configure it. Adding private endpoints later is not a
+  substitute.
+- **Public model endpoints prohibited, even temporarily?** Do not run Path A or
+  Path B's staging unchanged. Review a policy-compliant deployment separately.
+
+The gateway preview has **no SLA**. Both paths create billable resources;
+model calls, Premium ACR, Storage and monitoring can incur charges.
 
 ## Prerequisites
 
@@ -102,110 +99,85 @@ hosted-agent VNet injection required for private agent execution; review the
 
 Confirm preview access, model availability, and organizational network policies
 before applying. Region/model availability is not inferred by this configuration.
+Path B additionally requires `Microsoft.Network`; the test VM requires
+`Microsoft.Compute`, regional VM quota and permission to use VM Run Command.
 
 ## Configure and provision
 
-This is the **default public-endpoint deployment**. For the private-connectivity
-PoC, complete the same sign-in, input-file setup, initialization and validation
-below, then use the profile's [staged plan/apply commands](#private-connectivity-poc-profile)
-instead of the final two commands here.
+**Shared setup for both paths.** These steps prepare your inputs and Terraform;
+they do not deploy resources yet. All later commands run from this same directory.
 
-From the repository root, open this directory:
+### Prepare your personal input file
+
+From the repository root, sign in and copy the example **only if you do not
+already have `terraform.tfvars`**:
 
 ```powershell
 Set-Location .\samples\terraform
+az login
+# Fresh checkout only; do not overwrite existing inputs.
+Copy-Item terraform.tfvars.example terraform.tfvars
 ```
 
-Run the following in PowerShell:
+For a fresh checkout, copy the example once. If you already have
+`terraform.tfvars`, edit it instead of overwriting it. Before continuing, open
+the file and set:
+
+| Set in `terraform.tfvars` | Why it matters |
+| --- | --- |
+| `subscription_id` | Determines where resources are created. |
+| `environment_name` | Distinguishes this deployment from another environment. |
+| `location` and `gateway_location` | Choose supported Foundry/model and gateway regions respectively. |
+| `publisher_email` | Gateway publisher contact. |
+| `model_deployments` | Choose model versions, deployment capacity and token limits available to your subscription. The example's `gpt-mini` and `gpt-full` keys become the client-facing aliases. |
+| `storage_public_network_access`, if policy requires it | Use `Disabled` when required by policy; private hosted-agent storage connectivity is not supplied here. |
+
+Keep this file local: it is ignored by Git. See the
+[input reference](#inputs) for optional fields. Review
+[state and security](#state-and-security) before applying; state and saved plans
+can contain sensitive data.
+
+### Initialize Terraform
 
 ```powershell
-az login
-Copy-Item terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars: subscription, regions, publisher, model versions, and quota.
 az account set --subscription "<subscription-id-from-terraform.tfvars>"
-
 terraform init
 terraform fmt -check -recursive
 terraform validate
+```
+
+Stop if a command fails. Choose **one** path below; do not run both sets of
+plan/apply commands in sequence. This creates new infrastructure, not an
+automatic import of existing Bicep resources. Names depend on subscription,
+environment name and Foundry region; changing those inputs can replace resources.
+
+## Path A: public-endpoint sample
+
+**Purpose:** get a first model response without setting up private networking.
+Use this only when your policies permit public gateway and model endpoints.
+On a fresh checkout, the example inputs use this posture; do not reuse unrelated
+private-network overrides.
+
+```powershell
 terraform plan "-out=deployment.tfplan"
+```
+
+Review the plan, including public access, resource creation and costs. Then apply
+that reviewed plan:
+
+```powershell
 terraform apply "deployment.tfplan"
 ```
 
-After apply succeeds, [test a model through the gateway](#test-a-model-through-the-gateway).
-Provisioning infrastructure alone does not start a hosted agent.
-
-Review the plan before applying. These commands create billable resources,
-including the Foundry deployments, Premium ACR, Storage, and monitoring.
-Preview pricing/terms and access requirements must be checked separately.
-
-Names are derived from the subscription, environment name, and Foundry region.
-Use a different `environment_name` for another environment. Changing those
-inputs can replace resources. This configuration creates new infrastructure;
-it does not automatically adopt resources provisioned by Bicep.
-
-### Inputs
-
-| Input | Required | Meaning |
-| --- | --- | --- |
-| `subscription_id` | Yes | Target subscription UUID; also supplied explicitly to the provider. |
-| `location` | Yes | Foundry, storage, registry, and monitoring region. |
-| `gateway_location` | Yes | Region enabled for your AIGateway preview deployment. |
-| `storage_public_network_access` | No | `Enabled` by default; set `Disabled` to preserve a policy-required restriction. This sample does not create private storage connectivity. |
-| `publisher_email` | Yes | Gateway publisher contact. |
-| `model_deployments` | Yes | Map keyed by deployment/catalog name. Each model needs `model_name`, `model_version`, positive integer `capacity`, and `token_limit`. |
-| `environment_name` | No | Naming/tagging label; defaults to `aigateway`. |
-| `developer_principal_id` | No | Entra object ID for optional developer access; omitted by default. |
-| `developer_principal_type` | No | `User`, `Group`, or `ServicePrincipal`; defaults to `User`. |
-| `publisher_name`, `project_display_name`, `project_description`, `tags` | No | Display metadata and additional resource tags. |
-
-`capacity` is the model deployment's SKU-specific quota unit; `token_limit` is
-the gateway's per-identity tokens-per-minute limit. They are independent inputs,
-not a universal conversion. Each model can also override `model_format`,
-`sku_name`, `api_format`, `endpoints`, and `description`; see
-[variables.tf](variables.tf). Match endpoints/API format to each model's capabilities.
-
-### Outputs and credentials
-
-`terraform output` exposes resource group names, gateway ID/endpoint, the runtime
-API key **resource ID**, model deployment IDs, project ID/endpoint, registry login
-server, storage name, and monitoring resource IDs. It does not export runtime
-key values or telemetry connection strings.
-
-Foundry backend access, storage, and image pulls use managed identities. The
-runtime API key resource is created for applications that authenticate to the
-gateway with a key; retrieve and store its value through your approved secret
-management process rather than committing it to a `.tfvars` file.
-
-## State and security
-
-- This demonstration starts with **local state**. State and saved plans can
-  contain sensitive resource responses, including telemetry connection strings
-  and API responses. Restrict filesystem access and do not commit them.
-  `.gitignore` excludes local state, plans, provider downloads, and user `.tfvars`.
-  The only committed `.tfvars.json` exception is the non-secret PoC profile;
-  keep subscription-specific inputs and credentials out of it. Retain
-  `.terraform.lock.hcl` to pin provider checksums.
-- Before shared or production use, configure an access-controlled remote backend
-  with encryption/locking, such as Azure Blob Storage with Entra authentication,
-  and migrate local state using `terraform init -migrate-state`.
-- Like the upstream sample, the default uses **public network endpoints**. Optional
-  private gateway/model networking is described below; hosted-agent networking
-  remains separate. This is not a private-network production baseline. Storage forbids anonymous blobs and shared
-  keys; ACR admin credentials and Foundry local authentication are disabled.
-- If Azure Policy disables storage public access, set
-  `storage_public_network_access = "Disabled"` rather than overriding the policy.
-  Gateway/model testing can proceed independently, but hosted-agent storage
-  connectivity remains unverified until a policy-compliant private network path
-  is configured separately.
-- Project account roles mirror the upstream Bicep, including Cognitive Services
-  Contributor. Optional developer access grants those account roles and Storage
-  Blob Data Contributor. Enable it only deliberately and review least privilege.
-- Gateway telemetry payload capture is disabled.
+**Next:** run [Test a model through the gateway](#test-a-model-through-the-gateway),
+then [check telemetry and deployment consistency](#check-telemetry-and-deployment-consistency).
+You are done with Path A when every alias returns a response and the final
+plan has no pending changes. This does not deploy an agent application.
 
 ## Private-connectivity PoC profile
 
-Use [profiles/private-connectivity.tfvars.json](profiles/private-connectivity.tfvars.json)
-to select the dedicated-SKU configuration proven in the sandbox:
+**Path B. Purpose:** prove the following private route, using the same dedicated
+AIGateway SKU and core infrastructure as Path A:
 
 ```text
 Private client -> gateway private endpoint -> private model endpoint
@@ -217,112 +189,106 @@ Private client -> gateway private endpoint -> private model endpoint
 | `gateway_public_network_access` | `Enabled` |
 | `models_public_network_access` | `Disabled` |
 
-The profile reuses the resources in this root rather than creating a second
-gateway: gateway/model private endpoints and DNS, outbound VNet integration,
-gateway managed identity and Foundry User binding, API-key resource, and
-Application Insights telemetry with payload capture disabled. Model local
-authentication is disabled and its network ACL becomes Deny.
+Select [profiles/private-connectivity.tfvars.json](profiles/private-connectivity.tfvars.json)
+explicitly for this path. It adds gateway/model private endpoints, DNS and
+gateway outbound VNet integration to the same deployment, not a second gateway.
+Gateway identity-based backend access, API-key authentication and telemetry
+remain in place. Model local authentication is disabled and, in the final
+configuration, its network ACL becomes Deny.
 
 **Not private-only ingress:** clients can use the gateway private endpoint,
 but the public gateway endpoint remains reachable with valid credentials.
 The profile does not claim to fix the public-disablement failure documented
 below. Hosted-agent networking is unchanged and agent execution is not proven.
 
-Keep subscription, environment, regions, model choices, policy-compatible storage
-settings and other personal inputs in your ignored `terraform.tfvars`. Pass this
-profile explicitly with `-var-file`; it is not auto-loaded and does not change
-the default public sample. It overrides the three settings above from
-`terraform.tfvars` and any `*.auto.tfvars`, including a private-only override.
-Review that deliberate gateway-public-access choice before applying. Later
-`-var` or `-var-file` arguments can override the profile.
+### B1. Choose the client that will prove private connectivity
 
-For an **existing deployment with the private backend already working**, plan
-the final PoC configuration directly:
+Your laptop is not automatically connected to the new VNet. The steps below use
+the optional test VM so no VPN or inbound SSH is needed. Before the first plan,
+add these inputs to your ignored `terraform.tfvars`, replacing the key
+placeholder with a real OpenSSH ed25519 or RSA **public** key:
 
-```powershell
-terraform plan "-var-file=profiles\private-connectivity.tfvars.json" "-out=private-connectivity.tfplan"
-# Review the saved plan, including gateway public access and any resource changes.
-terraform apply "private-connectivity.tfplan"
+```hcl
+enable_private_test_client         = true
+private_test_client_ssh_public_key = "ssh-ed25519 <your-public-key>"
 ```
 
-For a **new deployment or a public-backend deployment**, establish networking
-first with temporary model public access, then disable it:
+The key is required to provision the VM; the probe uses Azure VM Run Command,
+not SSH. Never paste a private key or password. The VM is billable, has no
+public IP and denies inbound traffic. See [networking reference](#networking-reference)
+for its outbound-access design and required network settings.
+
+If you already have a client connected to the VNet, you can omit the VM.
+Replace the VM-probe steps below with equivalent private DNS and inference
+checks from that client; `Test-PrivateGateway.ps1` specifically requires the VM.
+
+### B2. Create networking with the model temporarily public
+
+For a **new deployment or a public-backend deployment**, first make the private
+route available. This stage is not the final security posture.
 
 ```powershell
 terraform plan "-var-file=profiles\private-connectivity.tfvars.json" "-var=models_public_network_access=Enabled" "-out=private-connectivity-stage1.tfplan"
-# Review, then apply. Model public access is temporarily Enabled in this stage.
-terraform apply "private-connectivity-stage1.tfplan"
-# Verify approved private endpoints, private DNS, and gateway inference from the VNet.
+```
 
+Review the plan: both gateway and model public access are temporarily enabled,
+and networking plus the selected test VM are created. Do not apply unexpected
+replacements. Then:
+
+```powershell
+terraform apply "private-connectivity-stage1.tfplan"
+```
+
+### B3. Check the private route before disabling model public access
+
+With the test VM running:
+
+```powershell
+.\scripts\Test-PrivateGateway.ps1
+```
+
+The script runs inside the VM through Run Command. It checks that the gateway
+and model hostnames resolve into the private endpoint subnet and every alias
+answers `OK`. The VM retrieves the gateway key using managed identity; no key
+is printed or passed as a Run Command argument.
+
+**Stop if the probe fails.** Check endpoint approval, private DNS, permissions
+and outbound integration before continuing. A pass here is only an initial
+connectivity check: model public access is still enabled.
+
+### B4. Disable model public access
+
+Plan again **without** the temporary `Enabled` override:
+
+```powershell
 terraform plan "-var-file=profiles\private-connectivity.tfvars.json" "-out=private-connectivity.tfplan"
-# Review, then apply the model public-access Disabled / ACL Deny transition.
+```
+
+Review the transition: model public access becomes `Disabled` / ACL Deny;
+gateway public access stays `Enabled`. Then:
+
+```powershell
 terraform apply "private-connectivity.tfplan"
 ```
 
-Use an existing client connected to the VNet, or opt into the test VM by setting
-`enable_private_test_client = true` and a real
-`private_test_client_ssh_public_key` in your ignored inputs. The profile does not
-enable or disable that VM; an already-enabled VM is preserved. See the test-client
-instructions below for its no-public-IP design, Run Command probe and deallocation.
-
-With the optional VM running, repeat the private probe after the final apply:
+### B5. Prove the final private path
 
 ```powershell
 .\scripts\Test-PrivateGateway.ps1
 terraform plan "-var-file=profiles\private-connectivity.tfvars.json" -detailed-exitcode
 ```
 
-Require an `OK` response from every alias with model public access disabled,
-and a final plan exit code of `0`. The probe obtains the gateway key through
-managed identity without printing it. A passing pre-disablement probe is not
-proof of private backend use. This probe does not independently verify negative
-authentication or telemetry ingestion; those require separate runtime checks.
-Do not reuse earlier failed private-only saved plans for this PoC.
+**Path B is complete only when** the probe reports `"passed": true` with `OK`
+for every alias while model public access is disabled, and the final plan exits
+with code `0`. This proves the gateway/model private path, not private-only
+gateway ingress or hosted-agent execution.
 
-## Private-network details and test client
+Also perform the [authentication and telemetry checks](#check-telemetry-and-deployment-consistency):
+the private probe does not independently test invalid keys or telemetry ingestion.
 
-Set `enable_private_networking = true` to add a VNet, an outbound integration
-subnet delegated to `Microsoft.Web/serverFarms`, separate endpoint/client
-subnets, two private endpoints, and four private DNS zones. The gateway PE uses
-group ID `Gateway`; the model account uses `account`. Gateway networking uses
-the working `2025-09-01-preview` contract with `virtualNetworkType = "External"`.
-Private Link alone does not provide outbound connectivity.
+### B6. Stop test VM compute billing
 
-The default VNet is `10.247.0.0/16`. Set `private_network_address_prefix` to a
-non-overlapping IPv4 /16 before first deployment if needed. Existing corporate
-DNS, peering, VPN, forced tunnelling, and custom firewall rules are not configured.
-Optional networking additionally requires `Microsoft.Network`; the optional
-test VM requires `Microsoft.Compute` and regional VM quota.
-
-Use the [profile walkthrough](#private-connectivity-poc-profile) for staged,
-reviewed plans. Its completion point is successful private inference with model
-public access disabled and gateway public access still enabled. Review any
-unexpected resource replacement before applying. Gateway public disablement is
-a [separate blocked goal](#known-blocker-private-only-gateway-ingress), not a
-third step required to complete the PoC.
-
-Optionally set `enable_private_test_client = true` and supply
-`private_test_client_ssh_public_key` with an OpenSSH **public** key. The Ubuntu
-`Standard_B2s_v2` VM has no public IP, denies all inbound traffic, and uses a
-managed identity with a custom role granting only gateway API-key retrieval.
-Its subnet explicitly enables default outbound internet for the VM agent/ARM:
-this PoC client is not an air-gapped production design. Do not place secrets in
-the public-key variable or in scripts.
-
-From this Terraform directory, with the VM running:
-
-```powershell
-.\scripts\Test-PrivateGateway.ps1
-```
-
-The script reads non-secret Terraform outputs and uses VM Run Command to execute
-the standard-library Python probe. It requires private DNS for both service
-hosts and an `OK` inference response from every configured alias. The VM obtains
-the runtime key in memory using managed identity; tokens and keys are not
-printed or passed in Run Command parameters. A positive report before disabling
-model public access is only a partial proof, not evidence of private backend use.
-
-After testing, deallocate the VM to stop compute billing:
+After testing, **if you created the optional VM** (otherwise skip this step):
 
 ```powershell
 $vmId = terraform output -raw private_test_vm_id
@@ -330,75 +296,36 @@ $subscriptionId = ($vmId -split '/')[2]
 az vm deallocate --subscription $subscriptionId --ids $vmId
 ```
 
-The managed disk, private endpoints, private DNS, and monitoring can still incur
-charges. Start the VM again before rerunning the probe. Removing networking or
-turning off its Terraform feature flag can destroy network resources and must
-be reviewed separately. Re-enabling public access is an explicit security change,
-not an automatic recovery step.
-
-**Boundary:** this option does not privately network the hosted-agent account,
-Storage, or ACR. It does not validate agent execution or promise an SLA.
-Adding these gateway/model private endpoints does not retrofit hosted-agent
-VNet injection into an existing Foundry account; that is a separate
-[creation-time requirement](https://learn.microsoft.com/azure/foundry/agents/how-to/virtual-networks#limitations).
-
-## Known blocker: private-only gateway ingress
-
-**This is a diagnostic finding, not a deployment step.** Do not change
-`gateway_public_network_access` to `Disabled` as part of the working PoC.
-
-**Observed preview result (October 18, 2026, Sweden Central):** private-client
-DNS and inference passed for both configured aliases, including with model
-public access disabled and its network ACL set to Deny. Disabling gateway public
-access failed with `UpdateApiServiceFailed` through both Terraform's service
-update and the dedicated CLI's public-access-only PATCH. The approved private
-endpoint and outbound integration continued to work, but gateway public access
-remained Enabled. A separate fresh minimal gateway in the same subscription and
-region reproduced the error without outbound integration or model/backend
-configuration, through both the service update and a public-access-only CLI
-PATCH. Its approved private endpoint remained reachable; the temporary
-reproduction resources were then deleted.
-
-This narrows the failure beyond the original instance but does not establish a
-root cause or prove that the SKU never supports private-only ingress. A future
-private-only implementation must meet all of these acceptance criteria:
-
-- The gateway reports public network access `Disabled`.
-- Every configured model alias still succeeds through the gateway private endpoint.
-- A previously working public request with a valid key receives a network-access
-  rejection, not merely an authentication failure.
-- A plan using the intended private-only inputs reports no pending changes.
-
-Until then, treat a no-public-ingress requirement as blocked. No destructive
-workaround or automatic re-enablement is included.
-
-## Preview schema limitations
-
-AzAPI 2.13 does not bundle schemas for the preview connector gateway, telemetry
-exporter, model provider/catalog, model alias, and runtime API key resources. Their blocks
-set `schema_validation_enabled = false`; all other resource blocks retain the
-provider's default schema validation. ARM still validates those resources when
-they are provisioned. A successful offline check is **not** proof of preview
-access, regional capacity, API acceptance, or runtime connectivity.
-
-## Offline checks
+Disks, private endpoints, DNS, model deployments and monitoring can still incur
+charges. To use the VM again:
 
 ```powershell
-terraform init -backend=false
-terraform fmt -check -recursive
-terraform validate
-terraform test
+az vm start --subscription $subscriptionId --ids $vmId
 ```
 
-Tests use a mocked AzAPI provider with no Azure authentication or provisioning.
-They check model/endpoint/token-limit propagation, independent gateway location,
-identity-based backend configuration, opt-in developer roles, and invalid model
-inputs. They do not call Azure or prove the hosted-agent application works.
-The private-connectivity regression reads the committed JSON profile directly
-and checks its mixed gateway-public/model-private posture, endpoint wiring,
-managed-identity backend access, API-key resource and telemetry exporter.
+### Existing deployments and profile precedence
+
+If your deployment already has a working private backend with model public
+access disabled, you can start at B4, review the final profile plan, then run B5.
+Keep your existing client choice; the profile does not turn the test VM on or off.
+
+The profile is not auto-loaded: include `-var-file` on every plan for Path B,
+including drift checks. Its three values override `terraform.tfvars` and
+`*.auto.tfvars`, even an old private-only override. Later `-var` or `-var-file`
+arguments can override it again. Keep personal settings in the ignored inputs,
+not the committed profile. Do not apply stale private-only plans or re-enable
+public access as an automatic recovery step.
 
 ## Runtime verification
+
+### Which check proves what?
+
+| Check | Where it runs | What it proves |
+| --- | --- | --- |
+| Model request below | Your current machine, against the gateway endpoint. | Authentication and a successful model response. **Not private routing.** Use for Path A or an additional Path B smoke check. |
+| [Path B private probe](#b3-check-the-private-route-before-disabling-model-public-access) | Inside the optional VM via Azure Run Command. | Private DNS and inference. Repeat after disabling model public access to establish private backend use. |
+| `terraform plan -detailed-exitcode` | Your Terraform working directory. | Configuration consistency, not successful runtime calls. |
+| [Offline checks](#offline-checks) | Locally with a mocked provider. | Configuration assertions, not Azure access or runtime behavior. |
 
 ### Test a model through the gateway
 
@@ -464,16 +391,17 @@ indicate token limits or capacity. Inspect the service error before retrying.
 
 **This direct request does not prove private routing.** With the PoC profile,
 a public client can still reach the gateway. Use the
-[private test-client probe](#private-network-details-and-test-client) from the
+[private test-client probe](#b3-check-the-private-route-before-disabling-model-public-access) from the
 VNet to verify private DNS and inference with model public access disabled.
 
 For CLI-based alternatives, follow the
 [gateway model test](../../cli/README.md#5-test-the-gateway), using provider
-`foundry` and your configured deployment names. Separately verify that missing
-or invalid runtime keys receive HTTP `401/403`; a successful authenticated call
-does not test that protection.
+`foundry` and your configured deployment names.
 
 ### Check telemetry and deployment consistency
+
+For either path, separately verify that missing or invalid runtime keys receive
+HTTP `401/403`; a successful authenticated call does not test that protection.
 
 Confirm the six default RBAC assignments and the Foundry connections exist, and
 check the gateway's Application Insights for the requests after allowing for
@@ -483,6 +411,205 @@ exit code 0 means no drift, 2 means changes remain, and 1 means the plan failed.
 Never override a policy-required storage network restriction to make this check
 pass. Include the same explicit `-var-file` profile and overrides used for the
 deployment when checking drift.
+
+## Technical reference
+
+**Look up details here as needed.** You do not need to execute another deployment
+path or modify every file below to use the sample.
+
+### File guide
+
+| File | What it controls | When you need it |
+| --- | --- | --- |
+| [terraform.tfvars.example](terraform.tfvars.example) | Template for subscription, region, model and publisher inputs. | Copy once to your ignored `terraform.tfvars`; edit your copy, not the template. |
+| [profiles/private-connectivity.tfvars.json](profiles/private-connectivity.tfvars.json) | Three networking settings for Path B. No subscription or credentials. | Select explicitly on Path B plans; not needed for Path A. |
+| [variables.tf](variables.tf) / [outputs.tf](outputs.tf) | Supported inputs, validation and exported resource information. | Look up an optional setting or find an endpoint/resource ID. |
+| [ai-gateway.tf](ai-gateway.tf) | AIGateway service, connector gateway, provider, catalog, aliases, runtime key resource and telemetry exporter. | Understand gateway routing and policies. |
+| [foundry-models.tf](foundry-models.tf) | Model account and versioned deployments. | Understand backend provisioning; choose models through inputs. |
+| [foundry-agents.tf](foundry-agents.tf) | Agent account/project, Storage, Premium ACR and connections. | Understand what is prepared for the separate agent application. |
+| [main.tf](main.tf) / [rbac.tf](rbac.tf) | Naming, three resource groups, monitoring and access roles. | Understand shared infrastructure and identity permissions. |
+| [private-network.tf](private-network.tf) / [private-test-client.tf](private-test-client.tf) | Optional VNet, private endpoints/DNS, gateway integration and probe VM. | Path B networking implementation. |
+| [scripts\Test-PrivateGateway.ps1](scripts/Test-PrivateGateway.ps1) / [Python probe](scripts/private-path-probe.py) | Read non-secret outputs and run DNS/inference checks inside the VM. | Execute Path B's probe with the PowerShell wrapper; it sends the Python code to the VM. |
+| [tests](tests) | Mocked Terraform assertions and Python probe unit tests. | Develop or check the sample offline; no live deployment proof. |
+| [versions.tf](versions.tf) / [.terraform.lock.hcl](.terraform.lock.hcl) | Provider requirements and locked provider checksums. | Reproduce dependency selection; keep the lock file committed. |
+
+### Inputs
+
+The [shared setup](#configure-and-provision) covers the minimum values to edit.
+These optional settings refine that configuration:
+
+| Input | Purpose and default |
+| --- | --- |
+| `environment_name` | Naming/tagging label; defaults to `aigateway`. |
+| `storage_public_network_access` | `Enabled` by default; use `Disabled` when policy requires it. No private storage path is created here. |
+| `developer_principal_id` | Optional Entra object ID for developer access; empty means no developer role assignments. |
+| `developer_principal_type` | `User`, `Group` or `ServicePrincipal`; defaults to `User`. |
+| `publisher_name`, `project_display_name`, `project_description`, `tags` | Display metadata and additional tags. |
+| `private_network_address_prefix` | Path B VNet IPv4 /16; defaults to `10.247.0.0/16`. Choose a non-overlapping range before first deployment. |
+| `enable_private_test_client` | Adds the Path B VM; defaults to `false`. Requires private networking. |
+| `private_test_client_ssh_public_key` | Real OpenSSH public key required when creating the VM. |
+| `private_test_client_vm_size` | Defaults to `Standard_B2s_v2`; check availability and quota. |
+
+Each `model_deployments` entry requires `model_name`, `model_version`,
+`capacity` and `token_limit`. `capacity` is a model deployment SKU-specific
+quota unit; `token_limit` is the gateway's per-identity tokens-per-minute limit.
+They are independent, not a universal conversion. Optional model fields are
+`model_format`, `sku_name`, `api_format`, `endpoints` and `description`; match
+API format/endpoints to the model's capabilities. See [variables.tf](variables.tf)
+for complete types, defaults and validation.
+
+### Outputs and credentials
+
+| Output | Use it for |
+| --- | --- |
+| `gateway_endpoint` | Base URL for runtime calls through the gateway. |
+| `gateway_api_key_id` | ARM ID used to retrieve the runtime key through an approved process. **Not the key value.** |
+| `model_deployment_ids` | Model IDs keyed by the client-facing aliases. |
+| `project_endpoint`, `project_id` | Separate hosted-agent application setup. Not a gateway model-call URL. |
+| `container_registry_endpoint`, `storage_account_name` | Image publishing and project artifact setup for that application. |
+| `resource_groups`, `gateway_id`, `foundry_models_id`, `application_insights_ids` | Resource management and telemetry lookup. |
+| `private_endpoint_ids`, `private_test_vm_id`, `private_probe_configuration` | Path B resource lookup and VM probe inputs. VM outputs are only available when the test client is enabled. |
+
+`terraform output` does not export runtime key values or telemetry connection
+strings. Backend calls, storage and image pulls use managed identities. Retrieve
+runtime key values through your approved secret-management process; do not put
+them in `.tfvars`, terminal output or source control.
+
+### Networking reference
+
+Path B adds a VNet, an outbound integration subnet delegated to
+`Microsoft.Web/serverFarms`, separate endpoint/client subnets, two private
+endpoints and four private DNS zones. Gateway PE group ID is `Gateway`; model
+PE group ID is `account`. The sample's tested gateway contract is
+`2025-09-01-preview` with `virtualNetworkType = "External"`. Inbound Private
+Link and outbound integration solve different problems; one does not replace
+the other.
+
+The optional Ubuntu VM has no public IP, denies inbound traffic and has only a
+narrow custom role for gateway API-key retrieval. Its subnet explicitly allows
+default outbound internet for VM agent/ARM operations; it is not air-gapped.
+The probe reads non-secret outputs and uses standard-library Python inside the
+VM; your local machine does not need a private route to run the wrapper.
+
+Existing corporate DNS, peering, VPN, forced tunnelling and custom firewall
+rules are not configured. Review same-region outbound VNet requirements,
+dedicated subnets, DNS and NSG dependencies in the
+[official gateway networking guide](https://learn.microsoft.com/azure/api-management/ai-gateway-configure-private-networking).
+Removing networking or disabling its feature flag can destroy network resources;
+review those changes separately. This network does not isolate the agent
+account, Storage or ACR.
+
+### State and security
+
+- This demonstration uses **local state**. State and saved plans can contain
+  sensitive responses, including telemetry connection strings. Restrict access
+  and do not commit them. `.gitignore` excludes state, plans, provider downloads
+  and user `.tfvars`; the only `.tfvars.json` exception is the non-secret profile.
+- Before shared or production use, configure an access-controlled remote backend
+  with encryption/locking, such as Azure Blob Storage with Entra authentication;
+  migrate local state using `terraform init -migrate-state`.
+- Storage forbids anonymous blobs and shared keys. ACR admin credentials and
+  Foundry local authentication are disabled. Gateway telemetry payload capture
+  is disabled.
+- Preserve policy-required storage restrictions. Gateway/model testing can work
+  independently, but private hosted-agent storage connectivity remains unverified
+  until configured separately.
+- Project roles mirror the upstream Bicep, including Cognitive Services
+  Contributor. Optional developer access also grants Storage Blob Data Contributor.
+  Enable it deliberately and review least privilege.
+
+### Implementation background and preview schemas
+
+The configuration follows the upstream
+[Bicep infrastructure](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway/tree/c572db847e4bff5278bc5f8630c2acb4b6991119/infra)
+and [model-registration fix](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway/commit/03fcd3788aea06cf6000af19890f8164303348d5).
+AzAPI expresses the preview ARM resources directly. Model operations are
+serialized per account using resource locks. The automatically created gateway
+`default` workspace is referenced, not created again. Each catalog entry needs
+a workspace alias for runtime routing; token policies use `["identity"]`
+instead of the older scalar `"Identity"` counter key.
+
+AzAPI 2.13 lacks bundled schemas for the preview connector gateway, telemetry
+exporter, model provider/catalog, alias and runtime API key resources. Those
+blocks set `schema_validation_enabled = false`; other blocks retain default
+schema validation. ARM still validates the resources at provisioning time.
+Offline success does not establish preview access, capacity or API acceptance.
+
+### Offline checks
+
+For configuration checks without provisioning Azure resources:
+
+```powershell
+terraform init -backend=false
+terraform fmt -check -recursive
+terraform validate
+terraform test
+```
+
+The Terraform tests mock AzAPI and require no Azure authentication. They check
+model/endpoint/token-limit propagation, independent gateway location,
+identity-based backend configuration, opt-in developer roles and invalid inputs.
+The private regression reads the committed JSON profile and asserts its mixed
+gateway-public/model-private posture, endpoint wiring, backend identity,
+API-key resource and telemetry exporter. These are not runtime tests.
+
+## Disclaimer and current limitations
+
+**Preview PoC, not a production or private-only reference architecture.**
+Documentation checked **October 19, 2026**. The following separates
+Microsoft-documented constraints from local test findings; revisit the official
+sources before deploying because preview features and restrictions can change.
+
+### Microsoft-documented constraints
+
+**AI Gateway preview:** best-effort availability with **no SLA**; APIs, limits,
+regions and pricing can change. Current documented gateway regions are East US 2
+and Sweden Central, with access/capacity varying by subscription. Connected
+services remain billable. See [AI Gateway overview and FAQ](https://learn.microsoft.com/azure/api-management/ai-gateway-overview).
+
+**Hosted-agent isolation is a creation-time decision:** hosted-agent VNet
+injection must be included when the Foundry account is first created; it cannot
+be added to an existing account. This sample does not configure it. If private
+hosted-agent execution is required, choose a supported network-secured Foundry
+deployment before creating the account. See
+[Foundry Agent Service networking limitations](https://learn.microsoft.com/azure/foundry/agents/how-to/virtual-networks#limitations).
+
+**This is not a general ban on adding private endpoints later.** Microsoft
+documents adding an inbound private endpoint to an existing gateway and configuring
+outbound integration separately. Private endpoints alone do not provide gateway
+or hosted-agent outbound access. See
+[AI Gateway private networking](https://learn.microsoft.com/azure/api-management/ai-gateway-configure-private-networking).
+
+**Private hosted-agent image pulls:** current guidance supports private ACR for
+Foundry projects created after June 25, 2026; older projects require public ACR
+reachability. This does not remove the account-creation requirement for injection.
+The sample leaves ACR public and does not prove agent execution. See
+[Foundry networking limitations](https://learn.microsoft.com/azure/foundry/agents/how-to/virtual-networks#limitations).
+
+### Known blocker: private-only gateway ingress
+
+**Observed test finding, not a deployment step or a universal SKU limitation.**
+Microsoft [documents disabling public access after private connectivity is
+verified](https://learn.microsoft.com/azure/api-management/ai-gateway-configure-private-networking#inbound-private-link).
+In our **October 18, 2026, Sweden Central** tests:
+
+- Both configured aliases passed private DNS/inference checks with model public
+  access disabled and its network ACL set to Deny.
+- Disabling gateway public access failed with `UpdateApiServiceFailed` through
+  Terraform's service update and the dedicated CLI's public-access-only PATCH.
+  Private connectivity kept working, but gateway public access stayed enabled.
+- A separate minimal gateway in the same subscription/region reproduced the
+  failure without outbound integration or model/backend configuration, using
+  both update methods. Its private endpoint remained reachable; temporary
+  reproduction resources were deleted.
+
+Root cause remains unknown. Do not set gateway public access to `Disabled` as
+part of this working PoC or present it as private-only. A future private-only
+implementation must show the gateway reports `Disabled`, every alias still
+works privately, a previously working valid-key public call receives a
+network-access rejection (not just an authentication error), and the intended
+private-only plan has no pending changes. No destructive workaround or automatic
+public-access recovery is included.
 
 ## References
 
