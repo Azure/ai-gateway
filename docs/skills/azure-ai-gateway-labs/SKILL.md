@@ -62,7 +62,7 @@ Before you create, change, or delete Azure resources, confirm the subscription a
 | REST API | `rest` | Raw Azure Resource Manager requests, for users who script against the API themselves. |
 | Bicep | `iac` | Templates in `infra/`, deployed with `az deployment group create`, or with `azd` in lab 16. |
 | Code | `code` | Python, TypeScript, and .NET clients, and agent frameworks, calling the gateway at runtime. |
-| Notebook | none | `labs/<slug>/<slug>.ipynb` runs the CLI track end to end from Python and checks each step with `assert`. |
+| Notebook | none | `labs/<slug>/<slug>.ipynb` deploys the lab's `infra/` Bicep from Python with helpers in `labs/shared/utils.py`, then checks each step with `assert`. |
 
 ## Facts to rely on
 
@@ -117,7 +117,7 @@ Each entry shows the level, time, tracks, and the labs it needs.
 ### Security & identity
 
 - **10** [Issue and rotate runtime API keys](https://azure.github.io/ai-gateway/labs/10-api-keys/index.md) `10-api-keys` (Beginner, 15 min · Portal, CLI · needs 01): Give every app its own runtime API key, keep the value out of your code, rotate it without downtime with the primary and secondary values, revoke a leaked key, and see usage and cost per key in Monitoring.
-- **11** [Go keyless with Microsoft Entra ID and RBAC](https://azure.github.io/ai-gateway/labs/11-entra-rbac/index.md) `11-entra-rbac` (Intermediate, 35 min · Portal, CLI, Code, Notebook · needs 02): Replace shared gateway API keys with Microsoft Entra ID tokens. Grant users, groups, apps, and managed identities an AI Gateway data-plane role at the gateway, a model alias, or an MCP server, then call models from the playground, curl, Python, TypeScript, and C# with no secret in code.
+- **11** [Go keyless with Microsoft Entra ID and RBAC](https://azure.github.io/ai-gateway/labs/11-entra-rbac/index.md) `11-entra-rbac` (Intermediate, 35 min · Portal, CLI, Bicep, Code, Notebook · needs 02): Replace shared gateway API keys with Microsoft Entra ID tokens. Grant users, groups, apps, and managed identities an AI Gateway data-plane role at the gateway, a model alias, or an MCP server, then call models from the playground, curl, Python, TypeScript, and C# with no secret in code.
 - **12** [Call backends with managed identities](https://azure.github.io/ai-gateway/labs/12-backend-identity/index.md) `12-backend-identity` (Intermediate, 20 min · Portal, CLI, Bicep · needs 02): Let the gateway reach Microsoft Foundry with a managed identity instead of stored keys. Check the system-assigned identity, then create a user-assigned identity you can share across gateways, grant it Foundry User, attach it, and point a model provider at it from the portal, the Azure CLI, or Bicep.
 
 ### Observability & FinOps
@@ -168,18 +168,23 @@ Each entry shows the level, time, tracks, and the labs it needs.
 
 ## Notebooks
 
-The notebooks share one gateway, so run lab 01, then lab 02, then any other notebook. They need Python 3.10 or
-later and `az login`, and the first cell installs the packages they use. These defaults can be overridden with
-environment variables before the kernel starts:
+The notebooks share one gateway, so run lab 01, then lab 02, then any other notebook. Each one deploys its lab's
+Bicep files (`labs/<slug>/infra/*.bicep`) with `az deployment group create`, through the shared helpers in
+`labs/shared/utils.py`, so run it from its lab folder in a clone. They need Python 3.10 or later and `az login`, and
+the first cell installs the packages they use. These defaults can be overridden with environment variables before
+the kernel starts:
 
 | Setting | Default | Environment variable |
 | :-- | :-- | :-- |
 | Resource group | `rg-ai-gateway-labs` | `AIGW_RESOURCE_GROUP` |
 | Gateway name | `aigw-labs-` plus 6 characters of the SHA-1 of the subscription ID | `AIGW_GATEWAY_NAME` |
 | Region | `eastus2` | `AIGW_LOCATION` |
+| Foundry account for lab 02 | `aigwlabs` plus 8 characters of the same hash, created by the notebook | `AIGW_FOUNDRY_ACCOUNT` |
+| Foundry account's resource group | the labs resource group | `AIGW_FOUNDRY_RESOURCE_GROUP` |
 
-To run a notebook headless, use `jupyter nbconvert --to notebook --execute <file> --output <copy>.ipynb`. Each
-notebook ends with a **Clean up** step.
+To run a notebook headless, `cd labs/<slug>` and use
+`jupyter nbconvert --to notebook --execute <slug>.ipynb --output <copy>.ipynb`. Each notebook ends with a
+**Clean up** step.
 
 ## Change or add a lab
 

@@ -241,21 +241,34 @@ Keep the video optional: every step it shows must also be written in the lab.
 
 Some labs ship a Jupyter notebook, `NN-slug/NN-slug.ipynb`, that runs the lab end to end from Python. The build
 finds it automatically: the lab page gets a **Notebook** button, and the GitHub header, the catalog, and the
-**Run the notebooks** table link to it. Follow the structure of the existing notebooks:
+**Run the notebooks** table link to it.
 
-1. A Markdown intro: the H1, a one-line flow of what the notebook builds, a table of the resources it uses,
-   prerequisites (`az login`, Python 3.10 or later), and a note to select **Run All**.
+A notebook deploys the lab's own Bicep files, so the notebook and the Bicep track can't drift apart. It keeps its
+cells short by importing [`shared/utils.py`](shared/utils.py):
+
+- `lab = utils.Lab("NN-slug")` reads the `az login` sign-in and the shared defaults (resource group
+  `rg-ai-gateway-labs`, gateway `aigw-labs-<6 characters of the SHA-1 of the subscription ID>`, region `eastus2`)
+  that the `AIGW_*` environment variables override. It stops with a clear `❌` message when the gateway is missing.
+- `lab.deploy("infra/main.bicep", **params)` runs `az deployment group create` and returns the template's outputs.
+  When a step needs a resource that no lab template declares, add a small template to the lab's `infra/` folder
+  (for example `11-entra-rbac/infra/role-assignment.bicep`) rather than writing ARM request bodies in the notebook.
+- `lab.require`, `lab.delete`, `lab.api_key`, `utils.retry`, `utils.wait_for_status`, and the `mcp_*` helpers cover
+  the reads, clean-up, and waits around a deployment. Put a new helper in `utils.py` when more than one notebook
+  needs it.
+
+Follow the structure of the existing notebooks:
+
+1. A Markdown intro: the H1, a one-line flow of what the notebook builds, a table of the resources it uses
+   (including the Bicep files and `utils.py`), prerequisites (`az login`, Python 3.10 or later), and a note to
+   select **Run All**.
 2. A `%pip install` cell with only the packages the notebook needs.
-3. **0. Initialize variables**: the shared defaults (resource group `rg-ai-gateway-labs`, gateway
-   `aigw-labs-<6 characters of the SHA-1 of the subscription ID>`, region `eastus2`) that the environment variables
-   `AIGW_RESOURCE_GROUP`, `AIGW_GATEWAY_NAME`, and `AIGW_LOCATION` override, the signed-in subscription from
-   `az account show`, and `AzureCliCredential`. Stop with a clear `❌` message when a prerequisite is missing.
+3. **0. Initialize variables**: import `utils` from `../shared`, create the `Lab`, and set the lab's own names.
 4. Numbered steps that mirror the lab's sections. Each step has a short Markdown explanation and a code cell that
-   reuses existing resources, waits for long operations, and checks the result with `assert`.
+   deploys or reuses resources, waits for the gateway to apply them, and checks the result with `assert`.
 5. **Clean up** (delete only what the notebook created), **Troubleshooting**, and **Next steps**.
 
-Never print or save keys or tokens. Run the notebook from start to finish against a real subscription before you
-commit it, then clear all outputs (`jupyter nbconvert --clear-output --inplace <file>`).
+Never print or save keys or tokens. Run the notebook from its lab folder, start to finish, against a real
+subscription before you commit it, then clear all outputs (`jupyter nbconvert --clear-output --inplace <file>`).
 
 ## Build and preview
 

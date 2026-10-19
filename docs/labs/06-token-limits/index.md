@@ -278,8 +278,8 @@ $env:AI_GATEWAY_MODEL = "$MODEL-limited"
 
 ## Verify
 
-Send a burst of requests that each ask for about 250 completion tokens. With a 1,000-token budget, the first
-three or four succeed, and then the gateway starts answering `429`.
+Send a burst of requests that each ask for about 250 completion tokens. With a 1,000-token budget, the first few
+succeed, and then the gateway starts answering `429`.
 
 <!-- steps -->
 
@@ -315,8 +315,9 @@ capacity left: that's the point of a per-caller limit. The gateway doesn't add i
 watch the status and `Retry-After`.
 
 > [!NOTE]
-> A new or changed policy can take up to a minute to apply. If every request returns `200`, wait a minute and
-> run the burst again.
+> The gateway counts a request's tokens after the response, and its counters catch up within a few seconds, so a
+> fast burst can go a few hundred tokens past the budget before the first `429`. A new or changed policy can also
+> take up to a minute to apply. If every request returns `200`, wait a minute and run the burst again.
 
 ### Inspect one throttled response
 

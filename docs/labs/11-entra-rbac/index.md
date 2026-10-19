@@ -4,7 +4,7 @@ summary: Replace shared gateway API keys with Microsoft Entra ID tokens. Grant u
 category: security
 level: Intermediate
 duration: 35
-tracks: [portal, cli, code]
+tracks: [portal, cli, iac, code]
 order: 11
 illustration: diagrams/identity-boundaries.svg
 tags: [Entra ID, RBAC, keyless, DefaultAzureCredential, managed identity, bearer token, "401", "403"]
@@ -222,6 +222,42 @@ az role assignment list --scope $GATEWAY_ID `
 
 > **Checkpoint**
 > The list shows **AI Gateway Models User** with the gateway's resource ID as the scope.
+
+<!-- track: iac | Bicep -->
+
+### Review the template
+
+The template grants one AI Gateway role to one principal at the gateway, a model alias, or an MCP server. It
+names the assignment with `guid()` of the scope, principal, and role, so redeploying it changes nothing.
+
+<!-- include: infra/role-assignment.bicep -->
+
+### Deploy it
+
+```bash title="Bash"
+az deployment group create -g "$RG" \
+  --template-file infra/role-assignment.bicep \
+  --parameters gatewayName="$GATEWAY" principalId="$MY_OBJECT_ID" principalType=User role=models \
+  --query properties.outputs
+```
+
+```powershell title="PowerShell"
+az deployment group create -g $RG `
+  --template-file infra/role-assignment.bicep `
+  --parameters gatewayName=$GATEWAY principalId=$MY_OBJECT_ID principalType=User role=models `
+  --query properties.outputs
+```
+
+To grant one alias only, add `scope=alias scopeName="$AI_GATEWAY_MODEL"`. For an MCP server, use `role=tools
+scope=mcp scopeName=<mcp-server-name>`. For a group or managed identity, pass its object ID with
+`principalType=Group` or `principalType=ServicePrincipal`.
+
+If you already hold the role at the same scope from another track, the deployment fails with
+`RoleAssignmentExists`, because that assignment has a different name. You have the access you need, so carry on.
+
+> **Checkpoint**
+> The `roleAssignmentId` output ends with a GUID under the gateway's resource ID, and
+> **Access** › **Entra ID** in the portal lists you with **AI Gateway Models User**.
 
 <!-- /tracks -->
 
