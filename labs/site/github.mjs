@@ -5,7 +5,7 @@
 // `npm run build`) then adds GitHub-only chrome so the file reads well on github.com:
 //
 //   <!-- gh:begin <kind>: ... -->...<!-- gh:end -->   generated regions: navigation, lab header, footer, the
-//                                                      code of included files, and widget fallbacks
+//                                                      code of included files, and widget and video fallbacks
 //   <line> <!-- gh -->                                 generated single lines: <details> wrappers that make
 //                                                      tracks and Bash/PowerShell tabs collapsible on GitHub
 //
@@ -22,6 +22,7 @@ const TRACK_RE = /^<!--\s*track:\s*([\w-]+)\s*(?:\|\s*([^>]*?))?\s*-->\s*$/;
 const TRACKS_END_RE = /^<!--\s*\/tracks\s*-->\s*$/;
 const INCLUDE_RE = /^<!--\s*include:\s*(\S+)(?:\s+(\S+))?\s*-->\s*$/;
 const WIDGET_RE = /^<!--\s*widget:\s*([\w-]+)/;
+export const VIDEO_RE = /^<!--\s*video:\s*(\S+)\s*(?:\|\s*([^>]*?))?\s*-->[ \t]*$/;
 const LONG_INCLUDE = 28;
 
 export const GH_TRACK_LABELS = { portal: 'Portal', cli: 'Azure CLI', rest: 'REST API', iac: 'Bicep', code: 'Code' };
@@ -36,6 +37,23 @@ const WIDGET_TITLES = {
   'request-rate': 'request rate simulator',
   budget: 'cost budget simulator',
 };
+
+// <!-- video: media/name.mp4 | Title --> plays on the site; media/name.jpg is the poster and media/name.vtt the captions.
+export function videoInfo(file, title) {
+  const base = file.replace(/\.(mp4|webm)$/i, '');
+  return {
+    file, title: String(title || 'Video walkthrough').trim(), poster: `${base}.jpg`, captions: `${base}.vtt`,
+    id: `video-${path.basename(base)}`, type: /\.webm$/i.test(file) ? 'video/webm' : 'video/mp4',
+  };
+}
+
+export function findVideo(markdown) {
+  for (const line of String(markdown).split('\n')) {
+    const m = line.match(VIDEO_RE);
+    if (m) return videoInfo(m[1], m[2]);
+  }
+  return null;
+}
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const isBlank = (l) => l == null || !l.trim();
@@ -152,6 +170,20 @@ function widgetRegion(name, labUrl) {
   return region('widget', [`> 🎛️ **Interactive:** try the ${what} in the [web version of this lab](${labUrl}).`]);
 }
 
+// GitHub can't play videos stored in the repo, so the poster links to the player on the site.
+function videoRegion(labDir, v, labUrl) {
+  const enc = (f) => f.split('/').map(encodeURIComponent).join('/');
+  const has = (f) => fs.existsSync(path.join(labDir, f));
+  const url = `${labUrl}#${v.id}`;
+  const label = v.title.replace(/[[\]"]/g, '');
+  const links = [`🎬 [Play with captions on the labs site](${url})`, `⬇️ [Download MP4](${enc(v.file)})`];
+  if (has(v.captions)) links.push(`📝 [Captions](${enc(v.captions)})`);
+  return region('video', [
+    ...(has(v.poster) ? [`[![▶ ${label}](${enc(v.poster)} "${label}")](${url})`, ''] : []),
+    `<sub>${links.join(' · ')}</sub>`,
+  ]);
+}
+
 // Regenerates the GitHub chrome of one lab README. Pure apart from reading included files.
 export function syncLab(raw, { lab, labs, catalog, site }) {
   const { matter: fm, body } = parseLab(raw);
@@ -185,6 +217,8 @@ export function syncLab(raw, { lab, labs, catalog, site }) {
   const prereqs = (lab.prereqs || []).map((s) => byId[s]).filter(Boolean);
   const tracks = (lab.tracks || []).map((t) => GH_TRACK_LABELS[t] || t).join(' · ');
   const run = [`🌐 [Interactive version](${siteUrl}) with your own values filled in`];
+  const video = findVideo(lines.join('\n'));
+  if (video) run.push(`🎬 [Video walkthrough](${siteUrl}#${video.id})`);
   if (lab.notebook) run.push(`📓 [Jupyter notebook](${encodeURIComponent(lab.notebook)})`);
   if (fs.existsSync(path.join(lab.dir, 'infra'))) run.push('📁 [Lab files](infra/)');
   const intro = [
@@ -245,7 +279,9 @@ export function syncLab(raw, { lab, labs, catalog, site }) {
     const inc = line.match(INCLUDE_RE);
     if (inc) { out.push(...includeRegion(lab.dir, inc[1], inc[2])); blankIfNext(i + 1); continue; }
     const widget = line.match(WIDGET_RE);
-    if (widget) { out.push(...widgetRegion(widget[1], siteUrl)); blankIfNext(i + 1); }
+    if (widget) { out.push(...widgetRegion(widget[1], siteUrl)); blankIfNext(i + 1); continue; }
+    const vid = line.match(VIDEO_RE);
+    if (vid) { out.push(...videoRegion(lab.dir, videoInfo(vid[1], vid[2]), siteUrl)); blankIfNext(i + 1); }
   }
 
   // Footer: previous / all labs / next, plus learning paths.

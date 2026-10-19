@@ -48,6 +48,7 @@ When the workspace is a clone of `Azure/ai-gateway`, read `labs/<slug>/README.md
 5. **Go one step at a time.** Each `###` heading in a track is a step. Run it, then compare the result with the
    **Checkpoint** that follows. `<!-- include: infra/<file> -->` means the step uses that file from the lab folder.
    `<!-- widget: … -->` marks an interactive simulator on the site, which you can skip.
+   `<!-- video: … -->` marks an optional narrated walkthrough; the steps in the text are complete without it.
 6. **Verify** with the lab's **Verify** section, and tell the user what you checked.
 7. **Clean up.** Labs create billable resources. Offer the lab's **Clean up** section, and delete only what this
    lab created, because later labs reuse the gateway and the model.

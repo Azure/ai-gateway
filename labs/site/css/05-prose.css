@@ -68,6 +68,8 @@ h2:hover > .anchor, h3:hover > .anchor, h4:hover > .anchor, .anchor:focus { opac
 .figure-svg { padding: 20px; border-radius: var(--radius-l); border: 1px solid var(--stroke); background: var(--dg-bg); overflow-x: auto; }
 .figure-svg svg { display: block; width: 100%; height: auto; min-width: 560px; }
 .figure-svg img { border: 0; box-shadow: none; }
+.figure-video video { aspect-ratio: 16 / 9; background: #070b1f; }
+.figure-video { scroll-margin-top: calc(var(--topbar-h) + 24px); }
 .figure figcaption { margin-top: 10px; font-size: 13.5px; color: var(--fg-3); text-align: center; line-height: 1.5; }
 .zoom { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: var(--radius-l); }
 .zoom:hover img { box-shadow: var(--shadow-l); }

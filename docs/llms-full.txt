@@ -272,6 +272,8 @@ governed entry point. Before anyone can publish a model, issue a key, or set a b
 itself. In this lab you create a shared AI Gateway, find its runtime URL and managed identity, and learn your
 way around the portal so you're ready for the rest of the labs.
 
+<!-- video: media/walkthrough.mp4 | Narrated walkthrough: create an AI Gateway in the portal and tour it (3 min) -->
+
 ![What provisioning creates: you choose a name, resource group, and region; Azure creates the connector gateway, the AI Gateway, and its managed identity; you get a runtime URL, a default workspace, and the portal](../assets/diagrams/provisioning.svg "One gateway per environment is the usual starting point. Every later lab publishes models, tools, keys, and policies on it.")
 
 ## Before you begin

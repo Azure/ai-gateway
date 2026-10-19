@@ -458,7 +458,8 @@ export function labPage({ rel, site, catalog, labs, lab, html, toc, prev, next }
       </div>
       <div class="lab-actions">
         <button class="btn btn-secondary btn-sm" type="button" data-values-open>${I.sliders}Your values</button>
-        <button class="btn btn-ghost btn-sm" type="button" data-copy-md="index.md">${I.markdown}Copy as Markdown</button>${notebookUrl ? `
+        <button class="btn btn-ghost btn-sm" type="button" data-copy-md="index.md">${I.markdown}Copy as Markdown</button>${lab.video ? `
+        <a class="btn btn-ghost btn-sm" href="#${lab.video.id}" title="${esc(lab.video.title)}">${I.play}Watch video</a>` : ''}${notebookUrl ? `
         <a class="btn btn-ghost btn-sm" href="${notebookUrl}" target="_blank" rel="noopener" title="Run this lab end to end in Jupyter">${I.notebook}Notebook</a>` : ''}
         <a class="btn btn-ghost btn-sm" href="${srcUrl}" target="_blank" rel="noopener">${I.github}Source</a>
         <a class="btn btn-ghost btn-sm" href="${editUrl}" target="_blank" rel="noopener">${I.edit}Edit</a>

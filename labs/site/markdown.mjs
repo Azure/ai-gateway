@@ -9,6 +9,7 @@
 //   <!-- steps --> ... <!-- /steps -->  turns H3 headings in the region into numbered steps
 //   <!-- include: infra/main.bicep -->  inlines a file from the lab folder as a code viewer
 //   <!-- widget: name {"json":1} -->    mounts an interactive widget from site.js
+//   <!-- video: media/x.mp4 | Title --> video player; media/x.jpg is the poster, media/x.vtt the captions
 //   > [!NOTE|TIP|IMPORTANT|WARNING|CAUTION]  GitHub alerts become callouts
 //   > **Checkpoint** ...                becomes a checkpoint callout
 //   ```bash title="Bash"                titled code blocks; adjacent titled blocks become tabs
@@ -16,7 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Marked } from 'marked';
 import { createHighlighter } from 'shiki';
-import { stripGitHub } from './github.mjs';
+import { stripGitHub, videoInfo } from './github.mjs';
 
 const LANGS = ['bash', 'shellscript', 'powershell', 'python', 'json', 'jsonc', 'typescript', 'javascript',
   'csharp', 'yaml', 'http', 'bicep', 'kusto', 'text', 'dotenv', 'toml', 'markdown', 'html', 'css', 'xml', 'sql'];
@@ -249,6 +250,16 @@ export async function renderLab(markdown, ctx) {
   // widgets
   src = src.replace(/<!--\s*widget:\s*([\w-]+)\s*(\{[\s\S]*?\})?\s*-->/g, (_, name, json) =>
     `<div class="widget" data-widget="${name}"${json ? ` data-config='${json.replace(/'/g, '&#39;')}'` : ''}></div>`);
+
+  // videos
+  src = src.replace(/^<!--\s*video:\s*(\S+)\s*(?:\|\s*([^>]*?))?\s*-->[ \t]*$/gm, (_, file, title) => {
+    const v = videoInfo(file, title);
+    const has = (f) => fs.existsSync(path.resolve(ctx.labDir, f));
+    const poster = has(v.poster) ? ` poster="${ctx.resolveAsset(v.poster)}"` : '';
+    const track = has(v.captions) ? `<track kind="captions" src="${ctx.resolveAsset(v.captions)}" srclang="en" label="English">` : '';
+    return `<figure class="figure figure-video" id="${v.id}"><video controls playsinline preload="none"${poster} aria-label="${escapeHtml(v.title)}">`
+      + `<source src="${ctx.resolveAsset(v.file)}" type="${v.type}">${track}</video><figcaption>${escapeHtml(v.title)}</figcaption></figure>`;
+  });
 
   // Split into segments by track / steps markers
   const markerRe = /<!--\s*(track:\s*([\w-]+)\s*(?:\|\s*([^>]*?))?|\/tracks|steps|\/steps)\s*-->/g;

@@ -51,11 +51,12 @@ each README, so the lab reads well on github.com:
 | Generated | What readers see on GitHub |
 |---|---|
 | `nav` region above the H1 | Breadcrumb back to the lab catalog and the lab's category |
-| `intro` region below the H1 | Summary, a time, level, tracks, and prerequisites table, the objectives, links to the interactive version, the notebook, and `infra/`, and an **On this page** list of the H2 sections |
+| `intro` region below the H1 | Summary, a time, level, tracks, and prerequisites table, the objectives, links to the interactive version, the video walkthrough, the notebook, and `infra/`, and an **On this page** list of the H2 sections |
 | `<details>` lines around tracks | Each track becomes a collapsible section; the first one is open |
 | `<details>` lines around titled code blocks | Bash/PowerShell (and other) tab groups become collapsible sections |
 | `include` region after `<!-- include: … -->` | The included file's code, with a link to the file; files over 28 lines are collapsed |
 | `widget` region after `<!-- widget: … -->` | A pointer to the interactive simulator on the site |
+| `video` region after `<!-- video: … -->` | A poster image that opens the video on the site, plus links to the MP4 and captions |
 | `footer` region at the end | Previous lab, all labs, next lab, and the learning paths that contain the lab |
 
 It also refreshes the `badges`, `paths`, `catalog`, and `notebooks` regions of [`labs/README.md`](README.md), and
@@ -174,6 +175,21 @@ never put essential instructions in a widget).
 | `budget` | Cost-limit simulator with per-key overrides | `{"amount":5,"period":"day"}` |
 | `alias-retarget` | Retarget an alias between backend models without client changes | none |
 | `policy-layers` | Which gateway and asset policies apply to a request | none |
+
+### Videos
+
+`<!-- video: media/walkthrough.mp4 | Caption -->` embeds a narrated video. Put three files with the same
+name in the lab's `media/` folder:
+
+| File | Purpose |
+|---|---|
+| `walkthrough.mp4` | H.264 and AAC, 1920×1080, under about 40 MB |
+| `walkthrough.vtt` | WebVTT captions, shown by the player's captions button |
+| `walkthrough.jpg` | Poster, 16:9, with a play button drawn on it (GitHub shows it as a link) |
+
+The site shows a player with captions and a **Watch video** button in the lab header. GitHub can't play MP4s
+in a README, so the GitHub view shows the poster linked to the site player, plus download and captions links.
+Keep the video optional: every step it shows must also be written in the lab.
 
 ## Writing style
 

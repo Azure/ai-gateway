@@ -9,7 +9,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { initHighlighter, renderLab, escapeHtml } from './site/markdown.mjs';
-import { parseLab, stripGitHub, syncLab, syncIndex, syncSkill } from './site/github.mjs';
+import { parseLab, stripGitHub, syncLab, syncIndex, syncSkill, findVideo } from './site/github.mjs';
 import { layout, homePage, catalogPage, labPage, notFoundPage } from './site/templates.mjs';
 
 const LABS = path.dirname(fileURLToPath(import.meta.url));
@@ -98,6 +98,7 @@ function loadLabs(catalog) {
       paths: catalog.paths.filter((p) => p.labs.includes(slug)).map((p) => p.id),
       updated: gitUpdated(path.join(LABS, slug)),
       notebook,
+      video: findVideo(content),
       source,
       raw: `---\n${meta}\n---\n\n${content}`,
       content,
