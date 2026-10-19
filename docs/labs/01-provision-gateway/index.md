@@ -297,8 +297,8 @@ Expected output (trimmed):
 ### Call the runtime URL
 
 Read the host name from the gateway rather than building it yourself, then send a request without a key. Any
-HTTP status, such as `400` or `401`, proves that DNS, TLS, and the gateway are up. You add a model and a key in
-the next lab.
+HTTP status proves that DNS, TLS, and the gateway are up. A new gateway with no models answers `404`; after you
+add a model and a key in the next lab, a call without a key gets `400` or `401`.
 
 ```bash title="Bash"
 export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"

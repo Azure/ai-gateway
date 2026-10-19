@@ -29,10 +29,11 @@ Learn MCP server, so agents get tools through the same front door they already u
 ## Before you begin
 
 - Complete [Provision your AI Gateway](../01-provision-gateway/README.md).
-- A runtime API key. If you don't have one yet, create it in the portal under **Access** › **Keys**, or, after
-  you set the variables below, run `az rest --method put --url "$GW/apiKeys/labs-tools?$API" --body '{"properties":{}}'`
+- A runtime API key, for example `app-first-call` from [lab 02](../02-first-model-call/README.md). If you don't have
+  one yet, create it in the portal under **Access** › **Keys**, or, after
+  you set the variables below, run `az rest --method put --url "$GW/apiKeys/app-first-call?$API" --body '{"properties":{}}'`
   and read its value with
-  `az rest --method post --url "$GW/apiKeys/labs-tools/listSecrets?$API" --query primaryKey -o tsv`.
+  `az rest --method post --url "$GW/apiKeys/app-first-call/listSecrets?$API" --query primaryKey -o tsv`.
 - For the CLI and IaC tracks: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or
   later, signed in with `az login`, plus `jq` for the Bash snippets. The CLI track calls the Azure Resource
   Manager REST API with `az rest`, because the `az aigateway` extension doesn't manage the new `aigateways`

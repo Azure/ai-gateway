@@ -386,6 +386,7 @@ steps. Find your calls by time and compare the allowed call with the key-only ca
   az rest --method patch --url "$TS_URL`?$API" --body "@policies.json" --query properties.policies
   Remove-Item policies.json
   ```
+
 - **Govern servers centrally.** [Govern MCP servers with Agent 365](../20-agent-365-governance/README.md) adds
   inventory and blocking from the Microsoft 365 admin center on top of this policy.
 

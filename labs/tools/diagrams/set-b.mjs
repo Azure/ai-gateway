@@ -140,14 +140,14 @@ export const threatProtection = () => svgDoc('threat-protection', {
 
 export const tokenLimits = () => svgDoc('token-limits', {
   title: 'Token limits give each caller its own allowance',
-  desc: 'A token limit of 1,000 tokens per minute with the Caller identity counter keeps a separate counter for each caller. App A and the batch job are under the limit and get 200 with a remaining-tokens header. App B exhausted its counter and gets 429 with Retry-After, without the backend being called.',
+  desc: 'A token limit of 1,000 tokens per minute with the Caller identity counter keeps a separate counter for each caller. App A and the batch job are under the limit, so their requests are forwarded to the model and get 200. App B exhausted its counter and gets 429 with Retry-After, without the backend being called.',
   h: 410,
   body: () => {
     let o = zone(16, 20, 210, 340, 'Callers', { ic: 'users', tone: 'azure' });
     o += zone(260, 20, 440, 340, 'AI Gateway', { gw: true, ic: 'sparkle' });
     o += box(276, 56, 408, 64, { t: 'Token limit · 1,000 tokens per minute', s: 'Counter dimension: Caller identity', icon: 'gauge', accent: true });
     o += zone(734, 20, 210, 340, 'Responses', { ic: 'doc', tone: 'green' });
-    const rows = [['app', 'App A', 420, 'green', '200 OK', 'remaining-tokens: 580'], ['app', 'App B', 1000, 'red', '429 Too Many', 'Retry-After: 18'], ['server', 'Batch job', 760, 'amber', '200 OK', 'remaining-tokens: 240']];
+    const rows = [['app', 'App A', 420, 'green', '200 OK', 'Forwarded to model'], ['app', 'App B', 1000, 'red', '429 Too Many', 'Retry-After: 18'], ['server', 'Batch job', 760, 'amber', '200 OK', 'Forwarded to model']];
     rows.forEach(([ic, n, used, tone, st, hdr], i) => {
       const y = 140 + i * 72;
       o += box(28, y, 186, 56, { t: n, s: i === 2 ? 'Managed identity' : 'API key', icon: ic, tone: 'azure' });

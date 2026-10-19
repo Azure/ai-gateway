@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 // Builds the Azure AI Gateway Labs site from labs/<NN-slug>/README.md into ../docs (GitHub Pages).
-//   node build.mjs           build once
+//   node build.mjs           sync the GitHub chrome of the lab READMEs, then build once
+//   node build.mjs --sync    only sync the lab READMEs and labs/README.md (see site/github.mjs)
+//   node build.mjs --strict  build without writing sources; fail on warnings, including out-of-sync READMEs
 //   node build.mjs --watch   rebuild on change
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import matter from 'gray-matter';
 import { initHighlighter, renderLab, escapeHtml } from './site/markdown.mjs';
+import { parseLab, stripGitHub, syncLab, syncIndex } from './site/github.mjs';
 import { layout, homePage, catalogPage, labPage, notFoundPage } from './site/templates.mjs';
 
 const LABS = path.dirname(fileURLToPath(import.meta.url));
@@ -76,8 +78,10 @@ function loadLabs(catalog) {
     .map((d) => d.name);
   const cats = new Set(catalog.categories.map((c) => c.id));
   const labs = dirs.map((slug) => {
-    const raw = fs.readFileSync(path.join(LABS, slug, 'README.md'), 'utf8');
-    const { data, content } = matter(raw);
+    const source = fs.readFileSync(path.join(LABS, slug, 'README.md'), 'utf8');
+    const { data, matter: meta, body } = parseLab(source);
+    const content = stripGitHub(body);
+    const notebook = fs.readdirSync(path.join(LABS, slug)).filter((f) => f.endsWith('.ipynb')).sort()[0] || null;
     for (const k of REQUIRED) if (data[k] == null) warn(`${slug}: missing front matter "${k}"`);
     if (data.category && !cats.has(data.category)) warn(`${slug}: unknown category "${data.category}"`);
     return {
@@ -91,7 +95,9 @@ function loadLabs(catalog) {
       order: data.order ?? Number(slug.slice(0, 2)),
       paths: catalog.paths.filter((p) => p.labs.includes(slug)).map((p) => p.id),
       updated: gitUpdated(path.join(LABS, slug)),
-      raw,
+      notebook,
+      source,
+      raw: `---\n${meta}\n---\n\n${content}`,
       content,
       dir: path.join(LABS, slug),
     };
@@ -166,7 +172,32 @@ function checkAnchors(lab, html, allHtml) {
   }
 }
 
-export async function build() {
+// Regenerates the GitHub-only chrome in the lab READMEs and labs/README.md. With check=true, reports stale
+// files as warnings instead of writing them.
+function syncSources(labs, catalog, { check = false } = {}) {
+  const site = catalog.site;
+  const stale = [];
+  for (const lab of labs) {
+    const file = path.join(lab.dir, 'README.md');
+    const next = syncLab(lab.source, { lab, labs, catalog, site });
+    if (next === lab.source) continue;
+    stale.push(path.relative(ROOT, file));
+    if (!check) { fs.writeFileSync(file, next); lab.source = next; }
+  }
+  const indexFile = path.join(LABS, 'README.md');
+  const index = fs.readFileSync(indexFile, 'utf8');
+  const { text, missing } = syncIndex(index, { labs, catalog });
+  for (const m of missing) warn(`labs/README.md: missing generated region "<!-- gh:begin ${m} -->"`);
+  if (text !== index) {
+    stale.push(path.relative(ROOT, indexFile));
+    if (!check) fs.writeFileSync(indexFile, text);
+  }
+  if (check) for (const f of stale) warn(`${f} is out of sync with its metadata; run "npm run sync"`);
+  else if (stale.length) console.log(`Synced ${stale.length} file(s): ${stale.join(', ')}`);
+  return stale;
+}
+
+export async function build({ strict = false } = {}) {
   const t0 = Date.now();
   warnings.length = 0;
   svgCounter = 0;
@@ -174,6 +205,7 @@ export async function build() {
   const site = { ...catalog.site, baseUrl: BASE_URL };
   const labs = loadLabs(catalog);
   const known = new Set(labs.map((l) => l.slug));
+  syncSources(labs, catalog, { check: strict });
   rmGenerated();
 
   // Static assets
@@ -259,9 +291,16 @@ export async function build() {
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
+  if (process.argv.includes('--sync')) {
+    const catalog = JSON.parse(fs.readFileSync(path.join(LABS, 'catalog.json'), 'utf8'));
+    const stale = syncSources(loadLabs(catalog), catalog);
+    if (!stale.length) console.log('Lab READMEs are in sync.');
+    for (const w of warnings) console.warn(`  - ${w}`);
+    process.exit(warnings.length ? 1 : 0);
+  }
   await initHighlighter();
   const strict = process.argv.includes('--strict');
-  const result = await build();
+  const result = await build({ strict });
   if (strict && result.warnings.length) process.exitCode = 1;
   if (process.argv.includes('--watch')) {
     let timer;
@@ -269,7 +308,7 @@ if (isMain) {
     fs.watch(LABS, { recursive: true }, (_, file) => {
       if (!file || file.includes('node_modules') || file.startsWith('.')) return;
       clearTimeout(timer);
-      timer = setTimeout(() => build().catch((e) => console.error(e.message)), 150);
+      timer = setTimeout(() => build({ strict }).catch((e) => console.error(e.message)), 150);
     });
   }
 }

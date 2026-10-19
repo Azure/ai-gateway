@@ -7,6 +7,7 @@
   "scripts": {
     "build": "node build.mjs",
     "check": "node build.mjs --strict",
+    "sync": "node build.mjs --sync",
     "serve": "node tools/serve.mjs 4173",
     "watch": "node build.mjs --watch",
     "diagrams": "node tools/diagrams.mjs",

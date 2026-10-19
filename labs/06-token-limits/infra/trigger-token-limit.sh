@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Sends a burst of chat completions through AI Gateway and prints the status code,
-# the remaining-tokens header, and Retry-After so you can watch a token limit engage.
+# Sends a burst of chat completions through AI Gateway and prints the status code, Retry-After, the tokens
+# each call used, and the backend deployment's own x-ratelimit-remaining-tokens header, so you can watch a
+# gateway token limit engage while the backend still has capacity.
 #
 # Usage:
 #   export AI_GATEWAY_URL="https://<gateway>.eastus2-01.ai.gateway.azure.com"
@@ -20,15 +21,15 @@ BODY=$(cat <<EOF
 EOF
 )
 
-printf '%-8s %-7s %-18s %-12s %s\n' "Request" "Status" "remaining-tokens" "Retry-After" "Tokens used"
+printf '%-8s %-7s %-12s %-12s %s\n' "Request" "Status" "Retry-After" "Tokens used" "Backend tokens left"
 for i in $(seq 1 "$REQUESTS"); do
   headers=$(mktemp)
   response=$(curl -sS -D "$headers" -o - "$URL" \
     -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" -d "$BODY")
   status=$(awk 'toupper($1) ~ /^HTTP/ {code=$2} END {print code}' "$headers")
-  remaining=$(awk -F': ' 'tolower($1)=="remaining-tokens" {gsub("\r","",$2); print $2}' "$headers")
+  backend=$(awk -F': ' 'tolower($1)=="x-ratelimit-remaining-tokens" {gsub("\r","",$2); print $2}' "$headers")
   retry=$(awk -F': ' 'tolower($1)=="retry-after" {gsub("\r","",$2); print $2}' "$headers")
   used=$(printf '%s' "$response" | sed -n 's/.*"total_tokens":[[:space:]]*\([0-9]*\).*/\1/p')
-  printf '%-8s %-7s %-18s %-12s %s\n' "$i" "$status" "${remaining:--}" "${retry:--}" "${used:--}"
+  printf '%-8s %-7s %-12s %-12s %s\n' "$i" "$status" "${retry:--}" "${used:--}" "${backend:--}"
   rm -f "$headers"
 done

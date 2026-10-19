@@ -799,7 +799,7 @@ function quotaWidget(el, cfg, mode) {
       row = M.budget
         ? { code: 200, msg: `${c.name} · ${M.fmt(v)} <small>estimated cost</small>`, hdr: `Remaining budget ${M.fmt(left)}${u + v > lim ? ` · overshoot ${M.fmt(u + v - lim)}` : ''}` }
         : mode === 'token-limit'
-          ? { code: 200, msg: `${c.name} · ${M.fmt(v)} <small>tokens</small>`, hdr: `remaining-tokens: ${M.fmt(left)}` }
+          ? { code: 200, msg: `${c.name} · ${M.fmt(v)} <small>tokens</small>`, hdr: `${M.fmt(left)} tokens left this period` }
           : { code: 200, msg: `${c.name} · 1 call <small>${M.fmt(u + 1)} of ${M.fmt(lim)} this period</small>`, hdr: '' };
     }
     log.unshift(row); log = log.slice(0, 30);

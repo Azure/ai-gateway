@@ -1,5 +1,8 @@
 // Converts GitHub-friendly lab Markdown into rich lab HTML.
 //
+// The lab README is the single source of truth. Generated GitHub-only chrome (<!-- gh:begin --> regions and
+// lines ending in <!-- gh -->, see github.mjs) is stripped before rendering, so the site never shows it.
+//
 // Conventions (all degrade gracefully on github.com):
 //   <!-- track: portal | Portal -->     starts a track panel; consecutive tracks form one tab group
 //   <!-- /tracks -->                    ends the current track group
@@ -13,6 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Marked } from 'marked';
 import { createHighlighter } from 'shiki';
+import { stripGitHub } from './github.mjs';
 
 const LANGS = ['bash', 'shellscript', 'powershell', 'python', 'json', 'jsonc', 'typescript', 'javascript',
   'csharp', 'yaml', 'http', 'bicep', 'kusto', 'text', 'dotenv', 'toml', 'markdown', 'html', 'css', 'xml', 'sql'];
@@ -233,7 +237,7 @@ export { TRACK_ICONS };
 export async function renderLab(markdown, ctx) {
   ctx.toc = [];
   // includes
-  let src = markdown.replace(/<!--\s*include:\s*([^\s]+)(?:\s+(\S+))?\s*-->/g, (_, file, langOverride) => {
+  let src = stripGitHub(markdown).replace(/<!--\s*include:\s*([^\s]+)(?:\s+(\S+))?\s*-->/g, (_, file, langOverride) => {
     const abs = path.join(ctx.labDir, file);
     if (!fs.existsSync(abs)) throw new Error(`include not found: ${abs}`);
     const ext = path.extname(file).slice(1);

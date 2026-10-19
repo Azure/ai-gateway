@@ -8,6 +8,7 @@ export const I = {
   moon: P('<path d="M16.5 12.2A6.8 6.8 0 0 1 7.8 3.5a6.8 6.8 0 1 0 8.7 8.7Z"/>'),
   github: '<svg class="i i-fill" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.22 1.88.87 2.34.66.07-.52.28-.87.5-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"/></svg>',
   clock: P('<circle cx="10" cy="10" r="7.5"/><path d="M10 5.5V10l3 2"/>'),
+  notebook: P('<rect x="4.5" y="2.5" width="12" height="15" rx="2"/><path d="M3 6h3M3 10h3M3 14h3M9 7h4.5M9 10.5h4.5"/>'),
   level: P('<path d="M4 16v-3M10 16V9M16 16V4"/>'),
   arrowR: P('<path d="M4 10h12M11.5 5.5 16 10l-4.5 4.5"/>'),
   arrowL: P('<path d="M16 10H4M8.5 5.5 4 10l4.5 4.5"/>'),
@@ -424,6 +425,7 @@ export function labPage({ rel, site, catalog, labs, lab, html, toc, prev, next }
   const prereqs = (lab.prereqs || []).map((s) => byId[s]).filter(Boolean);
   const editUrl = `${site.repo}/edit/${site.branch}/labs/${lab.slug}/README.md`;
   const srcUrl = `${site.repo}/tree/${site.branch}/labs/${lab.slug}`;
+  const notebookUrl = lab.notebook ? `${site.repo}/blob/${site.branch}/labs/${lab.slug}/${encodeURIComponent(lab.notebook)}` : '';
   const updated = lab.updated ? new Date(lab.updated) : null;
   const updatedText = updated ? updated.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
 
@@ -456,7 +458,8 @@ export function labPage({ rel, site, catalog, labs, lab, html, toc, prev, next }
       </div>
       <div class="lab-actions">
         <button class="btn btn-secondary btn-sm" type="button" data-values-open>${I.sliders}Your values</button>
-        <button class="btn btn-ghost btn-sm" type="button" data-copy-md="index.md">${I.markdown}Copy as Markdown</button>
+        <button class="btn btn-ghost btn-sm" type="button" data-copy-md="index.md">${I.markdown}Copy as Markdown</button>${notebookUrl ? `
+        <a class="btn btn-ghost btn-sm" href="${notebookUrl}" target="_blank" rel="noopener" title="Run this lab end to end in Jupyter">${I.notebook}Notebook</a>` : ''}
         <a class="btn btn-ghost btn-sm" href="${srcUrl}" target="_blank" rel="noopener">${I.github}Source</a>
         <a class="btn btn-ghost btn-sm" href="${editUrl}" target="_blank" rel="noopener">${I.edit}Edit</a>
       </div>

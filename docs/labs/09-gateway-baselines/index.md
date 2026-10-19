@@ -140,7 +140,7 @@ On the **Details** step (**Configure** in some portal versions), under **Paramet
 |---|---|
 | **Time period** | **Per minute** |
 | **Allowed tokens** | `100000` |
-| **Counter dimensions** | **Identity** |
+| **Counter dimensions** | **Caller identity** |
 
 Select **Create**.
 
@@ -152,7 +152,7 @@ Select **Add policy** again. Select **Request rate limit**, then **Gateway** sco
 |---|---|
 | **Calls** | `600` |
 | **Renewal period** | **60 seconds** |
-| **Counter dimensions** | **Identity** |
+| **Counter dimensions** | **Caller identity** |
 
 Select **Create**.
 

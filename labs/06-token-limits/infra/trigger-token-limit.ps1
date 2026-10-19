@@ -1,5 +1,6 @@
-# Sends a burst of chat completions through AI Gateway and prints the status code,
-# the remaining-tokens header, and Retry-After so you can watch a token limit engage.
+# Sends a burst of chat completions through AI Gateway and prints the status code, Retry-After, the tokens
+# each call used, and the backend deployment's own x-ratelimit-remaining-tokens header, so you can watch a
+# gateway token limit engage while the backend still has capacity.
 #
 # Usage:
 #   $env:AI_GATEWAY_URL = "https://<gateway>.eastus2-01.ai.gateway.azure.com"
@@ -27,8 +28,8 @@ $body = @{
   [pscustomobject]@{
     Request           = $_
     Status            = $r.StatusCode
-    'remaining-tokens' = ($r.Headers['remaining-tokens'] | Select-Object -First 1) ?? '-'
-    'Retry-After'      = ($r.Headers['Retry-After'] | Select-Object -First 1) ?? '-'
-    'Tokens used'      = $used
+    'Retry-After'         = ($r.Headers['Retry-After'] | Select-Object -First 1) ?? '-'
+    'Tokens used'         = $used
+    'Backend tokens left' = ($r.Headers['x-ratelimit-remaining-tokens'] | Select-Object -First 1) ?? '-'
   }
 } | Format-Table -AutoSize

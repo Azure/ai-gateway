@@ -141,13 +141,13 @@ On the **Details** step, under **Parameters**, set:
 |---|---|
 | **Budget amount** | `5` (US dollars) |
 | **Renewal period** | **Daily** |
-| **Counter dimensions** | **Identity** |
+| **Counter dimensions** | **Caller identity** |
 
 Select **Next**.
 
 > [!NOTE]
-> **Identity** gives each API key, and each Entra caller, its own counter. If you select no dimension, every
-> caller shares one counter for the policy. **IP address** can't be combined with overrides: the portal asks
+> **Caller identity** gives each API key, and each Entra caller, its own counter. If you select no dimension, every
+> caller shares one counter for the policy. **Caller IP address** can't be combined with overrides: the portal asks
 > you to remove all overrides or switch to caller identity before saving.
 
 ### Give an API key a bigger budget
@@ -393,7 +393,7 @@ Keep the gateway, model, and keys. The next labs reuse them.
 | Every request returns `200`, never `403` | The cost limit is on a different model than the alias you call, your key has an override, or the model is so cheap that the calls haven't reached the budget | Check **Applies to** on the policy details page, use a key without an override, and lower the budget to `0.001` or send more requests. |
 | `403` `LlmCostQuotaExceeded` on the first request | The key already spent more than the new amount in this period (spend is kept when you edit), or a **Gateway** scope cost limit is exhausted | Review every **Cost limit** in **Policies**. Raise the amount, or wait for the next renewal period. |
 | An Entra override doesn't apply | An earlier override matched first, the caller used an API key, or you entered a service principal's application ID | Remove the earlier override and add them again in the order you want. Call with an Entra token. Use the service principal's **object ID**. |
-| **IP address** can't be selected in **Counter dimensions** | The policy has overrides | Remove all overrides, or keep **Identity**. |
+| **Caller IP address** can't be selected in **Counter dimensions** | The policy has overrides | Remove all overrides, or keep **Caller identity**. |
 | `429` instead of `403` | A **Token rate limit** or **Request rate limit** blocked the call, or the backend ran out of capacity | See [Throttle tokens per caller with token limits](../06-token-limits/README.md). |
 | Other policies vanished after the REST call | `PATCH` replaces the whole `policies` array | Always `GET`, merge, then `PATCH`, as shown in the REST track. |
 | `ValidationError` with target `counterKey` | `counterKey` is a string such as `"Identity"`, or it's missing | Send an array, for example `"counterKey": ["identity"]`. A cost limit always needs `counterKey`. |

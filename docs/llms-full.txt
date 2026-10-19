@@ -546,8 +546,8 @@ Expected output (trimmed):
 ### Call the runtime URL
 
 Read the host name from the gateway rather than building it yourself, then send a request without a key. Any
-HTTP status, such as `400` or `401`, proves that DNS, TLS, and the gateway are up. You add a model and a key in
-the next lab.
+HTTP status proves that DNS, TLS, and the gateway are up. A new gateway with no models answers `404`; after you
+add a model and a key in the next lab, a call without a key gets `400` or `401`.
 
 ```bash title="Bash"
 export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
@@ -780,7 +780,7 @@ unchanged to Foundry. The response comes back as is, and the gateway records tok
 
 | Step | What happens | Where you set it |
 |---|---|---|
-| Inbound authentication | The `api-key` header must hold an active runtime key, or the call fails with `401` | **Access** › **Keys** |
+| Inbound authentication | An active runtime key in the `api-key` header, or as `Authorization: Bearer <key>` (what the OpenAI SDKs send), or the call fails with `401` | **Access** › **Keys** |
 | Routing | `/default/models/openai/v1/chat/completions` or `/responses`, and `model` must equal an alias | Model details and its **Aliases** tab |
 | Policies | Token limits, cost limits, and content safety run before the backend call | **Policies** (labs 06–09) |
 | Backend authentication | The gateway's managed identity, with the **Foundry User** role on the account | Model provider |
@@ -2015,10 +2015,11 @@ Learn MCP server, so agents get tools through the same front door they already u
 ## Before you begin
 
 - Complete [Provision your AI Gateway](../01-provision-gateway/README.md).
-- A runtime API key. If you don't have one yet, create it in the portal under **Access** › **Keys**, or, after
-  you set the variables below, run `az rest --method put --url "$GW/apiKeys/labs-tools?$API" --body '{"properties":{}}'`
+- A runtime API key, for example `app-first-call` from [lab 02](../02-first-model-call/README.md). If you don't have
+  one yet, create it in the portal under **Access** › **Keys**, or, after
+  you set the variables below, run `az rest --method put --url "$GW/apiKeys/app-first-call?$API" --body '{"properties":{}}'`
   and read its value with
-  `az rest --method post --url "$GW/apiKeys/labs-tools/listSecrets?$API" --query primaryKey -o tsv`.
+  `az rest --method post --url "$GW/apiKeys/app-first-call/listSecrets?$API" --query primaryKey -o tsv`.
 - For the CLI and IaC tracks: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or
   later, signed in with `az login`, plus `jq` for the Bash snippets. The CLI track calls the Azure Resource
   Manager REST API with `az rest`, because the `az aigateway` extension doesn't manage the new `aigateways`
@@ -2726,9 +2727,9 @@ On the **Details** step (**Configure** in some portal versions), under **Paramet
 |---|---|
 | **Calls** | `5` |
 | **Renewal period** | **30 seconds** |
-| **Counter dimensions** | **Identity** |
+| **Counter dimensions** | **Caller identity** |
 
-The other renewal periods are **60 seconds**, **2 minutes**, and **5 minutes**. **Identity** gives each API
+The other renewal periods are **60 seconds**, **2 minutes**, and **5 minutes**. **Caller identity** gives each API
 key, and each Entra caller, its own counter. If you select no counter dimension, all callers share one
 counter. Select **Create**.
 
@@ -3243,8 +3244,8 @@ three or four succeed, and then the gateway starts answering `429`.
 
 ### Run the burst
 
-From the lab folder, run the script for your shell. It prints the status, the `remaining-tokens` header, and
-`Retry-After` for each request.
+From the lab folder, run the script for your shell. For each request it prints the status, `Retry-After`, the
+tokens used, and the backend deployment's own `x-ratelimit-remaining-tokens` header.
 
 ```bash title="Bash"
 ./infra/trigger-token-limit.sh "$AI_GATEWAY_MODEL" 8
@@ -3260,13 +3261,21 @@ On GitHub, open [trigger-token-limit.sh](infra/trigger-token-limit.sh) or
 Expected output (your token counts will differ):
 
 ```text
-Request  Status  remaining-tokens   Retry-After  Tokens used
-1        200     713                -            287
-2        200     431                -            282
-3        200     146                -            285
-4        429     0                  41           -
-5        429     0                  40           -
+Request  Status  Retry-After  Tokens used  Backend tokens left
+1        200     -            287          9720
+2        200     -            282          9440
+3        200     -            285          9160
+4        429     41           -            -
+5        429     40           -            -
 ```
+
+The gateway stops this caller after about 1,000 tokens, while the backend deployment still has most of its
+capacity left: that's the point of a per-caller limit. The gateway doesn't add its own remaining-tokens header, so
+watch the status and `Retry-After`.
+
+> [!NOTE]
+> A new or changed policy can take up to a minute to apply. If every request returns `200`, wait a minute and
+> run the burst again.
 
 ### Inspect one throttled response
 
@@ -3537,13 +3546,13 @@ On the **Details** step, under **Parameters**, set:
 |---|---|
 | **Budget amount** | `5` (US dollars) |
 | **Renewal period** | **Daily** |
-| **Counter dimensions** | **Identity** |
+| **Counter dimensions** | **Caller identity** |
 
 Select **Next**.
 
 > [!NOTE]
-> **Identity** gives each API key, and each Entra caller, its own counter. If you select no dimension, every
-> caller shares one counter for the policy. **IP address** can't be combined with overrides: the portal asks
+> **Caller identity** gives each API key, and each Entra caller, its own counter. If you select no dimension, every
+> caller shares one counter for the policy. **Caller IP address** can't be combined with overrides: the portal asks
 > you to remove all overrides or switch to caller identity before saving.
 
 ### Give an API key a bigger budget
@@ -3789,7 +3798,7 @@ Keep the gateway, model, and keys. The next labs reuse them.
 | Every request returns `200`, never `403` | The cost limit is on a different model than the alias you call, your key has an override, or the model is so cheap that the calls haven't reached the budget | Check **Applies to** on the policy details page, use a key without an override, and lower the budget to `0.001` or send more requests. |
 | `403` `LlmCostQuotaExceeded` on the first request | The key already spent more than the new amount in this period (spend is kept when you edit), or a **Gateway** scope cost limit is exhausted | Review every **Cost limit** in **Policies**. Raise the amount, or wait for the next renewal period. |
 | An Entra override doesn't apply | An earlier override matched first, the caller used an API key, or you entered a service principal's application ID | Remove the earlier override and add them again in the order you want. Call with an Entra token. Use the service principal's **object ID**. |
-| **IP address** can't be selected in **Counter dimensions** | The policy has overrides | Remove all overrides, or keep **Identity**. |
+| **Caller IP address** can't be selected in **Counter dimensions** | The policy has overrides | Remove all overrides, or keep **Caller identity**. |
 | `429` instead of `403` | A **Token rate limit** or **Request rate limit** blocked the call, or the backend ran out of capacity | See [Throttle tokens per caller with token limits](../06-token-limits/README.md). |
 | Other policies vanished after the REST call | `PATCH` replaces the whole `policies` array | Always `GET`, merge, then `PATCH`, as shown in the REST track. |
 | `ValidationError` with target `counterKey` | `counterKey` is a string such as `"Identity"`, or it's missing | Send an array, for example `"counterKey": ["identity"]`. A cost limit always needs `counterKey`. |
@@ -4334,7 +4343,7 @@ On the **Details** step (**Configure** in some portal versions), under **Paramet
 |---|---|
 | **Time period** | **Per minute** |
 | **Allowed tokens** | `100000` |
-| **Counter dimensions** | **Identity** |
+| **Counter dimensions** | **Caller identity** |
 
 Select **Create**.
 
@@ -4346,7 +4355,7 @@ Select **Add policy** again. Select **Request rate limit**, then **Gateway** sco
 |---|---|
 | **Calls** | `600` |
 | **Renewal period** | **60 seconds** |
-| **Counter dimensions** | **Identity** |
+| **Counter dimensions** | **Caller identity** |
 
 Select **Create**.
 
@@ -5781,7 +5790,7 @@ to apply, and confirm the call returns `200`.
 - **Run without a user.** Deploy the Python sample to an Azure service with a managed identity, assign the
   role to that identity's principal ID, and the same code runs with app-only tokens for the `.default` scope.
   Agent identities work the same way.
-- **Budget per person.** Add a cost limit with **Identity** as the counter dimension and an override for one Entra identity in
+- **Budget per person.** Add a cost limit with **Caller identity** as the counter dimension and an override for one Entra identity in
   [Enforce cost budgets](../07-cost-budgets/README.md). Each `tid` and `oid` pair gets its own budget.
 - **See who called.** In **Monitoring** › **Settings**, **Token claim attributes** exports claims such as
   `tid`, `oid`, `appid`, and `azp` as `azure.ai_gateway.identity.claims.<claim>` attributes on logs, traces,
@@ -9937,6 +9946,7 @@ steps. Find your calls by time and compare the allowed call with the key-only ca
   az rest --method patch --url "$TS_URL`?$API" --body "@policies.json" --query properties.policies
   Remove-Item policies.json
   ```
+
 - **Govern servers centrally.** [Govern MCP servers with Agent 365](../20-agent-365-governance/README.md) adds
   inventory and blocking from the Microsoft 365 admin center on top of this policy.
 

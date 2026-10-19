@@ -200,9 +200,9 @@ On the **Details** step (**Configure** in some portal versions), under **Paramet
 |---|---|
 | **Calls** | `5` |
 | **Renewal period** | **30 seconds** |
-| **Counter dimensions** | **Identity** |
+| **Counter dimensions** | **Caller identity** |
 
-The other renewal periods are **60 seconds**, **2 minutes**, and **5 minutes**. **Identity** gives each API
+The other renewal periods are **60 seconds**, **2 minutes**, and **5 minutes**. **Caller identity** gives each API
 key, and each Entra caller, its own counter. If you select no counter dimension, all callers share one
 counter. Select **Create**.
 

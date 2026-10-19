@@ -285,8 +285,8 @@ three or four succeed, and then the gateway starts answering `429`.
 
 ### Run the burst
 
-From the lab folder, run the script for your shell. It prints the status, the `remaining-tokens` header, and
-`Retry-After` for each request.
+From the lab folder, run the script for your shell. For each request it prints the status, `Retry-After`, the
+tokens used, and the backend deployment's own `x-ratelimit-remaining-tokens` header.
 
 ```bash title="Bash"
 ./infra/trigger-token-limit.sh "$AI_GATEWAY_MODEL" 8
@@ -302,13 +302,21 @@ On GitHub, open [trigger-token-limit.sh](infra/trigger-token-limit.sh) or
 Expected output (your token counts will differ):
 
 ```text
-Request  Status  remaining-tokens   Retry-After  Tokens used
-1        200     713                -            287
-2        200     431                -            282
-3        200     146                -            285
-4        429     0                  41           -
-5        429     0                  40           -
+Request  Status  Retry-After  Tokens used  Backend tokens left
+1        200     -            287          9720
+2        200     -            282          9440
+3        200     -            285          9160
+4        429     41           -            -
+5        429     40           -            -
 ```
+
+The gateway stops this caller after about 1,000 tokens, while the backend deployment still has most of its
+capacity left: that's the point of a per-caller limit. The gateway doesn't add its own remaining-tokens header, so
+watch the status and `Retry-After`.
+
+> [!NOTE]
+> A new or changed policy can take up to a minute to apply. If every request returns `200`, wait a minute and
+> run the burst again.
 
 ### Inspect one throttled response
 

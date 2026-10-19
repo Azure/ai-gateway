@@ -68,11 +68,12 @@
         <span class="meta-pill"><span class="level-dots" aria-hidden="true"><i class="on"></i><i class="on"></i><i></i></span>Intermediate</span>
         <span class="meta-pill"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M10 5.5V10l3 2"/></svg>35 min</span>
         <span class="meta-pill meta-tracks"><span class="track-chips"><span class="track-chip" title="Portal"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="11" rx="2"/><path d="M7 17.5h6M10 14.5v3"/><path d="m9 7 4 2-1.7.7-.7 1.8Z"/></svg><span>Portal</span></span><span class="track-chip" title="Azure CLI"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2"/><path d="m6 8 2.5 2L6 12M10.5 12.5H14"/></svg><span>CLI</span></span><span class="track-chip" title="Code"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><path d="m7 6-4 4 4 4M13 6l4 4-4 4"/></svg><span>Code</span></span></span></span>
-        <span class="meta-updated">Updated <time datetime="2026-10-14">Oct 14, 2026</time></span>
+        <span class="meta-updated">Updated <time datetime="2026-10-19">Oct 19, 2026</time></span>
       </div>
       <div class="lab-actions">
         <button class="btn btn-secondary btn-sm" type="button" data-values-open><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h7M14 6h3M3 14h3M10 14h7"/><circle cx="12" cy="6" r="2"/><circle cx="8" cy="14" r="2"/></svg>Your values</button>
         <button class="btn btn-ghost btn-sm" type="button" data-copy-md="index.md"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="4.5" width="16" height="11" rx="2"/><path d="M5 12.5v-5l2 2.5 2-2.5v5M13 7.5v5M11 10.5l2 2 2-2"/></svg>Copy as Markdown</button>
+        <a class="btn btn-ghost btn-sm" href="https://github.com/Azure/ai-gateway/blob/main/labs/11-entra-rbac/11-entra-rbac.ipynb" target="_blank" rel="noopener" title="Run this lab end to end in Jupyter"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><rect x="4.5" y="2.5" width="12" height="15" rx="2"/><path d="M3 6h3M3 10h3M3 14h3M9 7h4.5M9 10.5h4.5"/></svg>Notebook</a>
         <a class="btn btn-ghost btn-sm" href="https://github.com/Azure/ai-gateway/tree/main/labs/11-entra-rbac" target="_blank" rel="noopener"><svg class="i i-fill" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.22 1.88.87 2.34.66.07-.52.28-.87.5-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"/></svg>Source</a>
         <a class="btn btn-ghost btn-sm" href="https://github.com/Azure/ai-gateway/edit/main/labs/11-entra-rbac/README.md" target="_blank" rel="noopener"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4 16 7.5 7.5 16H4v-3.5Z"/><path d="m11 5.5 3.5 3.5"/></svg>Edit</a>
       </div>
@@ -545,7 +546,7 @@ invoke models.</li>
 <li><strong>Run without a user.</strong> Deploy the Python sample to an Azure service with a managed identity, assign the
 role to that identity&#39;s principal ID, and the same code runs with app-only tokens for the <code>.default</code> scope.
 Agent identities work the same way.</li>
-<li><strong>Budget per person.</strong> Add a cost limit with <strong>Identity</strong> as the counter dimension and an override for one Entra identity in
+<li><strong>Budget per person.</strong> Add a cost limit with <strong>Caller identity</strong> as the counter dimension and an override for one Entra identity in
 <a href="../07-cost-budgets/">Enforce cost budgets</a>. Each <code>tid</code> and <code>oid</code> pair gets its own budget.</li>
 <li><strong>See who called.</strong> In <span class="uipath"><span class="uipath-item">Monitoring</span><span class="uipath-sep" aria-hidden="true">›</span><span class="uipath-item">Settings</span></span>, <strong>Token claim attributes</strong> exports claims such as
 <code>tid</code>, <code>oid</code>, <code>appid</code>, and <code>azp</code> as <code>azure.ai_gateway.identity.claims.&lt;claim&gt;</code> attributes on logs, traces,

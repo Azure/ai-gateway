@@ -104,7 +104,7 @@ unchanged to Foundry. The response comes back as is, and the gateway records tok
 
 | Step | What happens | Where you set it |
 |---|---|---|
-| Inbound authentication | The `api-key` header must hold an active runtime key, or the call fails with `401` | **Access** › **Keys** |
+| Inbound authentication | An active runtime key in the `api-key` header, or as `Authorization: Bearer <key>` (what the OpenAI SDKs send), or the call fails with `401` | **Access** › **Keys** |
 | Routing | `/default/models/openai/v1/chat/completions` or `/responses`, and `model` must equal an alias | Model details and its **Aliases** tab |
 | Policies | Token limits, cost limits, and content safety run before the backend call | **Policies** (labs 06–09) |
 | Backend authentication | The gateway's managed identity, with the **Foundry User** role on the account | Model provider |

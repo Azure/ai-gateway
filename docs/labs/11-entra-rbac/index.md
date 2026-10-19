@@ -472,7 +472,7 @@ to apply, and confirm the call returns `200`.
 - **Run without a user.** Deploy the Python sample to an Azure service with a managed identity, assign the
   role to that identity's principal ID, and the same code runs with app-only tokens for the `.default` scope.
   Agent identities work the same way.
-- **Budget per person.** Add a cost limit with **Identity** as the counter dimension and an override for one Entra identity in
+- **Budget per person.** Add a cost limit with **Caller identity** as the counter dimension and an override for one Entra identity in
   [Enforce cost budgets](../07-cost-budgets/README.md). Each `tid` and `oid` pair gets its own budget.
 - **See who called.** In **Monitoring** › **Settings**, **Token claim attributes** exports claims such as
   `tid`, `oid`, `appid`, and `azp` as `azure.ai_gateway.identity.claims.<claim>` attributes on logs, traces,

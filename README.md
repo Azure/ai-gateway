@@ -23,9 +23,11 @@ platform teams enforce security, policy, networking, and observability.
 models behind aliases, federating MCP tools, token limits and cost budgets, content safety, keys and Entra ID,
 monitoring, and chargeback) and continue to emerging ones (agent frameworks, Foundry hosted agents, coding agents,
 Agent 365, private networking, and an enterprise reference architecture). Each lab has portal, Azure CLI, Bicep, or
-code tracks, so you can follow it in the way that fits how you work.
+code tracks, so you can follow it in the way that fits how you work: on the labs site, directly on GitHub, or
+in a Jupyter notebook.
 
-Sources and contributor guide: [labs/README.md](labs/README.md).
+**[Follow the labs on GitHub](labs/README.md)** · **[Run the notebooks](labs/README.md#run-the-notebooks)** ·
+**[Contribute a lab](labs/AUTHORING.md)**
 
 ## Azure CLI
 
