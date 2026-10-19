@@ -9,7 +9,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { initHighlighter, renderLab, escapeHtml } from './site/markdown.mjs';
-import { parseLab, stripGitHub, syncLab, syncIndex } from './site/github.mjs';
+import { parseLab, stripGitHub, syncLab, syncIndex, syncSkill } from './site/github.mjs';
 import { layout, homePage, catalogPage, labPage, notFoundPage } from './site/templates.mjs';
 
 const LABS = path.dirname(fileURLToPath(import.meta.url));
@@ -17,9 +17,11 @@ const ROOT = path.resolve(LABS, '..');
 // LABS_OUT and LABS_SITE_URL build a copy for another host (see tools/deploy-swa.sh).
 const OUT = process.env.LABS_OUT ? path.resolve(process.env.LABS_OUT) : path.join(ROOT, 'docs');
 const SITE_SRC = path.join(LABS, 'site');
+const SKILL_NAME = 'azure-ai-gateway-labs';
+const SKILL_FILE = path.join(LABS, 'skills', SKILL_NAME, 'SKILL.md');
 const BASE_URL = (process.env.LABS_SITE_URL || 'https://azure.github.io/ai-gateway/').replace(/\/?$/, '/');
 const BASE_PATH = new URL(BASE_URL).pathname;
-const GENERATED = ['index.html', '404.html', 'labs', 'assets', 'search.json', 'llms.txt', 'llms-full.txt', 'sitemap.xml', 'robots.txt', '.nojekyll'];
+const GENERATED = ['index.html', '404.html', 'labs', 'assets', 'search.json', 'llms.txt', 'llms-full.txt', 'skills', 'sitemap.xml', 'robots.txt', '.nojekyll'];
 const MEDIA_RE = /\.(png|jpe?g|gif|webp|svg|mp4|webm|avif)$/i;
 const REQUIRED = ['title', 'summary', 'category', 'level', 'duration', 'tracks', 'objectives'];
 
@@ -192,6 +194,13 @@ function syncSources(labs, catalog, { check = false } = {}) {
     stale.push(path.relative(ROOT, indexFile));
     if (!check) fs.writeFileSync(indexFile, text);
   }
+  const skill = fs.readFileSync(SKILL_FILE, 'utf8');
+  const synced = syncSkill(skill, { labs, catalog });
+  for (const m of synced.missing) warn(`${path.relative(ROOT, SKILL_FILE)}: missing generated region "<!-- gh:begin ${m} -->"`);
+  if (synced.text !== skill) {
+    stale.push(path.relative(ROOT, SKILL_FILE));
+    if (!check) fs.writeFileSync(SKILL_FILE, synced.text);
+  }
   if (check) for (const f of stale) warn(`${f} is out of sync with its metadata; run "npm run sync"`);
   else if (stale.length) console.log(`Synced ${stale.length} file(s): ${stale.join(', ')}`);
   return stale;
@@ -272,10 +281,13 @@ export async function build({ strict = false } = {}) {
   // Agent and crawler friendly outputs
   const llms = [`# ${site.title}`, '', `> ${site.tagline}`, '',
     'Hands-on labs for the AI Gateway tier of Azure API Management. Each lab has portal, Azure CLI, REST, Bicep, or code tracks.', '',
-    `Product docs: ${site.docs}`, `Portal: ${site.portal}`, `Source: ${site.repo}/tree/${site.branch}/labs`, '', '## Labs', '',
+    `Product docs: ${site.docs}`, `Portal: ${site.portal}`, `Source: ${site.repo}/tree/${site.branch}/labs`,
+    `Agent skill: ${BASE_URL}skills/${SKILL_NAME}/SKILL.md`, '', '## Labs', '',
     ...labs.map((l) => `- [${l.num} ${l.title}](${BASE_URL}labs/${l.slug}/index.md): ${l.summary}`), '',
     '## Learning paths', '', ...catalog.paths.map((p) => `- ${p.title}: ${p.labs.filter((s) => known.has(s)).join(', ')}`), ''].join('\n');
   write('llms.txt', llms);
+  // The agent skill, without the generated-region markers
+  write(`skills/${SKILL_NAME}/SKILL.md`, fs.readFileSync(SKILL_FILE, 'utf8').replace(/^<!-- gh:(?:begin\b[^>]*|end) -->\n/gm, ''));
   write('llms-full.txt', labs.map((l) => `<!-- ${BASE_URL}labs/${l.slug}/ -->\n${l.raw.trim()}\n`).join('\n\n'));
   const urls = ['', 'labs/', ...labs.map((l) => `labs/${l.slug}/`)];
   write('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `  <url><loc>${escapeHtml(BASE_URL + u)}</loc></url>`).join('\n')}\n</urlset>\n`);

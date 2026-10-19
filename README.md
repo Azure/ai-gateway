@@ -27,7 +27,7 @@ code tracks, so you can follow it in the way that fits how you work: on the labs
 in a Jupyter notebook.
 
 **[Follow the labs on GitHub](labs/README.md)** · **[Run the notebooks](labs/README.md#run-the-notebooks)** ·
-**[Contribute a lab](labs/AUTHORING.md)**
+**[Use them with a coding agent](labs/README.md#use-the-labs-with-a-coding-agent)** · **[Contribute a lab](labs/AUTHORING.md)**
 
 ## Azure CLI
 

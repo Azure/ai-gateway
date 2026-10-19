@@ -20,7 +20,8 @@ identity, and observability) and then the emerging ones (agents, Agent 365, priv
 architectures).
 
 **Jump to:** [Choose how you learn](#choose-how-you-learn) · [Learning paths](#learning-paths) · [All labs](#all-labs) ·
-[Run the notebooks](#run-the-notebooks) · [Prerequisites](#prerequisites) · [Work on the labs](#work-on-the-labs-site)
+[Run the notebooks](#run-the-notebooks) · [Use a coding agent](#use-the-labs-with-a-coding-agent) · [Prerequisites](#prerequisites) ·
+[Work on the labs](#work-on-the-labs-site)
 
 ## Choose how you learn
 
@@ -31,6 +32,7 @@ Every lab is one Markdown file, so you get the same steps whichever way you foll
 | 🌐 | **[Labs site](https://azure.github.io/ai-gateway/)** | Guided reading: set **Your values** once and every command is filled in, try the interactive simulators, and track your progress. |
 | 📖 | **Here on GitHub** | Reading next to the code. Each track and each Bash/PowerShell variant is a collapsible section, and included files are shown inline. |
 | 📓 | **[Jupyter notebooks](#run-the-notebooks)** | Running a lab end to end from VS Code or Jupyter with Python, the Azure CLI sign-in, and no copy and paste. |
+| 🤖 | **[Agent skill](#use-the-labs-with-a-coding-agent)** | Letting GitHub Copilot, Claude Code, or another coding agent pick the right lab, run one track step by step, verify it, and clean up. |
 | 🏗️ | **`infra/` folders** | Reusing the Bicep, scripts, and samples in your own pipelines with `az deployment` or `azd`. |
 
 Every lab follows the same structure: a scenario, a diagram of how it works, step-by-step tasks with checkpoints,
@@ -177,6 +179,25 @@ the kernel:
 > [!TIP]
 > Each notebook ends with a **Clean up** step. Run it when you're done, or delete the resource group to remove
 > everything the labs created.
+
+## Use the labs with a coding agent
+
+The [`azure-ai-gateway-labs`](skills/azure-ai-gateway-labs/SKILL.md) agent skill teaches coding agents how to use
+these labs: the catalog, learning paths, and use-case map, how to read a lab and follow one track, the placeholders,
+and the AI Gateway facts that the steps rely on. `npm run sync` regenerates its catalog, so it stays current with
+the labs.
+
+Install it as a personal skill for GitHub Copilot:
+
+```bash
+mkdir -p ~/.copilot/skills/azure-ai-gateway-labs
+curl -fsSL https://azure.github.io/ai-gateway/skills/azure-ai-gateway-labs/SKILL.md \
+  -o ~/.copilot/skills/azure-ai-gateway-labs/SKILL.md
+```
+
+To share it with a project, save it to `.github/skills/azure-ai-gateway-labs/SKILL.md` in that repository instead,
+or to `.claude/skills/azure-ai-gateway-labs/SKILL.md` for Claude Code. Then ask your agent something like "Walk me
+through the token limits lab with the Azure CLI." Agents without skill support can read the same file from its URL.
 
 ## Prerequisites
 

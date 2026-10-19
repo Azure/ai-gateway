@@ -1,0 +1,198 @@
+---
+name: azure-ai-gateway-labs
+description: Guide to the Azure AI Gateway hands-on labs, a set of step-by-step labs, learning paths, and Jupyter notebooks published at azure.github.io/ai-gateway from the labs folder of github.com/Azure/ai-gateway. Use this skill whenever a user wants to learn, try, demo, teach, or automate Azure AI Gateway (resource type Microsoft.ApiManagement/aigateways), even if they don't mention labs. Topics include provisioning a gateway, publishing Foundry, OpenAI, or Anthropic models behind aliases, federating MCP tools, token limits, cost budgets, content safety, runtime API keys, Entra ID and RBAC, managed identities, monitoring and OpenTelemetry chargeback, agent frameworks, Foundry hosted agents, coding-agent plugins, private networking, Agent 365, and an enterprise reference architecture. The skill picks the right lab or learning path, follows one track (portal, Azure CLI, REST, Bicep, code, or notebook) step by step, verifies the result, and cleans up.
+license: MIT
+---
+
+# Azure AI Gateway labs
+
+Hands-on labs for the Azure AI Gateway. Each lab is one Markdown file with a scenario, a diagram, step-by-step tasks
+with checkpoints, a **Verify** section, clean-up, and troubleshooting. Most labs offer several tracks (Portal, Azure
+CLI, REST, Bicep, Code), and some also ship a Jupyter notebook.
+
+- Labs site: https://azure.github.io/ai-gateway/
+- Source: https://github.com/Azure/ai-gateway/tree/main/labs
+- Product docs: https://ai.gateway.azure.com/docs
+- AI Gateway portal: https://ai.gateway.azure.com
+- Overview on Microsoft Learn: https://learn.microsoft.com/azure/api-management/ai-gateway-overview
+
+AI Gateway is in public preview, so portal labels and API shapes can change. When a step fails, compare it with the
+product docs that the lab links to before you improvise a fix.
+
+## Where to find things
+
+| You need | Get it from |
+| :-- | :-- |
+| A lab as clean Markdown, with its metadata as YAML front matter | `https://azure.github.io/ai-gateway/labs/<slug>/index.md` |
+| The same lab on GitHub, with navigation and inline code | `https://github.com/Azure/ai-gateway/blob/main/labs/<slug>/README.md` |
+| The lab page to share with a person | `https://azure.github.io/ai-gateway/labs/<slug>/` |
+| Files the lab uses (`infra/`, the notebook) | `labs/<slug>/` in a clone, or `https://raw.githubusercontent.com/Azure/ai-gateway/main/labs/<slug>/<path>` |
+| Every lab in one file | `https://azure.github.io/ai-gateway/llms-full.txt` |
+
+When the workspace is a clone of `Azure/ai-gateway`, read `labs/<slug>/README.md` from disk instead.
+
+## Run a lab with the user
+
+1. **Pick the lab.** Match the user's goal to the [use-case map](#use-case-map) or the [catalog](#lab-catalog). Check
+   what the lab needs first: most labs reuse the gateway from lab 01 and the model from lab 02. For newcomers,
+   suggest the 30-minute quickstart path.
+2. **Read the whole lab** before you run anything. **Before you begin** lists the tools, Azure roles, regions, and
+   billable resources.
+3. **Choose one track.** A track starts at `<!-- track: <id> | <label> -->`, and the group of tracks ends at
+   `<!-- /tracks -->`. On GitHub, each track is a collapsible `<details>` section. Follow only the chosen track.
+   Sections outside the track markers, such as **Verify** and **Clean up**, apply to every track.
+4. **Fill in the placeholders:** `<subscription-id>`, `<resource-group>`, `<gateway>`, `<location>`,
+   `<model-name>`, `<provider-name>`, `<foundry-account-name>`, and `<tenant-id>`. Get the values from the user or
+   from `az account show`. Keep secrets in environment variables such as `$AI_GATEWAY_API_KEY`, and never write
+   them to files, code, or chat.
+5. **Go one step at a time.** Each `###` heading in a track is a step. Run it, then compare the result with the
+   **Checkpoint** that follows. `<!-- include: infra/<file> -->` means the step uses that file from the lab folder.
+   `<!-- widget: … -->` marks an interactive simulator on the site, which you can skip.
+6. **Verify** with the lab's **Verify** section, and tell the user what you checked.
+7. **Clean up.** Labs create billable resources. Offer the lab's **Clean up** section, and delete only what this
+   lab created, because later labs reuse the gateway and the model.
+
+Before you create, change, or delete Azure resources, confirm the subscription and resource group with the user.
+
+| Track | Marker id | How to use it |
+| :-- | :-- | :-- |
+| Portal | `portal` | Click-by-click steps in the AI Gateway portal. You can't run them from a shell, so guide the user through them one screen at a time. |
+| Azure CLI | `cli` | `az rest` calls to Azure Resource Manager, in Bash and PowerShell variants. This is the easiest track for an agent to run. |
+| REST API | `rest` | Raw Azure Resource Manager requests, for users who script against the API themselves. |
+| Bicep | `iac` | Templates in `infra/`, deployed with `az deployment group create`, or with `azd` in lab 16. |
+| Code | `code` | Python, TypeScript, and .NET clients, and agent frameworks, calling the gateway at runtime. |
+| Notebook | none | `labs/<slug>/<slug>.ipynb` runs the CLI track end to end from Python and checks each step with `assert`. |
+
+## Facts to rely on
+
+- The gateway is the `Microsoft.ApiManagement/aigateways` resource, API version `2025-09-01-preview`. Never use
+  `Microsoft.ApiManagement/service`. Create a `Microsoft.Web/connectorGateways` resource with the same name first
+  (API version `2026-05-01-preview`). Don't set `sku` or publisher properties. Gateway names are at most 24
+  characters.
+- The public preview runs in East US 2 (`eastus2`) and Sweden Central (`swedencentral`).
+- The `az aigateway` extension doesn't manage `aigateways` yet, so the CLI track uses `az rest`. It sets
+  `GATEWAY_ID`, `GW`, `WS` (`$GW/workspaces/default`), and `API` (`api-version=2025-09-01-preview`) once. A `PATCH`
+  replaces whole arrays such as `properties.policies`, so read, edit, then write.
+- The runtime URL is `https://` plus `properties.frontend.defaultHostname`, which looks like
+  `https://<gateway>.<region>-01.ai.gateway.azure.com`. A new gateway with no models answers `404`.
+- Models: `<runtime URL>/default/models/openai/v1` serves OpenAI Chat Completions and Responses.
+  `<runtime URL>/default/models/anthropic/v1/messages` serves Anthropic Messages.
+- MCP tools: `<runtime URL>/default/toolservers/<name>/mcp`. Federated tools are named `<namespace>_<tool>`, for
+  example `learn_microsoft_docs_search`.
+- Runtime auth for models: a runtime API key in the `api-key` header, or `Authorization: Bearer` with the key or a
+  Microsoft Entra token. Never send both, or the gateway answers `400`. With an OpenAI SDK, pass the key as the
+  client's API key. MCP endpoints read keys only from `api-key`.
+- Entra tokens use the audience `https://azure-api.net/aigateway`. The data-plane roles are **AI Gateway User**
+  (models and tools), **AI Gateway Models User**, and **AI Gateway Tools User**.
+- Policy changes take 20 to 60 seconds to apply. A token or request rate limit answers `429` with `Retry-After`, a
+  cost budget answers `403` `LlmCostQuotaExceeded`, and content safety blocks with `400`.
+
+## Lab catalog
+
+Each entry shows the level, time, tracks, and the labs it needs.
+
+<!-- gh:begin catalog: generated by "npm run sync" from the metadata, do not edit -->
+### Foundations
+
+- **00** [How Azure AI Gateway works](https://azure.github.io/ai-gateway/labs/00-how-ai-gateway-works/index.md) `00-how-ai-gateway-works` (Beginner, 20 min · Portal): A 20-minute visual tour of the AI Gateway tier of Azure API Management. Follow one request through the gateway, meet models, aliases, MCP servers, policies, and identities, and pick the learning path that fits your role.
+- **01** [Provision your AI Gateway](https://azure.github.io/ai-gateway/labs/01-provision-gateway/index.md) `01-provision-gateway` (Beginner, 15 min · Portal, CLI, Bicep, Notebook): Create the shared AI Gateway that your apps and agents will call, from the AI Gateway portal, the Azure CLI, or Bicep, then take a guided tour of the portal.
+- **02** [Publish a Foundry model and make your first call](https://azure.github.io/ai-gateway/labs/02-first-model-call/index.md) `02-first-model-call` (Beginner, 25 min · Portal, CLI, Bicep, Code, Notebook · needs 01): Publish a Microsoft Foundry model deployment through your gateway with its managed identity, create a runtime API key, try the model in the Discover playground, and call it from curl, PowerShell, Python, TypeScript, and C#.
+
+### Models & routing
+
+- **03** [Publish models from any provider behind stable aliases](https://azure.github.io/ai-gateway/labs/03-multi-provider-aliases/index.md) `03-multi-provider-aliases` (Intermediate, 30 min · Portal, REST · needs 02): Connect Anthropic or another non-Azure provider with a credential that stays in the gateway, publish its models behind callable aliases, call Claude with the native Messages API, and retarget an alias to a different backend model without changing a single client.
+
+### MCP & tools
+
+- **04** [Federate MCP tools behind one endpoint](https://azure.github.io/ai-gateway/labs/04-federate-mcp-tools/index.md) `04-federate-mcp-tools` (Beginner, 25 min · Portal, CLI, Bicep, Code, Notebook · needs 01): Register a remote MCP server in AI Gateway, add a second backend under its own namespace, and connect curl, VS Code, and Python to one governed MCP endpoint.
+- **05** [Control which tools agents can call](https://azure.github.io/ai-gateway/labs/05-mcp-tool-controls/index.md) `05-mcp-tool-controls` (Intermediate, 20 min · Portal, REST · needs 04): Publish only approved MCP tools with name patterns, block risky tools, take a whole MCP server offline, and cap tool traffic per caller with a request rate limit.
+
+### Governance & cost
+
+- **06** [Throttle tokens per caller with token limits](https://azure.github.io/ai-gateway/labs/06-token-limits/index.md) `06-token-limits` (Beginner, 25 min · Portal, CLI, REST, Bicep, Notebook · needs 02): Cap how many tokens each app, agent, or user can consume per minute, hour, or day, and watch the gateway answer with 429 and Retry-After before your backend capacity runs out.
+- **07** [Enforce cost budgets with per-caller overrides](https://azure.github.io/ai-gateway/labs/07-cost-budgets/index.md) `07-cost-budgets` (Intermediate, 30 min · Portal, REST · needs 06, 10): Give every app, agent, and user a dollar budget per hour, day, or month, raise or lower it for specific API keys and Microsoft Entra identities, and watch the gateway answer 403 LlmCostQuotaExceeded once a caller's estimated spend runs out.
+- **08** [Screen prompts and responses with content safety](https://azure.github.io/ai-gateway/labs/08-content-safety/index.md) `08-content-safety` (Beginner, 20 min · Portal, CLI, REST · needs 02): Add a content safety policy that screens prompts, tool inputs, and responses for hate, self-harm, sexual, and violent content, tune each category's threshold, and see how blocked calls return 400.
+- **09** [Set gateway-wide policy baselines](https://azure.github.io/ai-gateway/labs/09-gateway-baselines/index.md) `09-gateway-baselines` (Intermediate, 25 min · Portal, REST, Bicep · needs 06, 08): Apply a baseline of token limit, request rate limit, content safety, and IP filter policies at Gateway scope so every model and MCP server, including the ones you add later, starts with the same guardrails, then layer stricter asset policies on top.
+
+### Security & identity
+
+- **10** [Issue and rotate runtime API keys](https://azure.github.io/ai-gateway/labs/10-api-keys/index.md) `10-api-keys` (Beginner, 15 min · Portal, CLI · needs 01): Give every app its own runtime API key, keep the value out of your code, rotate it without downtime with the primary and secondary values, revoke a leaked key, and see usage and cost per key in Monitoring.
+- **11** [Go keyless with Microsoft Entra ID and RBAC](https://azure.github.io/ai-gateway/labs/11-entra-rbac/index.md) `11-entra-rbac` (Intermediate, 35 min · Portal, CLI, Code, Notebook · needs 02): Replace shared gateway API keys with Microsoft Entra ID tokens. Grant users, groups, apps, and managed identities an AI Gateway data-plane role at the gateway, a model alias, or an MCP server, then call models from the playground, curl, Python, TypeScript, and C# with no secret in code.
+- **12** [Call backends with managed identities](https://azure.github.io/ai-gateway/labs/12-backend-identity/index.md) `12-backend-identity` (Intermediate, 20 min · Portal, CLI, Bicep · needs 02): Let the gateway reach Microsoft Foundry with a managed identity instead of stored keys. Check the system-assigned identity, then create a user-assigned identity you can share across gateways, grant it Foundry User, attach it, and point a model provider at it from the portal, the Azure CLI, or Bicep.
+
+### Observability & FinOps
+
+- **13** [Monitor usage, cost, and traces](https://azure.github.io/ai-gateway/labs/13-monitoring/index.md) `13-monitoring` (Beginner, 25 min · Portal, Bicep · needs 02): Send the gateway's OpenTelemetry metrics, logs, and traces to Application Insights, then use the built-in Monitoring dashboard to see usage, estimated cost per model and API key, policy impact, and gateway-aware traces.
+- **14** [Attribute tokens and cost with OpenTelemetry](https://azure.github.io/ai-gateway/labs/14-otel-chargeback/index.md) `14-otel-chargeback` (Advanced, 35 min · Portal, REST · needs 13, 11): Export Microsoft Entra token claims with the gateway's logs, traces, and token metrics, then turn observed tokens into a per-tenant, per-app, and per-key chargeback report with KQL, PromQL, and a small Python script.
+
+### Agents
+
+- **15** [Connect agent frameworks to models and tools](https://azure.github.io/ai-gateway/labs/15-agent-frameworks/index.md) `15-agent-frameworks` (Intermediate, 30 min · Code · needs 02, 04): Point Microsoft Agent Framework, the OpenAI Agents SDK, and LangChain with LangGraph at the gateway's OpenAI-compatible model endpoint and its MCP endpoint, so every model and tool call an agent makes passes through gateway policies and shows up in Monitoring.
+- **16** [Deploy a Foundry hosted agent behind AI Gateway](https://azure.github.io/ai-gateway/labs/16-foundry-hosted-agent/index.md) `16-foundry-hosted-agent` (Intermediate, 40 min · Portal, CLI, Code · needs 02, 04): Deploy your own Microsoft Agent Framework agent to Foundry Hosted Agents with azd. The agent has no model deployment and no direct tool access, so its model calls and its Microsoft Learn MCP calls go through AI Gateway with a dedicated key. Run it locally, invoke it in Foundry, and cap its tokens without changing its code.
+- **17** [Build on your gateway with coding agents](https://azure.github.io/ai-gateway/labs/17-coding-agent-plugin/index.md) `17-coding-agent-plugin` (Beginner, 15 min · Code · needs 02): Install the AI Gateway plugin in GitHub Copilot CLI, Claude Code, Cursor, or Gemini CLI, then let your coding agent discover the gateway's models and MCP tools and generate working client code.
+
+### Production & emerging
+
+- **18** [Lock down backend traffic with private networking](https://azure.github.io/ai-gateway/labs/18-private-networking/index.md) `18-private-networking` (Advanced, 45 min · Portal, CLI, Bicep · needs 01, 12): Create an AI Gateway with private routing through your virtual network, reach a Foundry backend over a private endpoint with its public access turned off, and learn which inbound options aren't available yet.
+- **19** [Protect tool calls with Agent 365 threat protection](https://azure.github.io/ai-gateway/labs/19-tool-threat-protection/index.md) `19-tool-threat-protection` (Advanced, 30 min · Portal · needs 04, 11): Have Microsoft Defender and Microsoft Purview evaluate every tool call on an MCP server, before the tool runs, after it returns, or both, and see how a fail-closed denial reaches the caller.
+- **20** [Govern MCP servers with Agent 365](https://azure.github.io/ai-gateway/labs/20-agent-365-governance/index.md) `20-agent-365-governance` (Intermediate, 20 min · Portal · needs 04, 05): Connect Microsoft Agent 365 to your gateways, find their MCP servers in one inventory, block a single tool or a whole server from the Microsoft 365 admin center, and see exactly what agents get back.
+- **21** [Deploy an enterprise reference architecture](https://azure.github.io/ai-gateway/labs/21-enterprise-reference/index.md) `21-enterprise-reference` (Advanced, 60 min · Bicep · needs 09, 13, 12): Deploy a production-shaped AI Gateway environment from modular Bicep, with a keyless Foundry backend, models and MCP tools behind RBAC, a key per app, layered policies, and monitoring. Then promote it from dev to prod with a GitHub Actions workflow that signs in with OpenID Connect and smoke-tests every deployment.
+<!-- gh:end -->
+
+## Learning paths
+
+<!-- gh:begin paths: generated by "npm run sync" from the metadata, do not edit -->
+| Path | For | Labs, in order |
+| :-- | :-- | :-- |
+| 30-minute quickstart | Everyone | 00 → 01 → 02 → 04 |
+| Platform engineer | Build the shared AI platform | 01 → 02 → 03 → 04 → 09 → 12 → 18 → 21 |
+| App & agent developer | Ship apps and agents on governed endpoints | 02 → 03 → 04 → 15 → 16 → 17 |
+| Security & compliance | Protect data, identities, and tools | 10 → 11 → 08 → 05 → 09 → 19 → 20 |
+| FinOps & operations | Control spend and run the gateway | 06 → 07 → 13 → 14 |
+<!-- gh:end -->
+
+## Use-case map
+
+<!-- gh:begin usecases: generated by "npm run sync" from the metadata, do not edit -->
+| Use case | Start with |
+| :-- | :-- |
+| One endpoint for every model: Foundry, Azure OpenAI, OpenAI, Anthropic, Bedrock, and Vertex AI behind stable aliases | 03 Multi-provider aliases |
+| Token limits & quotas: Cap tokens per minute, hour, or day for each caller | 06 Token limits |
+| Budgets & cost control: Dollar budgets per key, per Entra identity, or across the gateway | 07 Cost budgets |
+| Federated MCP tools: One governed MCP endpoint for remote servers, APIs, and connectors | 04 Federate MCP tools |
+| Keyless access with Entra ID: RBAC for users, apps, and managed identities down to a single alias | 11 Entra ID & RBAC |
+| Observability & tracing: Tokens, cost, outcomes, and policy spans in one dashboard | 13 Monitoring |
+| Content safety: Screen prompts, tool inputs, and responses before they reach a backend | 08 Content safety |
+| Agent frameworks & hosted agents: Route every model and tool call an agent makes through one control point | 16 Foundry hosted agent |
+| Tool allow and block lists: Expose only approved tools with exact lists and patterns | 05 Tool allow & block lists |
+| Chargeback with token claims: Attribute tokens and cost to tenants, apps, and cost centers | 14 OpenTelemetry chargeback |
+| Tool threat protection: Defender and Purview evaluate tool calls for injection and data risk | 19 Tool threat protection |
+| Agent 365 governance: Inventory and block MCP servers and tools from the Microsoft 365 admin center | 20 Agent 365 governance |
+| Coding-agent plugin: Let Copilot, Claude Code, Cursor, or Gemini build on your gateway | 17 Coding-agent plugin |
+<!-- gh:end -->
+
+## Notebooks
+
+The notebooks share one gateway, so run lab 01, then lab 02, then any other notebook. They need Python 3.10 or
+later and `az login`, and the first cell installs the packages they use. These defaults can be overridden with
+environment variables before the kernel starts:
+
+| Setting | Default | Environment variable |
+| :-- | :-- | :-- |
+| Resource group | `rg-ai-gateway-labs` | `AIGW_RESOURCE_GROUP` |
+| Gateway name | `aigw-labs-` plus 6 characters of the SHA-1 of the subscription ID | `AIGW_GATEWAY_NAME` |
+| Region | `eastus2` | `AIGW_LOCATION` |
+
+To run a notebook headless, use `jupyter nbconvert --to notebook --execute <file> --output <copy>.ipynb`. Each
+notebook ends with a **Clean up** step.
+
+## Change or add a lab
+
+In a clone of `Azure/ai-gateway`, edit only `labs/<slug>/README.md`, following `labs/AUTHORING.md`. Then run
+`npm run sync` and `npm run check` in `labs/`. Never edit `docs/` or the generated `<!-- gh:begin -->` regions by
+hand. `npm run sync` also regenerates the catalog, paths, and use-case map in this skill.
+
+## Related skill
+
+For a developer who only wants to call the models and MCP tools of an existing gateway from an app, use the
+`use-ai-gateway` skill in `skills/use-ai-gateway` of the same repository.

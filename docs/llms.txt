@@ -7,6 +7,7 @@ Hands-on labs for the AI Gateway tier of Azure API Management. Each lab has port
 Product docs: https://ai.gateway.azure.com/docs
 Portal: https://ai.gateway.azure.com
 Source: https://github.com/Azure/ai-gateway/tree/main/labs
+Agent skill: https://azure.github.io/ai-gateway/skills/azure-ai-gateway-labs/SKILL.md
 
 ## Labs
 

@@ -304,6 +304,10 @@ export function syncIndex(raw, { labs, catalog }) {
       ];
     }),
   };
+  return replaceRegions(raw, regions);
+}
+
+function replaceRegions(raw, regions) {
   const missing = [];
   let out = raw;
   for (const [kind, body] of Object.entries(regions)) {
@@ -313,4 +317,40 @@ export function syncIndex(raw, { labs, catalog }) {
     out = out.replace(re, () => region(kind, lines).join('\n'));
   }
   return { text: out, missing };
+}
+
+// Regenerates the generated regions of the azure-ai-gateway-labs agent skill (lab catalog, learning paths, and
+// use-case map). Links are absolute so the skill works when it's copied out of the repository.
+export function syncSkill(raw, { labs, catalog }) {
+  const base = catalog.site.pages;
+  const byId = Object.fromEntries(labs.map((l) => [l.slug, l]));
+  const tracks = (l) => [...(l.tracks || []).map((t) => SHORT_TRACK_LABELS[t] || t), ...(l.notebook ? ['Notebook'] : [])].join(', ');
+  const nums = (slugs) => slugs.map((s) => byId[s]).filter(Boolean).map((l) => l.num).join(' → ');
+  const regions = {
+    catalog: catalog.categories.flatMap((c) => {
+      const items = labs.filter((l) => l.category === c.id);
+      if (!items.length) return [];
+      return [
+        `### ${c.title}`, '',
+        ...items.map((l) => {
+          const needs = (l.prereqs || []).map((s) => byId[s]?.num).filter(Boolean);
+          const meta = [`${l.level}, ${l.duration} min`, tracks(l), needs.length ? `needs ${needs.join(', ')}` : ''].filter(Boolean).join(' · ');
+          return `- **${l.num}** [${l.title}](${base}labs/${l.slug}/index.md) \`${l.slug}\` (${meta}): ${l.summary}`;
+        }),
+        '',
+      ];
+    }),
+    paths: [
+      '| Path | For | Labs, in order |',
+      '| :-- | :-- | :-- |',
+      ...catalog.paths.map((p) => `| ${p.title} | ${p.persona} | ${nums(p.labs)} |`),
+    ],
+    usecases: [
+      '| Use case | Start with |',
+      '| :-- | :-- |',
+      ...[...(catalog.useCases?.core || []), ...(catalog.useCases?.emerging || [])].filter((u) => byId[u.lab])
+        .map((u) => `| ${u.title}: ${u.text.replace(/\.$/, '')} | ${byId[u.lab].num} ${byId[u.lab].short} |`),
+    ],
+  };
+  return replaceRegions(raw, regions);
 }

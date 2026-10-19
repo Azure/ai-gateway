@@ -141,7 +141,7 @@ function footer(rel, site) {
       <p>Hands-on labs for the Azure AI Gateway.</p>
     </div>
     <div class="footer-cols">
-      <div><h2>Labs</h2><a href="${rel}labs/">All labs</a><a href="${rel}index.html#paths">Learning paths</a><a href="${rel}index.html#use-cases">Use cases</a><a href="${rel}llms.txt">llms.txt</a></div>
+      <div><h2>Labs</h2><a href="${rel}labs/">All labs</a><a href="${rel}index.html#paths">Learning paths</a><a href="${rel}index.html#use-cases">Use cases</a><a href="${rel}skills/azure-ai-gateway-labs/SKILL.md" title="azure-ai-gateway-labs: the agent skill that teaches coding agents how to use these labs">Agent skill</a></div>
       <div><h2>Product</h2><a href="${site.portal}" target="_blank" rel="noopener">AI Gateway portal</a><a href="${site.docs}" target="_blank" rel="noopener">Documentation</a><a href="${site.learn}" target="_blank" rel="noopener">Microsoft Learn</a></div>
       <div><h2>Contribute</h2><a href="${site.repo}" target="_blank" rel="noopener">GitHub repository</a><a href="${site.repo}/blob/${site.branch}/labs/AUTHORING.md" target="_blank" rel="noopener">Authoring guide</a><a href="${site.repo}/issues/new?labels=labs" target="_blank" rel="noopener">Report an issue</a></div>
     </div>
