@@ -9,7 +9,7 @@
 //   <!-- steps --> ... <!-- /steps -->  turns H3 headings in the region into numbered steps
 //   <!-- include: infra/main.bicep -->  inlines a file from the lab folder as a code viewer
 //   <!-- widget: name {"json":1} -->    mounts an interactive widget from site.js
-//   <!-- video: media/x.mp4 | Title --> video player; media/x.jpg is the poster, media/x.vtt the captions
+//   <!-- video: media/x.mp4 | Title --> video player; media/x.jpg is the poster, media/x.vtt the captions file
 //   > [!NOTE|TIP|IMPORTANT|WARNING|CAUTION]  GitHub alerts become callouts
 //   > **Checkpoint** ...                becomes a checkpoint callout
 //   ```bash title="Bash"                titled code blocks; adjacent titled blocks become tabs
@@ -256,9 +256,10 @@ export async function renderLab(markdown, ctx) {
     const v = videoInfo(file, title);
     const has = (f) => fs.existsSync(path.resolve(ctx.labDir, f));
     const poster = has(v.poster) ? ` poster="${ctx.resolveAsset(v.poster)}"` : '';
-    const track = has(v.captions) ? `<track kind="captions" src="${ctx.resolveAsset(v.captions)}" srclang="en" label="English">` : '';
-    return `<figure class="figure figure-video" id="${v.id}"><video controls playsinline preload="none"${poster} aria-label="${escapeHtml(v.title)}">`
-      + `<source src="${ctx.resolveAsset(v.file)}" type="${v.type}">${track}</video><figcaption>${escapeHtml(v.title)}</figcaption></figure>`;
+    if (has(v.captions)) ctx.resolveAsset(v.captions); // published for download; captions are burned into the video
+    // No native full screen: site.js expands videos into an in-page theater view instead (see initVideos).
+    return `<figure class="figure figure-video" id="${v.id}"><div class="video-frame"><video controls controlslist="nofullscreen" playsinline preload="none"${poster} aria-label="${escapeHtml(v.title)}">`
+      + `<source src="${ctx.resolveAsset(v.file)}" type="${v.type}"></video></div><figcaption>${escapeHtml(v.title)}</figcaption></figure>`;
   });
 
   // Split into segments by track / steps markers

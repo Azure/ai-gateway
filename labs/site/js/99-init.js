@@ -12,6 +12,7 @@ function boot() {
   run('pathBanner', initPathBanner);
   run('toc', initToc);
   run('lightbox', initLightbox);
+  run('videos', initVideos);
   run('catalog', initCatalog);
   run('hero', initHero);
   run('diagrams', initDiagrams);

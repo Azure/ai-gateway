@@ -106,6 +106,15 @@
 .lightbox-cap { position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; color: #e8e8ee; font-size: 14px; padding: 0 24px; }
 .lightbox-close { position: absolute; top: 16px; right: 16px; color: #fff; background: rgba(255, 255, 255, .12); }
 .lightbox-close:hover { background: rgba(255, 255, 255, .22); color: #fff; }
+.video-theater { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; align-content: center; gap: 14px; padding: 64px 24px 20px; background: rgba(6, 8, 18, .94); backdrop-filter: blur(6px); animation: fade .15s; }
+.video-theater[hidden] { display: none; }
+.video-theater .video-frame { width: min(100%, calc((100vh - 124px) * 16 / 9)); width: min(100%, calc((100dvh - 124px) * 16 / 9)); animation: pop .2s var(--ease); }
+.video-theater video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 12px; background: #000; box-shadow: var(--shadow-l); }
+.video-theater .video-expand { display: none; }
+.video-theater video::-webkit-media-controls-fullscreen-button { display: none; }
+.video-theater-close { position: absolute; top: 16px; right: 16px; color: #fff; background: rgba(255, 255, 255, .12); }
+.video-theater-close:hover { background: rgba(255, 255, 255, .22); color: #fff; }
+.video-theater-cap { margin: 0; color: #c9cbe0; font-size: 14px; text-align: center; }
 
 /* Toast */
 .toast {

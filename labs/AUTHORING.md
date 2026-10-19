@@ -183,12 +183,14 @@ name in the lab's `media/` folder:
 
 | File | Purpose |
 |---|---|
-| `walkthrough.mp4` | H.264 and AAC, 1920×1080, under about 40 MB |
-| `walkthrough.vtt` | WebVTT captions, shown by the player's captions button |
+| `walkthrough.mp4` | H.264 and AAC, 1920×1080, under about 40 MB, with the captions burned in |
+| `walkthrough.vtt` | WebVTT captions file, linked from the GitHub view for download and translation |
 | `walkthrough.jpg` | Poster, 16:9, with a play button drawn on it (GitHub shows it as a link) |
 
-The site shows a player with captions and a **Watch video** button in the lab header. GitHub can't play MP4s
-in a README, so the GitHub view shows the poster linked to the site player, plus download and captions links.
+The site shows a player and a **Watch video** button in the lab header. The player has no browser full-screen
+mode: Edge's scareware blocker scans full-screen pages and can flag narrated product UI as a scam, so
+**Expand**, double-click, and <kbd>F</kbd> open an in-page theater view instead. GitHub can't play MP4s in a
+README, so the GitHub view shows the poster linked to the site player, plus download and captions links.
 Keep the video optional: every step it shows must also be written in the lab.
 
 ## Writing style

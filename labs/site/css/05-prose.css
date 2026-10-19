@@ -69,6 +69,14 @@ h2:hover > .anchor, h3:hover > .anchor, h4:hover > .anchor, .anchor:focus { opac
 .figure-svg svg { display: block; width: 100%; height: auto; min-width: 560px; }
 .figure-svg img { border: 0; box-shadow: none; }
 .figure-video video { aspect-ratio: 16 / 9; background: #070b1f; }
+.video-frame { position: relative; }
+.video-frame video::-webkit-media-controls-fullscreen-button { display: none; }
+.video-expand { position: absolute; top: 12px; right: 12px; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px 0 10px; border: 1px solid rgba(255, 255, 255, .2); border-radius: 999px; background: rgba(6, 8, 18, .64); color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; backdrop-filter: blur(6px); opacity: 0; transition: opacity .15s, background .15s; }
+.video-expand .i { width: 16px; height: 16px; }
+.video-frame:hover .video-expand, .video-frame:not(.is-playing) .video-expand, .video-expand:focus-visible { opacity: 1; }
+.video-expand:hover { background: rgba(6, 8, 18, .86); }
+.video-holder { border-radius: var(--radius-l); border: 1px solid var(--stroke); background: var(--bg-elev); }
+@media (hover: none) { .video-expand { opacity: 1; } }
 .figure-video { scroll-margin-top: calc(var(--topbar-h) + 24px); }
 .figure figcaption { margin-top: 10px; font-size: 13.5px; color: var(--fg-3); text-align: center; line-height: 1.5; }
 .zoom { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: var(--radius-l); }

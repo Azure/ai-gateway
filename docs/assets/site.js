@@ -21,6 +21,7 @@ const IC = {
   sliders: SV('<path d="M3 6h7M14 6h3M3 14h3M10 14h7"/><circle cx="12" cy="6" r="2"/><circle cx="8" cy="14" r="2"/>'),
   info: SV('<circle cx="10" cy="10" r="7.5"/><path d="M10 9v5M10 6.2v.1"/>'),
   play: SV('<path d="M6.5 4.5v11l9-5.5Z"/>'),
+  expand: SV('<path d="M3.5 7.5v-4h4M12.5 3.5h4v4M16.5 12.5v4h-4M7.5 16.5h-4v-4"/>'),
   reset: SV('<path d="M3.5 10a6.5 6.5 0 1 0 2-4.7"/><path d="M3.5 3.5v3.5H7"/>'),
   user: SV('<circle cx="10" cy="7" r="3.2"/><path d="M3.8 17a6.2 6.2 0 0 1 12.4 0"/>'),
   key: SV('<circle cx="6.5" cy="13.5" r="3.5"/><path d="m9 11 7.5-7.5M14 6l2 2M12 8l1.5 1.5"/>'),
@@ -545,6 +546,63 @@ function initLightbox() {
     $('.lightbox-cap', box).textContent = z.closest('figure')?.querySelector('figcaption')?.textContent || img.alt || '';
     box.lastFocus = z; box.hidden = false; document.body.style.overflow = 'hidden';
     $('.lightbox-close', box).focus();
+  });
+}
+
+// Edge's scareware blocker scans full-screen pages and can mistake a narrated product walkthrough for a scam,
+// so lab videos never use the Fullscreen API: Expand, double-click, and F open an in-page theater view.
+function initVideos() {
+  const frames = $$('.figure-video .video-frame');
+  if (!frames.length) return;
+  let stage, current, holder;
+  const close = () => {
+    if (!current) return;
+    const frame = current;
+    holder.replaceWith(frame);
+    stage.hidden = true; document.body.style.overflow = '';
+    current = holder = null;
+    $('.video-expand', frame)?.focus();
+  };
+  const open = (frame) => {
+    if (current) close();
+    if (!stage) {
+      stage = h(`<div class="video-theater" role="dialog" aria-modal="true" hidden><button class="icon-btn video-theater-close" type="button" aria-label="Close video">${IC.close}</button><p class="video-theater-cap"></p></div>`);
+      document.body.append(stage);
+      stage.addEventListener('click', (e) => { if (e.target === stage) close(); });
+      $('.video-theater-close', stage).addEventListener('click', close);
+      stage.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { e.preventDefault(); close(); }
+        else if (e.key === 'Tab') { e.preventDefault(); const b = $('.video-theater-close', stage); (document.activeElement === b ? $('video', stage) : b).focus(); }
+      });
+    }
+    const caption = frame.closest('figure')?.querySelector('figcaption')?.textContent || '';
+    holder = h('<div class="video-holder" aria-hidden="true"></div>');
+    holder.style.height = `${frame.offsetHeight}px`;
+    // Moving a playing <video> within the document keeps it playing.
+    frame.replaceWith(holder);
+    stage.insertBefore(frame, $('.video-theater-cap', stage));
+    $('.video-theater-cap', stage).textContent = caption;
+    stage.setAttribute('aria-label', caption || 'Video');
+    current = frame; stage.hidden = false; document.body.style.overflow = 'hidden';
+    $('video', frame).focus();
+  };
+  const toggle = (frame) => (current === frame ? close() : open(frame));
+  for (const frame of frames) {
+    const video = $('video', frame);
+    const btn = h(`<button class="video-expand" type="button" title="Expand (F)">${IC.expand}<span>Expand</span></button>`);
+    frame.append(btn);
+    btn.addEventListener('click', () => open(frame));
+    video.addEventListener('dblclick', (e) => { e.preventDefault(); toggle(frame); }, true);
+    video.addEventListener('keydown', (e) => {
+      if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); toggle(frame); }
+    });
+    const sync = () => frame.classList.toggle('is-playing', !video.paused);
+    video.addEventListener('play', sync); video.addEventListener('pause', sync);
+  }
+  // Last resort if a browser still enters full screen (e.g. a context-menu item): leave it and use the theater view.
+  document.addEventListener('fullscreenchange', () => {
+    const frame = document.fullscreenElement?.closest?.('.video-frame') || frames.find((f) => f.contains(document.fullscreenElement));
+    if (frame) document.exitFullscreen().catch(() => {}).finally(() => open(frame));
   });
 }
 
@@ -1090,6 +1148,7 @@ function boot() {
   run('pathBanner', initPathBanner);
   run('toc', initToc);
   run('lightbox', initLightbox);
+  run('videos', initVideos);
   run('catalog', initCatalog);
   run('hero', initHero);
   run('diagrams', initDiagrams);

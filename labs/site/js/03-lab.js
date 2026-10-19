@@ -232,6 +232,63 @@ function initLightbox() {
   });
 }
 
+// Edge's scareware blocker scans full-screen pages and can mistake a narrated product walkthrough for a scam,
+// so lab videos never use the Fullscreen API: Expand, double-click, and F open an in-page theater view.
+function initVideos() {
+  const frames = $$('.figure-video .video-frame');
+  if (!frames.length) return;
+  let stage, current, holder;
+  const close = () => {
+    if (!current) return;
+    const frame = current;
+    holder.replaceWith(frame);
+    stage.hidden = true; document.body.style.overflow = '';
+    current = holder = null;
+    $('.video-expand', frame)?.focus();
+  };
+  const open = (frame) => {
+    if (current) close();
+    if (!stage) {
+      stage = h(`<div class="video-theater" role="dialog" aria-modal="true" hidden><button class="icon-btn video-theater-close" type="button" aria-label="Close video">${IC.close}</button><p class="video-theater-cap"></p></div>`);
+      document.body.append(stage);
+      stage.addEventListener('click', (e) => { if (e.target === stage) close(); });
+      $('.video-theater-close', stage).addEventListener('click', close);
+      stage.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { e.preventDefault(); close(); }
+        else if (e.key === 'Tab') { e.preventDefault(); const b = $('.video-theater-close', stage); (document.activeElement === b ? $('video', stage) : b).focus(); }
+      });
+    }
+    const caption = frame.closest('figure')?.querySelector('figcaption')?.textContent || '';
+    holder = h('<div class="video-holder" aria-hidden="true"></div>');
+    holder.style.height = `${frame.offsetHeight}px`;
+    // Moving a playing <video> within the document keeps it playing.
+    frame.replaceWith(holder);
+    stage.insertBefore(frame, $('.video-theater-cap', stage));
+    $('.video-theater-cap', stage).textContent = caption;
+    stage.setAttribute('aria-label', caption || 'Video');
+    current = frame; stage.hidden = false; document.body.style.overflow = 'hidden';
+    $('video', frame).focus();
+  };
+  const toggle = (frame) => (current === frame ? close() : open(frame));
+  for (const frame of frames) {
+    const video = $('video', frame);
+    const btn = h(`<button class="video-expand" type="button" title="Expand (F)">${IC.expand}<span>Expand</span></button>`);
+    frame.append(btn);
+    btn.addEventListener('click', () => open(frame));
+    video.addEventListener('dblclick', (e) => { e.preventDefault(); toggle(frame); }, true);
+    video.addEventListener('keydown', (e) => {
+      if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); toggle(frame); }
+    });
+    const sync = () => frame.classList.toggle('is-playing', !video.paused);
+    video.addEventListener('play', sync); video.addEventListener('pause', sync);
+  }
+  // Last resort if a browser still enters full screen (e.g. a context-menu item): leave it and use the theater view.
+  document.addEventListener('fullscreenchange', () => {
+    const frame = document.fullscreenElement?.closest?.('.video-frame') || frames.find((f) => f.contains(document.fullscreenElement));
+    if (frame) document.exitFullscreen().catch(() => {}).finally(() => open(frame));
+  });
+}
+
 function initNav() {
   const toggle = $('.nav-toggle');
   if (!toggle) return;
