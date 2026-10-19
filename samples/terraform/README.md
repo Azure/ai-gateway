@@ -5,6 +5,54 @@ Provision the three infrastructure building blocks used by the
 AI Gateway, a dedicated Foundry model account, and a separate Foundry hosted-agent
 account/project. This is a standalone Terraform sample, not an `azd` application.
 
+## Disclaimer and current limitations
+
+**Preview PoC, not a production or private-only reference architecture.**
+The following distinguishes Microsoft-documented constraints from observations
+in this sample's test environment. Documentation checked **October 19, 2026**;
+verify the linked Microsoft Learn pages before deploying because preview
+features, APIs, availability and restrictions can change.
+
+| Area | Limitation and deployment implication | Official Microsoft Learn guidance |
+| --- | --- | --- |
+| AI Gateway preview | Best-effort availability with **no SLA**. APIs, limits, regions and pricing can change. Currently documented gateway regions are East US 2 and Sweden Central; access and capacity can vary by subscription. Connected services remain billable. | [AI Gateway overview and preview FAQ](https://learn.microsoft.com/azure/api-management/ai-gateway-overview) |
+| Hosted-agent networking must be designed before account creation | **Hosted-agent VNet injection must be included when the Foundry account is first created; adding it to an existing account is not supported.** This sample does not configure that injection. If private hosted-agent execution is required, select a supported network-secured Foundry deployment before creating the agent account; do not expect to retrofit this sample's account by adding private endpoints. | [Foundry Agent Service networking limitations](https://learn.microsoft.com/azure/foundry/agents/how-to/virtual-networks#limitations) |
+| Private endpoints are not the same as VNet injection | The creation-time restriction above is **not a blanket restriction on adding private endpoints**. AI Gateway documentation describes adding an inbound private endpoint to an existing gateway and configuring outbound VNet integration separately. Inbound Private Link alone does not give the gateway or hosted agents private backend access. | [AI Gateway private networking](https://learn.microsoft.com/azure/api-management/ai-gateway-configure-private-networking) |
+| Gateway public-access disablement | Microsoft documents disabling public access after private connectivity is verified. **Our October 18 Sweden Central tests failed that update**, including on a separate minimal gateway. The PoC therefore leaves gateway public access enabled. This is an observed unresolved failure, not a Microsoft-documented universal SKU limitation. | [Documented inbound Private Link sequence](https://learn.microsoft.com/azure/api-management/ai-gateway-configure-private-networking#inbound-private-link); [sample findings](#known-blocker-private-only-gateway-ingress) |
+| Private hosted-agent image pulls | Current guidance supports private ACR for Foundry projects created after June 25, 2026; older projects require public ACR reachability. This does not remove the account-creation requirement for hosted-agent VNet injection. The sample leaves ACR public and does not prove hosted-agent execution. | [Foundry networking limitations](https://learn.microsoft.com/azure/foundry/agents/how-to/virtual-networks#limitations) |
+
+**Decide on hosted-agent isolation before running `terraform apply`.** The
+optional private profile covers only the gateway/model path, not the agent
+account, Storage or ACR. It also uses a temporary-public-model staging step;
+if your policies prohibit that step, do not use the walkthrough unchanged.
+Infrastructure provisioning, private endpoints and successful gateway model
+calls do not establish end-to-end private hosted-agent execution.
+
+## Choose your deployment
+
+| Goal | Start here | Network posture |
+| --- | --- | --- |
+| Deploy the basic infrastructure sample | [Configure and provision](#configure-and-provision) | Gateway and model endpoints are public by default; authentication is required. |
+| Try the verified private gateway-to-model path | [Private-connectivity PoC profile](#private-connectivity-poc-profile) | Gateway and model have private endpoints; model public access is disabled, but gateway public access remains enabled. |
+| Require private-only gateway ingress | [Known blocker: private-only gateway ingress](#known-blocker-private-only-gateway-ingress) | **Not verified in the tested environment.** Disabling gateway public access failed; do not use this PoC to satisfy a no-public-ingress requirement. |
+
+**Recommended first run:** provision the basic sample, then
+[test a model through the gateway](#test-a-model-through-the-gateway).
+If your policies do not permit public model endpoints, do not run that default
+deployment: review the private profile's temporary-public-model staging with
+your network/security owner first. Neither walkthrough establishes private-only
+gateway ingress or a production-ready hosted-agent deployment.
+If hosted agents must run inside your VNet, first review the
+[creation-time networking constraint](#disclaimer-and-current-limitations)
+instead of provisioning the default agent account.
+
+The sections below cover [prerequisites](#prerequisites),
+[deployment inputs](#inputs), [state and security](#state-and-security),
+[private-network details and the test VM](#private-network-details-and-test-client),
+and [offline checks](#offline-checks).
+
+### Implementation background
+
 The configuration follows the upstream
 [Bicep infrastructure](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway/tree/c572db847e4bff5278bc5f8630c2acb4b6991119/infra).
 It uses the AzAPI provider to express the preview ARM resources directly.
@@ -32,7 +80,9 @@ counter-key format rather than the older scalar `"Identity"` format.
 definition, start a hosted-agent container, register GitHub MCP tools, configure
 GitHub credentials, or create a daily-digest schedule. Use the end-to-end sample
 for application setup after provisioning. It does not replace its `azd` hooks or
-produce an `azd` environment.
+produce an `azd` environment. It also does not configure the creation-time
+hosted-agent VNet injection required for private agent execution; review the
+[disclaimer](#disclaimer-and-current-limitations) before creating that account.
 
 ## Prerequisites
 
@@ -55,7 +105,18 @@ before applying. Region/model availability is not inferred by this configuration
 
 ## Configure and provision
 
-Run from this directory in PowerShell:
+This is the **default public-endpoint deployment**. For the private-connectivity
+PoC, complete the same sign-in, input-file setup, initialization and validation
+below, then use the profile's [staged plan/apply commands](#private-connectivity-poc-profile)
+instead of the final two commands here.
+
+From the repository root, open this directory:
+
+```powershell
+Set-Location .\samples\terraform
+```
+
+Run the following in PowerShell:
 
 ```powershell
 az login
@@ -69,6 +130,9 @@ terraform validate
 terraform plan "-out=deployment.tfplan"
 terraform apply "deployment.tfplan"
 ```
+
+After apply succeeds, [test a model through the gateway](#test-a-model-through-the-gateway).
+Provisioning infrastructure alone does not start a hosted agent.
 
 Review the plan before applying. These commands create billable resources,
 including the Foundry deployments, Premium ACR, Storage, and monitoring.
@@ -215,7 +279,7 @@ proof of private backend use. This probe does not independently verify negative
 authentication or telemetry ingestion; those require separate runtime checks.
 Do not reuse earlier failed private-only saved plans for this PoC.
 
-## Optional private gateway/model proof
+## Private-network details and test client
 
 Set `enable_private_networking = true` to add a VNet, an outbound integration
 subnet delegated to `Microsoft.Web/serverFarms`, separate endpoint/client
@@ -230,35 +294,12 @@ DNS, peering, VPN, forced tunnelling, and custom firewall rules are not configur
 Optional networking additionally requires `Microsoft.Network`; the optional
 test VM requires `Microsoft.Compute` and regional VM quota.
 
-Use staged, reviewed plans, with no resource replacements:
-
-The profile above stops after stage 2 and intentionally keeps gateway public
-access enabled. Stage 3 below is the separate, currently blocked private-only
-ingress goal, not a prerequisite for the private-connectivity PoC.
-
-1. Enable private networking, initially keeping `gateway_public_network_access`
-   and `models_public_network_access` as `Enabled`. Verify endpoint approval and
-   private DNS from inside the VNet.
-2. Set `models_public_network_access = "Disabled"`, apply, and repeat gateway
-   inference. Success with model public access disabled proves the backend path.
-3. Set `gateway_public_network_access = "Disabled"`, apply, and repeat private
-   inference. Also prove a previously working valid-key public request now fails.
-
-**Observed preview result (October 18, 2026, Sweden Central):** private-client
-DNS and inference passed for both configured aliases, including with model
-public access disabled and its network ACL set to Deny. Disabling gateway public
-access failed with `UpdateApiServiceFailed` through both Terraform's service
-update and the dedicated CLI's public-access-only PATCH. The approved private
-endpoint and outbound integration continued to work, but gateway public access
-remained Enabled. A separate fresh minimal gateway in the same subscription and
-region reproduced the error without outbound integration or model/backend
-configuration, through both the service update and a public-access-only CLI
-PATCH. Its approved private endpoint remained reachable; the temporary
-reproduction resources were then deleted. This narrows the failure beyond the
-original instance but does not establish a root cause or prove that the SKU
-never supports private-only ingress. Do not declare private-only operation
-until step 3 succeeds and the public negative test passes. No destructive
-workaround or automatic re-enablement is included.
+Use the [profile walkthrough](#private-connectivity-poc-profile) for staged,
+reviewed plans. Its completion point is successful private inference with model
+public access disabled and gateway public access still enabled. Review any
+unexpected resource replacement before applying. Gateway public disablement is
+a [separate blocked goal](#known-blocker-private-only-gateway-ingress), not a
+third step required to complete the PoC.
 
 Optionally set `enable_private_test_client = true` and supply
 `private_test_client_ssh_public_key` with an OpenSSH **public** key. The Ubuntu
@@ -297,6 +338,39 @@ not an automatic recovery step.
 
 **Boundary:** this option does not privately network the hosted-agent account,
 Storage, or ACR. It does not validate agent execution or promise an SLA.
+Adding these gateway/model private endpoints does not retrofit hosted-agent
+VNet injection into an existing Foundry account; that is a separate
+[creation-time requirement](https://learn.microsoft.com/azure/foundry/agents/how-to/virtual-networks#limitations).
+
+## Known blocker: private-only gateway ingress
+
+**This is a diagnostic finding, not a deployment step.** Do not change
+`gateway_public_network_access` to `Disabled` as part of the working PoC.
+
+**Observed preview result (October 18, 2026, Sweden Central):** private-client
+DNS and inference passed for both configured aliases, including with model
+public access disabled and its network ACL set to Deny. Disabling gateway public
+access failed with `UpdateApiServiceFailed` through both Terraform's service
+update and the dedicated CLI's public-access-only PATCH. The approved private
+endpoint and outbound integration continued to work, but gateway public access
+remained Enabled. A separate fresh minimal gateway in the same subscription and
+region reproduced the error without outbound integration or model/backend
+configuration, through both the service update and a public-access-only CLI
+PATCH. Its approved private endpoint remained reachable; the temporary
+reproduction resources were then deleted.
+
+This narrows the failure beyond the original instance but does not establish a
+root cause or prove that the SKU never supports private-only ingress. A future
+private-only implementation must meet all of these acceptance criteria:
+
+- The gateway reports public network access `Disabled`.
+- Every configured model alias still succeeds through the gateway private endpoint.
+- A previously working public request with a valid key receives a network-access
+  rejection, not merely an authentication failure.
+- A plan using the intended private-only inputs reports no pending changes.
+
+Until then, treat a no-public-ingress requirement as blocked. No destructive
+workaround or automatic re-enablement is included.
 
 ## Preview schema limitations
 
@@ -326,12 +400,80 @@ managed-identity backend access, API-key resource and telemetry exporter.
 
 ## Runtime verification
 
-After applying, follow the [gateway model test](../../cli/README.md#5-test-the-gateway)
-using the gateway/resource-group outputs, provider `foundry`, and your configured
-deployment names. The guide uses the optional AI Gateway CLI extension.
-Expect an HTTP 200 response from every model and HTTP 401/403 when the runtime
-key is absent or invalid. Model calls can incur inference charges; keep keys out
-of terminal output, logs, and source control.
+### Test a model through the gateway
+
+Run this in PowerShell from `samples\terraform` after a successful apply, while
+signed in to Azure. It uses Terraform outputs and Azure CLI; the optional AI
+Gateway CLI extension is **not required**. Your signed-in identity needs
+permission to retrieve the gateway API key
+(`Microsoft.ApiManagement/service/apiKeys/listSecrets/action`).
+
+The example calls every configured alias and assumes chat-completions models,
+such as the two models in `terraform.tfvars.example`. For other model types,
+use their supported API and request body instead. Model calls incur inference
+charges. Do not enable CLI debug output, PowerShell tracing or session recording
+while retrieving or using keys.
+
+```powershell
+$outputJson = terraform output -json
+if ($LASTEXITCODE -ne 0) { throw "Unable to read Terraform outputs." }
+$outputs = $outputJson | ConvertFrom-Json
+$gatewayUrl = ([string]$outputs.gateway_endpoint.value).TrimEnd('/')
+$keyId = $outputs.gateway_api_key_id.value
+$modelNames = @($outputs.model_deployment_ids.value.PSObject.Properties.Name)
+if (!$gatewayUrl -or !$keyId -or $modelNames.Count -eq 0) {
+    throw "Gateway endpoint, API key resource ID, or model aliases are missing."
+}
+
+$apiKey = $null
+$headers = $null
+try {
+    $apiKey = az rest --method post `
+        --url "https://management.azure.com${keyId}/listSecrets?api-version=2025-09-01-preview" `
+        --query primaryKey --output tsv --only-show-errors
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($apiKey)) {
+        throw "Unable to retrieve the gateway key; check your Azure identity and permissions."
+    }
+    $headers = @{ "Api-Key" = $apiKey }
+    foreach ($model in $modelNames) {
+        $body = @{
+            model = $model
+            messages = @(@{ role = "user"; content = "Say hello in one short sentence." })
+        } | ConvertTo-Json -Depth 5
+        $reply = Invoke-RestMethod -Method Post `
+            -Uri "$gatewayUrl/default/models/openai/v1/chat/completions" `
+            -Headers $headers -ContentType "application/json" -Body $body -ErrorAction Stop
+        if (!$reply.choices -or !$reply.choices[0].message.content) {
+            throw "No chat-completion text returned for model alias '$model'."
+        }
+        "{0}: {1}" -f $model, $reply.choices[0].message.content
+    }
+}
+finally {
+    $headers = $null
+    $apiKey = $null
+}
+```
+
+Expect a short reply prefixed by each alias, for example `gpt-mini: Hello!`.
+The key is held in memory and cleared from the example's variables even if a
+request fails; it is not printed or written to a file. Stop on errors rather
+than disabling authentication or relaxing network policies. A `401/403` can
+indicate authentication, authorization or network restrictions; a `429` can
+indicate token limits or capacity. Inspect the service error before retrying.
+
+**This direct request does not prove private routing.** With the PoC profile,
+a public client can still reach the gateway. Use the
+[private test-client probe](#private-network-details-and-test-client) from the
+VNet to verify private DNS and inference with model public access disabled.
+
+For CLI-based alternatives, follow the
+[gateway model test](../../cli/README.md#5-test-the-gateway), using provider
+`foundry` and your configured deployment names. Separately verify that missing
+or invalid runtime keys receive HTTP `401/403`; a successful authenticated call
+does not test that protection.
+
+### Check telemetry and deployment consistency
 
 Confirm the six default RBAC assignments and the Foundry connections exist, and
 check the gateway's Application Insights for the requests after allowing for
@@ -347,4 +489,7 @@ deployment when checking drift.
 - [Upstream Bicep infrastructure](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway/tree/c572db847e4bff5278bc5f8630c2acb4b6991119/infra)
 - [AzAPI provider](https://registry.terraform.io/providers/Azure/azapi/latest/docs)
 - [AI Gateway tier](https://aka.ms/aigateway/docs)
+- [AI Gateway overview, preview availability and SLA](https://learn.microsoft.com/azure/api-management/ai-gateway-overview)
+- [Configure private networking for AI Gateway](https://learn.microsoft.com/azure/api-management/ai-gateway-configure-private-networking)
+- [Foundry Agent Service private networking and limitations](https://learn.microsoft.com/azure/foundry/agents/how-to/virtual-networks#limitations)
 - [Model and tool management](https://learn.microsoft.com/azure/api-management/ai-gateway-manage-models-tools)
