@@ -137,7 +137,7 @@ No automatic recovery or destructive workaround is included.
 
 ## Cost and cleanup
 
-Both paths create billable resources. Model calls, Premium ACR, Storage, and monitoring all cost money. To tear down, run `terraform destroy` after reviewing the plan. Stop the optional VM as described in [private connectivity](private-connectivity.md#step-6-stop-the-vm-when-you-are-done) if you want to keep the rest.
+Both paths create billable resources. Model calls, Premium ACR, Storage, and monitoring all cost money. To tear down, run `terraform destroy` after reviewing the plan. For a private deployment, include its profile: `terraform destroy "-var-file=profiles\private-connectivity.tfvars.json"`. Stop the optional VM as described in [private connectivity](private-connectivity.md#step-6-stop-the-vm-when-you-are-done) if you want to keep the rest.
 
 ## References
 

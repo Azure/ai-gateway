@@ -22,7 +22,11 @@ Always pass the profile on every plan, including drift checks:
 
 ## Prerequisites
 
-Everything in the [main prerequisites](../README.md#before-you-start), plus:
+Complete the [main prerequisites](../README.md#before-you-start), then steps
+1–3 of the [quick start](../README.md#quick-start-public-endpoints): sign in,
+create and configure `terraform.tfvars`, and initialize and validate Terraform.
+Stop before its public plan/apply and test steps. Then complete these additional
+requirements:
 
 - `Microsoft.Network` registered
 - For the test VM: `Microsoft.Compute`, regional VM quota, and permission to use VM Run Command

@@ -76,16 +76,22 @@ terraform fmt -check -recursive
 terraform validate
 ```
 
-**4. Plan and apply the reviewed plan:**
+**4. Plan and review:**
 
 ```powershell
 terraform plan "-out=deployment.tfplan"
+```
+
+Stop if planning fails. Review the plan for public access, resource creation and
+cost. Do not apply unexpected changes.
+
+**5. Apply the reviewed plan:**
+
+```powershell
 terraform apply "deployment.tfplan"
 ```
 
-Review the plan for public access, resource creation and cost before applying.
-
-**5. Test every alias:**
+**6. Test every alias:**
 
 ```powershell
 .\scripts\Test-ModelAliases.ps1
@@ -93,6 +99,9 @@ Review the plan for public access, resource creation and cost before applying.
 
 Each alias should print a short reply, for example `gpt-mini: Hello!`.
 This check uses your machine and public endpoints. It does **not** prove private routing.
+The example calls every configured alias and assumes chat-completions models,
+such as the two models in `terraform.tfvars.example`. For other model types,
+use their supported API and request body instead.
 
 **Done when:** every alias returns a response and `terraform plan -detailed-exitcode` exits `0`.
 
