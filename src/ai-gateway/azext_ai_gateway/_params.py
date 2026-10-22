@@ -17,6 +17,7 @@ from azext_ai_gateway._validators import (
     validate_policies,
     validate_policy,
 )
+from azext_ai_gateway._gateway import API_VERSION
 
 AI_GATEWAY_CONFIGURED_DEFAULT = "ai-gateway"
 AI_GATEWAY_DEFAULT_HELP = (
@@ -249,6 +250,119 @@ def load_arguments(loader, _):
                 help="Inline policy JSON array or path prefixed with '@'.",
             )
 
+    model_alias_commands = [
+        "ai-gateway model-alias create",
+        "ai-gateway model-alias delete",
+        "ai-gateway model-alias list",
+        "ai-gateway model-alias show",
+        "ai-gateway model-alias test",
+        "ai-gateway model-alias update",
+    ]
+    for command in model_alias_commands:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "gateway_name",
+                options_list=["--resource-name"],
+                configured_default=AI_GATEWAY_CONFIGURED_DEFAULT,
+                help="Name of the parent AI Gateway." + AI_GATEWAY_DEFAULT_HELP,
+            )
+            context.argument("resource_group_name", resource_group_name_type)
+            context.argument(
+                "api_version",
+                default=API_VERSION,
+                help="ARM API version used for the command.",
+            )
+            context.ignore("workspace_name")
+
+    for command in [
+        "ai-gateway model-alias create",
+        "ai-gateway model-alias delete",
+        "ai-gateway model-alias show",
+        "ai-gateway model-alias update",
+    ]:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "name",
+                options_list=["--name", "-n"],
+                help="Immutable model alias resource ID segment.",
+            )
+
+    with loader.argument_context("ai-gateway model-alias test") as context:
+        context.argument(
+            "n",
+            options_list=["--n"],
+            type=int,
+            default=1,
+            help="Positive number of sequential tests per model alias.",
+        )
+        context.argument(
+            "name",
+            options_list=["--name", "-n"],
+            required=False,
+            help=(
+                "Immutable model alias resource ID segment. Omit when piping "
+                "JSON output from 'az ai-gateway model-alias list'."
+            ),
+        )
+        context.argument(
+            "api_key_name",
+            options_list=["--api-key-name"],
+            arg_group="Authentication",
+            help=(
+                "Name of the AI Gateway API key resource to use. If omitted, "
+                "the command uses the signed-in Azure identity."
+            ),
+        )
+        context.argument(
+            "prompt",
+            help="Prompt sent to the model alias.",
+        )
+        context.argument(
+            "endpoint",
+            arg_type=get_enum_type(
+                ["chat-completions", "responses", "messages"]
+            ),
+            help=(
+                "Protocol endpoint to test. Required when the target model "
+                "supports more than one endpoint."
+            ),
+        )
+
+    for command in [
+        "ai-gateway model-alias create",
+        "ai-gateway model-alias update",
+    ]:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "alias_name",
+                help="Callable model name sent by applications.",
+            )
+            context.argument(
+                "model_provider",
+                help="Name of the target model provider.",
+            )
+            context.argument(
+                "model_name",
+                help="Name of the target model registration.",
+            )
+            context.argument(
+                "description",
+                help="Description of the model alias.",
+            )
+
+    for command in [
+        "ai-gateway model-alias delete",
+        "ai-gateway model-alias update",
+    ]:
+        with loader.argument_context(command) as context:
+            context.argument(
+                "if_match",
+                help=(
+                    "ETag used to reject stale changes. By default, the "
+                    "current ETag is retrieved automatically."
+                ),
+            )
+
     model_provider_commands = [
         "ai-gateway model-provider create",
         "ai-gateway model-provider delete",
@@ -358,6 +472,14 @@ def load_arguments(loader, _):
                 "its models."
             ),
         )
+        context.argument(
+            "aliases",
+            action="store_true",
+            help=(
+                "Create a callable alias for each model imported during "
+                "provider creation. Alias names use <provider>/<model>."
+            ),
+        )
 
     with loader.argument_context(
         "ai-gateway model-provider sync"
@@ -376,6 +498,14 @@ def load_arguments(loader, _):
             "dry_run",
             action="store_true",
             help="Return the synchronization plan without changing models.",
+        )
+        context.argument(
+            "aliases",
+            action="store_true",
+            help=(
+                "Create a callable alias for each model created by this "
+                "synchronization. Alias names use <provider>/<model>."
+            ),
         )
         context.argument(
             "yes",
@@ -409,7 +539,6 @@ def load_arguments(loader, _):
         "ai-gateway mcp create",
         "ai-gateway mcp delete",
         "ai-gateway mcp show",
-        "ai-gateway mcp test",
         "ai-gateway mcp update",
     ]:
         with loader.argument_context(command) as context:
@@ -465,9 +594,26 @@ def load_arguments(loader, _):
 
     with loader.argument_context("ai-gateway mcp test") as context:
         context.argument(
+            "n",
+            options_list=["--n"],
+            type=int,
+            default=1,
+            help="Positive number of sequential tests per MCP tool server.",
+        )
+        context.argument(
+            "name",
+            options_list=["--name", "-n"],
+            required=False,
+            help=(
+                "Name of the MCP tool server. Omit when piping JSON output "
+                "from 'az ai-gateway mcp list'."
+            ),
+        )
+        context.argument(
             "api_key_name",
             options_list=["--api-key-name"],
             arg_group="Authentication",
+            required=True,
             help="Name of the AI Gateway API key resource to use.",
         )
 
@@ -693,12 +839,12 @@ def load_arguments(loader, _):
     with loader.argument_context("ai-gateway policy create") as context:
         context.argument(
             "scope_type",
-            arg_type=get_enum_type(["model", "mcp"]),
+            arg_type=get_enum_type(["model", "model-alias", "mcp"]),
             help="Type of resource that hosts the inline policy.",
         )
         context.argument(
             "scope_name",
-            help="Name of the model or MCP tool server.",
+            help="Name of the model, model alias, or MCP tool server.",
         )
         context.argument(
             "provider_name",
@@ -708,14 +854,14 @@ def load_arguments(loader, _):
     with loader.argument_context("ai-gateway policy list") as context:
         context.argument(
             "scope_type",
-            arg_type=get_enum_type(["model", "mcp"]),
+            arg_type=get_enum_type(["model", "model-alias", "mcp"]),
             help="Only include policies attached to this resource type.",
         )
         context.argument(
             "scope_name",
             help=(
-                "Only include policies attached to this model or MCP tool "
-                "server. Requires --scope-type."
+                "Only include policies attached to this model, model alias, "
+                "or MCP tool server. Requires --scope-type."
             ),
         )
         context.argument(
@@ -744,58 +890,66 @@ def load_arguments(loader, _):
             help="Source APIM policy statement name.",
         )
 
-    with loader.argument_context("ai-gateway import") as context:
-        context.argument(
-            "name",
-            options_list=["--name", "-n"],
-            configured_default=AI_GATEWAY_CONFIGURED_DEFAULT,
-            help=(
-                "Name of the destination AI Gateway."
-                + AI_GATEWAY_DEFAULT_HELP
-            ),
-        )
-        context.argument(
-            "resource_group_name",
-            resource_group_name_type,
-        )
+    with loader.argument_context("ai-gateway import-inventory") as context:
         context.argument(
             "source_apim_id",
             options_list=["--source-apim-id"],
             help="Resource ID of the source Azure API Management service.",
         )
         context.argument(
-            "include",
-            nargs="+",
-            arg_type=get_enum_type(["models", "mcp-servers"]),
-            default=["models", "mcp-servers"],
-            help="First-class APIM asset types to import.",
+            "apiops_artifact",
+            options_list=["--apiops-artifact"],
+            help=(
+                "Local APIOps artifact file or directory used to fill gaps "
+                "in live ARM discovery."
+            ),
         )
         context.argument(
-            "conflict_policy",
-            arg_type=get_enum_type(["fail", "skip", "overwrite"]),
-            default="fail",
-            help="Action to take when a destination resource already exists.",
+            "arm_template_file",
+            options_list=["--arm-template-file"],
+            help="Local ARM-template JSON used after the APIOps fallback.",
+        )
+
+        context.argument(
+            "approve_export_evidence",
+            options_list=["--approve-export-evidence"],
+            action="store_true",
+            help=(
+                "Approve use of local export evidence for incomplete live "
+                "ARM discovery."
+            ),
+        )
+    with loader.argument_context(
+        "ai-gateway migration-plan validate"
+    ) as context:
+        context.argument(
+            "context_file",
+            options_list=["--context-file"],
+            type=file_type,
+            required=True,
+            help="Migration context JSON file.",
         )
         context.argument(
             "mapping_file",
+            options_list=["--mapping-file"],
             type=file_type,
-            help=(
-                "Path to a JSON file containing models and MCP servers "
-                "source-to-destination mappings."
-            ),
+            required=True,
+            help="Migration mapping JSON file.",
         )
         context.argument(
-            "dry_run",
-            action="store_true",
-            help=(
-                "Discover assets and display a compatibility inventory without "
-                "changing either resource. The output includes the ordered "
-                "action graph."
-            ),
+            "todos_file",
+            options_list=["--todos-file"],
+            type=file_type,
+            required=True,
+            help="Migration TODO graph JSON file.",
         )
         context.argument(
-            "yes",
-            options_list=["--yes", "-y"],
-            action="store_true",
-            help="Execute the assessed import action graph without prompting.",
+            "source_inventory_file",
+            options_list=["--source-inventory-file"],
+            type=file_type,
+            required=True,
+            help=(
+                "Exact schema 3.0 source inventory JSON file used to build "
+                "the migration state."
+            ),
         )

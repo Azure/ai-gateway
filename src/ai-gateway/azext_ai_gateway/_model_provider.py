@@ -31,6 +31,11 @@ from azext_ai_gateway._gateway import (
     _request,
     _response_json,
 )
+from azext_ai_gateway._model_alias import (
+    _list_all as _list_all_aliases,
+    classify_alias,
+    generate_alias_resource_id,
+)
 
 DEFAULT_WORKSPACE = "default"
 FOUNDRY_API_VERSION = "2024-10-01"
@@ -523,7 +528,7 @@ def _parse_custom_model_ids(response, request_url=""):
 def _cors_proxy_context(cmd, provider_path):
     match = re.match(
         r"^/subscriptions/([^/]+)/resourceGroups/([^/]+)/providers/"
-        r"Microsoft\.ApiManagement/service/([^/]+)",
+        r"Microsoft\.ApiManagement/aigateways/([^/]+)",
         provider_path,
         flags=re.IGNORECASE,
     )
@@ -853,6 +858,8 @@ def format_model_provider_sync_table(result):
             "Action": change["action"],
             "Name": change["name"],
             "Status": change["status"],
+            "Alias": (change.get("alias") or {}).get("name") or "",
+            "Alias status": (change.get("alias") or {}).get("status") or "",
             "Reason": change.get("reason") or "",
         }
         for change in result.get("changes", [])
@@ -1159,6 +1166,7 @@ def _create_single_model_provider(
     managed_identity_resource=None,
     managed_identity_client_id=None,
     no_sync=False,
+    aliases=False,
 ):
     if (
         kind == "Custom"
@@ -1226,6 +1234,7 @@ def _create_single_model_provider(
             dry_run=False,
             yes=True,
             api_key_value=api_key_value,
+            aliases=aliases,
         )
     except Exception as error:
         raise AzCLIError(
@@ -1324,6 +1333,7 @@ def create_model_provider(
     managed_identity_resource=None,
     managed_identity_client_id=None,
     no_sync=False,
+    aliases=False,
 ):
     if not gateway_name:
         raise RequiredArgumentMissingError(
@@ -1332,6 +1342,10 @@ def create_model_provider(
     if not resource_group_name:
         raise RequiredArgumentMissingError(
             "Specify --resource-group or configure the group default."
+        )
+    if no_sync and aliases:
+        raise InvalidArgumentValueError(
+            "--aliases cannot be combined with --no-sync."
         )
 
     pipe_mode = name is None and kind is None and not sys.stdin.isatty()
@@ -1357,6 +1371,7 @@ def create_model_provider(
             managed_identity_resource,
             managed_identity_client_id,
             no_sync,
+            aliases,
         )
 
     if any(
@@ -1374,8 +1389,8 @@ def create_model_provider(
     ):
         raise InvalidArgumentValueError(
             "Piped account creation cannot be combined with explicit provider "
-            "properties. Only --managed-identity-client-id and --no-sync are "
-            "supported."
+            "properties. Only --managed-identity-client-id, --no-sync, and "
+            "--aliases are supported."
         )
 
     accounts = _parse_piped_foundry_accounts(sys.stdin)
@@ -1406,6 +1421,7 @@ def create_model_provider(
                 workspace_name=workspace_name,
                 resource_ids=[account["id"]],
                 no_sync=no_sync,
+                aliases=aliases,
                 **account_authentication,
             )
         )
@@ -1486,6 +1502,7 @@ def sync_model_provider(
     dry_run=False,
     yes=False,
     api_key_value=None,
+    aliases=False,
 ):
     if not dry_run and not yes:
         raise RequiredArgumentMissingError(
@@ -1511,6 +1528,7 @@ def sync_model_provider(
         dry_run,
         yes,
         api_key_value,
+        aliases,
     )
 
 
@@ -1522,6 +1540,7 @@ def _synchronize_model_provider(
     dry_run,
     yes,
     api_key_value=None,
+    aliases=False,
 ):
     if not dry_run and not yes:
         raise RequiredArgumentMissingError(
@@ -1560,6 +1579,61 @@ def _synchronize_model_provider(
         path,
         api_key_value,
     )
+    aliases_path = None
+    existing_aliases = []
+    if aliases:
+        aliases_path = (
+            path.rsplit("/modelProviders/", 1)[0] + "/aliases"
+        )
+        existing_aliases = _list_all_aliases(cmd, aliases_path)
+        provider_name = str(provider.get("name") or name)
+        for change in changes:
+            if change["action"] != "create":
+                continue
+            model_path = (
+                f"{_provider_models_path(path)}/"
+                f"{quote(change['name'], safe='')}"
+            )
+            alias_name = f"{provider_name}/{change['name']}"
+            state, existing_alias = classify_alias(
+                existing_aliases,
+                alias_name,
+                model_path,
+            )
+            alias = {
+                "name": alias_name,
+                "resourceName": (
+                    existing_alias.get("name")
+                    if existing_alias
+                    else generate_alias_resource_id(
+                        alias_name,
+                        existing_aliases,
+                    )
+                ),
+                "targetResourceId": model_path,
+            }
+            if state == "existing":
+                alias["status"] = "existing"
+            elif state == "conflict":
+                alias["status"] = "failed"
+                alias["reason"] = (
+                    f"Callable alias '{alias_name}' already targets a "
+                    "different backend model."
+                )
+            else:
+                alias["status"] = "planned"
+                existing_aliases.append(
+                    {
+                        "name": alias["resourceName"],
+                        "properties": {
+                            "aliasName": alias_name,
+                            "backendModels": [
+                                {"resourceId": model_path}
+                            ],
+                        },
+                    }
+                )
+            change["alias"] = alias
     conflicts = sorted(
         {
             str(change.get("name") or "")
@@ -1602,6 +1676,43 @@ def _synchronize_model_provider(
                     {"properties": change["properties"]},
                 )
                 change["status"] = "created"
+                alias = change.get("alias")
+                if alias and alias["status"] == "planned":
+                    logger.warning(
+                        "Creating model alias '%s'...",
+                        alias["name"],
+                    )
+                    try:
+                        _request(
+                            cmd,
+                            "PUT",
+                            (
+                                f"{aliases_path}/"
+                                f"{quote(alias['resourceName'], safe='')}"
+                            ),
+                            {
+                                "properties": {
+                                    "aliasName": alias["name"],
+                                    "backendModels": [
+                                        {
+                                            "resourceId": alias[
+                                                "targetResourceId"
+                                            ]
+                                        }
+                                    ],
+                                }
+                            },
+                        )
+                        alias["status"] = "created"
+                    except (AzCLIError, HTTPError) as error:
+                        alias["status"] = "failed"
+                        alias["reason"] = str(error)
+                        logger.warning(
+                            "Model '%s' was created, but alias '%s' failed: %s",
+                            change["name"],
+                            alias["name"],
+                            error,
+                        )
             elif change["action"] == "delete":
                 logger.warning("Deleting stale model '%s'...", change["name"])
                 model_path = change.get("id") or (
@@ -1637,6 +1748,27 @@ def _synchronize_model_provider(
         "changes": changes,
     }
     summary = result["summary"]
+    if aliases:
+        summary.update(
+            {
+                "aliasesCreated": sum(
+                    (change.get("alias") or {}).get("status") == "created"
+                    for change in changes
+                ),
+                "aliasesExisting": sum(
+                    (change.get("alias") or {}).get("status") == "existing"
+                    for change in changes
+                ),
+                "aliasesPlanned": sum(
+                    (change.get("alias") or {}).get("status") == "planned"
+                    for change in changes
+                ),
+                "aliasesFailed": sum(
+                    (change.get("alias") or {}).get("status") == "failed"
+                    for change in changes
+                ),
+            }
+        )
     if dry_run:
         logger.warning(
             "Synchronization plan complete: %d change(s), %d conflict(s), "
@@ -1644,6 +1776,19 @@ def _synchronize_model_provider(
             summary["planned"],
             summary["conflicts"],
             summary["stale"],
+        )
+    elif aliases:
+        logger.warning(
+            "Synchronization complete: %d models created, %d deleted, "
+            "%d conflict(s), %d stale model(s), %d aliases created, "
+            "%d existing, %d failed.",
+            summary["created"],
+            summary["deleted"],
+            summary["conflicts"],
+            summary["stale"],
+            summary["aliasesCreated"],
+            summary["aliasesExisting"],
+            summary["aliasesFailed"],
         )
     else:
         logger.warning(

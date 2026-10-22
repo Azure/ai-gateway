@@ -3,7 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------------------------
 
-from azext_ai_gateway._import import format_import_table
+from azext_ai_gateway._import_inventory import format_import_inventory_table
+from azext_ai_gateway._migration import (
+    format_migration_capability_table,
+    format_migration_plan_validation_table,
+)
 from azext_ai_gateway._policy_translation import (
     format_policy_translation_table,
 )
@@ -12,6 +16,7 @@ from azext_ai_gateway._model_provider import (
     format_model_provider_sync_table,
 )
 from azext_ai_gateway._model import format_model_list_table
+from azext_ai_gateway._model_alias import format_model_alias_list_table
 from azext_ai_gateway._mcp import format_mcp_list_table
 from azext_ai_gateway._api_key import format_api_key_list_table
 from azext_ai_gateway._policy import format_policy_list_table
@@ -35,11 +40,10 @@ def load_command_table(loader, _):
             supports_no_wait=True,
         )
         group.custom_command(
-            "import",
-            "import_from_apim",
+            "import-inventory",
+            "import_inventory",
             is_preview=True,
-            supports_no_wait=True,
-            table_transformer=format_import_table,
+            table_transformer=format_import_inventory_table,
         )
         group.custom_command(
             "list",
@@ -63,6 +67,36 @@ def load_command_table(loader, _):
             table_transformer=format_model_list_table,
         )
         group.custom_show_command("show", "show_model")
+
+    with loader.command_group("ai-gateway model-alias") as group:
+        group.custom_command("create", "create_model_alias")
+        group.custom_command(
+            "delete",
+            "delete_model_alias",
+            confirmation=True,
+        )
+        group.custom_command(
+            "list",
+            "list_model_aliases",
+            table_transformer=format_model_alias_list_table,
+        )
+        group.custom_show_command("show", "show_model_alias")
+        group.custom_command("test", "test_model_alias")
+        group.custom_command("update", "update_model_alias")
+
+    with loader.command_group("ai-gateway migration-capability") as group:
+        group.custom_show_command(
+            "show",
+            "show_migration_capability",
+            table_transformer=format_migration_capability_table,
+        )
+
+    with loader.command_group("ai-gateway migration-plan") as group:
+        group.custom_command(
+            "validate",
+            "validate_migration_plan",
+            table_transformer=format_migration_plan_validation_table,
+        )
 
     with loader.command_group("ai-gateway model-provider") as group:
         group.custom_command("create", "create_model_provider")

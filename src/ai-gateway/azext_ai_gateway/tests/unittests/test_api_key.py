@@ -68,6 +68,7 @@ def test_create_uses_resource_name_as_default_display_name(
     _api_key.create_api_key(cmd, "production", "gateway", "rg")
 
     assert json.loads(send_request.call_args.kwargs["body"]) == {
+        "type": "Microsoft.ApiManagement/aigateways/apiKeys",
         "properties": {"displayName": "production"}
     }
 

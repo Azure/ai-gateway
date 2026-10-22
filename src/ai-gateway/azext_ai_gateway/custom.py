@@ -18,6 +18,14 @@ from azext_ai_gateway._model import (
     list_models,
     show_model,
 )
+from azext_ai_gateway._model_alias import (
+    create_model_alias,
+    delete_model_alias,
+    list_model_aliases,
+    show_model_alias,
+    test_model_alias,
+    update_model_alias,
+)
 from azext_ai_gateway._model_provider import (
     create_model_provider,
     delete_model_provider,
@@ -60,7 +68,11 @@ from azext_ai_gateway._policy import (
     show_policy,
     update_policy,
 )
-from azext_ai_gateway._import import import_from_apim
+from azext_ai_gateway._import_inventory import import_inventory
+from azext_ai_gateway._migration import (
+    show_migration_capability,
+    validate_migration_plan,
+)
 from azext_ai_gateway._policy_translation import (
     list_policy_translation_support,
     show_policy_translation_support,

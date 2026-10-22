@@ -1,0 +1,7 @@
+{
+  "properties": {
+    "description": "Non-secret migration inventory fixture fragment",
+    "format": "rawxml",
+    "value": "<fragment><set-header name=\"x-fragment-fixture\" exists-action=\"override\"><value>fragment-scope</value></set-header></fragment>"
+  }
+}

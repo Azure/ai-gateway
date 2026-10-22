@@ -8,6 +8,7 @@ import json
 import logging
 import re
 import time
+from copy import deepcopy
 from contextlib import contextmanager
 from urllib.parse import quote, unquote
 
@@ -26,14 +27,14 @@ from azext_ai_gateway._progress import (
     report_lro_accepted,
 )
 
-API_VERSION = "2025-09-01-preview"
+API_VERSION = "2026-09-01-preview"
 DEFAULT_PUBLISHER_EMAIL = "noreply@aigateway.azure.com"
 DEFAULT_PUBLISHER_NAME = "AI Gateway Administrator"
 AI_GATEWAY_REGIONS = (
     {"name": "eastus2", "displayName": "East US 2"},
     {"name": "swedencentral", "displayName": "Sweden Central"},
 )
-PROVIDER_PATH = "Microsoft.ApiManagement/service"
+PROVIDER_PATH = "Microsoft.ApiManagement/aigateways"
 POLL_INTERVAL_SECONDS = 5
 POLL_TIMEOUT_SECONDS = 300
 _SENSITIVE_FIELD_NAMES = {
@@ -65,14 +66,29 @@ def _resource_group_name(resource):
     return ""
 
 
+def _gateway_runtime_url(gateway):
+    properties = gateway.get("properties") or {}
+    gateway_url = properties.get("gatewayUrl")
+    if gateway_url:
+        return gateway_url
+
+    default_hostname = (properties.get("frontend") or {}).get(
+        "defaultHostname"
+    )
+    if not default_hostname:
+        return ""
+    if default_hostname.startswith(("http://", "https://")):
+        return default_hostname
+    return f"https://{default_hostname}"
+
+
 def format_gateway_list_table(gateways):
     return [
         {
             "Name": gateway.get("name") or "",
             "ResourceGroup": _resource_group_name(gateway),
             "Location": gateway.get("location") or "",
-            "Runtime URL": (gateway.get("properties") or {}).get("gatewayUrl")
-            or "",
+            "Runtime URL": _gateway_runtime_url(gateway),
         }
         for gateway in gateways
     ]
@@ -239,6 +255,33 @@ def _list_path(subscription_id, resource_group_name=None):
     return f"{prefix}/providers/{PROVIDER_PATH}"
 
 
+def _resource_type_from_url(url):
+    path = str(url).split("?", 1)[0]
+    segments = [unquote(segment) for segment in path.split("/") if segment]
+    for index, segment in enumerate(segments):
+        if segment.casefold() != "providers" or len(segments) <= index + 2:
+            continue
+        if segments[index + 1].casefold() != "microsoft.apimanagement":
+            continue
+        if segments[index + 2].casefold() != "aigateways":
+            continue
+        resource_type_segments = [
+            segments[index + 1],
+            *segments[index + 2 :: 2],
+        ]
+        return "/".join(resource_type_segments)
+    return None
+
+
+def _request_body(method, url, body):
+    if body is None or method.upper() not in {"PATCH", "PUT"}:
+        return body
+    resource_type = _resource_type_from_url(url)
+    if resource_type is None or not isinstance(body, dict):
+        return body
+    return {**body, "type": resource_type}
+
+
 def _request(
     cmd,
     method,
@@ -248,6 +291,7 @@ def _request(
     headers=None,
     api_version=API_VERSION,
 ):
+    body = _request_body(method, url, body)
     request_kwargs = {}
     if headers:
         request_kwargs["headers"] = [
@@ -283,14 +327,93 @@ def _response_json(response):
     return response.json()
 
 
-def _get_resource(cmd, path):
-    return _response_json(_request(cmd, "GET", path))
+def _get_resource(cmd, path, api_version=None):
+    request_options = {}
+    if api_version is not None:
+        request_options["api_version"] = api_version
+    return _response_json(_request(cmd, "GET", path, **request_options))
 
 
 def _raise_not_found(error, name):
     if error.response.status_code == 404:
         raise ResourceNotFoundError(f"AI Gateway '{name}' was not found.") from None
     raise error
+
+
+def _response_header(response, name):
+    headers = getattr(response, "headers", {}) or {}
+    for header_name, value in headers.items():
+        if header_name.casefold() == name.casefold():
+            return value
+    return None
+
+
+def _poll_interval(response):
+    retry_after = _response_header(response, "Retry-After")
+    if retry_after is not None:
+        try:
+            return max(0, float(retry_after))
+        except (TypeError, ValueError):
+            pass
+    return POLL_INTERVAL_SECONDS
+
+
+def _operation_status(response):
+    body = _response_json(response)
+    if not isinstance(body, dict):
+        return None
+    return body.get("status") or (
+        body.get("properties") or {}
+    ).get("provisioningState")
+
+
+def _wait_for_delete_operation(cmd, response, path, name):
+    operation_url = (
+        _response_header(response, "Azure-AsyncOperation")
+        or _response_header(response, "Operation-Location")
+        or _response_header(response, "Location")
+    )
+    if not operation_url:
+        return _wait_for_gateway(cmd, path, name, deleted=True)
+
+    deadline = time.monotonic() + POLL_TIMEOUT_SECONDS
+    message = f"Waiting for AI Gateway '{name}' deletion"
+    poll_interval = _poll_interval(response)
+    with long_running_progress(cmd, message) as progress:
+        while time.monotonic() <= deadline:
+            progress.wait(poll_interval)
+            response = _request(
+                cmd,
+                "GET",
+                operation_url,
+                include_api_version=False,
+            )
+            status = _operation_status(response)
+            normalized_status = str(status or "").casefold()
+            progress.update(
+                f"{message}" + (f" (state: {status})" if status else "")
+            )
+
+            if normalized_status in {"failed", "canceled", "cancelled"}:
+                raise AzureResponseError(
+                    f"AI Gateway '{name}' deletion ended in state '{status}'."
+                )
+            if response.status_code in {200, 204} and normalized_status not in {
+                "accepted",
+                "creating",
+                "deleting",
+                "inprogress",
+                "running",
+                "updating",
+            }:
+                return None
+
+            poll_interval = _poll_interval(response)
+
+        raise AzureResponseError(
+            f"Timed out waiting for AI Gateway '{name}' deletion after "
+            f"{POLL_TIMEOUT_SECONDS} seconds."
+        )
 
 
 def _wait_for_gateway(cmd, path, name, deleted=False):
@@ -359,6 +482,20 @@ def _current_identity(resource):
         "SystemAssigned" in identity_type,
         list((identity.get("userAssignedIdentities") or {}).keys()),
     )
+
+
+def _gateway_put_body(current, **updates):
+    body = {
+        field: deepcopy(current[field])
+        for field in ["location", "tags", "sku", "properties", "identity"]
+        if field in current
+    }
+    if "properties" in updates:
+        properties = body.get("properties") or {}
+        properties.update(updates.pop("properties"))
+        body["properties"] = properties
+    body.update(updates)
+    return body
 
 
 def _networking_properties(
@@ -502,11 +639,14 @@ def show_gateway(
     cmd,
     name,
     resource_group_name,
+    api_version=None,
 ):
     subscription_id = get_subscription_id(cmd.cli_ctx)
     path = _gateway_path(subscription_id, resource_group_name, name)
     try:
-        return _get_resource(cmd, path)
+        if api_version is None:
+            return _get_resource(cmd, path)
+        return _get_resource(cmd, path, api_version)
     except HTTPError as error:
         _raise_not_found(error, name)
 
@@ -545,26 +685,27 @@ def update_gateway(
     )
     subscription_id = get_subscription_id(cmd.cli_ctx)
     path = _gateway_path(subscription_id, resource_group_name, name)
-    body = {}
+    try:
+        current = _get_resource(cmd, path)
+    except HTTPError as error:
+        _raise_not_found(error, name)
+    updates = {}
 
     if tags is not None:
-        body["tags"] = tags
+        updates["tags"] = tags
 
     if mi_system_assigned is not None or mi_user_assigned is not None:
-        try:
-            current = _get_resource(cmd, path)
-        except HTTPError as error:
-            _raise_not_found(error, name)
         current_system, current_users = _current_identity(current)
-        body["identity"] = _identity_payload(
+        updates["identity"] = _identity_payload(
             current_system if mi_system_assigned is None else mi_system_assigned,
             current_users if mi_user_assigned is None else mi_user_assigned,
         )
 
     if properties:
-        body["properties"] = properties
+        updates["properties"] = properties
 
-    response = _response_json(_request(cmd, "PATCH", path, body))
+    body = _gateway_put_body(current, **updates)
+    response = _response_json(_request(cmd, "PUT", path, body))
     report_lro_accepted(
         cmd,
         f"AI Gateway '{name}' update request accepted.",
@@ -577,11 +718,13 @@ def update_gateway(
 def delete_gateway(cmd, name, resource_group_name, no_wait=False):
     subscription_id = get_subscription_id(cmd.cli_ctx)
     path = _gateway_path(subscription_id, resource_group_name, name)
-    _request(cmd, "DELETE", path)
+    response = _request(cmd, "DELETE", path)
     report_lro_accepted(
         cmd,
         f"AI Gateway '{name}' delete request accepted.",
     )
     if no_wait:
         return None
-    return _wait_for_gateway(cmd, path, name, deleted=True)
+    if response.status_code in {200, 204}:
+        return None
+    return _wait_for_delete_operation(cmd, response, path, name)

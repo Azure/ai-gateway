@@ -1,0 +1,6 @@
+{
+  "properties": {
+    "format": "rawxml",
+    "value": "<policies><inbound><base /><set-backend-service backend-id=\"example-backend\" /><set-header name=\"x-api-fixture\" exists-action=\"override\"><value>api-scope</value></set-header></inbound><backend><base /></backend><outbound><base /></outbound><on-error><base /></on-error></policies>"
+  }
+}

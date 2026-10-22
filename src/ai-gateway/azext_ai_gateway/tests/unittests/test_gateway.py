@@ -22,10 +22,17 @@ from azext_ai_gateway import _gateway
 
 class FakeResponse:
 
-    def __init__(self, body=None, status_code=200, reason=None):
+    def __init__(
+        self,
+        body=None,
+        status_code=200,
+        reason=None,
+        headers=None,
+    ):
         self._body = body
         self.status_code = status_code
         self.reason = reason
+        self.headers = headers or {}
         self.content = b"" if body is None else json.dumps(body).encode()
 
     def json(self):
@@ -46,6 +53,84 @@ def test_response_json_accepts_utf8_bom():
 
     assert _gateway._response_json(response) == {
         "properties": {"value": "policy"}
+    }
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        (
+            "/subscriptions/sub/resourceGroups/rg/providers/"
+            "Microsoft.ApiManagement/aigateways/gateway",
+            "Microsoft.ApiManagement/aigateways",
+        ),
+        (
+            "/subscriptions/sub/resourceGroups/rg/providers/"
+            "Microsoft.ApiManagement/aigateways/gateway/workspaces/default/"
+            "modelProviders/foundry/models/gpt-5",
+            "Microsoft.ApiManagement/aigateways/workspaces/modelProviders/models",
+        ),
+        (
+            "https://management.azure.com/subscriptions/sub/resourceGroups/rg/"
+            "providers/Microsoft.ApiManagement/aigateways/gateway/apiKeys/key"
+            "?api-version=2026-09-01-preview",
+            "Microsoft.ApiManagement/aigateways/apiKeys",
+        ),
+    ],
+)
+def test_resource_type_from_ai_gateway_url(url, expected):
+    assert _gateway._resource_type_from_url(url) == expected
+
+
+def test_resource_type_ignores_other_resource_providers():
+    assert (
+        _gateway._resource_type_from_url(
+            "/subscriptions/sub/resourceGroups/rg/providers/"
+            "Microsoft.Insights/components/app"
+        )
+        is None
+    )
+
+
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_request_adds_top_level_resource_type_to_ai_gateway_writes(
+    send_request,
+    cmd,
+):
+    send_request.return_value = FakeResponse({})
+
+    _gateway._request(
+        cmd,
+        "PATCH",
+        "/subscriptions/sub/resourceGroups/rg/providers/"
+        "Microsoft.ApiManagement/aigateways/gateway/workspaces/default/"
+        "models/model",
+        {"properties": {"displayName": "Model"}},
+    )
+
+    assert json.loads(send_request.call_args.kwargs["body"]) == {
+        "type": "Microsoft.ApiManagement/aigateways/workspaces/models",
+        "properties": {"displayName": "Model"},
+    }
+
+
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_request_does_not_add_resource_type_to_non_ai_gateway_writes(
+    send_request,
+    cmd,
+):
+    send_request.return_value = FakeResponse({})
+
+    _gateway._request(
+        cmd,
+        "PATCH",
+        "/subscriptions/sub/resourceGroups/rg/providers/"
+        "Microsoft.Insights/components/app",
+        {"identity": {"type": "SystemAssigned"}},
+    )
+
+    assert json.loads(send_request.call_args.kwargs["body"]) == {
+        "identity": {"type": "SystemAssigned"}
     }
 
 
@@ -333,6 +418,7 @@ def test_create_uses_fixed_sku_and_defaults(
 
     body = json.loads(send_request.call_args.kwargs["body"])
     assert body == {
+        "type": "Microsoft.ApiManagement/aigateways",
         "location": "eastus2",
         "sku": {"name": "AIGateway", "capacity": 1},
         "properties": {
@@ -475,20 +561,22 @@ def test_format_gateway_list_table():
         {
             "id": (
                 "/subscriptions/sub/resourceGroups/ai-gateway-contoso-aigw/"
-                "providers/Microsoft.ApiManagement/service/contoso-aigw"
+                "providers/Microsoft.ApiManagement/aigateways/contoso-aigw"
             ),
             "name": "contoso-aigw",
             "location": "East US 2",
             "properties": {
-                "gatewayUrl": (
-                    "https://contoso-aigw.eastus2.ai.gateway.azure.com"
-                )
+                "frontend": {
+                    "defaultHostname": (
+                        "contoso-aigw.eastus2.ai.gateway.azure.com"
+                    )
+                },
             },
         },
         {
             "id": (
                 "/subscriptions/sub/RESOURCEGROUPS/encoded%20group/"
-                "providers/Microsoft.ApiManagement/service/other-aigw"
+                "providers/Microsoft.ApiManagement/aigateways/other-aigw"
             ),
             "name": "other-aigw",
             "location": "West US 2",
@@ -513,6 +601,31 @@ def test_format_gateway_list_table():
     ]
 
 
+def test_gateway_runtime_url_prefers_gateway_url():
+    gateway = {
+        "properties": {
+            "gatewayUrl": "https://configured.example.com/",
+            "frontend": {"defaultHostname": "generated.example.com"},
+        }
+    }
+
+    assert _gateway._gateway_runtime_url(gateway) == (
+        "https://configured.example.com/"
+    )
+
+
+def test_gateway_runtime_url_preserves_hostname_scheme():
+    gateway = {
+        "properties": {
+            "frontend": {
+                "defaultHostname": "http://localhost:8080",
+            }
+        }
+    }
+
+    assert _gateway._gateway_runtime_url(gateway) == "http://localhost:8080"
+
+
 @patch("azext_ai_gateway._gateway.get_subscription_id", return_value="sub")
 @patch("azext_ai_gateway._gateway._wait_for_gateway")
 @patch("azext_ai_gateway._gateway.send_raw_request")
@@ -522,9 +635,16 @@ def test_update_sends_only_supplied_networking_properties(
     _,
     cmd,
 ):
-    send_request.return_value = FakeResponse(
-        {"properties": {"provisioningState": "Updating"}}
-    )
+    send_request.side_effect = [
+        FakeResponse(
+            {
+                "location": "westus2",
+                "sku": {"name": "AIGateway", "capacity": 1},
+                "properties": {"provisioningState": "Succeeded"},
+            }
+        ),
+        FakeResponse({"properties": {"provisioningState": "Updating"}}),
+    ]
     wait_for_gateway.return_value = {
         "properties": {"provisioningState": "Succeeded"}
     }
@@ -537,9 +657,15 @@ def test_update_sends_only_supplied_networking_properties(
         virtual_network_type="None",
     )
 
-    body = json.loads(send_request.call_args.kwargs["body"])
+    update_call = send_request.call_args_list[1]
+    assert update_call.args[1] == "PUT"
+    body = json.loads(update_call.kwargs["body"])
     assert body == {
+        "type": "Microsoft.ApiManagement/aigateways",
+        "location": "westus2",
+        "sku": {"name": "AIGateway", "capacity": 1},
         "properties": {
+            "provisioningState": "Succeeded",
             "publicNetworkAccess": "Disabled",
             "virtualNetworkType": "None",
             "virtualNetworkConfiguration": None,
@@ -556,9 +682,16 @@ def test_update_infers_external_from_subnet(
     _,
     cmd,
 ):
-    send_request.return_value = FakeResponse(
-        {"properties": {"provisioningState": "Updating"}}
-    )
+    send_request.side_effect = [
+        FakeResponse(
+            {
+                "location": "westus2",
+                "sku": {"name": "AIGateway", "capacity": 1},
+                "properties": {"provisioningState": "Succeeded"},
+            }
+        ),
+        FakeResponse({"properties": {"provisioningState": "Updating"}}),
+    ]
     wait_for_gateway.return_value = {
         "properties": {"provisioningState": "Succeeded"}
     }
@@ -574,9 +707,15 @@ def test_update_infers_external_from_subnet(
         subnet_resource_id=subnet_id,
     )
 
-    body = json.loads(send_request.call_args.kwargs["body"])
+    update_call = send_request.call_args_list[1]
+    assert update_call.args[1] == "PUT"
+    body = json.loads(update_call.kwargs["body"])
     assert body == {
+        "type": "Microsoft.ApiManagement/aigateways",
+        "location": "westus2",
+        "sku": {"name": "AIGateway", "capacity": 1},
         "properties": {
+            "provisioningState": "Succeeded",
             "virtualNetworkType": "External",
             "virtualNetworkConfiguration": {
                 "subnetResourceId": subnet_id,
@@ -594,9 +733,22 @@ def test_update_public_access_does_not_overwrite_vnet_configuration(
     _,
     cmd,
 ):
-    send_request.return_value = FakeResponse(
-        {"properties": {"provisioningState": "Updating"}}
-    )
+    send_request.side_effect = [
+        FakeResponse(
+            {
+                "location": "westus2",
+                "sku": {"name": "AIGateway", "capacity": 1},
+                "properties": {
+                    "provisioningState": "Succeeded",
+                    "virtualNetworkType": "External",
+                    "virtualNetworkConfiguration": {
+                        "subnetResourceId": "/subscriptions/sub/subnets/current"
+                    },
+                },
+            }
+        ),
+        FakeResponse({"properties": {"provisioningState": "Updating"}}),
+    ]
     wait_for_gateway.return_value = {
         "properties": {"provisioningState": "Succeeded"}
     }
@@ -608,8 +760,22 @@ def test_update_public_access_does_not_overwrite_vnet_configuration(
         public_network_access="Disabled",
     )
 
-    body = json.loads(send_request.call_args.kwargs["body"])
-    assert body == {"properties": {"publicNetworkAccess": "Disabled"}}
+    update_call = send_request.call_args_list[1]
+    assert update_call.args[1] == "PUT"
+    body = json.loads(update_call.kwargs["body"])
+    assert body == {
+        "type": "Microsoft.ApiManagement/aigateways",
+        "location": "westus2",
+        "sku": {"name": "AIGateway", "capacity": 1},
+        "properties": {
+            "provisioningState": "Succeeded",
+            "publicNetworkAccess": "Disabled",
+            "virtualNetworkType": "External",
+            "virtualNetworkConfiguration": {
+                "subnetResourceId": "/subscriptions/sub/subnets/current"
+            },
+        },
+    }
 
 
 @pytest.mark.parametrize(
@@ -716,22 +882,105 @@ def test_delete_wait_completes_when_resource_is_not_found(get_resource, _, cmd):
 
 
 @patch("azext_ai_gateway._gateway.get_subscription_id", return_value="sub")
-@patch("azext_ai_gateway._gateway._wait_for_gateway")
+@patch("azext_ai_gateway._gateway._wait_for_delete_operation")
 @patch("azext_ai_gateway._gateway.send_raw_request")
-def test_delete_waits_for_resource_to_disappear(
+def test_delete_waits_for_long_running_operation(
     send_request,
-    wait_for_gateway,
+    wait_for_delete,
     _,
     cmd,
 ):
-    send_request.return_value = FakeResponse()
-    wait_for_gateway.return_value = None
+    response = FakeResponse(
+        status_code=202,
+        headers={"Location": "https://management.azure.com/operations/delete"},
+    )
+    send_request.return_value = response
+    wait_for_delete.return_value = None
 
     assert _gateway.delete_gateway(cmd, "gateway", "rg") is None
-    wait_for_gateway.assert_called_once_with(
+    wait_for_delete.assert_called_once_with(
         cmd,
+        response,
         "/subscriptions/sub/resourceGroups/rg/providers/"
-        "Microsoft.ApiManagement/service/gateway",
+        "Microsoft.ApiManagement/aigateways/gateway",
         "gateway",
-        deleted=True,
     )
+
+
+@patch("azext_ai_gateway._gateway.time.sleep")
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_delete_operation_polls_location_until_complete(send_request, _, cmd):
+    send_request.side_effect = [
+        FakeResponse(
+            {"status": "InProgress"},
+            status_code=202,
+        ),
+        FakeResponse({"status": "Succeeded"}),
+    ]
+    initial_response = FakeResponse(
+        status_code=202,
+        headers={
+            "location": "https://management.azure.com/operations/delete",
+            "Retry-After": "0",
+        },
+    )
+
+    assert _gateway._wait_for_delete_operation(
+        cmd,
+        initial_response,
+        "/gateway",
+        "gateway",
+    ) is None
+    assert send_request.call_count == 2
+    assert all(
+        request.args[2] == "https://management.azure.com/operations/delete"
+        for request in send_request.call_args_list
+    )
+    assert all(
+        request.kwargs["uri_parameters"] is None
+        for request in send_request.call_args_list
+    )
+
+
+@patch("azext_ai_gateway._gateway.time.sleep")
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_delete_operation_surfaces_terminal_failure(send_request, _, cmd):
+    send_request.return_value = FakeResponse({"status": "Failed"})
+    initial_response = FakeResponse(
+        status_code=202,
+        headers={
+            "Location": "https://management.azure.com/operations/delete",
+            "Retry-After": "0",
+        },
+    )
+
+    with pytest.raises(AzureResponseError, match="state 'Failed'"):
+        _gateway._wait_for_delete_operation(
+            cmd,
+            initial_response,
+            "/gateway",
+            "gateway",
+        )
+
+
+@patch("azext_ai_gateway._gateway.get_subscription_id", return_value="sub")
+@patch("azext_ai_gateway._gateway._wait_for_delete_operation")
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_delete_no_wait_does_not_poll(
+    send_request,
+    wait_for_delete,
+    _,
+    cmd,
+):
+    send_request.return_value = FakeResponse(
+        status_code=202,
+        headers={"Location": "https://management.azure.com/operations/delete"},
+    )
+
+    assert _gateway.delete_gateway(
+        cmd,
+        "gateway",
+        "rg",
+        no_wait=True,
+    ) is None
+    wait_for_delete.assert_not_called()

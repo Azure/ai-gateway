@@ -185,6 +185,7 @@ def show_model(
     resource_group_name,
     provider_name,
     workspace_name=DEFAULT_WORKSPACE,
+    api_version=None,
 ):
     subscription_id = get_subscription_id(cmd.cli_ctx)
     path = _models_path(
@@ -196,7 +197,10 @@ def show_model(
         name,
     )
     try:
-        return _response_json(_request(cmd, "GET", path))
+        request_options = {}
+        if api_version is not None:
+            request_options["api_version"] = api_version
+        return _response_json(_request(cmd, "GET", path, **request_options))
     except HTTPError as error:
         _raise_model_not_found(error, name)
 

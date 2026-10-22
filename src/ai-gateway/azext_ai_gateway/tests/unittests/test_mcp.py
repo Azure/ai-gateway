@@ -4,8 +4,9 @@
 # --------------------------------------------------------------------------------------------
 
 import json
+from io import StringIO
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import pytest
 from azure.cli.core.azclierror import AzCLIError, RequiredArgumentMissingError
@@ -62,7 +63,13 @@ def test_format_mcp_list_table():
 @patch(
     "azext_ai_gateway._mcp.show_gateway",
     return_value={
-        "properties": {"gatewayUrl": "https://contoso-aigw.azure-api.net/"}
+        "properties": {
+            "frontend": {
+                "defaultHostname": (
+                    "contoso-aigw.westus2-02.ai.gateway-current.azure.com"
+                )
+            }
+        }
     },
 )
 @patch("azext_ai_gateway._mcp._list_all")
@@ -80,8 +87,8 @@ def test_list_mcp_adds_derived_runtime_endpoint(
     result = _mcp.list_mcp(cmd, "contoso-aigw", "rg")
 
     assert result[0]["properties"]["mcpEndpointUrl"] == (
-        "https://contoso-aigw.azure-api.net/default/toolservers/"
-        "federated-mcp/mcp"
+        "https://contoso-aigw.westus2-02.ai.gateway-current.azure.com/"
+        "default/toolservers/federated-mcp/mcp"
     )
     show_gateway.assert_called_once_with(cmd, "contoso-aigw", "rg")
 
@@ -594,3 +601,29 @@ def test_test_mcp_requires_primary_key_value(
         )
 
     post.assert_not_called()
+
+
+@patch("azext_ai_gateway._mcp._test_mcp")
+def test_test_mcp_from_pipe_tests_each_listed_server(test_server, cmd):
+    test_server.side_effect = [
+        {"serverInfo": {"name": "one"}},
+        {"serverInfo": {"name": "two"}},
+    ]
+    stream = StringIO(json.dumps([{"name": "one"}, {"name": "two"}]))
+
+    with patch.object(_mcp.sys, "stdin", stream):
+        result = _mcp.test_mcp(
+            cmd,
+            gateway_name="gateway",
+            resource_group_name="rg",
+            api_key_name="master",
+        )
+
+    assert result == [
+        {"serverInfo": {"name": "one"}},
+        {"serverInfo": {"name": "two"}},
+    ]
+    assert test_server.call_args_list == [
+        call(cmd, "one", "gateway", "rg", "master", "default", 1),
+        call(cmd, "two", "gateway", "rg", "master", "default", 1),
+    ]

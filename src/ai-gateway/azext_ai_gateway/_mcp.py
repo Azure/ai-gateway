@@ -5,6 +5,7 @@
 
 import json
 import re
+import sys
 from copy import deepcopy
 from urllib.parse import quote
 
@@ -24,9 +25,15 @@ from knack.log import get_logger
 from azext_ai_gateway._api_key import list_api_key_secrets
 from azext_ai_gateway._gateway import (
     _gateway_path,
+    _gateway_runtime_url,
     _request,
     _response_json,
     show_gateway,
+)
+from azext_ai_gateway._piped_input import parse_piped_resource_names
+from azext_ai_gateway._test_execution import (
+    run_test_repetitions,
+    validate_test_count,
 )
 
 DEFAULT_WORKSPACE = "default"
@@ -241,7 +248,7 @@ def list_mcp(
         return servers
 
     gateway = show_gateway(cmd, gateway_name, resource_group_name)
-    gateway_url = (gateway.get("properties") or {}).get("gatewayUrl")
+    gateway_url = _gateway_runtime_url(gateway)
     if not gateway_url:
         raise InvalidArgumentValueError(
             f"AI Gateway '{gateway_name}' has no runtime URL."
@@ -666,11 +673,89 @@ def _announce_failure_mode(failure_mode, endpoints):
 
 def test_mcp(
     cmd,
+    name=None,
+    gateway_name=None,
+    resource_group_name=None,
+    api_key_name=None,
+    workspace_name=DEFAULT_WORKSPACE,
+    n=1,
+):
+    validate_test_count(n)
+    if not gateway_name:
+        raise RequiredArgumentMissingError(
+            "Specify --resource-name or configure the ai-gateway default."
+        )
+    if not resource_group_name:
+        raise RequiredArgumentMissingError(
+            "Specify --resource-group or configure the group default."
+        )
+    if not api_key_name:
+        raise RequiredArgumentMissingError("Specify --api-key-name.")
+    if name is None:
+        if sys.stdin.isatty():
+            raise RequiredArgumentMissingError(
+                "Specify --name or pipe the output of "
+                "'az ai-gateway mcp list --output json'."
+            )
+        names = parse_piped_resource_names(
+            sys.stdin,
+            "az ai-gateway mcp list",
+            "MCP tool server",
+        )
+        results = []
+        failures = []
+        for server_name in names:
+            try:
+                result = _test_mcp(
+                    cmd,
+                    server_name,
+                    gateway_name,
+                    resource_group_name,
+                    api_key_name,
+                    workspace_name,
+                    n,
+                )
+            except AzCLIError as error:
+                if n == 1:
+                    raise
+                failures.append(server_name)
+                logger.warning(
+                    "Status: Failed. MCP tool server '%s' could not be "
+                    "tested: %s",
+                    server_name,
+                    error,
+                )
+            else:
+                if n == 1:
+                    results.append(result)
+                else:
+                    results.extend(result)
+        if failures:
+            raise AzCLIError(
+                f"MCP batch test completed with failed servers: "
+                f"{', '.join(failures)}."
+            )
+        return results
+
+    return _test_mcp(
+        cmd,
+        name,
+        gateway_name,
+        resource_group_name,
+        api_key_name,
+        workspace_name,
+        n,
+    )
+
+
+def _test_mcp(
+    cmd,
     name,
     gateway_name,
     resource_group_name,
     api_key_name,
-    workspace_name=DEFAULT_WORKSPACE,
+    workspace_name,
+    n=1,
 ):
     server = show_mcp(
         cmd,
@@ -689,7 +774,7 @@ def test_mcp(
         gateway_name,
         resource_group_name,
     )
-    gateway_url = (gateway.get("properties") or {}).get("gatewayUrl")
+    gateway_url = _gateway_runtime_url(gateway)
     if not gateway_url:
         raise InvalidArgumentValueError(
             f"AI Gateway '{gateway_name}' has no runtime URL."
@@ -718,6 +803,18 @@ def test_mcp(
         "Api-Key": api_key_value,
         "Content-Type": "application/json",
     }
+    return run_test_repetitions(
+        n,
+        name,
+        lambda: _send_mcp_test(
+            endpoint, headers, request_options, failure_mode, configured_endpoints
+        ),
+    )
+
+
+def _send_mcp_test(
+    endpoint, headers, request_options, failure_mode, configured_endpoints
+):
     completed_stages = []
     initialize_response = None
     try:

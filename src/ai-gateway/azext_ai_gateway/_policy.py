@@ -30,12 +30,20 @@ from azext_ai_gateway._model import (
     _list_all as _list_all_models,
     _models_path,
 )
+from azext_ai_gateway._model_alias import (
+    _aliases_path,
+    _list_all as _list_all_aliases,
+)
 
 DEFAULT_WORKSPACE = "default"
 POLICY_ID_MARKER = "#policies/"
 logger = get_logger(__name__)
 _MODEL_HOST_PATTERN = re.compile(
     r"/workspaces/([^/]+)/modelProviders/([^/]+)/models/([^/]+)$",
+    re.IGNORECASE,
+)
+_MODEL_ALIAS_HOST_PATTERN = re.compile(
+    r"/workspaces/([^/]+)/aliases/([^/]+)$",
     re.IGNORECASE,
 )
 _MCP_HOST_PATTERN = re.compile(
@@ -130,6 +138,15 @@ def _host_ref(host_id):
             "provider_name": model_match.group(2),
             "scope_name": model_match.group(3),
         }
+    alias_match = _MODEL_ALIAS_HOST_PATTERN.search(host_id)
+    if alias_match:
+        return {
+            "host_id": host_id,
+            "scope_type": "model-alias",
+            "workspace_name": alias_match.group(1),
+            "provider_name": None,
+            "scope_name": alias_match.group(2),
+        }
     mcp_match = _MCP_HOST_PATTERN.search(host_id)
     if mcp_match:
         return {
@@ -140,7 +157,7 @@ def _host_ref(host_id):
             "scope_name": mcp_match.group(2),
         }
     raise InvalidArgumentValueError(
-        "Policy host must be a model or MCP tool server."
+        "Policy host must be a model, model alias, or MCP tool server."
     )
 
 
@@ -217,6 +234,14 @@ def _host_for_scope(
             gateway_name,
             workspace_name,
             provider_name,
+            scope_name,
+        )
+    elif scope_type == "model-alias":
+        host_id = _aliases_path(
+            subscription_id,
+            resource_group_name,
+            gateway_name,
+            workspace_name,
             scope_name,
         )
     else:
@@ -387,6 +412,44 @@ def _list_mcp_hosts(
     ]
 
 
+def _list_model_alias_hosts(
+    cmd,
+    subscription_id,
+    resource_group_name,
+    gateway_name,
+    workspace_name,
+    alias_id=None,
+):
+    if alias_id:
+        return [
+            _host_for_scope(
+                subscription_id,
+                resource_group_name,
+                gateway_name,
+                workspace_name,
+                "model-alias",
+                alias_id,
+            )
+        ]
+    path = _aliases_path(
+        subscription_id,
+        resource_group_name,
+        gateway_name,
+        workspace_name,
+    )
+    return [
+        _host_for_scope(
+            subscription_id,
+            resource_group_name,
+            gateway_name,
+            workspace_name,
+            "model-alias",
+            alias["name"],
+        )
+        for alias in _list_all_aliases(cmd, path)
+    ]
+
+
 def list_policies(
     cmd,
     gateway_name,
@@ -431,6 +494,17 @@ def list_policies(
                 gateway_name,
                 workspace_name,
                 scope_name if scope_type == "mcp" else None,
+            )
+        )
+    if scope_type in {None, "model-alias"}:
+        hosts.extend(
+            _list_model_alias_hosts(
+                cmd,
+                subscription_id,
+                resource_group_name,
+                gateway_name,
+                workspace_name,
+                scope_name if scope_type == "model-alias" else None,
             )
         )
 

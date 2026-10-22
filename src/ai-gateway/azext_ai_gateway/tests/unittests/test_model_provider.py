@@ -193,6 +193,7 @@ def test_create_from_pipe_creates_one_provider_per_account(
             cmd,
             gateway_name="gateway",
             resource_group_name="rg",
+            aliases=True,
         )
 
     assert result == [{"name": "one"}, {"name": "two"}]
@@ -211,6 +212,7 @@ def test_create_from_pipe_creates_one_provider_per_account(
         "workspace_name": "default",
         "resource_ids": ["/accounts/one"],
         "no_sync": False,
+        "aliases": True,
         "auth_kind": "ManagedIdentity",
         "managed_identity_resource": (
             "https://cognitiveservices.azure.com"
@@ -286,6 +288,7 @@ def test_create_from_pipe_uses_account_key_without_gateway_identity(
         "workspace_name": "default",
         "resource_ids": ["/accounts/foundry"],
         "no_sync": False,
+        "aliases": False,
         "auth_kind": "ApiKey",
         "api_key_header_name": "api-key",
         "api_key_value": "account-key",
@@ -412,6 +415,9 @@ def test_create_foundry_provider_builds_managed_identity_payload(
     )
 
     assert json.loads(send_request.call_args.kwargs["body"]) == {
+        "type": (
+            "Microsoft.ApiManagement/aigateways/workspaces/modelProviders"
+        ),
         "properties": {
             "kind": "Foundry",
             "displayName": "Foundry",
@@ -495,6 +501,9 @@ def test_create_custom_provider_builds_api_key_payload(
     )
 
     assert json.loads(send_request.call_args.kwargs["body"]) == {
+        "type": (
+            "Microsoft.ApiManagement/aigateways/workspaces/modelProviders"
+        ),
         "properties": {
             "kind": "Custom",
             "custom": {
@@ -553,6 +562,7 @@ def test_create_provider_syncs_models_by_default(
         "dry_run": False,
         "yes": True,
         "api_key_value": "secret",
+        "aliases": False,
     }
     assert result == {
         "name": "custom",
@@ -563,6 +573,55 @@ def test_create_provider_syncs_models_by_default(
         "custom",
     )
     assert warning.call_args_list[-1] == call("Models imported.")
+
+
+@patch(
+    "azext_ai_gateway._model_provider.get_subscription_id",
+    return_value="sub",
+)
+@patch("azext_ai_gateway._model_provider._synchronize_model_provider")
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_create_provider_syncs_models_with_aliases(
+    send_request,
+    sync_provider,
+    _,
+    cmd,
+):
+    send_request.return_value = FakeResponse(
+        {
+            "name": "foundry",
+            "properties": {"kind": "Foundry"},
+        }
+    )
+
+    _model_provider.create_model_provider(
+        cmd,
+        "foundry",
+        "gateway",
+        "rg",
+        "Foundry",
+        resource_ids=["/accounts/foundry"],
+        aliases=True,
+    )
+
+    assert sync_provider.call_args.kwargs["aliases"] is True
+
+
+def test_create_provider_rejects_aliases_without_sync(cmd):
+    with pytest.raises(
+        InvalidArgumentValueError,
+        match="--aliases cannot be combined with --no-sync",
+    ):
+        _model_provider.create_model_provider(
+            cmd,
+            "foundry",
+            "gateway",
+            "rg",
+            "Foundry",
+            resource_ids=["/accounts/foundry"],
+            no_sync=True,
+            aliases=True,
+        )
 
 
 @patch(
@@ -723,6 +782,9 @@ def test_update_display_name_does_not_send_provider_credentials(
     )
 
     assert json.loads(send_request.call_args_list[1].kwargs["body"]) == {
+        "type": (
+            "Microsoft.ApiManagement/aigateways/workspaces/modelProviders"
+        ),
         "properties": {"displayName": "Custom Models"}
     }
 
@@ -764,6 +826,9 @@ def test_update_api_key_preserves_endpoint_and_header(
     )
 
     assert json.loads(send_request.call_args_list[1].kwargs["body"]) == {
+        "type": (
+            "Microsoft.ApiManagement/aigateways/workspaces/modelProviders"
+        ),
         "properties": {
             "custom": {
                 "endpoint": "https://models.example.com",
@@ -1504,7 +1569,7 @@ def test_custom_model_discovery_falls_back_to_portal_cors_proxy(
     )
     provider_path = (
         "/subscriptions/sub/resourceGroups/rg/providers/"
-        "Microsoft.ApiManagement/service/gateway/workspaces/default/"
+        "Microsoft.ApiManagement/aigateways/gateway/workspaces/default/"
         "modelProviders/custom"
     )
 
@@ -1706,12 +1771,212 @@ def test_sync_supports_custom_provider(
     assert sync_plan.call_args.args[-1] == "secret"
     refresh_foundry_key.assert_not_called()
     assert json.loads(send_request.call_args_list[1].kwargs["body"]) == {
+        "type": (
+            "Microsoft.ApiManagement/aigateways/workspaces/"
+            "modelProviders/models"
+        ),
         "properties": {
             "displayName": "model",
             "supportedEndpoints": ["/v1/chat/completions"],
             "deployment": {"modelName": "model"},
         }
     }
+
+
+@patch(
+    "azext_ai_gateway._model_provider.get_subscription_id",
+    return_value="sub",
+)
+@patch("azext_ai_gateway._model_provider._sync_plan")
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_sync_aliases_creates_provider_model_aliases(
+    send_request,
+    sync_plan,
+    _,
+    cmd,
+):
+    provider_path = (
+        "/subscriptions/sub/resourceGroups/rg/providers/"
+        "Microsoft.ApiManagement/aigateways/gateway/workspaces/default/"
+        "modelProviders/foundry"
+    )
+    model_path = f"{provider_path}/models/gpt-4o"
+    send_request.side_effect = [
+        FakeResponse(
+            {
+                "name": "foundry",
+                "properties": {
+                    "kind": "Foundry",
+                    "foundry": {
+                        "authentication": {"kind": "ManagedIdentity"},
+                    },
+                },
+            }
+        ),
+        FakeResponse({"value": []}),
+        FakeResponse({"name": "gpt-4o"}),
+        FakeResponse({"name": "foundry-gpt-4o"}),
+    ]
+    sync_plan.return_value = [
+        {
+            "action": "create",
+            "name": "gpt-4o",
+            "status": "planned",
+            "properties": {"displayName": "GPT-4o"},
+        }
+    ]
+
+    result = _model_provider.sync_model_provider(
+        cmd,
+        "foundry",
+        "gateway",
+        "rg",
+        yes=True,
+        aliases=True,
+    )
+
+    assert result["summary"]["created"] == 1
+    assert result["summary"]["aliasesCreated"] == 1
+    assert result["changes"][0]["alias"] == {
+        "name": "foundry/gpt-4o",
+        "resourceName": "foundry-gpt-4o",
+        "targetResourceId": model_path,
+        "status": "created",
+    }
+    alias_call = send_request.call_args_list[3]
+    assert alias_call.args[1] == "PUT"
+    assert alias_call.args[2].endswith(
+        "/workspaces/default/aliases/foundry-gpt-4o"
+    )
+    assert json.loads(alias_call.kwargs["body"]) == {
+        "type": "Microsoft.ApiManagement/aigateways/workspaces/aliases",
+        "properties": {
+            "aliasName": "foundry/gpt-4o",
+            "backendModels": [{"resourceId": model_path}],
+        },
+    }
+
+
+@patch(
+    "azext_ai_gateway._model_provider.get_subscription_id",
+    return_value="sub",
+)
+@patch("azext_ai_gateway._model_provider._sync_plan")
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_sync_aliases_reports_collision_without_rolling_back_model(
+    send_request,
+    sync_plan,
+    _,
+    cmd,
+):
+    provider_path = (
+        "/subscriptions/sub/resourceGroups/rg/providers/"
+        "Microsoft.ApiManagement/aigateways/gateway/workspaces/default/"
+        "modelProviders/foundry"
+    )
+    send_request.side_effect = [
+        FakeResponse(
+            {
+                "name": "foundry",
+                "properties": {
+                    "kind": "Foundry",
+                    "foundry": {
+                        "authentication": {"kind": "ManagedIdentity"},
+                    },
+                },
+            }
+        ),
+        FakeResponse(
+            {
+                "value": [
+                    {
+                        "name": "existing",
+                        "properties": {
+                            "aliasName": "foundry/gpt-4o",
+                            "backendModels": [
+                                {"resourceId": "/models/other"}
+                            ],
+                        },
+                    }
+                ]
+            }
+        ),
+        FakeResponse({"name": "gpt-4o"}),
+    ]
+    sync_plan.return_value = [
+        {
+            "action": "create",
+            "name": "gpt-4o",
+            "status": "planned",
+            "properties": {"displayName": "GPT-4o"},
+        }
+    ]
+
+    result = _model_provider.sync_model_provider(
+        cmd,
+        "foundry",
+        "gateway",
+        "rg",
+        yes=True,
+        aliases=True,
+    )
+
+    assert result["summary"]["created"] == 1
+    assert result["summary"]["aliasesFailed"] == 1
+    assert result["changes"][0]["alias"]["status"] == "failed"
+    assert "different backend model" in (
+        result["changes"][0]["alias"]["reason"]
+    )
+    assert send_request.call_count == 3
+    assert send_request.call_args_list[2].args[2] == (
+        f"{provider_path}/models/gpt-4o"
+    )
+
+
+@patch(
+    "azext_ai_gateway._model_provider.get_subscription_id",
+    return_value="sub",
+)
+@patch("azext_ai_gateway._model_provider._sync_plan")
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_sync_aliases_dry_run_plans_without_writes(
+    send_request,
+    sync_plan,
+    _,
+    cmd,
+):
+    send_request.side_effect = [
+        FakeResponse(
+            {
+                "name": "foundry",
+                "properties": {"kind": "Foundry"},
+            }
+        ),
+        FakeResponse({"value": []}),
+    ]
+    sync_plan.return_value = [
+        {
+            "action": "create",
+            "name": "gpt-4o",
+            "status": "planned",
+            "properties": {"displayName": "GPT-4o"},
+        }
+    ]
+
+    result = _model_provider.sync_model_provider(
+        cmd,
+        "foundry",
+        "gateway",
+        "rg",
+        dry_run=True,
+        aliases=True,
+    )
+
+    assert result["summary"]["planned"] == 1
+    assert result["summary"]["aliasesPlanned"] == 1
+    assert result["changes"][0]["alias"]["name"] == "foundry/gpt-4o"
+    assert result["changes"][0]["alias"]["status"] == "planned"
+    assert send_request.call_count == 2
 
 
 @patch(
@@ -1853,6 +2118,10 @@ def test_sync_applies_create_and_delete_changes(
     assert send_request.call_args_list[1].args[1] == "PUT"
     assert send_request.call_args_list[2].args[1] == "DELETE"
     assert json.loads(send_request.call_args_list[1].kwargs["body"]) == {
+        "type": (
+            "Microsoft.ApiManagement/aigateways/workspaces/"
+            "modelProviders/models"
+        ),
         "properties": {"displayName": "New"}
     }
     assert call("Creating model '%s'...", "new") in warning.call_args_list

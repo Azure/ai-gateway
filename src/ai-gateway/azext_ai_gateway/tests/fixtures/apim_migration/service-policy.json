@@ -1,0 +1,6 @@
+{
+  "properties": {
+    "format": "rawxml",
+    "value": "<policies><inbound><set-header name=\"x-migration-fixture\" exists-action=\"override\"><value>service-scope</value></set-header><base /></inbound><backend><base /></backend><outbound><base /></outbound><on-error><base /></on-error></policies>"
+  }
+}

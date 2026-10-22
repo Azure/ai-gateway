@@ -1,0 +1,127 @@
+{
+  "schemaVersion": "1.0",
+  "healthySkuCases": [
+    {
+      "sku": "BasicV2",
+      "expectedCapabilities": {
+        "availabilityZones": false,
+        "fullVnetInjection": false,
+        "inboundPrivateEndpoint": false,
+        "multiRegion": false,
+        "outboundVnetIntegration": false,
+        "serviceLevelMcp": true,
+        "workspaceMcp": false,
+        "workspaces": true
+      }
+    },
+    {
+      "sku": "StandardV2",
+      "expectedCapabilities": {
+        "availabilityZones": false,
+        "fullVnetInjection": false,
+        "inboundPrivateEndpoint": true,
+        "multiRegion": false,
+        "outboundVnetIntegration": true,
+        "serviceLevelMcp": true,
+        "workspaceMcp": false,
+        "workspaces": true
+      }
+    },
+    {
+      "sku": "PremiumV2",
+      "expectedCapabilities": {
+        "availabilityZones": true,
+        "fullVnetInjection": true,
+        "inboundPrivateEndpoint": true,
+        "multiRegion": false,
+        "outboundVnetIntegration": true,
+        "serviceLevelMcp": true,
+        "workspaceMcp": false,
+        "workspaces": true
+      }
+    }
+  ],
+  "faultCases": [
+    {
+      "name": "authentication-failure",
+      "statusCode": 401,
+      "expectedRetry": false,
+      "expectedCoverage": "failed"
+    },
+    {
+      "name": "authorization-failure",
+      "statusCode": 403,
+      "expectedRetry": false,
+      "expectedCoverage": "failed"
+    },
+    {
+      "name": "policy-not-found",
+      "statusCode": 404,
+      "resourceShape": "policySingleton",
+      "expectedMeaning": "absent"
+    },
+    {
+      "name": "collection-not-found",
+      "statusCode": 404,
+      "resourceShape": "collection",
+      "expectedMeaning": "failed"
+    },
+    {
+      "name": "request-timeout",
+      "statusCode": 408,
+      "expectedRetry": true,
+      "expectedCoverage": "failed"
+    },
+    {
+      "name": "throttled",
+      "statusCode": 429,
+      "headers": {
+        "Retry-After": "1"
+      },
+      "expectedRetry": true,
+      "expectedCoverage": "failed"
+    },
+    {
+      "name": "transient-server-error",
+      "statusCodes": [
+        500,
+        502,
+        503,
+        504
+      ],
+      "expectedRetry": true,
+      "expectedCoverage": "failed"
+    },
+    {
+      "name": "partial-pagination",
+      "firstPageItems": 1,
+      "continuationFailureStatusCode": 503,
+      "expectedCoverage": "partial",
+      "expectedObservedCount": 1
+    },
+    {
+      "name": "repeated-continuation-link",
+      "expectedCoverage": "partial"
+    },
+    {
+      "name": "workspace-enumeration-failure",
+      "statusCode": 403,
+      "expectedCoverage": "failed",
+      "expectedDiscoveryComplete": false
+    },
+    {
+      "name": "mcp-preview-enrichment-failure",
+      "statusCode": 503,
+      "expectedCoverage": "failed",
+      "expectedStableApiPreserved": true
+    },
+    {
+      "name": "scale-unit-family-platform-health",
+      "statusCode": 400,
+      "code": "InvalidOperation",
+      "messageShape": "scale-unit-family-mismatch",
+      "expectedCategory": "platformHealth",
+      "expectedDeduplication": "one-incident-many-domains"
+    }
+  ]
+}

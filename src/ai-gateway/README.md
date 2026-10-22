@@ -37,8 +37,10 @@ Manage and use the AI Gateway SKU in Azure API Management.
 | --- | --- |
 | `create` | `az ai-gateway create -n <gateway> -g <group> -l <region> [--list-regions]`|
 | `delete` | `az ai-gateway delete -n <gateway> -g <group>` |
-| `import` | `az ai-gateway import -n <gateway> -g <group> --source-apim-id <id> [--dry-run] [options]` |
+| `import-inventory` | `az ai-gateway import-inventory --source-apim-id <id>` |
 | `list` | `az ai-gateway list [-g <group>]` |
+| `migration-capability show` | `az ai-gateway migration-capability show` |
+| `migration-plan validate` | `az ai-gateway migration-plan validate --source-inventory-file <file> --context-file <file> --mapping-file <file> --todos-file <file>` |
 | `show` | `az ai-gateway show -n <gateway> -g <group>` |
 | `update` | `az ai-gateway update -n <gateway> -g <group> [options]` |
 | `version` | `az ai-gateway version` |
@@ -130,25 +132,82 @@ Verify private DNS and traffic before disabling public network access. Deleting
 a service-side connection does not delete its backing
 `Microsoft.Network/privateEndpoints` resource.
 
-### `az ai-gateway import`
+### `az ai-gateway import-inventory`
 
-Import model and MCP server assets from an APIM resource. Other API types are
-ignored.
+Create a read-only inventory of observed migration-relevant configuration in
+an APIM resource, with explicit coverage for every attempted collection. The
+command returns source facts for the AI Gateway plugin's
+`migrate-ai-gateway` skill; it does not inspect a destination, propose mappings,
+retrieve secret values, or change Azure resources.
 
 #### Options
 
 | Option | Description |
 | --- | --- |
-| `--include` | Asset types: `models`, `mcp-servers`. Both are included by default. |
-| `--conflict-policy` | Existing-target behavior: `fail` (default), `skip`, or `overwrite`. |
-| `--mapping-file` | JSON network and source-to-destination asset mappings. |
-| `--dry-run` | Assess the import without changing resources. |
-| `--yes`, `-y` | Required to execute the import. |
-| `--output` | Use `table` for a compact inventory. |
+| `--apiops-artifact` | Local APIOps artifact file or directory used to fill incomplete live ARM domains. |
+| `--approve-export-evidence` | Explicitly approve use of either local export input. |
+| `--arm-template-file` | Local ARM-template JSON used after APIOps to fill remaining gaps; expressions are not evaluated. |
+| `--source-apim-id` | Complete resource ID of the source APIM service. |
+| `--output` | Use `json` for the full versioned result or `table` for a collection summary. |
 
-Import is additive and does not delete destination resources. Critical blockers
-prevent execution. Dependent actions do not support `--no-wait`. Sensitive
-values are redacted.
+The JSON inventory includes V2 SKU capability evidence, service and workspace
+APIs, operations, backends,
+policy structure and capability metadata, products, subscription relationships,
+MCP tools and dependencies, diagnostics, logger references, networking,
+identities, named-value metadata, certificates, groups, identity providers,
+authorization providers, collection coverage, health incidents, and scoped
+discovery errors. Core APIM resources use API version `2024-05-01`; service-level
+MCP typing and tools use `2025-09-01-preview`. BasicV2, StandardV2, and PremiumV2
+are supported. Schema 3.0 records provenance for live ARM and local export
+evidence, reports deterministic conflicts without embedding conflicting values,
+and emits a source behavior ledger with stable IDs. Complete live ARM
+observations remain authoritative; when a domain is incomplete, APIOps evidence
+takes precedence over ARM-template evidence.
+
+An APIOps directory can contain `inventory-metadata.json` with kind
+`AiGatewayApimExportEvidence`, its source resource ID, optional source SKU,
+`exportedAt` timestamp, optional source ETag, and `completeDomains` entries.
+Each entry contains `scope` and `configurationDomain`; `scope` can be `service`
+or a complete scope resource ID. Only matching, explicitly complete APIOps
+domains can recover failed live coverage. Source identity or SKU mismatches are
+rejected, and conflicts remain blocking.
+
+ARM-template JSON is supplemental even when its metadata claims completeness:
+templates cannot prove that a resource is absent. Template expressions are not
+evaluated. APIOps trees containing symbolic links are rejected.
+
+Secret-bearing values, URL credentials, and query values are redacted. The
+command never calls APIM secret-value operations. See
+[APIM import inventory specification](docs/apim-import-specification.md).
+
+### `az ai-gateway migration-capability show`
+
+Return the deterministic machine-readable migration capability contract:
+
+```bash
+az ai-gateway migration-capability show --output json
+```
+
+The result identifies stable source-behavior capabilities, supported destination
+domains and commands, allowlisted command contracts, mutation semantics,
+approval classes, preconditions, idempotency, structural and behavior
+verification requirements, limitations, and `contractDigest`.
+
+### `az ai-gateway migration-plan validate`
+
+Validate generated migration state before approval or execution:
+
+```bash
+az ai-gateway migration-plan validate \
+  --source-inventory-file source-inventory.json \
+  --context-file context.json \
+  --mapping-file mapping.json \
+  --todos-file todos.json \
+  --output json
+```
+
+The result is `valid` or `invalid` and includes deterministic plan, capability,
+source-inventory, and result digests plus structured errors and warnings.
 
 ## `az ai-gateway model-provider`
 
@@ -156,11 +215,11 @@ Manage Foundry and custom model provider registrations.
 
 | Command | Syntax |
 | --- | --- |
-| `create` | `az ai-gateway model-provider create [-n <provider> --kind <Foundry-or-Custom>] [--no-sync] [options] --resource-name <gateway> -g <group>` |
+| `create` | `az ai-gateway model-provider create [-n <provider> --kind <Foundry-or-Custom>] [--aliases] [--no-sync] [options] --resource-name <gateway> -g <group>` |
 | `delete` | `az ai-gateway model-provider delete -n <provider> --resource-name <gateway> -g <group>` |
 | `list` | `az ai-gateway model-provider list --resource-name <gateway> -g <group>` |
 | `show` | `az ai-gateway model-provider show -n <provider> --resource-name <gateway> -g <group>` |
-| `sync` | `az ai-gateway model-provider sync -n <provider> [--api-key-value <key>] [--dry-run] [--yes] --resource-name <gateway> -g <group>` |
+| `sync` | `az ai-gateway model-provider sync -n <provider> [--api-key-value <key>] [--aliases] [--dry-run] [--yes] --resource-name <gateway> -g <group>` |
 | `update` | `az ai-gateway model-provider update -n <provider> [options] --resource-name <gateway> -g <group>` |
 
 ### `az ai-gateway model-provider create`
@@ -179,6 +238,7 @@ Create a Foundry or custom provider and import its available models.
 | `--api-key-value` | Exact value sent in the API-key header. Add an authentication scheme only when required by the provider. |
 | `--managed-identity-resource` | Token audience used by Foundry managed identity authentication. Defaults to `https://cognitiveservices.azure.com`. |
 | `--managed-identity-client-id` | Optional user-assigned managed identity client ID. |
+| `--aliases` | Create a callable `{provider}/{model}` alias for each model imported during provider creation. |
 | `--no-sync` | Skip model discovery and import after provider creation. |
 
 Create a Foundry provider and import its deployments:
@@ -190,6 +250,7 @@ az ai-gateway model-provider create \
   --resource-ids \
     /subscriptions/<sub>/resourceGroups/<group>/providers/Microsoft.CognitiveServices/accounts/<account-1> \
     /subscriptions/<sub>/resourceGroups/<group>/providers/Microsoft.CognitiveServices/accounts/<account-2> \
+  --aliases \
   --resource-name my-ai-gateway \
   --resource-group my-resource-group
 ```
@@ -216,7 +277,10 @@ az cognitiveservices account list | az ai-gateway model-provider create \
       --resource-group my-gateway-resource-group
 ```
 
-By default, the command attempts to get models from the endpoint itself. Add `--no-sync` to either command to create only the provider. You can add models later with `az ai-gateway model create`.
+By default, the command attempts to get models from the endpoint itself. Add
+`--no-sync` to either command to create only the provider. You can add models
+later with `az ai-gateway model create`. `--aliases` cannot be combined with
+`--no-sync`.
 
 The API-key value is sent exactly as entered. If your provider uses Bearer scheme,
 enter "Bearer <key>".
@@ -231,6 +295,7 @@ registrations.
 | Option | Description |
 | --- | --- |
 | `--api-key-value` | Exact header value used to query a custom provider. When omitted interactively, a masked prompt is shown. |
+| `--aliases` | Create a callable `{provider}/{model}` alias for each model created by this synchronization. |
 | `--dry-run` | Return the synchronization plan without changing models. |
 | `--yes`, `-y` | Confirm model creation and deletion. Required unless `--dry-run` is used. |
 
@@ -239,6 +304,7 @@ Synchronize a Foundry provider:
 ```bash
 az ai-gateway model-provider sync \
   --name foundry \
+  --aliases \
   --yes \
   --resource-name my-ai-gateway \
   --resource-group my-resource-group
@@ -259,6 +325,12 @@ Add `--dry-run --output table` to preview all model creations and deletions.
 If any discovered model name already belongs to another provider, synchronization
 fails before creating or deleting any models.
 
+With `--aliases`, synchronization creates aliases only for models created by
+that run. Existing models and aliases remain unchanged. A same-name alias that
+already targets the model is reported as existing. A collision or alias write
+failure is reported as a partial failure without deleting the successfully
+created model. Provider synchronization never deletes or retargets aliases.
+
 ## `az ai-gateway model`
 
 Manage model registrations and their backing deployments.
@@ -269,6 +341,74 @@ Manage model registrations and their backing deployments.
 | `delete` | `az ai-gateway model delete --provider-name <provider> -n <model> --resource-name <gateway> -g <group>` |
 | `list` | `az ai-gateway model list [--model-provider <provider>] [--type <Foundry-or-Custom>] --resource-name <gateway> -g <group>` |
 | `show` | `az ai-gateway model show --provider-name <provider> -n <model> --resource-name <gateway> -g <group>` |
+
+## `az ai-gateway model-alias`
+
+Manage stable callable names that route requests to backend models. The
+`--name` value is the immutable alias resource ID segment; `--alias-name` is
+the client-facing value applications send in the request `model` field.
+
+| Command | Syntax |
+| --- | --- |
+| `create` | `az ai-gateway model-alias create -n <alias-id> --alias-name <callable-name> --model-provider <provider> --model-name <model> [--description <text>] [--api-version <version>] --resource-name <gateway> -g <group>` |
+| `delete` | `az ai-gateway model-alias delete -n <alias-id> [--if-match <etag>] [--api-version <version>] --resource-name <gateway> -g <group>` |
+| `list` | `az ai-gateway model-alias list [--api-version <version>] --resource-name <gateway> -g <group>` |
+| `show` | `az ai-gateway model-alias show -n <alias-id> [--api-version <version>] --resource-name <gateway> -g <group>` |
+| `test` | `az ai-gateway model-alias test [-n <alias-id>] [--n <count>] [--endpoint <chat-completions-or-responses-or-messages>] [--api-key-name <key>] [--prompt <text>] [--api-version <version>] --resource-name <gateway> -g <group>` |
+| `update` | `az ai-gateway model-alias update -n <alias-id> [--alias-name <callable-name>] [--model-provider <provider> --model-name <model>] [--description <text>] [--if-match <etag>] [--api-version <version>] --resource-name <gateway> -g <group>` |
+
+Table output from `model-alias list` includes the callable alias name, backend
+model name, and provider name.
+
+All model-alias commands default to API version `2026-09-01-preview`. Use
+`--api-version` to call a different supported ARM API version.
+
+Create an alias for a backend model:
+
+```bash
+az ai-gateway model-alias create \
+  --name production-chat \
+  --alias-name production/chat \
+  --model-provider foundry \
+  --model-name gpt-4o \
+  --resource-name my-ai-gateway \
+  --resource-group my-resource-group
+```
+
+`update` patches only supplied properties, preserving inline policies and other
+alias configuration. `update` and `delete` retrieve the current ETag
+automatically unless `--if-match` is supplied. Renaming immediately stops the
+previous callable name; retargeting affects new requests immediately.
+
+`test` resolves the alias target protocol and sends a minimal inference request.
+By default it uses an Entra token for the `ai.gateway.azure.com` audience. Set
+`--api-key-name` to use the primary value of an AI Gateway API key instead. If
+The result reports the authentication method and its non-secret resource or API
+key name. If the target model supports multiple endpoints, select one with
+`--endpoint chat-completions`, `--endpoint responses`, or `--endpoint messages`.
+Set `--n <count>` to send that many sequential inference requests per alias
+(positive integer; default `1`). `-n` remains shorthand for `--name`.
+Repeated tests report each success or failure and continue after errors such
+as HTTP 429. The command returns an error after all tests finish if any failed;
+otherwise, counts greater than one return a JSON array of results in test order.
+
+```bash
+az ai-gateway model-alias test --name production-chat --n 10 \
+  --resource-name my-ai-gateway --resource-group my-resource-group
+```
+
+Omit `--name` to test every alias in JSON piped from `model-alias list`:
+
+```bash
+az ai-gateway model-alias list \
+  --resource-name my-ai-gateway \
+  --resource-group my-resource-group \
+  --output json |
+az ai-gateway model-alias test \
+  --api-key-name master \
+  --resource-name my-ai-gateway \
+  --resource-group my-resource-group
+```
 
 ## `az ai-gateway mcp`
 
@@ -281,12 +421,38 @@ Manage MCP tool servers, endpoints, and OAuth authorization.
 | `delete` | `az ai-gateway mcp delete -n <server> --resource-name <gateway> -g <group>` |
 | `list` | `az ai-gateway mcp list --resource-name <gateway> -g <group>` |
 | `show` | `az ai-gateway mcp show -n <server> --resource-name <gateway> -g <group>` |
-| `test` | `az ai-gateway mcp test -n <server> --api-key-name <key> --resource-name <gateway> -g <group>` |
+| `test` | `az ai-gateway mcp test [-n <server>] [--n <count>] --api-key-name <key> --resource-name <gateway> -g <group>` |
 | `update` | `az ai-gateway mcp update -n <server> [options] --resource-name <gateway> -g <group>` |
 
 `--endpoints` accepts a JSON array or an `@file` path. Endpoint kinds: `mcp`,
 `openApi`, and `http`. Table output from `mcp list` includes each server's
 derived runtime endpoint.
+
+Set `test --n <count>` to repeat the full `initialize`,
+`notifications/initialized`, and `tools/list` sequence sequentially per server
+(positive integer; default `1`). Each repetition starts a new MCP session.
+`-n` remains shorthand for `--name`. Repeated tests report each success or
+failure and continue after errors. The command returns an error after all
+tests finish if any failed; otherwise, counts greater than one return a JSON
+array of results in test order.
+
+```bash
+az ai-gateway mcp test --name tools --n 10 --api-key-name production \
+  --resource-name my-ai-gateway --resource-group my-resource-group
+```
+
+Omit `--name` to test every MCP server in JSON piped from `mcp list`:
+
+```bash
+az ai-gateway mcp list \
+  --resource-name my-ai-gateway \
+  --resource-group my-resource-group \
+  --output json |
+az ai-gateway mcp test \
+  --api-key-name master \
+  --resource-name my-ai-gateway \
+  --resource-group my-resource-group
+```
 
 ### `az ai-gateway mcp create`
 
@@ -441,9 +607,9 @@ Manage policies on gateway assets.
 
 | Command | Syntax |
 | --- | --- |
-| `create` | `az ai-gateway policy create --scope-type <model-or-mcp> --scope-name <resource> --policy @policy.json [--provider-name <provider>] --resource-name <gateway> -g <group>` |
+| `create` | `az ai-gateway policy create --scope-type <model-or-model-alias-or-mcp> --scope-name <resource> --policy @policy.json [--provider-name <provider>] --resource-name <gateway> -g <group>` |
 | `delete` | `az ai-gateway policy delete --policy-id '<id>' --resource-name <gateway> -g <group>` |
-| `list` | `az ai-gateway policy list [--scope-type <model-or-mcp> --scope-name <resource> [--provider-name <provider>]] --resource-name <gateway> -g <group>` |
+| `list` | `az ai-gateway policy list [--scope-type <model-or-model-alias-or-mcp> --scope-name <resource> [--provider-name <provider>]] --resource-name <gateway> -g <group>` |
 | `show` | `az ai-gateway policy show --policy-id '<id>' --resource-name <gateway> -g <group>` |
 | `update` | `az ai-gateway policy update --policy-id '<id>' --policy @policy.json --resource-name <gateway> -g <group>` |
 
@@ -457,10 +623,10 @@ Add an new policy to an asset.
 
 | Option | Description |
 | --- | --- |
-| `--scope-type` | Required. Type of the scope at which the policy will be applied: `model` or `mcp`. |
+| `--scope-type` | Required. Type of the scope at which the policy will be applied: `model`, `model-alias`, or `mcp`. |
 | `--scope-name` | Required. Name of the asset at which the policy is attached. |
 | `--policy` | Required. Policy JSON object or `@file`. The object must contain `type`. |
-| `--provider-name` | Model provider name. Required when `--scope-type` is `model`. |
+| `--provider-name` | Model provider name. Required when `--scope-type` is `model`; not used for aliases or MCP servers. |
 
 #### Policy schema
 

@@ -123,6 +123,27 @@ def test_list_policies_filters_to_one_mcp_server(read_host, _, cmd):
     assert "/toolServers/tools" in read_host.call_args.args[1]["host_id"]
 
 
+@patch("azext_ai_gateway._policy.get_subscription_id", return_value="sub")
+@patch("azext_ai_gateway._policy._read_host")
+def test_list_policies_filters_to_one_model_alias(read_host, _, cmd):
+    read_host.return_value = (
+        {"properties": {"policies": [{"type": "tokenLimit"}]}},
+        None,
+    )
+
+    result = _policy.list_policies(
+        cmd,
+        "gateway",
+        "rg",
+        scope_type="model-alias",
+        scope_name="production-chat",
+    )
+
+    assert result[0]["scopeType"] == "model-alias"
+    assert result[0]["scopeName"] == "production-chat"
+    assert "/aliases/production-chat" in read_host.call_args.args[1]["host_id"]
+
+
 def test_list_policies_scope_name_requires_scope_type(cmd):
     with pytest.raises(Exception, match="--scope-name requires --scope-type"):
         _policy.list_policies(
@@ -164,9 +185,53 @@ def test_create_model_policy_appends_and_uses_etag(
     assert patch_call.args[1] == "PATCH"
     assert "If-Match=etag" in patch_call.kwargs["headers"]
     assert json.loads(patch_call.kwargs["body"]) == {
+        "type": (
+            "Microsoft.ApiManagement/aigateways/workspaces/"
+            "modelProviders/models"
+        ),
         "properties": {"policies": [existing, created]}
     }
     assert result["scopeType"] == "model"
+
+
+@patch("azext_ai_gateway._policy.get_subscription_id", return_value="sub")
+@patch("azext_ai_gateway._gateway.send_raw_request")
+def test_create_model_alias_policy_patches_only_policies(
+    send_request,
+    _,
+    cmd,
+):
+    send_request.side_effect = [
+        FakeResponse(
+            {
+                "properties": {
+                    "aliasName": "production/chat",
+                    "backendModels": [{"resourceId": "/models/gpt-4o"}],
+                    "policies": [],
+                }
+            },
+            {"ETag": "etag"},
+        ),
+        FakeResponse({"properties": {"policies": [{"type": "tokenLimit"}]}}),
+    ]
+
+    result = _policy.create_policy(
+        cmd,
+        "gateway",
+        "rg",
+        "model-alias",
+        "production-chat",
+        {"type": "tokenLimit"},
+    )
+
+    patch_call = send_request.call_args_list[1]
+    assert patch_call.args[1] == "PATCH"
+    assert "If-Match=etag" in patch_call.kwargs["headers"]
+    assert json.loads(patch_call.kwargs["body"]) == {
+        "type": "Microsoft.ApiManagement/aigateways/workspaces/aliases",
+        "properties": {"policies": [{"type": "tokenLimit"}]}
+    }
+    assert result["scopeType"] == "model-alias"
 
 
 @patch("azext_ai_gateway._policy.get_subscription_id", return_value="sub")

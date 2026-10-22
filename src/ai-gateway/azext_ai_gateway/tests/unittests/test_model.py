@@ -164,6 +164,10 @@ def test_create_model_builds_foundry_deployment_payload(
 
     body = json.loads(send_request.call_args.kwargs["body"])
     assert body == {
+        "type": (
+            "Microsoft.ApiManagement/aigateways/workspaces/"
+            "modelProviders/models"
+        ),
         "properties": {
             "displayName": "GPT-4o",
             "deployment": {

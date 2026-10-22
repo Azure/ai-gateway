@@ -1,9 +1,10 @@
 # APIM policy translation
 
-`az ai-gateway import --dry-run` inventories APIM policies and projects only
-semantics represented by the AI Gateway control-plane contract. Policy
-translation is intentionally conservative: unknown, conditional, scoped, or
-lossy behavior is reported rather than silently discarded.
+`az ai-gateway import-inventory` inventories APIM policy structure and links
+each observed statement to the AI Gateway policy capability registry. The
+command does not choose or apply a translation. The AI Gateway migration skill
+uses this evidence to propose mappings and asks the administrator before
+accepting conditional, scoped, or lossy behavior.
 
 ## Query the support registry
 
@@ -123,10 +124,10 @@ enforcement behavior.
 - Malformed policy XML blocks the affected asset assessment because its behavior
   cannot be inspected.
 
-Translated objects are emitted under
-`assets[].configuration.destinationPolicies`. Source policy summaries, scope,
-recognized and unknown statements, and warnings remain under
-`assets[].configuration.policies`.
+Inventory output contains source policy summaries, scope, statement
+occurrences, recognized and unknown statements, and capability assessments.
+Proposed destination objects belong to the migration skill's local mapping
+artifact, not the read-only inventory.
 
 ## Security and output rules
 

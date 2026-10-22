@@ -109,41 +109,202 @@ helps["ai-gateway delete"] = """
           --resource-group my-resource-group
 """
 
-helps["ai-gateway import"] = """
+helps["ai-gateway import-inventory"] = """
     type: command
-    short-summary: Discover or import configuration from API Management.
+    short-summary: Inventory API Management configuration for AI Gateway migration.
     long-summary: >
-        Discover language model, Foundry, unified model, MCP passthrough, and
-        REST API-backed MCP assets in an Azure API Management service and
-        assess whether each asset can be imported. Other API types are ignored.
-        The dry-run inventory includes resolved backends, operations, policy
-        compatibility, destination mappings, and conflicts without exposing
-        credential values.
-        Import is additive and executes only when its deterministic action graph
-        is unblocked. Products, subscriptions, diagnostics, identity selection,
-        and RBAC are inventoried but not written. Policies execute last.
-        --no-wait is not supported for execution because dependencies must
-        complete in order.
+        Read migration-relevant configuration from an Azure API Management
+        service and return a stable, versioned, redacted inventory. The command
+        does not map source objects, inspect a destination, retrieve secret
+        values, or change Azure resources. BasicV2, StandardV2, and PremiumV2
+        use stable APIM discovery plus preview-only service MCP enrichment.
+        Collection coverage and platform-health incidents distinguish empty,
+        partial, failed, and inapplicable domains. Approved local APIOps
+        artifacts can authoritatively recover domains declared complete in
+        matching export metadata. ARM-template evidence is supplemental and
+        cannot establish absence. Provenance, conflicts, and a deterministic
+        source behavior ledger are included in schema 3.0. Use the ai-gateway
+        plugin migration skill to turn this inventory into an
+        administrator-approved migration.
     examples:
-      - name: Inventory all assets and assess import compatibility.
+      - name: Create a structured APIM migration inventory.
         text: >-
-          az ai-gateway import --name my-ai-gateway
-          --resource-group my-resource-group
+          az ai-gateway import-inventory
           --source-apim-id /subscriptions/sub/resourceGroups/rg/providers/Microsoft.ApiManagement/service/apim
-          --dry-run
-      - name: Inventory models and MCP servers while planning to skip conflicts.
+          --output json
+      - name: Fill incomplete ARM discovery from local exports.
         text: >-
-          az ai-gateway import --name my-ai-gateway
-          --resource-group my-resource-group
+          az ai-gateway import-inventory
           --source-apim-id /subscriptions/sub/resourceGroups/rg/providers/Microsoft.ApiManagement/service/apim
-          --include models mcp-servers --conflict-policy skip --dry-run
+          --apiops-artifact ./artifacts
+          --arm-template-file ./template.json
+          --approve-export-evidence
+          --output json
+      - name: Summarize inventory completeness.
+        text: >-
+          az ai-gateway import-inventory
+          --source-apim-id /subscriptions/sub/resourceGroups/rg/providers/Microsoft.ApiManagement/service/apim
           --output table
-      - name: Import all supported and unblocked assets.
+"""
+
+helps["ai-gateway migration-capability"] = """
+    type: group
+    short-summary: Inspect the machine-readable APIM migration capability contract.
+"""
+
+helps["ai-gateway migration-capability show"] = """
+    type: command
+    short-summary: Show the deterministic APIM migration capability contract.
+    long-summary: >
+        Returns stable capability IDs, supported granular destination commands,
+        approval classes, idempotency strategies, verification methods, and
+        limitations. The command does not read or change Azure resources.
+    examples:
+      - name: Save the capability contract for migration planning.
         text: >-
-          az ai-gateway import --name my-ai-gateway
-          --resource-group my-resource-group
-          --source-apim-id /subscriptions/sub/resourceGroups/rg/providers/Microsoft.ApiManagement/service/apim
-          --conflict-policy skip --yes
+          az ai-gateway migration-capability show --output json
+"""
+
+helps["ai-gateway migration-plan"] = """
+    type: group
+    short-summary: Validate an AI-assisted APIM migration plan.
+"""
+
+helps["ai-gateway migration-plan validate"] = """
+    type: command
+    short-summary: Deterministically validate machine-readable migration state.
+    long-summary: >
+        Validates schema versions and safety-critical state shape, generation
+        consistency, capability bindings, complete source behavior-ledger
+        coverage, plan and approval digests, provenance conflicts, dependencies,
+        command allowlisting, idempotency, verification coverage, rollback, and
+        residual decisions. The command does not read or change Azure resources.
+    examples:
+      - name: Validate a migration checkpoint before approval or execution.
+        text: >-
+          az ai-gateway migration-plan validate
+          --context-file .ai-gateway-migration/source-to-target/context.json
+          --source-inventory-file
+          .ai-gateway-migration/source-to-target/source-inventory.json
+          --mapping-file .ai-gateway-migration/source-to-target/mapping.json
+          --todos-file .ai-gateway-migration/source-to-target/todos.json
+          --output json
+"""
+
+helps["ai-gateway model-alias"] = """
+    type: group
+    short-summary: Manage stable callable aliases for backend models.
+"""
+
+helps["ai-gateway model-alias create"] = """
+    type: command
+    short-summary: Create a model alias.
+    examples:
+      - name: Create a callable alias for a backend model.
+        text: >-
+          az ai-gateway model-alias create --resource-name my-ai-gateway
+          --resource-group my-resource-group --name production-chat
+          --alias-name production/chat --model-provider foundry
+          --model-name gpt-4o
+"""
+
+helps["ai-gateway model-alias delete"] = """
+    type: command
+    short-summary: Delete a model alias.
+    long-summary: >
+        Deleting an alias immediately breaks callers using its callable name.
+        The current ETag is retrieved automatically unless --if-match is set.
+    examples:
+      - name: Delete a model alias.
+        text: >-
+          az ai-gateway model-alias delete --resource-name my-ai-gateway
+          --resource-group my-resource-group --name production-chat
+"""
+
+helps["ai-gateway model-alias list"] = """
+    type: command
+    short-summary: List model aliases.
+    examples:
+      - name: List model aliases.
+        text: >-
+          az ai-gateway model-alias list --resource-name my-ai-gateway
+          --resource-group my-resource-group --output table
+"""
+
+helps["ai-gateway model-alias show"] = """
+    type: command
+    short-summary: Show a model alias.
+    examples:
+      - name: Show a model alias by its immutable resource ID segment.
+        text: >-
+          az ai-gateway model-alias show --resource-name my-ai-gateway
+          --resource-group my-resource-group --name production-chat
+"""
+
+helps["ai-gateway model-alias test"] = """
+    type: command
+    short-summary: Test a model alias with a minimal inference request.
+    long-summary: >
+        Resolves the alias backend model, selects its chat completions,
+        Responses API, or Anthropic Messages endpoint, and sends a short prompt
+        using an Entra access token for ai.gateway.azure.com. If
+        --api-key-name is set, the command instead uses the primary value of
+        that AI Gateway API key resource. When the target model supports
+        multiple endpoints, --endpoint is required. Omit --name to test every
+        alias in JSON piped from az ai-gateway model-alias list.
+        Set --n to a positive integer to repeat the test sequentially per alias.
+        Repeated tests continue after failures, report each result, and return
+        an error after all tests finish if any failed. The default is one test.
+    examples:
+      - name: Test a model alias with the signed-in Azure identity.
+        text: >-
+          az ai-gateway model-alias test --resource-name my-ai-gateway
+          --resource-group my-resource-group --name production-chat
+      - name: Test a model alias with an API key.
+        text: >-
+          az ai-gateway model-alias test --resource-name my-ai-gateway
+          --resource-group my-resource-group --name production-chat
+          --api-key-name production
+      - name: Test a model alias with a custom prompt.
+        text: >-
+          az ai-gateway model-alias test --resource-name my-ai-gateway
+          --resource-group my-resource-group --name production-chat
+          --prompt "Reply with pong."
+      - name: Send ten requests to test model alias policies.
+        text: >-
+          az ai-gateway model-alias test --resource-name my-ai-gateway
+          --resource-group my-resource-group --name production-chat --n 10
+      - name: Test the Responses API endpoint of a multi-endpoint model.
+        text: >-
+          az ai-gateway model-alias test --resource-name my-ai-gateway
+          --resource-group my-resource-group --name production-chat
+          --endpoint responses
+      - name: Test every listed model alias.
+        text: >-
+          az ai-gateway model-alias list --resource-name my-ai-gateway
+          --resource-group my-resource-group --output json |
+          az ai-gateway model-alias test --resource-name my-ai-gateway
+          --resource-group my-resource-group --api-key-name master
+"""
+
+helps["ai-gateway model-alias update"] = """
+    type: command
+    short-summary: Rename or retarget a model alias.
+    long-summary: >
+        The command patches only supplied properties and retrieves the current
+        ETag automatically unless --if-match is set. Renaming immediately stops
+        the previous callable name; retargeting affects new requests immediately.
+    examples:
+      - name: Rename a callable alias.
+        text: >-
+          az ai-gateway model-alias update --resource-name my-ai-gateway
+          --resource-group my-resource-group --name production-chat
+          --alias-name production/chat-v2
+      - name: Retarget an alias.
+        text: >-
+          az ai-gateway model-alias update --resource-name my-ai-gateway
+          --resource-group my-resource-group --name production-chat
+          --model-provider foundry --model-name gpt-5
 """
 
 helps["ai-gateway identity"] = """
@@ -334,10 +495,11 @@ helps["ai-gateway model-provider create"] = """
     short-summary: Create a Foundry or custom model provider.
     long-summary: >
         Creates the provider, then discovers and imports its models. Use
-        --no-sync to create only the provider. When Cognitive Services account
-        list output is piped to this command, creates one Foundry provider per
-        AIServices or OpenAI account using the account name, resource ID, and
-        endpoint.
+        --aliases to create provider/model callable aliases for imported models.
+        Use --no-sync to create only the provider; --aliases and --no-sync cannot
+        be combined. When Cognitive Services account list output is piped to this
+        command, creates one Foundry provider per AIServices or OpenAI account
+        using the account name, resource ID, and endpoint.
     examples:
       - name: Create providers from Cognitive Services accounts.
         text: >-
@@ -352,6 +514,7 @@ helps["ai-gateway model-provider create"] = """
           --name foundry --kind Foundry
           --resource-ids /subscriptions/sub/resourceGroups/rg/providers/Microsoft.CognitiveServices/accounts/account
           /subscriptions/sub/resourceGroups/rg/providers/Microsoft.CognitiveServices/accounts/account-2
+          --aliases
       - name: Create a custom provider using an API key.
         text: >-
           az ai-gateway model-provider create
@@ -410,7 +573,10 @@ helps["ai-gateway model-provider sync"] = """
         Creates registrations from Foundry deployments or from a custom
         provider's OpenAI- or Anthropic-compatible /v1/models endpoint.
         Naming conflicts abort synchronization before any model changes are
-        applied; use --dry-run to inspect the complete plan. Custom providers
+        applied; use --dry-run to inspect the complete plan. Add --aliases to
+        create provider/model callable aliases for newly created models. Alias
+        failures are reported without rolling back successfully created models.
+        Custom providers
         securely prompt for the API key when --api-key-value is omitted from an
         interactive session. Non-dry-run synchronization creates discovered
         models and deletes stale registrations, and requires --yes.
@@ -430,6 +596,11 @@ helps["ai-gateway model-provider sync"] = """
           az ai-gateway model-provider sync
           --resource-name my-ai-gateway --resource-group my-resource-group
           --name foundry --yes
+      - name: Synchronize models and create callable aliases.
+        text: >-
+          az ai-gateway model-provider sync
+          --resource-name my-ai-gateway --resource-group my-resource-group
+          --name foundry --aliases --yes
 """
 
 helps["ai-gateway model-provider update"] = """
@@ -520,13 +691,30 @@ helps["ai-gateway mcp test"] = """
         by the server. Failures show attempted protocol stages in execution
         order, followed by a structured federation diagnosis and the full failed
         HTTP response. Before testing, the command states the configured failure
-        mode and its effect on the result.
+        mode and its effect on the result. Omit --name to test every MCP tool
+        server in JSON piped from az ai-gateway mcp list.
+        Set --n to a positive integer to repeat the full initialize,
+        notifications/initialized, and tools/list sequence per server.
+        Repeated tests run sequentially, continue after failures, report each
+        result, and return an error after all tests finish if any failed.
+        The default is one test.
     examples:
       - name: Test an MCP tool server.
         text: >-
           az ai-gateway mcp test --resource-name my-ai-gateway
           --resource-group my-resource-group --name tools
           --api-key-name production
+      - name: Test every listed MCP tool server.
+        text: >-
+          az ai-gateway mcp list --resource-name my-ai-gateway
+          --resource-group my-resource-group --output json |
+          az ai-gateway mcp test --resource-name my-ai-gateway
+          --resource-group my-resource-group --api-key-name master
+      - name: Repeat the MCP protocol test ten times.
+        text: >-
+          az ai-gateway mcp test --resource-name my-ai-gateway
+          --resource-group my-resource-group --name tools
+          --api-key-name production --n 10
 """
 
 helps["ai-gateway mcp update"] = """
@@ -550,12 +738,12 @@ helps["ai-gateway mcp update"] = """
 
 helps["ai-gateway policy"] = """
     type: group
-    short-summary: Manage inline policies on models and MCP tool servers.
+    short-summary: Manage inline policies on models, aliases, and MCP tool servers.
 """
 
 helps["ai-gateway policy create"] = """
     type: command
-    short-summary: Add an inline policy to a model or MCP tool server.
+    short-summary: Add an inline policy to a model, alias, or MCP tool server.
     examples:
       - name: Add a token-limit policy to a model.
         text: >-
@@ -568,6 +756,11 @@ helps["ai-gateway policy create"] = """
           az ai-gateway policy create --resource-name my-ai-gateway
           --resource-group my-resource-group --scope-type mcp
           --scope-name tools --policy @policy.json
+      - name: Add a policy to a model alias.
+        text: >-
+          az ai-gateway policy create --resource-name my-ai-gateway
+          --resource-group my-resource-group --scope-type model-alias
+          --scope-name production-chat --policy @policy.json
 """
 
 helps["ai-gateway policy delete"] = """
@@ -582,7 +775,7 @@ helps["ai-gateway policy delete"] = """
 
 helps["ai-gateway policy list"] = """
     type: command
-    short-summary: List inline policies across models and MCP tool servers.
+    short-summary: List inline policies across models, aliases, and MCP tool servers.
     examples:
       - name: List every policy.
         text: >-
@@ -626,8 +819,8 @@ helps["ai-gateway policy import-support list"] = """
     type: command
     short-summary: List known APIM policy translation capabilities.
     long-summary: >
-        Returns the same declarative capability registry used by
-        az ai-gateway import. The output identifies supported fields,
+        Returns the declarative capability registry used during AI-assisted
+        migration. The output identifies supported fields,
         unsupported fields, destination policy types, valid sections, and
         scope behavior.
     examples:

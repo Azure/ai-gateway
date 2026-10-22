@@ -64,7 +64,14 @@ def test_assign_system_identity_preserves_user_assigned_identities(
     )
 
     body = json.loads(send_request.call_args_list[1].kwargs["body"])
-    assert body == {"identity": {"type": "SystemAssigned, UserAssigned"}}
+    assert send_request.call_args_list[1].args[1] == "PUT"
+    assert body == {
+        "type": "Microsoft.ApiManagement/aigateways",
+        "identity": {
+            "type": "SystemAssigned, UserAssigned",
+            "userAssignedIdentities": {identity_id: {}},
+        },
+    }
     assert result["type"] == "SystemAssigned, UserAssigned"
 
 
@@ -101,14 +108,10 @@ def test_remove_all_user_assigned_identities_uses_null_entries(
     )
 
     body = json.loads(send_request.call_args_list[1].kwargs["body"])
+    assert send_request.call_args_list[1].args[1] == "PUT"
     assert body == {
-        "identity": {
-            "type": "SystemAssigned",
-            "userAssignedIdentities": {
-                "/identities/one": None,
-                "/identities/two": None,
-            },
-        }
+        "type": "Microsoft.ApiManagement/aigateways",
+        "identity": {"type": "SystemAssigned"},
     }
 
 

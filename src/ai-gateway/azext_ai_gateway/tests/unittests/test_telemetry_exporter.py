@@ -112,7 +112,7 @@ def test_delete_exporter_uses_concurrency_precondition(send_request, _, cmd):
         "DELETE",
         (
             "/subscriptions/sub/resourceGroups/rg/providers/"
-            "Microsoft.ApiManagement/service/gateway/workspaces/default/"
+            "Microsoft.ApiManagement/aigateways/gateway/workspaces/default/"
             "telemetryExporters/custom%2Fexporter"
         ),
     )
@@ -206,6 +206,10 @@ def test_create_exporter_for_existing_application_insights(send_request, _, cmd)
         "/workspaces/default/telemetryExporters/appinsights"
     )
     assert exporter_body == {
+        "type": (
+            "Microsoft.ApiManagement/aigateways/workspaces/"
+            "telemetryExporters"
+        ),
         "properties": {
             "kind": "OpenTelemetry",
             "payloadCapture": True,
@@ -299,7 +303,10 @@ def test_create_exporter_enables_identity_and_synthesizes_otlp_endpoints(
         )
 
     identity_body = json.loads(send_request.call_args_list[1].kwargs["body"])
-    assert identity_body == {"identity": {"type": "SystemAssigned"}}
+    assert identity_body == {
+        "type": "Microsoft.ApiManagement/aigateways",
+        "identity": {"type": "SystemAssigned"},
+    }
     assert report_accepted.call_args_list == [
         call(
             cmd,
@@ -392,6 +399,10 @@ def test_create_custom_otlp_exporter_with_headers(send_request, _, cmd):
     assert send_request.call_count == 1
     body = json.loads(send_request.call_args.kwargs["body"])
     assert body == {
+        "type": (
+            "Microsoft.ApiManagement/aigateways/workspaces/"
+            "telemetryExporters"
+        ),
         "properties": {
             "kind": "OpenTelemetry",
             "payloadCapture": False,
@@ -477,6 +488,10 @@ def test_create_unauthenticated_traces_only_exporter(send_request, _, cmd):
 
     body = json.loads(send_request.call_args.kwargs["body"])
     assert body == {
+        "type": (
+            "Microsoft.ApiManagement/aigateways/workspaces/"
+            "telemetryExporters"
+        ),
         "properties": {
             "kind": "OpenTelemetry",
             "payloadCapture": False,

@@ -54,7 +54,6 @@ def test_gateway_arguments_use_ai_gateway_configured_default():
     top_level_commands = [
         "ai-gateway create",
         "ai-gateway delete",
-        "ai-gateway import",
         "ai-gateway show",
         "ai-gateway update",
     ]
@@ -158,6 +157,20 @@ def test_model_provider_create_no_sync_is_opt_out_flag():
     assert argument["action"] == "store_true"
 
 
+def test_model_provider_create_accepts_aliases_flag():
+    loader = _Loader()
+    _params.load_arguments(loader, None)
+
+    argument = _get_argument(
+        loader,
+        "ai-gateway model-provider create",
+        "aliases",
+    )
+
+    assert argument["action"] == "store_true"
+    assert "provider creation" in argument["help"]
+
+
 def test_model_list_accepts_provider_and_type_filters():
     loader = _Loader()
     _params.load_arguments(loader, None)
@@ -207,18 +220,57 @@ def test_model_provider_sync_requires_confirmation_without_delete_option():
     assert yes["action"] == "store_true"
 
 
-def test_import_requires_confirmation_without_adding_it_to_mcp_commands():
+def test_import_inventory_accepts_provenance_fallback_artifacts():
     loader = _Loader()
     _params.load_arguments(loader, None)
 
-    yes = _get_argument(loader, "ai-gateway import", "yes")
-    assert yes["options_list"] == ["--yes", "-y"]
-    assert yes["action"] == "store_true"
+    argument_names = {
+        argument[0]
+        for argument in loader.arguments["ai-gateway import-inventory"]
+    }
+    assert argument_names == {
+        "approve_export_evidence",
+        "apiops_artifact",
+        "arm_template_file",
+        "source_apim_id",
+    }
+    approval = _get_argument(
+        loader,
+        "ai-gateway import-inventory",
+        "approve_export_evidence",
+    )
+    assert approval["action"] == "store_true"
+
     for command in ["ai-gateway mcp create", "ai-gateway mcp update"]:
         argument_names = {
             argument[0] for argument in loader.arguments[command]
         }
         assert "yes" not in argument_names
+
+
+def test_migration_plan_validate_requires_json_state_files():
+    loader = _Loader()
+    _params.load_arguments(loader, None)
+    command = "ai-gateway migration-plan validate"
+
+    assert {
+        argument[0] for argument in loader.arguments[command]
+    } == {
+        "context_file",
+        "mapping_file",
+        "source_inventory_file",
+        "todos_file",
+    }
+    for name in (
+        "context_file",
+        "mapping_file",
+        "source_inventory_file",
+        "todos_file",
+    ):
+        argument = _get_argument(loader, command, name)
+        assert argument["options_list"] == [f"--{name.replace('_', '-')}"]
+        assert argument["type"] is _params.file_type
+        assert argument["required"] is True
 
 
 def test_mcp_test_accepts_api_key_name():
@@ -233,7 +285,59 @@ def test_mcp_test_accepts_api_key_name():
 
     assert argument["arg_group"] == "Authentication"
     assert argument["options_list"] == ["--api-key-name"]
+    assert argument["required"] is True
     assert "resource" in argument["help"]
+    name_argument = _get_argument(loader, "ai-gateway mcp test", "name")
+    assert name_argument["required"] is False
+    assert "piping JSON output" in name_argument["help"]
+
+
+def test_test_commands_accept_count_without_changing_name_shorthand():
+    loader = _Loader()
+    _params.load_arguments(loader, None)
+
+    for command in ["ai-gateway model-alias test", "ai-gateway mcp test"]:
+        count = _get_argument(loader, command, "n")
+        assert count["options_list"] == ["--n"]
+        assert count["type"] is int
+        assert count["default"] == 1
+        name = _get_argument(loader, command, "name")
+        assert name["options_list"] == ["--name", "-n"]
+
+
+def test_model_alias_test_accepts_auth_prompt_and_endpoint():
+    loader = _Loader()
+    _params.load_arguments(loader, None)
+
+    api_key_argument = _get_argument(
+        loader,
+        "ai-gateway model-alias test",
+        "api_key_name",
+    )
+    prompt_argument = _get_argument(
+        loader,
+        "ai-gateway model-alias test",
+        "prompt",
+    )
+    endpoint_argument = _get_argument(
+        loader,
+        "ai-gateway model-alias test",
+        "endpoint",
+    )
+
+    assert api_key_argument["arg_group"] == "Authentication"
+    assert api_key_argument["options_list"] == ["--api-key-name"]
+    assert "signed-in Azure identity" in api_key_argument["help"]
+    assert "Prompt" in prompt_argument["help"]
+    assert "arg_type" in endpoint_argument
+    assert "more than one endpoint" in endpoint_argument["help"]
+    name_argument = _get_argument(
+        loader,
+        "ai-gateway model-alias test",
+        "name",
+    )
+    assert name_argument["required"] is False
+    assert "piping JSON output" in name_argument["help"]
 
 
 def test_telemetry_exporter_create_accepts_custom_otlp_options():

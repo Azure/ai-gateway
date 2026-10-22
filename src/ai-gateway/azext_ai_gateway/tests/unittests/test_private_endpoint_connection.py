@@ -124,7 +124,7 @@ def test_approve_sends_status_and_waits(request, wait, _, cmd):
     wait.assert_called_once_with(
         cmd,
         "/subscriptions/sub/resourceGroups/rg/providers/"
-        "Microsoft.ApiManagement/service/gateway/"
+        "Microsoft.ApiManagement/aigateways/gateway/"
         "privateEndpointConnections/connection",
         "connection",
         expected_status="Approved",
@@ -189,13 +189,13 @@ def test_delete_waits_for_connection_to_disappear(request, wait, _, cmd):
         cmd,
         "DELETE",
         "/subscriptions/sub/resourceGroups/rg/providers/"
-        "Microsoft.ApiManagement/service/gateway/"
+        "Microsoft.ApiManagement/aigateways/gateway/"
         "privateEndpointConnections/connection",
     )
     wait.assert_called_once_with(
         cmd,
         "/subscriptions/sub/resourceGroups/rg/providers/"
-        "Microsoft.ApiManagement/service/gateway/"
+        "Microsoft.ApiManagement/aigateways/gateway/"
         "privateEndpointConnections/connection",
         "connection",
         deleted=True,

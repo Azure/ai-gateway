@@ -11,6 +11,7 @@ from azure.cli.core.commands.client_factory import get_subscription_id
 
 from azext_ai_gateway._gateway import (
     _current_identity,
+    _gateway_put_body,
     _gateway_path,
     _raise_not_found,
     _request,
@@ -69,13 +70,18 @@ def assign_identity(
             bool(all_users),
         )
     }
-    if additions:
+    if all_users:
         identity["userAssignedIdentities"] = {
-            resource_id: {} for resource_id in additions
+            resource_id: {} for resource_id in all_users
         }
 
     response = _response_json(
-        _request(cmd, "PATCH", path, {"identity": identity})
+        _request(
+            cmd,
+            "PUT",
+            path,
+            _gateway_put_body(current, identity=identity),
+        )
     )
     report_lro_accepted(
         cmd,
@@ -117,13 +123,18 @@ def remove_identity(
             bool(remaining_users),
         )
     }
-    if removals:
+    if remaining_users:
         identity["userAssignedIdentities"] = {
-            resource_id: None for resource_id in removals
+            resource_id: {} for resource_id in remaining_users
         }
 
     response = _response_json(
-        _request(cmd, "PATCH", path, {"identity": identity})
+        _request(
+            cmd,
+            "PUT",
+            path,
+            _gateway_put_body(current, identity=identity),
+        )
     )
     report_lro_accepted(
         cmd,
