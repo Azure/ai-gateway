@@ -1,6 +1,7 @@
 # Reference
 
-Look up details here as needed. You do not need to read this to deploy.
+Details for both [networking paths](../README.md#choose-your-networking-path).
+Review the limitations before changing an existing deployment.
 
 ## File guide
 
@@ -21,7 +22,7 @@ Look up details here as needed. You do not need to read this to deploy.
 
 ## Inputs
 
-Required values are in the [quick start](../README.md#quick-start-public-endpoints).
+Required values are in the [shared setup](../README.md#shared-setup).
 
 | Input | Purpose and default |
 | --- | --- |
@@ -30,7 +31,7 @@ Required values are in the [quick start](../README.md#quick-start-public-endpoin
 | `developer_principal_id` | Entra object ID for developer access. Empty means no developer roles. |
 | `developer_principal_type` | `User`, `Group` or `ServicePrincipal`. Default `User`. |
 | `publisher_name`, `project_display_name`, `project_description`, `tags` | Display metadata and tags |
-| `private_network_address_prefix` | Path B VNet IPv4 /16. Default `10.247.0.0/16`. Pick a non-overlapping range before the first deploy. |
+| `private_network_address_prefix` | Private-path VNet IPv4 /16. Default `10.247.0.0/16`. Pick a non-overlapping range before creating the network. |
 | `enable_private_test_client` | Default `false`. Requires private networking. |
 | `private_test_client_ssh_public_key` | OpenSSH **public** key, required when the VM is created |
 | `private_test_client_vm_size` | Default `Standard_B2s_v2`. Check availability and quota. |
@@ -53,7 +54,7 @@ Optional fields: `model_format`, `sku_name`, `api_format`, `endpoints`, `descrip
 | `project_endpoint`, `project_id` | Hosted-agent app setup (not a model-call URL) |
 | `container_registry_endpoint`, `storage_account_name` | Image and artifact setup for the agent app |
 | `resource_groups`, `gateway_id`, `foundry_models_id`, `application_insights_ids` | Resource and telemetry lookup |
-| `private_endpoint_ids`, `private_test_vm_id`, `private_probe_configuration` | Path B lookup (VM outputs only when the test client is enabled) |
+| `private_endpoint_ids`, `private_test_vm_id`, `private_probe_configuration` | Private-path lookup (VM outputs only when the test client is enabled) |
 
 Outputs do **not** include runtime key values or telemetry connection strings.
 Services use managed identities. Get the key through your approved secret process.
@@ -61,7 +62,7 @@ Never put keys in `.tfvars`, terminal output or source control.
 
 ## Networking
 
-Path B adds:
+The [private connectivity path](private-connectivity.md) adds:
 
 - A VNet with an outbound integration subnet delegated to `Microsoft.Web/serverFarms`
 - Separate endpoint and client subnets
@@ -107,13 +108,33 @@ These use mocked AzAPI. They check model, endpoint and token-limit wiring, gatew
 
 ## Limitations
 
-Documentation checked **October 19, 2026**. Preview features can change. Recheck the official sources before deploying.
+General constraints checked **October 19, 2026**; resource-type lifecycle below
+checked **October 22, 2026**. Preview features can change. Recheck the official
+sources before changing or replacing a deployment.
+
+### Resource type and lifecycle
+
+This sample keeps `Microsoft.ApiManagement/service@2025-09-01-preview` with SKU
+`AIGateway`. According to the [Microsoft migration guide](https://learn.microsoft.com/azure/api-management/ai-gateway-resource):
+
+- New resources with this legacy SKU can no longer be created.
+- Existing resources must migrate **before January 15, 2027** and are permanently
+  removed after retirement.
+- The replacement `Microsoft.ApiManagement/aigateways` is a different resource
+  type and requires a new gateway, not an in-place API-version edit.
+- The replacement currently does **not** support gateway private endpoints.
+  The private-connectivity instructions here describe the retained legacy
+  resource, not the replacement.
+
+No API-version change or migration is implemented by this sample. Its networking
+paths document the existing configuration, not a recommendation for new legacy
+deployments.
 
 ### Microsoft-documented constraints
 
 - **AI Gateway preview:** best-effort, **no SLA**. APIs, limits, regions and pricing can change. Documented regions include East US 2 and Sweden Central, with access varying by subscription. ([overview](https://learn.microsoft.com/azure/api-management/ai-gateway-overview))
 - **Hosted-agent VNet injection is set at account creation** and cannot be added later. This sample does not configure it. If you need private agent execution, choose a supported network-secured Foundry setup before creating the account. ([Foundry networking limits](https://learn.microsoft.com/azure/foundry/agents/how-to/virtual-networks#limitations))
-- **Private endpoints can be added later** to an existing gateway, with outbound integration configured separately. Private endpoints alone do not give the gateway or agents outbound access. ([private networking](https://learn.microsoft.com/azure/api-management/ai-gateway-configure-private-networking))
+- **Private endpoints can be added later** to an existing legacy `service`/`AIGateway` resource, with outbound integration configured separately. Private endpoints alone do not give the gateway or agents outbound access. This does not establish support on the replacement `aigateways` resource. ([private networking](https://learn.microsoft.com/azure/api-management/ai-gateway-configure-private-networking))
 - **Private ACR image pulls** are supported for Foundry projects created after June 25, 2026. Older projects need public ACR reachability. This sample leaves ACR public.
 
 ### Known blocker: private-only gateway ingress

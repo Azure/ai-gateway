@@ -1,4 +1,8 @@
-# Private connectivity (optional)
+# Private connectivity path
+
+This is the private alternative to the [public endpoint path](../README.md#public-endpoint-path),
+not an extra step after its public plan/apply. It applies to the existing legacy
+gateway resource retained by this sample; see [resource type and lifecycle](reference.md#resource-type-and-lifecycle).
 
 **Goal:** prove this route works privately:
 
@@ -20,13 +24,15 @@ Always pass the profile on every plan, including drift checks:
 > The profile does **not** make the gateway private-only, and it does not secure
 > hosted-agent networking or prove agent execution.
 
+**Already have a working private deployment?** Go to
+[existing private deployments](#existing-private-deployments); do not repeat
+staging or re-enable model public access.
+
 ## Prerequisites
 
-Complete the [main prerequisites](../README.md#before-you-start), then steps
-1–3 of the [quick start](../README.md#quick-start-public-endpoints): sign in,
-create and configure `terraform.tfvars`, and initialize and validate Terraform.
-Stop before its public plan/apply and test steps. Then complete these additional
-requirements:
+Complete the [main prerequisites](../README.md#before-you-start) and
+[shared setup](../README.md#shared-setup), retaining the existing input file and
+state/backend. Do not run the public-path plan/apply. Additional requirements:
 
 - `Microsoft.Network` registered
 - For the test VM: `Microsoft.Compute`, regional VM quota, and permission to use VM Run Command
@@ -46,13 +52,16 @@ private_test_client_ssh_public_key = "ssh-ed25519 <your-public-key>"
 
 ## Step 2: Create networking with models temporarily public
 
-Use this stage for a new deployment, or any deployment whose backend is still public. It is not the final posture.
+Use this stage when adding private networking to an existing legacy gateway
+whose model backend is still public. It is not the final posture, and it is not
+a way to create a new legacy gateway.
 
 ```powershell
 terraform plan "-var-file=profiles\private-connectivity.tfvars.json" "-var=models_public_network_access=Enabled" "-out=private-connectivity-stage1.tfplan"
 ```
 
-Review the plan: gateway and model public access are both enabled, and networking plus the VM are created. Do not apply unexpected replacements.
+Review the plan: gateway and model public access are both enabled, and networking
+plus the VM (if enabled) are created. Do not apply unexpected replacements.
 
 ```powershell
 terraform apply "private-connectivity-stage1.tfplan"
@@ -64,7 +73,10 @@ terraform apply "private-connectivity-stage1.tfplan"
 .\scripts\Test-PrivateGateway.ps1
 ```
 
-The script runs inside the VM. It checks that the gateway and model hostnames resolve to the private endpoint subnet and that every alias answers `OK`. The VM gets the gateway key through managed identity. No key is printed or passed as an argument.
+The wrapper runs the probe inside the VM, which must already be running. It checks
+that the gateway and model hostnames resolve to the private endpoint subnet and
+that every alias answers `OK`. The VM gets the gateway key through managed
+identity. No key is printed or passed as an argument.
 
 **Stop if this fails.** Check endpoint approval, private DNS, permissions and outbound integration. A pass here is only an initial check, because model public access is still on.
 
@@ -91,7 +103,9 @@ terraform plan "-var-file=profiles\private-connectivity.tfvars.json" -detailed-e
 
 **Done when:** the probe reports `"passed": true` with `OK` for every alias, and the plan exits `0`.
 
-The probe does not test invalid keys or telemetry. Run the checks in the [main README](../README.md#quick-start-public-endpoints).
+The probe does not test invalid keys or telemetry. Follow the
+[additional runtime checks](../README.md#additional-runtime-checks), not the
+public-path plan/apply.
 
 ## Step 6: Stop the VM when you are done
 
