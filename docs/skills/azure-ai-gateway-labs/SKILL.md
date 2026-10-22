@@ -44,7 +44,8 @@ When the workspace is a clone of `Azure/ai-gateway`, read `labs/<slug>/README.md
    billable resources.
 3. **Choose one track.** A track starts at `<!-- track: <id> | <label> -->`, and the group of tracks ends at
    `<!-- /tracks -->`. On GitHub, each track is a collapsible `<details>` section. Follow only the chosen track.
-   Sections outside the track markers, such as **Verify** and **Clean up**, apply to every track.
+   Sections outside the track markers, such as **Verify** and **Clean up**, apply to every track. A track can end
+   with its own **Clean up** step instead, as in the quick start.
 4. **Fill in the placeholders:** `<subscription-id>`, `<resource-group>`, `<gateway>`, `<location>`,
    `<model-name>`, `<provider-name>`, `<foundry-account-name>`, and `<tenant-id>`. Get the values from the user or
    from `az account show`. Keep secrets in environment variables such as `$AI_GATEWAY_API_KEY`, and never write
@@ -54,8 +55,8 @@ When the workspace is a clone of `Azure/ai-gateway`, read `labs/<slug>/README.md
    `<!-- widget: … -->` marks an interactive simulator on the site, which you can skip.
    `<!-- video: … -->` marks an optional narrated walkthrough; the steps in the text are complete without it.
 6. **Verify** with the lab's **Verify** section, and tell the user what you checked.
-7. **Clean up.** Labs create billable resources. Offer the lab's **Clean up** section, and delete only what this
-   lab created, because later labs reuse the gateway and the model.
+7. **Clean up.** Labs create billable resources. Offer the lab's **Clean up** section, or the chosen track's
+   **Clean up** step, and delete only what this lab created, because later labs reuse the gateway and the model.
 
 Before you create, change, or delete Azure resources, confirm the subscription and resource group with the user.
 

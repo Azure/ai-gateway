@@ -132,6 +132,10 @@ function loadLabs(catalog) {
     const content = stripGitHub(body).replaceAll(catalog.site.pages, BASE_URL);
     const notebook = fs.readdirSync(path.join(LABS, slug)).filter((f) => f.endsWith('.ipynb')).sort()[0] || null;
     for (const k of REQUIRED) if (data[k] == null) warn(`${slug}: missing front matter "${k}"`);
+    // "Do this: that" in a YAML list parses as a mapping and renders as [object Object].
+    for (const k of ['objectives', 'tags', 'tracks', 'prereqs']) {
+      if ((data[k] || []).some((v) => typeof v !== 'string')) warn(`${slug}: front matter "${k}" has an item that isn't text; avoid ": " in it`);
+    }
     // The quick start is the one unnumbered lab: it shows a bolt instead of a number.
     const quick = slug === 'quickstart';
     const num = quick ? '⚡' : slug.slice(0, 2);

@@ -54,8 +54,8 @@ band link to it. Keep it to five minutes and self-contained, with no repo to clo
 Azure CLI track that runs in Cloud Shell, and a Bicep + azd track. Each track starts with the tools that it needs.
 The Bicep + azd track deploys `quickstart/azure.yaml` and `quickstart/infra/`, which the site serves as a download
 (see [azd templates](#azd-templates)). It uses lab 02's names (`foundry-models`, `gpt-6-luna`, `app-first-call`), so
-labs 03 onward work on its gateway. Each track ends with the first call, and the lab has no separate call or verify
-section. Teach the details in labs 00 to 02 instead.
+labs 03 onward work on its gateway. Each track ends with the first call and then its own **Clean up** step, so the lab
+has no separate call, verify, or clean up section. Teach the details in labs 00 to 02 instead.
 
 ### azd templates
 
@@ -179,9 +179,9 @@ Kinds: `NOTE`, `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`. A blockquote starting w
   `mcp-tool-controls.png`, `policy-add-wizard.png`, `policy-gateway-scope.png`,
   `policy-cost-limit-entra-overrides.png`, `policy-tool-threat-protection.jpeg`,
   `access-entra-role-assignments.png`, `managed-identities.png`, `models-alias-routing.png`. The
-  `quickstart-01…13-*.webp` set walks the whole portal flow: the gateway switcher, Create AI gateway, provisioning,
-  Home, the Foundry import, aliases, Access › Keys, the Create API key dialogs, Catalog, the playground, and
-  Continue in code.
+  `quickstart-01…15-*.webp` set walks the whole portal flow: the gateway switcher, Create AI gateway, provisioning,
+  Home, the Foundry import, aliases, Access › Keys, the Create API key dialogs, Catalog, the playground,
+  Continue in code, and deleting the gateway from All gateways.
 - New screenshots: crop to the relevant area, replace real names, emails, and IDs with Contoso placeholders, mask
   every key, highlight the controls to select with magenta (`#e3008c`) boxes, and save as WebP, 1600 px wide at most.
 - Diagrams in `assets/diagrams/`: `architecture.svg`, `request-lifecycle.svg`, `aliases.svg`,

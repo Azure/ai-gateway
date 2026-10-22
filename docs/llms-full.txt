@@ -13,7 +13,7 @@ tags: [quick start, getting started, first call, gateway, model provider, alias,
 objectives:
   - Name the five building blocks that every AI Gateway call goes through
   - Create a gateway, publish a Foundry model behind an alias, and create a runtime API key in the portal, the Azure CLI, or Bicep with azd
-  - Make your first model call through the gateway, the way an app does: with an alias and a runtime API key
+  - Make your first model call through the gateway the way an app does, with an alias and a runtime API key
 prereqs: []
 ---
 
@@ -51,7 +51,8 @@ a different base URL and the runtime key. For the full tour, watch the 3-minute 
 
 ## Create a gateway and make your first call
 
-Pick one track. All three create the same five building blocks and end with your first call through the gateway.
+Pick one track. Each one creates the same five building blocks, makes your first call through the gateway, and ends
+with how to clean up.
 During the preview, AI Gateway runs in East US 2 (`eastus2`) and Sweden Central (`swedencentral`).
 
 <!-- track: portal | Portal -->
@@ -165,6 +166,35 @@ read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY
 
 > **Checkpoint:** the playground answered with the key `app-first-call`. Your gateway is live, and your app never
 > needs a Foundry key: only the gateway's managed identity calls Foundry.
+
+### Clean up
+
+To keep exploring, skip this step: [lab 03](../03-multi-provider-aliases/README.md) and the labs after it work on this
+gateway. On the labs site, save the resource group and the gateway name in **Your values**. Otherwise, delete the
+gateway.
+
+1. Open the gateway switcher in the top bar and select **View all gateways**.
+
+2. On your gateway's row, select **More actions** (**⋮**), and then select **Delete**.
+
+   ![All gateways filtered to lucky-brook, with the More actions menu open on its row and Delete marked](../assets/screens/quickstart-14-delete.webp "The More actions menu on a gateway's row: open the gateway in the Azure portal, copy its resource ID, or delete it.")
+
+3. To confirm, select **Delete** in the dialog. The row shows **Deleting** until Azure removes the gateway, in about
+   five minutes.
+
+   ![The dialog Delete "lucky-brook-5340"? with the Cancel and Delete buttons, and Delete marked](../assets/screens/quickstart-15-delete-confirm.webp "Deleting a gateway removes its models, aliases, keys, and policies. It can't be undone.")
+
+Deleting the gateway keeps its resource group and your Foundry account. If you created them in Cloud Shell for this
+quick start, delete the resource group and purge the Foundry account there too: deleted Foundry accounts stay
+soft-deleted for 48 hours and keep counting against your quota until you purge them.
+
+```bash title="Bash"
+FOUNDRY="$(az cognitiveservices account list --resource-group rg-aigw-quickstart --query "[0].name" --output tsv)"
+az group delete --name rg-aigw-quickstart --yes
+az cognitiveservices account purge --name "$FOUNDRY" --resource-group rg-aigw-quickstart --location eastus2
+```
+
+> **Checkpoint:** after you refresh the page, **All gateways** no longer lists your gateway.
 
 <!-- track: cli | Azure CLI -->
 
@@ -370,6 +400,28 @@ $reply.choices[0].message.content
 To see what you created, open the [AI Gateway portal](https://ai.gateway.azure.com) and select your gateway in the top
 bar: **Models**, **Access** › **Keys**, and the **Catalog** playground.
 
+### Clean up
+
+To keep exploring, skip this step: [lab 03](../03-multi-provider-aliases/README.md) and the labs after it work on this
+gateway. On the labs site, save the resource group and the gateway name (`$RG` and `$GATEWAY`) in **Your values**.
+Otherwise, delete the resource group, which holds the gateway and the Foundry account. Then purge the Foundry account:
+deleted Foundry accounts stay soft-deleted for 48 hours and keep counting against your quota until you purge them.
+
+```bash title="Bash"
+az group delete --name "$RG" --yes
+az cognitiveservices account purge --name "$FOUNDRY" --resource-group "$RG" --location "$LOCATION"
+```
+
+```powershell title="PowerShell"
+az group delete --name $RG --yes
+az cognitiveservices account purge --name $FOUNDRY --resource-group $RG --location $LOCATION
+```
+
+If Cloud Shell timed out, set `RG`, `FOUNDRY`, and `LOCATION` again with the names that you used: the suffix in
+**Set your variables** is random.
+
+> **Checkpoint:** `az group exists --name $RG` prints `false`.
+
 <!-- track: iac | Bicep + azd -->
 
 **What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell. It's already signed in and has
@@ -469,32 +521,25 @@ $reply.choices[0].message.content
 To see what you created, open the [AI Gateway portal](https://ai.gateway.azure.com) and select your gateway in the top
 bar: **Models**, **Access** › **Keys**, and the **Catalog** playground.
 
-<!-- /tracks -->
+### Clean up
 
-## Clean up
-
-To keep exploring, keep the gateway. It has the same building blocks that [lab 02](../02-first-model-call/README.md)
-leaves behind, so [lab 03](../03-multi-provider-aliases/README.md) and the labs after it work on it. On the labs site,
-save the resource group and the gateway name in **Your values**.
-
-Otherwise, delete what you created. Deleted Foundry accounts stay soft-deleted for 48 hours and keep counting against
-your quota until you purge them.
-
-- **Portal:** delete the resource group that you created for the gateway from the [Azure portal](https://portal.azure.com),
-  and keep your Foundry account unless you created it for this quick start.
-- **Bicep + azd:** in the `aigw-quickstart` folder, run `azd down --purge --force`. It deletes the resource group and
-  purges the Foundry account, in about ten minutes.
-- **Azure CLI:** delete the resource group, then purge the Foundry account:
+To keep exploring, skip this step: [lab 03](../03-multi-provider-aliases/README.md) and the labs after it work on this
+gateway. Otherwise, in the `aigw-quickstart` folder, delete everything that `azd up` created. `--purge` also purges
+the Foundry account, which would otherwise stay soft-deleted for 48 hours and keep counting against your quota. It
+takes about ten minutes.
 
 ```bash title="Bash"
-az group delete --name "$RG" --yes
-az cognitiveservices account purge --name "$FOUNDRY" --resource-group "$RG" --location "$LOCATION"
+azd down --purge --force
 ```
 
 ```powershell title="PowerShell"
-az group delete --name $RG --yes
-az cognitiveservices account purge --name $FOUNDRY --resource-group $RG --location $LOCATION
+azd down --purge --force
 ```
+
+> **Checkpoint:** `azd down` ended with `SUCCESS`. The resource group `rg-aigw-quickstart` is gone, and you can delete
+> the `aigw-quickstart` folder.
+
+<!-- /tracks -->
 
 ## Troubleshooting
 
