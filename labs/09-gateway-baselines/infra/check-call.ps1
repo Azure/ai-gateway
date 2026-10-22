@@ -16,9 +16,10 @@ if (-not $env:AI_GATEWAY_API_KEY) { throw 'Set $env:AI_GATEWAY_API_KEY to a runt
 
 $uri = "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/models/openai/v1/chat/completions"
 $body = @{
-  model      = $Model
-  max_tokens = 60
-  messages   = @(@{ role = 'user'; content = 'In one sentence, what is a gateway-wide policy baseline?' })
+  model                 = $Model
+  max_completion_tokens = 60
+  reasoning_effort      = 'none'
+  messages              = @(@{ role = 'user'; content = 'In one sentence, what is a gateway-wide policy baseline?' })
 } | ConvertTo-Json -Depth 5 -Compress
 
 $r = Invoke-WebRequest -Method Post -Uri $uri -Body $body -ContentType 'application/json' `

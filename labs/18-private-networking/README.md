@@ -64,7 +64,7 @@ while the internet can't.
 
 - Complete [Provision your AI Gateway](../01-provision-gateway/README.md) and
   [Call backends with managed identities](../12-backend-identity/README.md). You need a Foundry resource with a
-  chat model deployment, for example `gpt-4.1-mini`.
+  chat model deployment, for example `gpt-6-luna`.
 - Private routing can only be chosen when a gateway is created, so this lab creates a **new** gateway. The
   gateway from the earlier labs stays as it is.
 - The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
@@ -109,7 +109,7 @@ export FOUNDRY_PE="pe-foundry-$GATEWAY"
 # The Foundry resource and deployment from the earlier labs
 export FOUNDRY_RG="<foundry-resource-group>"
 export FOUNDRY_ACCOUNT="<foundry-account-name>"
-export DEPLOYMENT="gpt-4.1-mini"
+export DEPLOYMENT="gpt-6-luna"
 export FOUNDRY_ID="$(az cognitiveservices account show -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --query id -o tsv)"
 export FOUNDRY_ENDPOINT="$(az cognitiveservices account show -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --query properties.endpoint -o tsv)"
 
@@ -143,7 +143,7 @@ $FOUNDRY_PE         = "pe-foundry-$GATEWAY"
 # The Foundry resource and deployment from the earlier labs
 $FOUNDRY_RG       = "<foundry-resource-group>"
 $FOUNDRY_ACCOUNT  = "<foundry-account-name>"
-$DEPLOYMENT       = "gpt-4.1-mini"
+$DEPLOYMENT       = "gpt-6-luna"
 $FOUNDRY_ID       = az cognitiveservices account show -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT --query id -o tsv
 $FOUNDRY_ENDPOINT = az cognitiveservices account show -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT --query properties.endpoint -o tsv
 

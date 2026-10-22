@@ -15,10 +15,12 @@ if (-not $env:AI_GATEWAY_URL) { throw 'Set $env:AI_GATEWAY_URL to https://<gatew
 if (-not $env:AI_GATEWAY_API_KEY) { throw 'Set $env:AI_GATEWAY_API_KEY to a runtime key from Access > Keys' }
 
 $uri = "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/models/openai/v1/chat/completions"
+# reasoning_effort none spends the budget on the reply instead of hidden reasoning, so token counts stay predictable.
 $body = @{
-  model      = $Model
-  max_tokens = 250
-  messages   = @(@{ role = 'user'; content = 'Write a 150-word product update about an AI gateway that governs models and tools.' })
+  model                 = $Model
+  max_completion_tokens = 250
+  reasoning_effort      = 'none'
+  messages              = @(@{ role = 'user'; content = 'Write a 150-word product update about an AI gateway that governs models and tools.' })
 } | ConvertTo-Json -Depth 5
 
 1..$Requests | ForEach-Object {

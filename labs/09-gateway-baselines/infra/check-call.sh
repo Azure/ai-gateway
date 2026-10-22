@@ -18,7 +18,7 @@ command -v jq >/dev/null || { echo "This script needs jq." >&2; exit 1; }
 
 URL="${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions"
 BODY="$(jq -cn --arg model "$MODEL" \
-  '{model:$model,max_tokens:60,messages:[{role:"user",content:"In one sentence, what is a gateway-wide policy baseline?"}]}')"
+  '{model:$model,max_completion_tokens:60,reasoning_effort:"none",messages:[{role:"user",content:"In one sentence, what is a gateway-wide policy baseline?"}]}')"
 
 response="$(curl -sS --max-time 120 -w $'\n%{http_code}' "$URL" \
   -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" -d "$BODY")"

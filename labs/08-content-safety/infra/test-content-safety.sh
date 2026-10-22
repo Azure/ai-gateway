@@ -23,7 +23,7 @@ URL="${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions"
 send() {
   local body response status finish text
   body="$(jq -cn --arg model "$MODEL" --arg prompt "$2" \
-    '{model:$model,max_tokens:200,messages:[{role:"user",content:$prompt}]}')"
+    '{model:$model,max_completion_tokens:200,reasoning_effort:"none",messages:[{role:"user",content:$prompt}]}')"
   response="$(curl -sS --max-time 120 -w $'\n%{http_code}' "$URL" \
     -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" -d "$body")"
   status="${response##*$'\n'}"

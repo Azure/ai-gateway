@@ -78,6 +78,11 @@ Before you create, change, or delete Azure resources, confirm the subscription a
   `https://<gateway>.<region>-01.ai.gateway.azure.com`. A new gateway with no models answers `404`.
 - Models: `<runtime URL>/default/models/openai/v1` serves OpenAI Chat Completions and Responses.
   `<runtime URL>/default/models/anthropic/v1/messages` serves Anthropic Messages.
+- The labs use `gpt-6-luna` (version `2026-09-22`, `GlobalStandard`) from Foundry. It's a reasoning model: Chat
+  Completions rejects `max_tokens` (send `max_completion_tokens`) and accepts `temperature` only with
+  `reasoning_effort: "none"`. At the default effort, reasoning can use the whole token budget and leave the reply
+  empty, so the scripts send `reasoning_effort: "none"` when they cap tokens. Claude Sonnet 5.5 and Haiku 5.5
+  think by default, so read the `text` blocks in `content` and leave headroom in `max_tokens`.
 - MCP tools: `<runtime URL>/default/toolservers/<name>/mcp`. Federated tools are named `<namespace>_<tool>`, for
   example `learn_microsoft_docs_search`.
 - Runtime auth for models: a runtime API key in the `api-key` header, or `Authorization: Bearer` with the key or a

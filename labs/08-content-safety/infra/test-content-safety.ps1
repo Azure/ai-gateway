@@ -30,7 +30,7 @@ function Limit-Text([string]$Text, [int]$Length) {
 }
 
 $rows = foreach ($test in $tests.GetEnumerator()) {
-  $body = @{ model = $Model; max_tokens = 200; messages = @(@{ role = 'user'; content = $test.Value }) } |
+  $body = @{ model = $Model; max_completion_tokens = 200; reasoning_effort = 'none'; messages = @(@{ role = 'user'; content = $test.Value }) } |
     ConvertTo-Json -Depth 5 -Compress
   $r = Invoke-WebRequest -Method Post -Uri $uri -Headers $headers -ContentType 'application/json' `
     -Body $body -TimeoutSec 120 -SkipHttpErrorCheck

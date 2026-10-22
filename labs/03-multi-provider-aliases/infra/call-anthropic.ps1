@@ -21,7 +21,7 @@ $headers = @{
 }
 $body = @{
   model      = $Alias
-  max_tokens = 256
+  max_tokens = 1024
   messages   = @(@{ role = 'user'; content = $Prompt })
 } | ConvertTo-Json -Depth 5
 

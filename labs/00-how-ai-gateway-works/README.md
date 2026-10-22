@@ -75,7 +75,7 @@ The gateway sits on the path of every model call and every tool call. It has two
 | Building block | What it is | Example |
 |---|---|---|
 | **Gateway** | An AI Gateway resource (`Microsoft.ApiManagement/aigateways`) in your subscription | `https://<gateway>.eastus2-01.ai.gateway.azure.com` |
-| **Backend model** | A model at a provider, such as a Foundry deployment or an Anthropic model | `gpt-4.1-mini` at Microsoft Foundry |
+| **Backend model** | A model at a provider, such as a Foundry deployment or an Anthropic model | `gpt-6-luna` at Microsoft Foundry |
 | **Alias** | The stable, gateway-wide name clients send in the `model` field | `chat` |
 | **MCP server** | One governed MCP endpoint that federates tools from one or more sources | `/default/toolservers/<server-name>/mcp` |
 | **Policy** | A rule on the gateway or on one asset: limits, budgets, safety, filters | Token rate limit, Cost limit |

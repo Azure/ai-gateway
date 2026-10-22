@@ -41,7 +41,7 @@ prereqs:
 **On this page:** [Before you begin](#before-you-begin) · [How it works](#how-it-works) · [Publish the model and create a key](#publish-the-model-and-create-a-key) · [Make your first call](#make-your-first-call) · [Verify](#verify) · [Go further](#go-further) · [Clean up](#clean-up) · [Troubleshooting](#troubleshooting) · [Next steps](#next-steps)
 <!-- gh:end -->
 
-The first product team wants to use `gpt-4.1-mini`, which already runs in your Microsoft Foundry account. You
+The first product team wants to use `gpt-6-luna`, which already runs in your Microsoft Foundry account. You
 don't want to hand every team the Foundry endpoint and a provider key. In this lab you publish the deployment
 through your gateway, give the team a runtime API key of its own, and make the first call from the playground,
 a shell, and code. The gateway authenticates to Foundry with its own managed identity, so the app never sees a
@@ -54,7 +54,7 @@ Foundry credential.
 - Complete [Provision your AI Gateway](../01-provision-gateway/README.md). You need the gateway, its resource
   group, and its runtime URL.
 - A model deployment in a Microsoft Foundry (Azure AI Services) or Azure OpenAI account, for example
-  `gpt-4.1-mini`. If you don't have one, deploy the optional template described below.
+  `gpt-6-luna`. If you don't have one, deploy the optional template described below.
 - Permission to grant the gateway access to the account: **Owner**, **User Access Administrator**, or **Role
   Based Access Control Administrator** on the Foundry account. You also need to change the gateway, for example
   **Contributor** on its resource group.
@@ -73,7 +73,7 @@ export RG="<resource-group>"
 export GATEWAY="<gateway>"
 export FOUNDRY_RG="<foundry-resource-group>"      # resource group of the Foundry account
 export FOUNDRY_ACCOUNT="<foundry-account-name>"   # the account name, not a project or deployment name
-export DEPLOYMENT="gpt-4.1-mini"                  # the model deployment to publish
+export DEPLOYMENT="gpt-6-luna"                    # the model deployment to publish
 export PROVIDER="foundry-models"                  # CLI and IaC tracks: the gateway provider to create
 
 export API="api-version=2025-09-01-preview"
@@ -91,7 +91,7 @@ $RG              = "<resource-group>"
 $GATEWAY         = "<gateway>"
 $FOUNDRY_RG      = "<foundry-resource-group>"     # resource group of the Foundry account
 $FOUNDRY_ACCOUNT = "<foundry-account-name>"       # the account name, not a project or deployment name
-$DEPLOYMENT      = "gpt-4.1-mini"                 # the model deployment to publish
+$DEPLOYMENT      = "gpt-6-luna"                   # the model deployment to publish
 $PROVIDER        = "foundry-models"               # CLI and IaC tracks: the gateway provider to create
 
 $API        = "api-version=2025-09-01-preview"
@@ -105,7 +105,7 @@ $env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query prop
 <details>
 <summary>No Foundry deployment yet? Create one with Bicep.</summary>
 
-[infra/foundry.bicep](infra/foundry.bicep) creates an Azure AI Services account with a `gpt-4.1-mini`
+[infra/foundry.bicep](infra/foundry.bicep) creates an Azure AI Services account with a `gpt-6-luna`
 `GlobalStandard` deployment, mirroring the reference sample. Pick a region where the model is available. Model
 inference is billed per use.
 
@@ -157,7 +157,7 @@ Pick one track. Each track publishes the deployment, gives you a callable alias,
    **Import from Foundry** card starts the same import.)
 3. Select the subscription and resource group of your Foundry account. The wizard discovers the deployments
    automatically. Deployments that are already in this gateway can't be selected again.
-4. Select the `gpt-4.1-mini` deployment and keep **Managed identity** as the **Authentication method**.
+4. Select the `gpt-6-luna` deployment and keep **Managed identity** as the **Authentication method**.
 5. Under **Aliases**, keep **Create an alias for each model** selected, then select **Add models**.
 
 > [!NOTE]
@@ -177,7 +177,7 @@ Pick one track. Each track publishes the deployment, gives you a callable alias,
 Open the imported model on **Models**. The model details show its base URL and supported interfaces, such as
 **OpenAI Chat Completions** and **OpenAI Responses**. Open the **Aliases** tab and copy the alias exactly as
 shown, then save it in your shell. Portal imports usually name it after the provider and the deployment, for
-example `<foundry-account-name>/gpt-4-1-mini`.
+example `<foundry-account-name>/gpt-6-luna`.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
@@ -436,10 +436,10 @@ param gatewayName string
 @description('Resource ID of the Foundry (Azure AI Services) or Azure OpenAI account. It can be in another resource group or subscription.')
 param foundryAccountId string
 
-@description('Name of the model deployment in that account, for example gpt-4.1-mini.')
+@description('Name of the model deployment in that account, for example gpt-6-luna.')
 param deploymentName string
 
-@description('Version of the deployed model, for example 2025-04-14. Optional.')
+@description('Version of the deployed model, for example 2026-09-22. Optional.')
 param modelVersion string = ''
 
 @description('Name of the model provider to create in the gateway.')
@@ -1069,6 +1069,8 @@ If you created the Foundry account with `infra/foundry.bicep`, delete its resour
 | `400` with `Specify either an API key or an Authorization header, not both` | The client sends an `api-key` header and an `Authorization` header, such as an SDK placeholder key | Pass the runtime key as the SDK API key and remove the `api-key` default header. |
 | `403` mentioning permissions on the Foundry account | The gateway's identity lacks **Foundry User**, or the assignment hasn't propagated yet | Wait a few minutes. If it persists, assign the role as shown in the portal track. |
 | `404` with `model_not_found` | `model` doesn't match an alias exactly | Copy the alias from the model's **Aliases** tab or from **Discover**. |
+| `400` `unsupported_parameter` for `max_tokens` or `temperature` | `gpt-6-luna` is a reasoning model | Send `max_completion_tokens` instead of `max_tokens`. Set `temperature` only together with `reasoning_effort: "none"`. |
+| `200` with empty `content` and `finish_reason` `length` | Reasoning used the whole `max_completion_tokens` budget | Raise the budget, or send `reasoning_effort: "none"` for short, direct replies. |
 | The Responses API call fails while Chat Completions works | The model doesn't advertise the Responses interface | Check the supported interfaces on the model details page and call only those. |
 | The import wizard doesn't list your account | It's already imported into this gateway, or you can't read it in that subscription | Check **Models** for an existing provider, or ask for read access to the account. |
 | `AuthorizationFailed` on `roleAssignments` during deployment | You can't create role assignments on the Foundry account | Ask for **Role Based Access Control Administrator** on the account, or have an owner grant the role. |

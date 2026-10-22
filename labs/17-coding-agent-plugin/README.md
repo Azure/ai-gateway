@@ -150,7 +150,7 @@ What the generated code relies on:
 | MCP endpoint | `<gateway URL>/default/toolservers/<server-name>/mcp` |
 | Auth header | `api-key: <runtime key>`. The plugin writes it as `Api-Key`; header names aren't case-sensitive. |
 | Key source | The `AI_GATEWAY_API_KEY` environment variable, loaded from a git-ignored `.env` file |
-| Model name | The model's deployment name as the gateway publishes it, for example `gpt-4.1-mini` |
+| Model name | The model's deployment name as the gateway publishes it, for example `gpt-6-luna` |
 | Agent scaffold | GitHub Copilot SDK, `github-copilot-sdk>=1.0.0`, Python unless you ask for TypeScript |
 
 ## Install the plugin

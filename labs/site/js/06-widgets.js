@@ -75,9 +75,9 @@ WIDGETS['request-lifecycle'] = (el, cfg) => {
 WIDGETS['alias-retarget'] = (el, cfg) => {
   const alias = cfg.alias || 'chat';
   const targets = cfg.targets || [
-    { provider: 'Microsoft Foundry', model: 'gpt-4.1-mini', note: 'Lower cost', logo: 'microsoft-foundry' },
-    { provider: 'Microsoft Foundry', model: 'gpt-4.1', note: 'Higher quality', logo: 'microsoft-foundry' },
-    { provider: 'Azure OpenAI', model: 'gpt-4o', note: 'Existing deployment', logo: 'azure-openai' },
+    { provider: 'Microsoft Foundry', model: 'gpt-6-luna', note: 'Lower cost', logo: 'microsoft-foundry' },
+    { provider: 'Microsoft Foundry', model: 'gpt-6.1-sol', note: 'Higher quality', logo: 'microsoft-foundry' },
+    { provider: 'Azure OpenAI', model: 'gpt-6-sol', note: 'Existing deployment', logo: 'azure-openai' },
   ];
   let sel = 0, moves = 0;
   const body = `<div class="wd-alias"><div class="wd-client"><pre>response = client.responses.create(
@@ -163,7 +163,7 @@ WIDGETS['policy-layers'] = (el) => {
       pols: [['IP filter', 'filter', ['model', 'mcp']], ['Content safety', 'shield', ['model', 'mcp']], ['Cost limit', 'coins', ['model']]] },
     { id: 'chat', name: 'Alias chat', sub: 'Individual asset', icon: 'route', c: 'var(--cat-violet)', pols: [['Token rate limit', 'gauge', ['model']]] },
     { id: 'batch', name: 'Alias chat-batch', sub: 'Individual asset', icon: 'route', c: 'var(--cat-magenta)', pols: [['Token rate limit', 'gauge', ['model']], ['Cost limit', 'coins', ['model']]] },
-    { id: 'model', name: 'Backend model gpt-4.1-mini', sub: 'Applies through every alias', icon: 'models', c: 'var(--cat-green)', pols: [['Request rate limit', 'filter', ['model']]] },
+    { id: 'model', name: 'Backend model gpt-6-luna', sub: 'Applies through every alias', icon: 'models', c: 'var(--cat-green)', pols: [['Request rate limit', 'filter', ['model']]] },
     { id: 'mcp', name: 'MCP server github-tools', sub: 'Individual asset', icon: 'tools', c: 'var(--cat-amber)', pols: [['Request rate limit', 'filter', ['mcp']], ['Agent 365 tool threat protection', 'shield', ['mcp']]] },
   ];
   const T = {

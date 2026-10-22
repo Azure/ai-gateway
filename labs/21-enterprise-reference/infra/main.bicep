@@ -39,10 +39,10 @@ param tags object = {}
 param aiGatewayName string = ''
 
 @description('Foundry model name to deploy.')
-param modelName string = 'gpt-5.4-mini'
+param modelName string = 'gpt-6-luna'
 
 @description('Foundry model version to deploy.')
-param modelVersion string = '2026-03-17'
+param modelVersion string = '2026-09-22'
 
 @description('ARM-safe name of the Foundry deployment. It is also the backend model name in the gateway.')
 param modelDeploymentName string = 'gpt-mini-latest'

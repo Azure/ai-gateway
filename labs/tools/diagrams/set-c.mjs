@@ -2,7 +2,7 @@ import { box, zone, pills, pill, arrow, text, svgDoc } from './lib.mjs';
 
 export const enterpriseReference = () => svgDoc('enterprise-reference', {
   title: 'Enterprise reference deployment for Azure AI Gateway',
-  desc: 'GitHub Actions signs in with OpenID Connect, previews main.bicep with what-if, deploys dev and then prod, applies gateway-wide baselines, and runs a smoke test. One subscription-scope template creates two resource groups. The gateway group holds the AI Gateway with the chat alias, a Foundry model provider that uses the managed identity, the learn MCP server, per-app API keys, and Application Insights with Log Analytics. The Foundry group holds a Foundry account with key authentication disabled and the gpt-5.4-mini deployment. The gateway identity has the Foundry User role.',
+  desc: 'GitHub Actions signs in with OpenID Connect, previews main.bicep with what-if, deploys dev and then prod, applies gateway-wide baselines, and runs a smoke test. One subscription-scope template creates two resource groups. The gateway group holds the AI Gateway with the chat alias, a Foundry model provider that uses the managed identity, the learn MCP server, per-app API keys, and Application Insights with Log Analytics. The Foundry group holds a Foundry account with key authentication disabled and the gpt-6-luna deployment. The gateway identity has the Foundry User role.',
   h: 468,
   body: () => {
     let o = zone(16, 16, 928, 104, 'Delivery · GitHub Actions with OpenID Connect', { ic: 'terminal', tone: 'cyan' });
@@ -29,7 +29,7 @@ export const enterpriseReference = () => svgDoc('enterprise-reference', {
     o += text(244, 376, 'GATEWAY SCOPE BASELINE (SCRIPT)', 'dg-cap');
     o += pills(240, 386, ['Request rate limit', 'Cost limit'], { tone: 'magenta' });
     o += box(688, 216, 240, 60, { t: 'Foundry account', s: 'Key auth disabled', icon: 'cloud', tone: 'violet', accent: true });
-    o += box(688, 286, 240, 60, { t: 'gpt-5.4-mini', s: 'Model deployment', icon: 'models', tone: 'violet' });
+    o += box(688, 286, 240, 60, { t: 'gpt-6-luna', s: 'Model deployment', icon: 'models', tone: 'violet' });
     o += text(692, 376, 'GATEWAY IDENTITY HAS', 'dg-cap');
     o += pill(688, 386, 'Foundry User role', { tone: 'violet' });
     // Arrows last so they sit above zones.

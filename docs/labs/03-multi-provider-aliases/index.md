@@ -28,14 +28,14 @@ the same name.
 
 ![Clients call an alias, and the alias points to one backend model of one provider](../assets/diagrams/aliases.svg "An alias is the stable name in the request's model field. You can point it at a different backend model at any time.")
 
-<!-- widget: alias-retarget {"alias":"team-chat","targets":[{"provider":"Microsoft Foundry","model":"gpt-4.1-mini","note":"Lower cost","logo":"microsoft-foundry"},{"provider":"Microsoft Foundry","model":"gpt-4.1","note":"Higher quality","logo":"microsoft-foundry"},{"provider":"OpenAI","model":"gpt-4.1-mini","note":"Custom provider","logo":"openai"}]} -->
+<!-- widget: alias-retarget {"alias":"team-chat","targets":[{"provider":"Microsoft Foundry","model":"gpt-6-luna","note":"Lower cost","logo":"microsoft-foundry"},{"provider":"Microsoft Foundry","model":"gpt-6.1-sol","note":"Higher quality","logo":"microsoft-foundry"},{"provider":"OpenAI","model":"gpt-6-luna","note":"Custom provider","logo":"openai"}]} -->
 
 ## Before you begin
 
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need the
   gateway, a runtime API key, and the Foundry alias you created there.
 - An API key from the [Claude Console](https://console.anthropic.com) that can call two models, for example
-  `claude-haiku-4-5` and `claude-sonnet-4-5`. To use another provider instead, see the values in
+  `claude-haiku-5-5` and `claude-sonnet-5-5`. To use another provider instead, see the values in
   [Add Anthropic as a custom provider](#add-anthropic-as-a-custom-provider).
 - Permission to change the gateway, for example **Contributor** on its resource group.
 - For the REST track and the **Verify** scripts: the
@@ -48,8 +48,8 @@ Set these variables once. Every track and the **Verify** section reuse them.
 export RG="<resource-group>"
 export GATEWAY="<gateway>"
 export PROVIDER="anthropic"               # the gateway provider you create in this lab
-export FAST_MODEL="claude-haiku-4-5"      # two models that your Anthropic key can call
-export SMART_MODEL="claude-sonnet-4-5"
+export FAST_MODEL="claude-haiku-5-5"      # two models that your Anthropic key can call
+export SMART_MODEL="claude-sonnet-5-5"
 
 export API="api-version=2025-09-01-preview"
 export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
@@ -64,8 +64,8 @@ read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY
 $RG          = "<resource-group>"
 $GATEWAY     = "<gateway>"
 $PROVIDER    = "anthropic"                # the gateway provider you create in this lab
-$FAST_MODEL  = "claude-haiku-4-5"         # two models that your Anthropic key can call
-$SMART_MODEL = "claude-sonnet-4-5"
+$FAST_MODEL  = "claude-haiku-5-5"         # two models that your Anthropic key can call
+$SMART_MODEL = "claude-sonnet-5-5"
 
 $API         = "api-version=2025-09-01-preview"
 $GATEWAY_ID  = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
@@ -83,7 +83,7 @@ The gateway publishes models in three layers:
 | Object | What it holds | Unique within | Example |
 |---|---|---|---|
 | **Model provider** | A backend endpoint and the credential the gateway uses to call it | The gateway | `anthropic`, key sent in `x-api-key` |
-| **Backend model** | A model that the provider serves, and the interfaces it supports | Its provider | `claude-haiku-4-5` |
+| **Backend model** | A model that the provider serves, and the interfaces it supports | Its provider | `claude-haiku-5-5` |
 | **Alias** | The callable name that clients put in the `model` field. It points to exactly one backend model and can carry its own policies. | The gateway | `support-chat` |
 
 Clients only ever see the gateway URL, their runtime key, and the alias. The provider key stays in the gateway.
@@ -116,7 +116,7 @@ identity. Every other provider is a custom provider, and the gateway stores its 
 | <img src="../assets/providers/custom-models.png" alt="" height="24"> | Any other OpenAI-compatible endpoint | **Models from a custom provider** | API key |
 
 Pick one track. Both tracks create the same result: a provider named `anthropic`, two backend models, and two
-aliases. `support-chat` points to the fast model, and `anthropic/claude-sonnet-4-5` points to the bigger one.
+aliases. `support-chat` points to the fast model, and `anthropic/claude-sonnet-5-5` points to the bigger one.
 
 <!-- track: portal | Portal -->
 
@@ -167,15 +167,15 @@ The **Models** step shows **Discovering available models…** while it calls the
 
 | Field | First model | Second model |
 |---|---|---|
-| **Backend model** | `claude-haiku-4-5` | `claude-sonnet-4-5` |
+| **Backend model** | `claude-haiku-5-5` | `claude-sonnet-5-5` |
 | **Supported endpoints** | **Anthropic messages** | **Anthropic messages** |
-| **Callable alias** | Change it to `support-chat` | Keep the default, `anthropic/claude-sonnet-4-5` |
+| **Callable alias** | Change it to `support-chat` | Keep the default, `anthropic/claude-sonnet-5-5` |
 
 If discovery fails or times out, you can still add the models by hand. Select **Add models**.
 
 > **Checkpoint**
 > **Models** lists the two Claude models of the `Anthropic` provider and the aliases `support-chat` and
-> `anthropic/claude-sonnet-4-5`. Open a model: its **Overview** shows the Anthropic Messages endpoint,
+> `anthropic/claude-sonnet-5-5`. Open a model: its **Overview** shows the Anthropic Messages endpoint,
 > `https://<gateway>.eastus2-01.ai.gateway.azure.com/default/models/anthropic/v1/messages`.
 
 <!-- track: rest | REST API -->
@@ -259,7 +259,7 @@ Remove-Item model.json
 
 An alias names one backend model by its resource ID. The callable name goes in `properties.aliasName`. Callable
 names may contain `/`, but resource names can't, so the script derives the resource name the same way the
-portal does: `anthropic/claude-sonnet-4-5` is stored as `anthropic-claude-sonnet-4-5`.
+portal does: `anthropic/claude-sonnet-5-5` is stored as `anthropic-claude-sonnet-5-5`.
 
 ```bash title="Bash"
 ./infra/alias.sh put support-chat "$PROVIDER" "$FAST_MODEL"
@@ -278,15 +278,15 @@ PUT .../workspaces/default/aliases/support-chat?api-version=2025-09-01-preview
 {
   "properties": {
     "aliasName": "support-chat",
-    "backendModels": [ { "resourceId": ".../workspaces/default/modelProviders/anthropic/models/claude-haiku-4-5" } ],
+    "backendModels": [ { "resourceId": ".../workspaces/default/modelProviders/anthropic/models/claude-haiku-5-5" } ],
     "policies": []
   }
 }
 ```
 
 > **Checkpoint**
-> `./infra/alias.sh list` shows `support-chat` → `anthropic/claude-haiku-4-5` and
-> `anthropic/claude-sonnet-4-5` → `anthropic/claude-sonnet-4-5`, next to your Foundry alias from lab 02.
+> `./infra/alias.sh list` shows `support-chat` → `anthropic/claude-haiku-5-5` and
+> `anthropic/claude-sonnet-5-5` → `anthropic/claude-sonnet-5-5`, next to your Foundry alias from lab 02.
 
 <!-- /tracks -->
 
@@ -301,29 +301,31 @@ curl -sS "${AI_GATEWAY_URL%/}/default/models/anthropic/v1/messages" \
   -H "api-key: $AI_GATEWAY_API_KEY" \
   -H "anthropic-version: 2023-06-01" \
   -H "Content-Type: application/json" \
-  -d '{"model": "support-chat", "max_tokens": 256,
+  -d '{"model": "support-chat", "max_tokens": 1024,
        "messages": [{"role": "user", "content": "In one sentence, what is an AI gateway?"}]}' \
-  | jq '{model, text: .content[0].text, usage}'
+  | jq '{model, text: ([.content[] | select(.type == "text") | .text] | join("")), usage}'
 ```
 
 ```powershell title="PowerShell"
 $headers = @{ 'api-key' = $env:AI_GATEWAY_API_KEY; 'anthropic-version' = '2023-06-01' }
 $body = @{
   model      = 'support-chat'
-  max_tokens = 256
+  max_tokens = 1024
   messages   = @(@{ role = 'user'; content = 'In one sentence, what is an AI gateway?' })
 } | ConvertTo-Json -Depth 5
 $r = Invoke-RestMethod -Method Post -Uri "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/models/anthropic/v1/messages" `
   -Headers $headers -ContentType 'application/json' -Body $body
-[pscustomobject]@{ model = $r.model; text = $r.content[0].text; usage = $r.usage }
+[pscustomobject]@{ model = $r.model; text = (@($r.content) | Where-Object type -eq 'text' | ForEach-Object text) -join ''; usage = $r.usage }
 ```
 
 The response uses Anthropic's own format, with `content` blocks, `stop_reason`, and `usage.input_tokens`. It
 doesn't use OpenAI's `choices`. The `model` field names the backend model that answered, for example
-`claude-haiku-4-5-20251001`.
+`claude-haiku-5-5`. Claude Sonnet 5.5 and Haiku 5.5 think adaptively by default, so `content` can start
+with a `thinking` block, and thinking counts toward `max_tokens`. Read the `text` blocks and leave headroom in
+`max_tokens`.
 
 > **Checkpoint**
-> The call returns a Claude reply, and `model` starts with `claude-haiku-4-5`. Your app never sent an Anthropic
+> The call returns a Claude reply, and `model` is `claude-haiku-5-5`. Your app never sent an Anthropic
 > key.
 
 ## Give one backend model two aliases
@@ -342,7 +344,7 @@ Select **Models** › **Add models** › **Alias for an existing model**. In **C
 | Field | Value |
 |---|---|
 | **Alias** | `batch-chat` |
-| **Backend model** | `claude-haiku-4-5` from the `Anthropic` provider |
+| **Backend model** | `claude-haiku-5-5` from the `Anthropic` provider |
 | **Description** | `Nightly batch summaries` |
 
 Select **Create**. You can also open the backend model, select its **Aliases** tab, and then **Add alias**.
@@ -401,7 +403,7 @@ The support team wants better answers. Point `support-chat` at the bigger model.
 ### Edit the alias
 
 In **Models**, open the `support-chat` alias and select **Edit**. In **Edit alias**, change **Backend model** to
-`claude-sonnet-4-5` from the `Anthropic` provider, then select **Save**. New requests use the selected backend
+`claude-sonnet-5-5` from the `Anthropic` provider, then select **Save**. New requests use the selected backend
 model immediately.
 
 ![The Edit alias panel with the Alias, Backend model, and Description fields](../assets/screens/models-aliases.png "Edit alias changes only the backend model. The alias name that clients send stays the same. This example shows a Foundry alias.")
@@ -411,7 +413,7 @@ model immediately.
 On the `support-chat` alias page, select the **Policies** tab.
 
 > **Checkpoint**
-> The alias page shows `claude-sonnet-4-5` under **Target details**, and the **Policies** tab still lists the
+> The alias page shows `claude-sonnet-5-5` under **Target details**, and the **Policies** tab still lists the
 > 20,000-token **Token rate limit**.
 
 <!-- track: rest | REST API -->
@@ -431,11 +433,11 @@ as they are.
 
 ```text
 PATCH .../workspaces/default/aliases/support-chat?api-version=2025-09-01-preview
-{ "properties": { "backendModels": [ { "resourceId": ".../modelProviders/anthropic/models/claude-sonnet-4-5" } ] } }
+{ "properties": { "backendModels": [ { "resourceId": ".../modelProviders/anthropic/models/claude-sonnet-5-5" } ] } }
 ```
 
 > **Checkpoint**
-> The output shows `support-chat` → `anthropic/claude-sonnet-4-5` and still `tokenLimit 20000/minute`.
+> The output shows `support-chat` → `anthropic/claude-sonnet-5-5` and still `tokenLimit 20000/minute`.
 
 <!-- /tracks -->
 
@@ -461,10 +463,10 @@ Expected output (the order and your Foundry alias differ):
 
 ```text
 ALIAS                        PROVIDER/BACKEND MODEL       ALIAS POLICIES
-anthropic/claude-sonnet-4-5  anthropic/claude-sonnet-4-5  -
-batch-chat                   anthropic/claude-haiku-4-5   tokenLimit 2000/minute
-contoso-ai/gpt-4-1-mini      contoso-ai/gpt-4.1-mini      -
-support-chat                 anthropic/claude-sonnet-4-5  tokenLimit 20000/minute
+anthropic/claude-sonnet-5-5  anthropic/claude-sonnet-5-5  -
+batch-chat                   anthropic/claude-haiku-5-5   tokenLimit 2000/minute
+contoso-ai/gpt-6-luna        contoso-ai/gpt-6-luna        -
+support-chat                 anthropic/claude-sonnet-5-5  tokenLimit 20000/minute
 ```
 
 Your Foundry and Anthropic models sit side by side behind one gateway. In the portal, **Models** shows the same
@@ -486,16 +488,16 @@ The script sends a Messages request and prints the status, the backend model tha
 
 On GitHub, open [call-anthropic.sh](infra/call-anthropic.sh) or [call-anthropic.ps1](infra/call-anthropic.ps1).
 
-Expected output (dates in the model IDs can differ):
+Expected output (the replies differ):
 
 ```text
 Alias:   support-chat
 Status:  200
-Model:   claude-sonnet-4-5-20250929
+Model:   claude-sonnet-5-5
 Reply:   An AI gateway is a control point between applications and AI models that ...
 Alias:   batch-chat
 Status:  200
-Model:   claude-haiku-4-5-20251001
+Model:   claude-haiku-5-5
 Reply:   An AI gateway sits between your apps and AI models to ...
 ```
 
@@ -533,17 +535,17 @@ open `support-chat` and select **Policies**.
   )
   message = client.messages.create(
       model="support-chat",
-      max_tokens=256,
+      max_tokens=1024,
       messages=[{"role": "user", "content": "Hello"}],
   )
-  print(message.model, message.content[0].text)
+  print(message.model, "".join(block.text for block in message.content if block.type == "text"))
   ```
 
 - **Move one alias between providers.** Add OpenAI as a second custom provider with the values from the
-  provider table, and register `gpt-4.1-mini` with **OpenAI chat completions**. Create an alias such as
-  `team-chat` on your Foundry `gpt-4.1-mini`, then retarget it to the OpenAI model. Both speak Chat Completions,
+  provider table, and register `gpt-6-luna` with **OpenAI chat completions**. Create an alias such as
+  `team-chat` on your Foundry `gpt-6-luna`, then retarget it to the OpenAI model. Both speak Chat Completions,
   so clients don't notice the switch.
-- **Layer the limits.** Add a token limit to the `claude-haiku-4-5` backend model as in
+- **Layer the limits.** Add a token limit to the `claude-haiku-5-5` backend model as in
   [Throttle tokens per caller with token limits](../06-token-limits/README.md). It applies to every alias that
   targets the model, on top of each alias's own limit.
 
@@ -552,7 +554,7 @@ open `support-chat` and select **Policies**.
 Keep the gateway, the runtime key, and the Foundry model from lab 02. Later labs use them. Remove what you added
 in this lab in this order: aliases, then backend models, then the provider.
 
-In the portal, open each of the `support-chat`, `batch-chat`, and `anthropic/claude-sonnet-4-5` aliases in
+In the portal, open each of the `support-chat`, `batch-chat`, and `anthropic/claude-sonnet-5-5` aliases in
 **Models** and delete them. Then delete the two Claude backend models and the `Anthropic` provider.
 
 From a shell:

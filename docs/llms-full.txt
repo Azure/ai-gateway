@@ -53,7 +53,7 @@ The gateway sits on the path of every model call and every tool call. It has two
 | Building block | What it is | Example |
 |---|---|---|
 | **Gateway** | An AI Gateway resource (`Microsoft.ApiManagement/aigateways`) in your subscription | `https://<gateway>.eastus2-01.ai.gateway.azure.com` |
-| **Backend model** | A model at a provider, such as a Foundry deployment or an Anthropic model | `gpt-4.1-mini` at Microsoft Foundry |
+| **Backend model** | A model at a provider, such as a Foundry deployment or an Anthropic model | `gpt-6-luna` at Microsoft Foundry |
 | **Alias** | The stable, gateway-wide name clients send in the `model` field | `chat` |
 | **MCP server** | One governed MCP endpoint that federates tools from one or more sources | `/default/toolservers/<server-name>/mcp` |
 | **Policy** | A rule on the gateway or on one asset: limits, budgets, safety, filters | Token rate limit, Cost limit |
@@ -697,7 +697,7 @@ prereqs:
 
 # Publish a Foundry model and make your first call
 
-The first product team wants to use `gpt-4.1-mini`, which already runs in your Microsoft Foundry account. You
+The first product team wants to use `gpt-6-luna`, which already runs in your Microsoft Foundry account. You
 don't want to hand every team the Foundry endpoint and a provider key. In this lab you publish the deployment
 through your gateway, give the team a runtime API key of its own, and make the first call from the playground,
 a shell, and code. The gateway authenticates to Foundry with its own managed identity, so the app never sees a
@@ -710,7 +710,7 @@ Foundry credential.
 - Complete [Provision your AI Gateway](../01-provision-gateway/README.md). You need the gateway, its resource
   group, and its runtime URL.
 - A model deployment in a Microsoft Foundry (Azure AI Services) or Azure OpenAI account, for example
-  `gpt-4.1-mini`. If you don't have one, deploy the optional template described below.
+  `gpt-6-luna`. If you don't have one, deploy the optional template described below.
 - Permission to grant the gateway access to the account: **Owner**, **User Access Administrator**, or **Role
   Based Access Control Administrator** on the Foundry account. You also need to change the gateway, for example
   **Contributor** on its resource group.
@@ -727,7 +727,7 @@ export RG="<resource-group>"
 export GATEWAY="<gateway>"
 export FOUNDRY_RG="<foundry-resource-group>"      # resource group of the Foundry account
 export FOUNDRY_ACCOUNT="<foundry-account-name>"   # the account name, not a project or deployment name
-export DEPLOYMENT="gpt-4.1-mini"                  # the model deployment to publish
+export DEPLOYMENT="gpt-6-luna"                    # the model deployment to publish
 export PROVIDER="foundry-models"                  # CLI and IaC tracks: the gateway provider to create
 
 export API="api-version=2025-09-01-preview"
@@ -742,7 +742,7 @@ $RG              = "<resource-group>"
 $GATEWAY         = "<gateway>"
 $FOUNDRY_RG      = "<foundry-resource-group>"     # resource group of the Foundry account
 $FOUNDRY_ACCOUNT = "<foundry-account-name>"       # the account name, not a project or deployment name
-$DEPLOYMENT      = "gpt-4.1-mini"                 # the model deployment to publish
+$DEPLOYMENT      = "gpt-6-luna"                   # the model deployment to publish
 $PROVIDER        = "foundry-models"               # CLI and IaC tracks: the gateway provider to create
 
 $API        = "api-version=2025-09-01-preview"
@@ -755,7 +755,7 @@ $env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query prop
 <details>
 <summary>No Foundry deployment yet? Create one with Bicep.</summary>
 
-[infra/foundry.bicep](infra/foundry.bicep) creates an Azure AI Services account with a `gpt-4.1-mini`
+[infra/foundry.bicep](infra/foundry.bicep) creates an Azure AI Services account with a `gpt-6-luna`
 `GlobalStandard` deployment, mirroring the reference sample. Pick a region where the model is available. Model
 inference is billed per use.
 
@@ -803,7 +803,7 @@ Pick one track. Each track publishes the deployment, gives you a callable alias,
    **Import from Foundry** card starts the same import.)
 3. Select the subscription and resource group of your Foundry account. The wizard discovers the deployments
    automatically. Deployments that are already in this gateway can't be selected again.
-4. Select the `gpt-4.1-mini` deployment and keep **Managed identity** as the **Authentication method**.
+4. Select the `gpt-6-luna` deployment and keep **Managed identity** as the **Authentication method**.
 5. Under **Aliases**, keep **Create an alias for each model** selected, then select **Add models**.
 
 > [!NOTE]
@@ -823,7 +823,7 @@ Pick one track. Each track publishes the deployment, gives you a callable alias,
 Open the imported model on **Models**. The model details show its base URL and supported interfaces, such as
 **OpenAI Chat Completions** and **OpenAI Responses**. Open the **Aliases** tab and copy the alias exactly as
 shown, then save it in your shell. Portal imports usually name it after the provider and the deployment, for
-example `<foundry-account-name>/gpt-4-1-mini`.
+example `<foundry-account-name>/gpt-6-luna`.
 
 ```bash title="Bash"
 export AI_GATEWAY_MODEL="<model-name>"    # the alias from the Aliases tab
@@ -1373,6 +1373,8 @@ If you created the Foundry account with `infra/foundry.bicep`, delete its resour
 | `400` with `Specify either an API key or an Authorization header, not both` | The client sends an `api-key` header and an `Authorization` header, such as an SDK placeholder key | Pass the runtime key as the SDK API key and remove the `api-key` default header. |
 | `403` mentioning permissions on the Foundry account | The gateway's identity lacks **Foundry User**, or the assignment hasn't propagated yet | Wait a few minutes. If it persists, assign the role as shown in the portal track. |
 | `404` with `model_not_found` | `model` doesn't match an alias exactly | Copy the alias from the model's **Aliases** tab or from **Discover**. |
+| `400` `unsupported_parameter` for `max_tokens` or `temperature` | `gpt-6-luna` is a reasoning model | Send `max_completion_tokens` instead of `max_tokens`. Set `temperature` only together with `reasoning_effort: "none"`. |
+| `200` with empty `content` and `finish_reason` `length` | Reasoning used the whole `max_completion_tokens` budget | Raise the budget, or send `reasoning_effort: "none"` for short, direct replies. |
 | The Responses API call fails while Chat Completions works | The model doesn't advertise the Responses interface | Check the supported interfaces on the model details page and call only those. |
 | The import wizard doesn't list your account | It's already imported into this gateway, or you can't read it in that subscription | Check **Models** for an existing provider, or ask for read access to the account. |
 | `AuthorizationFailed` on `roleAssignments` during deployment | You can't create role assignments on the Foundry account | Ask for **Role Based Access Control Administrator** on the account, or have an owner grant the role. |
@@ -1417,14 +1419,14 @@ the same name.
 
 ![Clients call an alias, and the alias points to one backend model of one provider](../assets/diagrams/aliases.svg "An alias is the stable name in the request's model field. You can point it at a different backend model at any time.")
 
-<!-- widget: alias-retarget {"alias":"team-chat","targets":[{"provider":"Microsoft Foundry","model":"gpt-4.1-mini","note":"Lower cost","logo":"microsoft-foundry"},{"provider":"Microsoft Foundry","model":"gpt-4.1","note":"Higher quality","logo":"microsoft-foundry"},{"provider":"OpenAI","model":"gpt-4.1-mini","note":"Custom provider","logo":"openai"}]} -->
+<!-- widget: alias-retarget {"alias":"team-chat","targets":[{"provider":"Microsoft Foundry","model":"gpt-6-luna","note":"Lower cost","logo":"microsoft-foundry"},{"provider":"Microsoft Foundry","model":"gpt-6.1-sol","note":"Higher quality","logo":"microsoft-foundry"},{"provider":"OpenAI","model":"gpt-6-luna","note":"Custom provider","logo":"openai"}]} -->
 
 ## Before you begin
 
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need the
   gateway, a runtime API key, and the Foundry alias you created there.
 - An API key from the [Claude Console](https://console.anthropic.com) that can call two models, for example
-  `claude-haiku-4-5` and `claude-sonnet-4-5`. To use another provider instead, see the values in
+  `claude-haiku-5-5` and `claude-sonnet-5-5`. To use another provider instead, see the values in
   [Add Anthropic as a custom provider](#add-anthropic-as-a-custom-provider).
 - Permission to change the gateway, for example **Contributor** on its resource group.
 - For the REST track and the **Verify** scripts: the
@@ -1437,8 +1439,8 @@ Set these variables once. Every track and the **Verify** section reuse them.
 export RG="<resource-group>"
 export GATEWAY="<gateway>"
 export PROVIDER="anthropic"               # the gateway provider you create in this lab
-export FAST_MODEL="claude-haiku-4-5"      # two models that your Anthropic key can call
-export SMART_MODEL="claude-sonnet-4-5"
+export FAST_MODEL="claude-haiku-5-5"      # two models that your Anthropic key can call
+export SMART_MODEL="claude-sonnet-5-5"
 
 export API="api-version=2025-09-01-preview"
 export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
@@ -1453,8 +1455,8 @@ read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY
 $RG          = "<resource-group>"
 $GATEWAY     = "<gateway>"
 $PROVIDER    = "anthropic"                # the gateway provider you create in this lab
-$FAST_MODEL  = "claude-haiku-4-5"         # two models that your Anthropic key can call
-$SMART_MODEL = "claude-sonnet-4-5"
+$FAST_MODEL  = "claude-haiku-5-5"         # two models that your Anthropic key can call
+$SMART_MODEL = "claude-sonnet-5-5"
 
 $API         = "api-version=2025-09-01-preview"
 $GATEWAY_ID  = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
@@ -1472,7 +1474,7 @@ The gateway publishes models in three layers:
 | Object | What it holds | Unique within | Example |
 |---|---|---|---|
 | **Model provider** | A backend endpoint and the credential the gateway uses to call it | The gateway | `anthropic`, key sent in `x-api-key` |
-| **Backend model** | A model that the provider serves, and the interfaces it supports | Its provider | `claude-haiku-4-5` |
+| **Backend model** | A model that the provider serves, and the interfaces it supports | Its provider | `claude-haiku-5-5` |
 | **Alias** | The callable name that clients put in the `model` field. It points to exactly one backend model and can carry its own policies. | The gateway | `support-chat` |
 
 Clients only ever see the gateway URL, their runtime key, and the alias. The provider key stays in the gateway.
@@ -1505,7 +1507,7 @@ identity. Every other provider is a custom provider, and the gateway stores its 
 | <img src="../assets/providers/custom-models.png" alt="" height="24"> | Any other OpenAI-compatible endpoint | **Models from a custom provider** | API key |
 
 Pick one track. Both tracks create the same result: a provider named `anthropic`, two backend models, and two
-aliases. `support-chat` points to the fast model, and `anthropic/claude-sonnet-4-5` points to the bigger one.
+aliases. `support-chat` points to the fast model, and `anthropic/claude-sonnet-5-5` points to the bigger one.
 
 <!-- track: portal | Portal -->
 
@@ -1556,15 +1558,15 @@ The **Models** step shows **Discovering available models…** while it calls the
 
 | Field | First model | Second model |
 |---|---|---|
-| **Backend model** | `claude-haiku-4-5` | `claude-sonnet-4-5` |
+| **Backend model** | `claude-haiku-5-5` | `claude-sonnet-5-5` |
 | **Supported endpoints** | **Anthropic messages** | **Anthropic messages** |
-| **Callable alias** | Change it to `support-chat` | Keep the default, `anthropic/claude-sonnet-4-5` |
+| **Callable alias** | Change it to `support-chat` | Keep the default, `anthropic/claude-sonnet-5-5` |
 
 If discovery fails or times out, you can still add the models by hand. Select **Add models**.
 
 > **Checkpoint**
 > **Models** lists the two Claude models of the `Anthropic` provider and the aliases `support-chat` and
-> `anthropic/claude-sonnet-4-5`. Open a model: its **Overview** shows the Anthropic Messages endpoint,
+> `anthropic/claude-sonnet-5-5`. Open a model: its **Overview** shows the Anthropic Messages endpoint,
 > `https://<gateway>.eastus2-01.ai.gateway.azure.com/default/models/anthropic/v1/messages`.
 
 <!-- track: rest | REST API -->
@@ -1648,7 +1650,7 @@ Remove-Item model.json
 
 An alias names one backend model by its resource ID. The callable name goes in `properties.aliasName`. Callable
 names may contain `/`, but resource names can't, so the script derives the resource name the same way the
-portal does: `anthropic/claude-sonnet-4-5` is stored as `anthropic-claude-sonnet-4-5`.
+portal does: `anthropic/claude-sonnet-5-5` is stored as `anthropic-claude-sonnet-5-5`.
 
 ```bash title="Bash"
 ./infra/alias.sh put support-chat "$PROVIDER" "$FAST_MODEL"
@@ -1667,15 +1669,15 @@ PUT .../workspaces/default/aliases/support-chat?api-version=2025-09-01-preview
 {
   "properties": {
     "aliasName": "support-chat",
-    "backendModels": [ { "resourceId": ".../workspaces/default/modelProviders/anthropic/models/claude-haiku-4-5" } ],
+    "backendModels": [ { "resourceId": ".../workspaces/default/modelProviders/anthropic/models/claude-haiku-5-5" } ],
     "policies": []
   }
 }
 ```
 
 > **Checkpoint**
-> `./infra/alias.sh list` shows `support-chat` → `anthropic/claude-haiku-4-5` and
-> `anthropic/claude-sonnet-4-5` → `anthropic/claude-sonnet-4-5`, next to your Foundry alias from lab 02.
+> `./infra/alias.sh list` shows `support-chat` → `anthropic/claude-haiku-5-5` and
+> `anthropic/claude-sonnet-5-5` → `anthropic/claude-sonnet-5-5`, next to your Foundry alias from lab 02.
 
 <!-- /tracks -->
 
@@ -1690,29 +1692,31 @@ curl -sS "${AI_GATEWAY_URL%/}/default/models/anthropic/v1/messages" \
   -H "api-key: $AI_GATEWAY_API_KEY" \
   -H "anthropic-version: 2023-06-01" \
   -H "Content-Type: application/json" \
-  -d '{"model": "support-chat", "max_tokens": 256,
+  -d '{"model": "support-chat", "max_tokens": 1024,
        "messages": [{"role": "user", "content": "In one sentence, what is an AI gateway?"}]}' \
-  | jq '{model, text: .content[0].text, usage}'
+  | jq '{model, text: ([.content[] | select(.type == "text") | .text] | join("")), usage}'
 ```
 
 ```powershell title="PowerShell"
 $headers = @{ 'api-key' = $env:AI_GATEWAY_API_KEY; 'anthropic-version' = '2023-06-01' }
 $body = @{
   model      = 'support-chat'
-  max_tokens = 256
+  max_tokens = 1024
   messages   = @(@{ role = 'user'; content = 'In one sentence, what is an AI gateway?' })
 } | ConvertTo-Json -Depth 5
 $r = Invoke-RestMethod -Method Post -Uri "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/models/anthropic/v1/messages" `
   -Headers $headers -ContentType 'application/json' -Body $body
-[pscustomobject]@{ model = $r.model; text = $r.content[0].text; usage = $r.usage }
+[pscustomobject]@{ model = $r.model; text = (@($r.content) | Where-Object type -eq 'text' | ForEach-Object text) -join ''; usage = $r.usage }
 ```
 
 The response uses Anthropic's own format, with `content` blocks, `stop_reason`, and `usage.input_tokens`. It
 doesn't use OpenAI's `choices`. The `model` field names the backend model that answered, for example
-`claude-haiku-4-5-20251001`.
+`claude-haiku-5-5`. Claude Sonnet 5.5 and Haiku 5.5 think adaptively by default, so `content` can start
+with a `thinking` block, and thinking counts toward `max_tokens`. Read the `text` blocks and leave headroom in
+`max_tokens`.
 
 > **Checkpoint**
-> The call returns a Claude reply, and `model` starts with `claude-haiku-4-5`. Your app never sent an Anthropic
+> The call returns a Claude reply, and `model` is `claude-haiku-5-5`. Your app never sent an Anthropic
 > key.
 
 ## Give one backend model two aliases
@@ -1731,7 +1735,7 @@ Select **Models** › **Add models** › **Alias for an existing model**. In **C
 | Field | Value |
 |---|---|
 | **Alias** | `batch-chat` |
-| **Backend model** | `claude-haiku-4-5` from the `Anthropic` provider |
+| **Backend model** | `claude-haiku-5-5` from the `Anthropic` provider |
 | **Description** | `Nightly batch summaries` |
 
 Select **Create**. You can also open the backend model, select its **Aliases** tab, and then **Add alias**.
@@ -1790,7 +1794,7 @@ The support team wants better answers. Point `support-chat` at the bigger model.
 ### Edit the alias
 
 In **Models**, open the `support-chat` alias and select **Edit**. In **Edit alias**, change **Backend model** to
-`claude-sonnet-4-5` from the `Anthropic` provider, then select **Save**. New requests use the selected backend
+`claude-sonnet-5-5` from the `Anthropic` provider, then select **Save**. New requests use the selected backend
 model immediately.
 
 ![The Edit alias panel with the Alias, Backend model, and Description fields](../assets/screens/models-aliases.png "Edit alias changes only the backend model. The alias name that clients send stays the same. This example shows a Foundry alias.")
@@ -1800,7 +1804,7 @@ model immediately.
 On the `support-chat` alias page, select the **Policies** tab.
 
 > **Checkpoint**
-> The alias page shows `claude-sonnet-4-5` under **Target details**, and the **Policies** tab still lists the
+> The alias page shows `claude-sonnet-5-5` under **Target details**, and the **Policies** tab still lists the
 > 20,000-token **Token rate limit**.
 
 <!-- track: rest | REST API -->
@@ -1820,11 +1824,11 @@ as they are.
 
 ```text
 PATCH .../workspaces/default/aliases/support-chat?api-version=2025-09-01-preview
-{ "properties": { "backendModels": [ { "resourceId": ".../modelProviders/anthropic/models/claude-sonnet-4-5" } ] } }
+{ "properties": { "backendModels": [ { "resourceId": ".../modelProviders/anthropic/models/claude-sonnet-5-5" } ] } }
 ```
 
 > **Checkpoint**
-> The output shows `support-chat` → `anthropic/claude-sonnet-4-5` and still `tokenLimit 20000/minute`.
+> The output shows `support-chat` → `anthropic/claude-sonnet-5-5` and still `tokenLimit 20000/minute`.
 
 <!-- /tracks -->
 
@@ -1850,10 +1854,10 @@ Expected output (the order and your Foundry alias differ):
 
 ```text
 ALIAS                        PROVIDER/BACKEND MODEL       ALIAS POLICIES
-anthropic/claude-sonnet-4-5  anthropic/claude-sonnet-4-5  -
-batch-chat                   anthropic/claude-haiku-4-5   tokenLimit 2000/minute
-contoso-ai/gpt-4-1-mini      contoso-ai/gpt-4.1-mini      -
-support-chat                 anthropic/claude-sonnet-4-5  tokenLimit 20000/minute
+anthropic/claude-sonnet-5-5  anthropic/claude-sonnet-5-5  -
+batch-chat                   anthropic/claude-haiku-5-5   tokenLimit 2000/minute
+contoso-ai/gpt-6-luna        contoso-ai/gpt-6-luna        -
+support-chat                 anthropic/claude-sonnet-5-5  tokenLimit 20000/minute
 ```
 
 Your Foundry and Anthropic models sit side by side behind one gateway. In the portal, **Models** shows the same
@@ -1875,16 +1879,16 @@ The script sends a Messages request and prints the status, the backend model tha
 
 On GitHub, open [call-anthropic.sh](infra/call-anthropic.sh) or [call-anthropic.ps1](infra/call-anthropic.ps1).
 
-Expected output (dates in the model IDs can differ):
+Expected output (the replies differ):
 
 ```text
 Alias:   support-chat
 Status:  200
-Model:   claude-sonnet-4-5-20250929
+Model:   claude-sonnet-5-5
 Reply:   An AI gateway is a control point between applications and AI models that ...
 Alias:   batch-chat
 Status:  200
-Model:   claude-haiku-4-5-20251001
+Model:   claude-haiku-5-5
 Reply:   An AI gateway sits between your apps and AI models to ...
 ```
 
@@ -1922,17 +1926,17 @@ open `support-chat` and select **Policies**.
   )
   message = client.messages.create(
       model="support-chat",
-      max_tokens=256,
+      max_tokens=1024,
       messages=[{"role": "user", "content": "Hello"}],
   )
-  print(message.model, message.content[0].text)
+  print(message.model, "".join(block.text for block in message.content if block.type == "text"))
   ```
 
 - **Move one alias between providers.** Add OpenAI as a second custom provider with the values from the
-  provider table, and register `gpt-4.1-mini` with **OpenAI chat completions**. Create an alias such as
-  `team-chat` on your Foundry `gpt-4.1-mini`, then retarget it to the OpenAI model. Both speak Chat Completions,
+  provider table, and register `gpt-6-luna` with **OpenAI chat completions**. Create an alias such as
+  `team-chat` on your Foundry `gpt-6-luna`, then retarget it to the OpenAI model. Both speak Chat Completions,
   so clients don't notice the switch.
-- **Layer the limits.** Add a token limit to the `claude-haiku-4-5` backend model as in
+- **Layer the limits.** Add a token limit to the `claude-haiku-5-5` backend model as in
   [Throttle tokens per caller with token limits](../06-token-limits/README.md). It applies to every alias that
   targets the model, on top of each alias's own limit.
 
@@ -1941,7 +1945,7 @@ open `support-chat` and select **Policies**.
 Keep the gateway, the runtime key, and the Foundry model from lab 02. Later labs use them. Remove what you added
 in this lab in this order: aliases, then backend models, then the provider.
 
-In the portal, open each of the `support-chat`, `batch-chat`, and `anthropic/claude-sonnet-4-5` aliases in
+In the portal, open each of the `support-chat`, `batch-chat`, and `anthropic/claude-sonnet-5-5` aliases in
 **Models** and delete them. Then delete the two Claude backend models and the `Anthropic` provider.
 
 From a shell:
@@ -3239,8 +3243,8 @@ $env:AI_GATEWAY_MODEL = "$MODEL-limited"
 
 ## Verify
 
-Send a burst of requests that each ask for about 250 completion tokens. With a 1,000-token budget, the first few
-succeed, and then the gateway starts answering `429`.
+Send a burst of requests that each use about 225 tokens. With a 1,000-token budget, the first few succeed, and
+then the gateway starts answering `429`.
 
 <!-- steps -->
 
@@ -3264,15 +3268,19 @@ Expected output (your token counts will differ):
 
 ```text
 Request  Status  Retry-After  Tokens used  Backend tokens left
-1        200     -            287          9720
-2        200     -            282          9440
-3        200     -            285          9160
-4        429     41           -            -
-5        429     40           -            -
+1        200     -            231          9977
+2        200     -            214          9977
+3        200     -            220          9977
+4        200     -            221          9977
+5        200     -            223          9977
+6        200     -            229          9977
+7        429     1            -            -
+8        200     -            222          9977
 ```
 
-The gateway stops this caller after about 1,000 tokens, while the backend deployment still has most of its
-capacity left: that's the point of a per-caller limit. The gateway doesn't add its own remaining-tokens header, so
+The gateway stops this caller once it passes 1,000 tokens, while the backend deployment still has most of its
+capacity left: that's the point of a per-caller limit. `Retry-After` says how many seconds to wait, and a request sent
+after that wait can succeed again, as request 8 shows. The gateway doesn't add its own remaining-tokens header, so
 watch the status and `Retry-After`.
 
 > [!NOTE]
@@ -3705,9 +3713,9 @@ Expected output (your token counts, the number of successful calls, and the head
 
 ```text
 Request  Status  Error code               Tokens used  Budget headers
-1        200     -                        291          …
-2        200     -                        288          …
-3        200     -                        290          …
+1        200     -                        220          …
+2        200     -                        225          …
+3        200     -                        218          …
 4        403     LlmCostQuotaExceeded     -            …
 5        403     LlmCostQuotaExceeded     -            …
 ```
@@ -8448,7 +8456,7 @@ What the generated code relies on:
 | MCP endpoint | `<gateway URL>/default/toolservers/<server-name>/mcp` |
 | Auth header | `api-key: <runtime key>`. The plugin writes it as `Api-Key`; header names aren't case-sensitive. |
 | Key source | The `AI_GATEWAY_API_KEY` environment variable, loaded from a git-ignored `.env` file |
-| Model name | The model's deployment name as the gateway publishes it, for example `gpt-4.1-mini` |
+| Model name | The model's deployment name as the gateway publishes it, for example `gpt-6-luna` |
 | Agent scaffold | GitHub Copilot SDK, `github-copilot-sdk>=1.0.0`, Python unless you ask for TypeScript |
 
 ## Install the plugin
@@ -8795,7 +8803,7 @@ while the internet can't.
 
 - Complete [Provision your AI Gateway](../01-provision-gateway/README.md) and
   [Call backends with managed identities](../12-backend-identity/README.md). You need a Foundry resource with a
-  chat model deployment, for example `gpt-4.1-mini`.
+  chat model deployment, for example `gpt-6-luna`.
 - Private routing can only be chosen when a gateway is created, so this lab creates a **new** gateway. The
   gateway from the earlier labs stays as it is.
 - The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
@@ -8838,7 +8846,7 @@ export FOUNDRY_PE="pe-foundry-$GATEWAY"
 # The Foundry resource and deployment from the earlier labs
 export FOUNDRY_RG="<foundry-resource-group>"
 export FOUNDRY_ACCOUNT="<foundry-account-name>"
-export DEPLOYMENT="gpt-4.1-mini"
+export DEPLOYMENT="gpt-6-luna"
 export FOUNDRY_ID="$(az cognitiveservices account show -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --query id -o tsv)"
 export FOUNDRY_ENDPOINT="$(az cognitiveservices account show -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --query properties.endpoint -o tsv)"
 
@@ -8869,7 +8877,7 @@ $FOUNDRY_PE         = "pe-foundry-$GATEWAY"
 # The Foundry resource and deployment from the earlier labs
 $FOUNDRY_RG       = "<foundry-resource-group>"
 $FOUNDRY_ACCOUNT  = "<foundry-account-name>"
-$DEPLOYMENT       = "gpt-4.1-mini"
+$DEPLOYMENT       = "gpt-6-luna"
 $FOUNDRY_ID       = az cognitiveservices account show -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT --query id -o tsv
 $FOUNDRY_ENDPOINT = az cognitiveservices account show -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT --query properties.endpoint -o tsv
 
@@ -10487,7 +10495,7 @@ baseline, prove it works with a smoke test, and wire it all into GitHub Actions.
   management API with `az rest`.
 - **Owner**, or **Contributor** plus **Role Based Access Control Administrator**, on the subscription. The
   template creates two resource groups and several role assignments.
-- Quota for `gpt-5.4-mini` with the `GlobalStandard` SKU in the region you deploy to. The dev environment uses
+- Quota for `gpt-6-luna` with the `GlobalStandard` SKU in the region you deploy to. The dev environment uses
   50 capacity units (50,000 tokens per minute).
 - The resource providers `Microsoft.ApiManagement`, `Microsoft.Web`, `Microsoft.CognitiveServices`,
   `Microsoft.OperationalInsights`, and `Microsoft.Insights` registered on the subscription. Register any missing
@@ -10528,7 +10536,7 @@ workspace in a template would replace it. Instead, a script merges them in after
 | File | Resource group | Deploys |
 |---|---|---|
 | `modules/monitoring.bicep` | `…-gateway` | Log Analytics workspace and a workspace-based Application Insights component, `<gateway>-insights` |
-| `modules/foundry.bicep` | `…-foundrymodels` | Foundry account with key authentication turned off, and the `gpt-5.4-mini` deployment |
+| `modules/foundry.bicep` | `…-foundrymodels` | Foundry account with key authentication turned off, and the `gpt-6-luna` deployment |
 | `modules/gateway.bicep` | `…-gateway` | The AI Gateway (`Microsoft.ApiManagement/aigateways`, system-assigned identity), its connector gateway, and **Foundry User** for the identity on the Foundry account |
 | `modules/models.bicep` | `…-gateway` | A Foundry model provider that authenticates with the managed identity, the backend model with a token limit and content safety, the alias `chat`, and **AI Gateway Models User** on the alias |
 | `modules/tools.bicep` | `…-gateway` | The Microsoft Learn MCP server `learn`, and **AI Gateway Tools User** on it |
@@ -11132,7 +11140,7 @@ If you deployed prod, repeat the clean-up with the `aigw-prod` deployment's outp
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| The deployment fails with `InsufficientQuota`, or the model or version isn't available | The region has no `GlobalStandard` quota for `gpt-5.4-mini`, or doesn't offer that version | Lower `modelCapacity`, request quota, or change `modelName`, `modelVersion`, or `--location` in your parameter file and command. |
+| The deployment fails with `InsufficientQuota`, or the model or version isn't available | The region has no `GlobalStandard` quota for `gpt-6-luna`, or doesn't offer that version | Lower `modelCapacity`, request quota, or change `modelName`, `modelVersion`, or `--location` in your parameter file and command. |
 | The gateway's `provisioningState` ends in `Failed` | Azure hit an activation or managed identity conflict, often after a gateway with the same name was deleted moments before | Delete the failed gateway and its connector gateway, wait about three minutes for the identity to be cleaned up, and deploy again. |
 | The smoke test prints `Waiting for the model route` until it fails with `401`, `403`, or `404` | The new Foundry User role assignment or the model route hasn't propagated yet | Wait a few minutes and run the smoke test again. If it still fails, run the backend identity checks in [Verify](#verify). |
 | **Settings** in **Monitoring** shows "This legacy exporter no longer activates OTLP signals" | You deployed with `enableLegacyAppInsightsExporter` set to `true` | Select **Settings** › **General** › **Disable monitoring**, then **Configure telemetry** again with the same Application Insights resource. |

@@ -110,9 +110,9 @@ export const aliases = () => svgDoc('aliases', {
     o += zone(290, 20, 280, 360, 'Aliases', { gw: true, ic: 'route' });
     o += zone(636, 20, 308, 360, 'Backend models', { ic: 'models', tone: 'azure' });
     const rows = [
-      ['app', 'Chat app', 'model: chat', 'chat', 'Token rate limit', 'gpt-4.1-mini', 'Microsoft Foundry'],
-      ['server', 'Batch job', 'model: chat-batch', 'chat-batch', 'Token rate limit · Cost limit', 'gpt-4.1', 'Microsoft Foundry'],
-      ['agent', 'Research agent', 'model: reasoning', 'reasoning', 'Content safety', 'o4-mini', 'Microsoft Foundry'],
+      ['app', 'Chat app', 'model: chat', 'chat', 'Token rate limit', 'gpt-6-luna', 'Microsoft Foundry'],
+      ['server', 'Batch job', 'model: chat-batch', 'chat-batch', 'Token rate limit · Cost limit', 'gpt-6.1-sol', 'Microsoft Foundry'],
+      ['agent', 'Research agent', 'model: reasoning', 'reasoning', 'Content safety', 'gpt-6-astra', 'Microsoft Foundry'],
     ];
     rows.forEach(([ic, c, call, a, pol, m, prov], i) => {
       const y = 60 + i * 110;
@@ -126,7 +126,7 @@ export const aliases = () => svgDoc('aliases', {
     o += arrow('M556 310 C600 310 610 310 648 310', { tone: 'cyan' });
     o += arrow('M556 96 C606 104 606 196 648 196', { tone: 'violet', dashed: true });
     o += label(604, 150, 'retarget', { cls: 'dg-m' });
-    o += text(16, 404, 'Dashed: retarget chat to gpt-4.1. Clients keep sending model: chat, and the alias keeps its policies.', 'dg-s');
+    o += text(16, 404, 'Dashed: retarget chat to gpt-6.1-sol. Clients keep sending model: chat, and the alias keeps its policies.', 'dg-s');
     return o;
   },
 });
@@ -166,8 +166,8 @@ export const policyScopes = () => svgDoc('policy-scopes', {
     let o = zone(16, 16, 928, 408, 'Gateway scope · applies to all compatible assets, including future ones', { gw: true, ic: 'globe' });
     o += pills(32, 48, [['Content safety', 'azure'], ['IP filter', 'azure'], ['Cost limit', 'azure']]);
     const cols = [
-      ['Models', 'models', [['gpt-4.1-mini', 'Backend model', ['Request rate']]], 'Applies through every alias'],
-      ['Aliases', 'route', [['chat', '→ gpt-4.1-mini', ['Token rate limit']], ['chat-batch', '→ gpt-4.1-mini', ['Token rate limit', 'Cost limit']]]],
+      ['Models', 'models', [['gpt-6-luna', 'Backend model', ['Request rate']]], 'Applies through every alias'],
+      ['Aliases', 'route', [['chat', '→ gpt-6-luna', ['Token rate limit']], ['chat-batch', '→ gpt-6-luna', ['Token rate limit', 'Cost limit']]]],
       ['MCP servers', 'tools', [['github-tools', 'MCP server', ['Request rate', 'Threat protection']]]],
     ];
     const tones = ['green', 'violet', 'amber'];

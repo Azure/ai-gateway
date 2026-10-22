@@ -278,8 +278,8 @@ $env:AI_GATEWAY_MODEL = "$MODEL-limited"
 
 ## Verify
 
-Send a burst of requests that each ask for about 250 completion tokens. With a 1,000-token budget, the first few
-succeed, and then the gateway starts answering `429`.
+Send a burst of requests that each use about 225 tokens. With a 1,000-token budget, the first few succeed, and
+then the gateway starts answering `429`.
 
 <!-- steps -->
 
@@ -303,15 +303,19 @@ Expected output (your token counts will differ):
 
 ```text
 Request  Status  Retry-After  Tokens used  Backend tokens left
-1        200     -            287          9720
-2        200     -            282          9440
-3        200     -            285          9160
-4        429     41           -            -
-5        429     40           -            -
+1        200     -            231          9977
+2        200     -            214          9977
+3        200     -            220          9977
+4        200     -            221          9977
+5        200     -            223          9977
+6        200     -            229          9977
+7        429     1            -            -
+8        200     -            222          9977
 ```
 
-The gateway stops this caller after about 1,000 tokens, while the backend deployment still has most of its
-capacity left: that's the point of a per-caller limit. The gateway doesn't add its own remaining-tokens header, so
+The gateway stops this caller once it passes 1,000 tokens, while the backend deployment still has most of its
+capacity left: that's the point of a per-caller limit. `Retry-After` says how many seconds to wait, and a request sent
+after that wait can succeed again, as request 8 shows. The gateway doesn't add its own remaining-tokens header, so
 watch the status and `Retry-After`.
 
 > [!NOTE]

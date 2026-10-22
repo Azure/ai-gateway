@@ -1,4 +1,4 @@
-// Optional: creates a Microsoft Foundry (Azure AI Services) account with one gpt-4.1-mini deployment
+// Optional: creates a Microsoft Foundry (Azure AI Services) account with one gpt-6-luna deployment
 // to use as the backend for this lab. Skip it if you already have a Foundry or Azure OpenAI deployment.
 // Mirrors infra/foundry-models/main.bicep in the reference sample. Model inference is billed.
 targetScope = 'resourceGroup'
@@ -12,13 +12,13 @@ param accountName string
 param location string = resourceGroup().location
 
 @description('Name of the model deployment that the gateway will publish.')
-param deploymentName string = 'gpt-4.1-mini'
+param deploymentName string = 'gpt-6-luna'
 
 @description('Model to deploy.')
-param modelName string = 'gpt-4.1-mini'
+param modelName string = 'gpt-6-luna'
 
 @description('Model version to deploy.')
-param modelVersion string = '2025-04-14'
+param modelVersion string = '2026-09-22'
 
 @description('Deployment SKU.')
 param skuName string = 'GlobalStandard'

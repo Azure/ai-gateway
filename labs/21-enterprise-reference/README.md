@@ -70,7 +70,7 @@ baseline, prove it works with a smoke test, and wire it all into GitHub Actions.
   management API with `az rest`.
 - **Owner**, or **Contributor** plus **Role Based Access Control Administrator**, on the subscription. The
   template creates two resource groups and several role assignments.
-- Quota for `gpt-5.4-mini` with the `GlobalStandard` SKU in the region you deploy to. The dev environment uses
+- Quota for `gpt-6-luna` with the `GlobalStandard` SKU in the region you deploy to. The dev environment uses
   50 capacity units (50,000 tokens per minute).
 - The resource providers `Microsoft.ApiManagement`, `Microsoft.Web`, `Microsoft.CognitiveServices`,
   `Microsoft.OperationalInsights`, and `Microsoft.Insights` registered on the subscription. Register any missing
@@ -117,7 +117,7 @@ workspace in a template would replace it. Instead, a script merges them in after
 | File | Resource group | Deploys |
 |---|---|---|
 | `modules/monitoring.bicep` | `…-gateway` | Log Analytics workspace and a workspace-based Application Insights component, `<gateway>-insights` |
-| `modules/foundry.bicep` | `…-foundrymodels` | Foundry account with key authentication turned off, and the `gpt-5.4-mini` deployment |
+| `modules/foundry.bicep` | `…-foundrymodels` | Foundry account with key authentication turned off, and the `gpt-6-luna` deployment |
 | `modules/gateway.bicep` | `…-gateway` | The AI Gateway (`Microsoft.ApiManagement/aigateways`, system-assigned identity), its connector gateway, and **Foundry User** for the identity on the Foundry account |
 | `modules/models.bicep` | `…-gateway` | A Foundry model provider that authenticates with the managed identity, the backend model with a token limit and content safety, the alias `chat`, and **AI Gateway Models User** on the alias |
 | `modules/tools.bicep` | `…-gateway` | The Microsoft Learn MCP server `learn`, and **AI Gateway Tools User** on it |
@@ -271,10 +271,10 @@ param tags object = {}
 param aiGatewayName string = ''
 
 @description('Foundry model name to deploy.')
-param modelName string = 'gpt-5.4-mini'
+param modelName string = 'gpt-6-luna'
 
 @description('Foundry model version to deploy.')
-param modelVersion string = '2026-03-17'
+param modelVersion string = '2026-09-22'
 
 @description('ARM-safe name of the Foundry deployment. It is also the backend model name in the gateway.')
 param modelDeploymentName string = 'gpt-mini-latest'
@@ -1502,7 +1502,7 @@ If you deployed prod, repeat the clean-up with the `aigw-prod` deployment's outp
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| The deployment fails with `InsufficientQuota`, or the model or version isn't available | The region has no `GlobalStandard` quota for `gpt-5.4-mini`, or doesn't offer that version | Lower `modelCapacity`, request quota, or change `modelName`, `modelVersion`, or `--location` in your parameter file and command. |
+| The deployment fails with `InsufficientQuota`, or the model or version isn't available | The region has no `GlobalStandard` quota for `gpt-6-luna`, or doesn't offer that version | Lower `modelCapacity`, request quota, or change `modelName`, `modelVersion`, or `--location` in your parameter file and command. |
 | The gateway's `provisioningState` ends in `Failed` | Azure hit an activation or managed identity conflict, often after a gateway with the same name was deleted moments before | Delete the failed gateway and its connector gateway, wait about three minutes for the identity to be cleaned up, and deploy again. |
 | The smoke test prints `Waiting for the model route` until it fails with `401`, `403`, or `404` | The new Foundry User role assignment or the model route hasn't propagated yet | Wait a few minutes and run the smoke test again. If it still fails, run the backend identity checks in [Verify](#verify). |
 | **Settings** in **Monitoring** shows "This legacy exporter no longer activates OTLP signals" | You deployed with `enableLegacyAppInsightsExporter` set to `true` | Select **Settings** › **General** › **Disable monitoring**, then **Configure telemetry** again with the same Application Insights resource. |

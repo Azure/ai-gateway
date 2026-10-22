@@ -16,8 +16,9 @@ REQUESTS="${2:-10}"
 : "${AI_GATEWAY_API_KEY:?Set AI_GATEWAY_API_KEY to a runtime key from Access > Keys}"
 
 URL="${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions"
+# reasoning_effort none spends the budget on the reply instead of hidden reasoning, so token counts stay predictable.
 BODY=$(cat <<EOF
-{"model":"$MODEL","max_tokens":250,
+{"model":"$MODEL","max_completion_tokens":250,"reasoning_effort":"none",
  "messages":[{"role":"user","content":"Write a 150-word note to a finance team explaining why per-app AI budgets help."}]}
 EOF
 )

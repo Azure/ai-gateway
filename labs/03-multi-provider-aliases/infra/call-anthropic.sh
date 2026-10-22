@@ -17,7 +17,7 @@ PROMPT="${2:-In one sentence, what is an AI gateway?}"
 
 URL="${AI_GATEWAY_URL%/}/default/models/anthropic/v1/messages"
 BODY="$(jq -cn --arg model "$ALIAS" --arg prompt "$PROMPT" \
-  '{model: $model, max_tokens: 256, messages: [{role: "user", content: $prompt}]}')"
+  '{model: $model, max_tokens: 1024, messages: [{role: "user", content: $prompt}]}')"
 
 RESPONSE="$(curl -sS -w '\n%{http_code}' "$URL" \
   -H "api-key: $AI_GATEWAY_API_KEY" \
