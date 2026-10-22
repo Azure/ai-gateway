@@ -251,16 +251,17 @@ export function homePage({ rel, site, catalog, labs, totals, latest }) {
   const quick = byId.quickstart;
   const essentials = catalog.paths.find((p) => p.id === 'essentials');
   const startHref = labUrl(rel, quick ? 'quickstart' : labs[0].slug);
-  // Real output of labs/quickstart/infra/quickstart.sh. One block per line, so narrow screens wrap with a hanging indent.
+  // Condensed from a real run of the quick start's Azure CLI track. One block per line, so narrow screens wrap with a hanging indent.
   const qsLines = [
-    ['', '<span class="qs-prompt">$</span> ./infra/quickstart.sh'],
-    ['qs-hang', '<span class="qs-dim">[1/3]</span> Deploying a gateway and a Foundry model…'],
-    ['qs-sub', 'Gateway <span class="qs-hl">aigw-vfcg3eujozqj4</span> is ready'],
-    ['qs-hang', '<span class="qs-dim">[2/3]</span> Reading the runtime key <span class="qs-nb">app-first-call</span>'],
-    ['qs-hang', '<span class="qs-dim">[3/3]</span> Calling <span class="qs-hl">gpt-6-luna</span> through the gateway'],
-    ['qs-gap', '<span class="qs-ok">HTTP 200</span> from <span class="qs-nb">gpt-6-luna-2026-09-22</span>:'],
-    ['qs-reply', 'An AI gateway sits between applications and AI models to route requests while managing security, access, and usage.'],
-    ['qs-gap', 'Done in <span class="qs-ok">2 min 18 s</span>.'],
+    ['qs-hang', '<span class="qs-dim">[1/4]</span> Start creating the gateway <span class="qs-hl qs-nb">aigw-14651e</span>'],
+    ['qs-hang', '<span class="qs-dim">[2/4]</span> Deploy <span class="qs-hl">gpt-6-luna</span> in Foundry'],
+    ['qs-hang', '<span class="qs-dim">[3/4]</span> Publish the model behind the alias <span class="qs-hl qs-nb">gpt-6-luna</span>'],
+    ['qs-hang', '<span class="qs-dim">[4/4]</span> Create the runtime key <span class="qs-nb">app-first-call</span>'],
+    ['qs-sub', '<span class="qs-ok">Ready</span> in 1 min 44 s'],
+    ['qs-gap qs-hang', '<span class="qs-prompt">$</span> curl $AI_GATEWAY_URL/…/chat/completions -H "api-key: …"'],
+    ['qs-reply', 'An AI gateway sits between applications and AI models to route requests while managing access, policies, and monitoring.'],
+    ['qs-gap qs-hang', '<span class="qs-prompt">$</span> curl $AI_GATEWAY_URL/…/chat/completions <span class="qs-dim"># no key</span>'],
+    ['', '<span class="qs-err">401</span>'],
   ].map(([c, h]) => `<span class="qs-line${c ? ` ${c}` : ''}">${h}</span>`).join('');
 
   const trackCards = [
@@ -326,10 +327,10 @@ ${quick ? `
       <div class="qs-copy">
         <p class="eyebrow"><span class="num-quick">${I.bolt}</span>Start here · ${quick.duration} minutes</p>
         <h2 id="qs-band-title">Your first model call in five minutes</h2>
-        <p>One Bicep deployment creates a gateway, a Microsoft Foundry model, an alias, and a runtime key. Then you call the model the way an app does, and watch the gateway turn away a call without a key.</p>
+        <p>In the AI Gateway portal, or with a few Azure CLI commands in Cloud Shell, you create a gateway, publish a Microsoft Foundry model behind an alias, and create a runtime key. There's nothing to clone or install. Then you call the model the way an app does, and watch the gateway turn away a call without a key.</p>
         <ol class="qs-steps">
           <li><span class="qs-step-num">1</span><span><strong>Understand</strong> the five building blocks</span><span class="qs-step-time">1 min</span></li>
-          <li><span class="qs-step-num">2</span><span><strong>Deploy</strong> everything with one command</span><span class="qs-step-time">3 min</span></li>
+          <li><span class="qs-step-num">2</span><span><strong>Create</strong> a gateway in the portal or Azure CLI</span><span class="qs-step-time">3 min</span></li>
           <li><span class="qs-step-num">3</span><span><strong>Call</strong> the model through the gateway</span><span class="qs-step-time">1 min</span></li>
         </ol>
         <div class="qs-cta">
@@ -338,9 +339,9 @@ ${quick ? `
         </div>
       </div>
       <figure class="qs-terminal">
-        <div class="qs-terminal-bar" aria-hidden="true"><span></span><span></span><span></span><b>Bash · Cloud Shell</b></div>
+        <div class="qs-terminal-bar" aria-hidden="true"><span></span><span></span><span></span><b>Azure CLI · Bash</b></div>
         <pre tabindex="0"><code>${qsLines}</code></pre>
-        <figcaption>Output of a real run of the quick start script.</figcaption>
+        <figcaption>Condensed from a real run of the Azure CLI track.</figcaption>
       </figure>
     </div>
   </div></section>` : ''}

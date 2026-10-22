@@ -50,8 +50,10 @@ prereqs:                        # lab folder names, rendered as links
 
 `quickstart/` is the only lab without a number. It sets `order: -1`, so it comes before lab 00 everywhere, and the
 site shows a ⚡ instead of a number and "Quick start" instead of "Lab NN". The home page's hero and its **Start here**
-band link to it. Keep it to five minutes: one Bicep deployment (`quickstart/infra/main.bicep` composes the lab 01 and
-lab 02 modules, so the names match lab 02), one call, and one check. Teach the details in labs 00 to 02 instead.
+band link to it. Keep it to five minutes and self-contained: a portal track and an Azure CLI track that runs in Cloud
+Shell, with no repo to clone, no notebook, and no `infra/` folder. It uses lab 02's names (`foundry-models`,
+`gpt-6-luna`, `app-first-call`), so labs 03 onward work on its gateway. It has one call and one check. Teach the
+details in labs 00 to 02 instead.
 
 ## GitHub view
 

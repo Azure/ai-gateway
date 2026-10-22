@@ -376,6 +376,7 @@ kbd {
 .qs-dim { color: #84848d; }
 .qs-hl { color: #c7b8ff; }
 .qs-ok { color: #6ccb5f; font-weight: 600; }
+.qs-err { color: #ff7b72; font-weight: 600; }
 .qs-terminal figcaption { padding: 0 18px 12px; font-size: 12px; color: #84848d; }
 
 /* Tracks */

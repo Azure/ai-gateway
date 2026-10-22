@@ -12,7 +12,7 @@ Release notes: https://azure.github.io/ai-gateway/release-notes/index.md
 
 ## Labs
 
-- [⚡ Your first model call in 5 minutes](https://azure.github.io/ai-gateway/labs/quickstart/index.md): Learn the five building blocks of Azure AI Gateway, deploy a gateway with a Microsoft Foundry model in one command, and make your first model call, all in about five minutes.
+- [⚡ Your first model call in 5 minutes](https://azure.github.io/ai-gateway/labs/quickstart/index.md): Learn the five building blocks of Azure AI Gateway, create a gateway with a Microsoft Foundry model in the portal or the Azure CLI, and make your first model call, all in about five minutes with nothing to clone.
 - [00 How Azure AI Gateway works](https://azure.github.io/ai-gateway/labs/00-how-ai-gateway-works/index.md): A 20-minute visual tour of the AI Gateway tier of Azure API Management. Follow one request through the gateway, meet models, aliases, MCP servers, policies, and identities, and pick the learning path that fits your role.
 - [01 Provision your AI Gateway](https://azure.github.io/ai-gateway/labs/01-provision-gateway/index.md): Create the shared AI Gateway that your apps and agents will call, from the AI Gateway portal, the Azure CLI, or Bicep, then take a guided tour of the portal.
 - [02 Publish a Foundry model and make your first call](https://azure.github.io/ai-gateway/labs/02-first-model-call/index.md): Publish a Microsoft Foundry model deployment through your gateway with its managed identity, create a runtime API key, try the model in the Catalog playground, and call it from curl, PowerShell, Python, TypeScript, and C#.

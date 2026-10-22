@@ -1,143 +1,326 @@
 ---
 title: Your first model call in 5 minutes
-summary: Learn the five building blocks of Azure AI Gateway, deploy a gateway with a Microsoft Foundry model in one command, and make your first model call, all in about five minutes.
+summary: Learn the five building blocks of Azure AI Gateway, create a gateway with a Microsoft Foundry model in the portal or the Azure CLI, and make your first model call, all in about five minutes with nothing to clone.
 category: foundations
 level: Beginner
 duration: 5
-tracks: [cli, iac]
+tracks: [portal, cli]
 order: -1
 status: new
 illustration: diagrams/quickstart.svg
-tags: [quick start, getting started, first call, gateway, model provider, alias, API key, Bicep, one command]
+tags: [quick start, getting started, first call, gateway, model provider, alias, API key, portal, Azure CLI, Cloud Shell]
 objectives:
   - Name the five building blocks that every AI Gateway call goes through
-  - Deploy a gateway, a Foundry model, an alias, and a runtime API key with one Bicep deployment
+  - Create a gateway, publish a Foundry model behind an alias, and create a runtime API key in the portal or the Azure CLI
   - Call the model through the gateway with a key, and see the gateway reject a call without one
 prereqs: []
 ---
 
 # Your first model call in 5 minutes
 
-Azure AI Gateway gives your apps and agents one governed endpoint for models and tools. In five minutes you deploy a
-gateway with a Microsoft Foundry model behind it, and you call that model the way an app does: with the gateway's URL,
-an alias in the `model` field, and a runtime API key. You don't touch the portal, and one deployment creates
-everything.
+Azure AI Gateway gives your apps and agents one governed endpoint for models and tools. In five minutes you create a
+gateway, put a Microsoft Foundry model behind it, and call that model the way an app does: with the gateway's URL, an
+alias in the `model` field, and a runtime API key. Click through the AI Gateway portal, or paste a few Azure CLI
+commands into Azure Cloud Shell. There's nothing to clone or install.
 
-![One Bicep deployment creates the gateway, the Foundry model, a provider, an alias, and a runtime key. Then your app calls the alias with the key, and the gateway routes the call to Foundry with its managed identity](../assets/diagrams/quickstart.svg "Deploy once, in about three minutes. Then every call goes through the gateway: it checks the key, routes the alias, and signs in to Foundry with its own identity.")
+![Create the gateway, a Foundry model, a provider, an alias, and a runtime key in the AI Gateway portal or with the Azure CLI in Cloud Shell. Then your app calls the alias with the key, and the gateway routes the call to Foundry with its managed identity](../assets/diagrams/quickstart.svg "Set up once, in the portal or in Cloud Shell. Then every call goes through the gateway: it checks the key, routes the alias, and signs in to Foundry with its own identity.")
 
 ## Before you begin
 
 - An Azure subscription where you can create resources and role assignments, for example **Owner**, or
-  **Contributor** plus **Role Based Access Control Administrator**. The deployment gives the gateway a role on the
-  Foundry account.
-- The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with `az login`.
-  For the Bash steps you also need `curl` and `jq`. [Azure Cloud Shell](https://shell.azure.com) has all three.
-- The lab files. Clone the repo and open the quick start folder:
+  **Contributor** plus **Role Based Access Control Administrator**. The gateway gets a role on your Foundry account,
+  so that it can call the model with its own identity.
+- For the portal track: a browser, and a model deployment in a Microsoft Foundry account, for example `gpt-6-luna`.
+- For the Azure CLI track: [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell. It's already signed
+  in and has the Azure CLI, `curl`, and `jq`. A local Azure CLI 2.75 or later, signed in with `az login`, works too.
+  The track creates the Foundry deployment for you.
 
-```bash
-git clone --depth 1 https://github.com/Azure/ai-gateway
-cd ai-gateway/labs/quickstart
+<details>
+<summary>Portal track without a Foundry deployment? Create one in Cloud Shell.</summary>
+
+Open [Azure Cloud Shell](https://shell.azure.com) in Bash and paste these commands. They create a Foundry account with
+a `gpt-6-luna` deployment in a new resource group, in about a minute. Then create the gateway in the same resource
+group, so that you can clean up with one command. Model inference is billed per use.
+
+```bash title="Bash"
+RG="rg-aigw-quickstart"; FOUNDRY="aigw$(openssl rand -hex 3)"
+az group create --name "$RG" --location eastus2 --output none
+az cognitiveservices account create --resource-group "$RG" --name "$FOUNDRY" --location eastus2 \
+  --kind AIServices --sku S0 --custom-domain "$FOUNDRY" --yes --output none
+az cognitiveservices account deployment create --resource-group "$RG" --name "$FOUNDRY" \
+  --deployment-name gpt-6-luna --model-name gpt-6-luna --model-version 2026-09-22 --model-format OpenAI \
+  --sku-name GlobalStandard --sku-capacity 10 --output none
+echo "Foundry account $FOUNDRY in $RG"
 ```
+
+</details>
 
 ## How it works
 
-Every call that goes through AI Gateway uses the same five building blocks. The deployment in this quick start
-creates one of each.
+Every call that goes through AI Gateway uses the same five building blocks. In this quick start you create one of
+each.
 
 | Building block | What it does | In this quick start |
 | :-- | :-- | :-- |
-| **Gateway** | The Azure resource (`Microsoft.ApiManagement/aigateways`) that gives your apps one runtime URL for models and tools | `aigw-<unique>`, at `https://aigw-<unique>.<region>-01.ai.gateway.azure.com` |
-| **Model provider** | A connection to a backend. The gateway signs in to it with its own managed identity, so your apps never hold a backend key | `foundry-models`, for a new Foundry account |
+| **Gateway** | The Azure resource (`Microsoft.ApiManagement/aigateways`) that gives your apps one runtime URL for models and tools | Your gateway, at `https://<gateway>.<location>-01.ai.gateway.azure.com` |
+| **Model provider** | A connection to a backend. The gateway signs in to it with its own managed identity, so your apps never hold a backend key | Your Foundry account. The Azure CLI track names the provider `foundry-models` |
 | **Model** | A backend deployment that the gateway can route to | The Foundry deployment `gpt-6-luna` |
-| **Alias** | The name that apps send in the `model` field. The gateway routes the alias to one or more models | `gpt-6-luna` |
-| **Runtime API key** | Identifies the app that calls the gateway, for limits, cost, and monitoring | `app-first-call`, with 10,000 tokens per minute for each caller |
+| **Alias** | The name that apps send in the `model` field. The gateway routes the alias to one or more models | `<foundry-account-name>/gpt-6-luna` in the portal, `gpt-6-luna` in the Azure CLI track |
+| **Runtime API key** | Identifies the app that calls the gateway, for limits, cost, and monitoring | `app-first-call` |
 
 Your app calls the OpenAI-compatible base URL `<gateway URL>/default/models/openai/v1`, so any OpenAI SDK works with
 a different base URL and the runtime key. For the full tour, watch the 3-minute video in
 [How Azure AI Gateway works](../00-how-ai-gateway-works/README.md).
 
-## Deploy the gateway and a model
+## Create the gateway and publish a model
 
-One Bicep deployment creates the gateway, a Foundry account with a `gpt-6-luna` deployment, the model provider, the
-alias, and the runtime key. It takes about three minutes. During the preview, AI Gateway runs in `eastus2` and
-`swedencentral`.
+Pick one track. Both create the same five building blocks, and both end with three environment variables in your
+shell: the gateway URL, the alias, and the key. During the preview, AI Gateway runs in East US 2 (`eastus2`) and
+Sweden Central (`swedencentral`).
 
-<!-- steps -->
+<!-- track: portal | Portal -->
 
-### Deploy the template
+### Create the gateway
+
+1. Open the [AI Gateway portal](https://ai.gateway.azure.com) and sign in. For your first gateway, the portal opens
+   **Create AI gateway** right away. Otherwise, open the gateway switcher in the top bar and create a new one.
+2. Enter a **Name**, or select **Generate a new name**. Then choose your subscription, a **Resource group**, and the
+   **Region**: **East US 2** or **Sweden Central**.
+3. Keep the **Advanced** defaults and select **Create gateway**. Provisioning takes a few minutes, then **Home** opens
+   with a setup guide.
+
+### Import the model from Foundry
+
+1. Select **Models** › **Add models** › **Models from Microsoft Foundry**. The **Import from Foundry** card on
+   **Home** starts the same import.
+2. Select the subscription and resource group of your Foundry account, then select the `gpt-6-luna` deployment.
+3. Keep **Managed identity** as the **Authentication method** and **Create an alias for each model** selected, then
+   select **Add models**.
+4. Open the model and select the **Aliases** tab. Note the alias, for example `<foundry-account-name>/gpt-6-luna`.
+
+### Create a runtime API key
+
+1. Select **Access** › **Keys** › **Create API key**. Some portal versions show **Keys** directly in the left
+   navigation.
+2. Enter `app-first-call` as the **Key name**, then select **Create**.
+3. Copy the value from **API key created successfully**. Copy it now: the portal shows it only once.
+
+### Try the model in the playground
+
+Select **Catalog**, pick your model, and send a prompt in the playground, for example
+`In one sentence, what does an AI gateway do?`. The model also lists its endpoint and code samples in cURL,
+PowerShell, Python, TypeScript, and .NET.
+
+### Save the URL, the alias, and the key
+
+To call the gateway the way an app does, open [Azure Cloud Shell](https://shell.azure.com) or any terminal with the
+Azure CLI. Read the gateway URL, set the alias, and paste the key without showing it on screen.
+
+```bash title="Bash"
+export AI_GATEWAY_URL="https://$(az resource show --resource-group "<resource-group>" --name "<gateway>" \
+  --resource-type Microsoft.ApiManagement/aigateways --query properties.frontend.defaultHostname --output tsv)"
+export AI_GATEWAY_MODEL="<model-name>"    # the alias from the Aliases tab
+read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
+```
+
+```powershell title="PowerShell"
+$env:AI_GATEWAY_URL = "https://" + (az resource show --resource-group "<resource-group>" --name "<gateway>" `
+  --resource-type Microsoft.ApiManagement/aigateways --query properties.frontend.defaultHostname --output tsv)
+$env:AI_GATEWAY_MODEL = "<model-name>"    # the alias from the Aliases tab
+$env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
+```
+
+> **Checkpoint:** the playground answered, **Models** lists `gpt-6-luna`, and **Access** › **Keys** shows
+> `app-first-call`.
+
+<!-- track: cli | Azure CLI -->
+
+### Set your variables
+
+Open [Azure Cloud Shell](https://shell.azure.com) and paste the block for your shell. A random suffix keeps the
+gateway and Foundry account names globally unique.
 
 ```bash title="Bash"
 export RG="rg-aigw-quickstart"
-export LOCATION="eastus2"                  # or swedencentral
+export LOCATION="eastus2"                     # or swedencentral
+SUFFIX="$(openssl rand -hex 3)"
+export GATEWAY="aigw-$SUFFIX"                 # part of the runtime URL
+export FOUNDRY="aigw$SUFFIX"                  # the Foundry account and its subdomain
+export DEPLOYMENT="gpt-6-luna"
+export PROVIDER="foundry-models"
 
-az group create --name "$RG" --location "$LOCATION" --output none
-az deployment group create --resource-group "$RG" --name quickstart \
-  --template-file infra/main.bicep --parameters location="$LOCATION" \
-  --query properties.outputs.gatewayUrl.value --output tsv
+export API="api-version=2025-09-01-preview"
+export SUBSCRIPTION_ID="$(az account show --query id --output tsv)"
+export GATEWAY_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
+export GW="https://management.azure.com$GATEWAY_ID"
+export WS="$GW/workspaces/default"
 ```
 
 ```powershell title="PowerShell"
-$RG = "rg-aigw-quickstart"
-$LOCATION = "eastus2"                      # or swedencentral
+$RG         = "rg-aigw-quickstart"
+$LOCATION   = "eastus2"                       # or swedencentral
+$SUFFIX     = [guid]::NewGuid().ToString("N").Substring(0, 6)
+$GATEWAY    = "aigw-$SUFFIX"                  # part of the runtime URL
+$FOUNDRY    = "aigw$SUFFIX"                   # the Foundry account and its subdomain
+$DEPLOYMENT = "gpt-6-luna"
+$PROVIDER   = "foundry-models"
 
-az group create --name $RG --location $LOCATION --output none
-az deployment group create --resource-group $RG --name quickstart `
-  --template-file infra/main.bicep --parameters location=$LOCATION `
-  --query properties.outputs.gatewayUrl.value --output tsv
+$API             = "api-version=2025-09-01-preview"
+$SUBSCRIPTION_ID = az account show --query id --output tsv
+$GATEWAY_ID      = "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
+$GW              = "https://management.azure.com$GATEWAY_ID"
+$WS              = "$GW/workspaces/default"
 ```
 
-> **Checkpoint:** the command prints your gateway's runtime URL, for example
-> `https://aigw-abc123.eastus2-01.ai.gateway.azure.com`.
+### Start creating the gateway
 
-### Review what it created
+Register the resource providers, which is a one-time step for each subscription, and create a resource group. Then
+create the gateway and its companion connector gateway. Azure accepts the gateway and keeps provisioning it in the
+background, so you can move on right away.
 
-The template reuses the Bicep modules of labs 01 and 02, so it creates exactly what those labs create step by step.
+```bash title="Bash"
+for ns in Microsoft.ApiManagement Microsoft.Web Microsoft.CognitiveServices; do az provider register --namespace "$ns" --wait; done
+az group create --name "$RG" --location "$LOCATION" --output none
 
-<!-- include: infra/main.bicep -->
+az rest --method put --output none \
+  --url "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Web/connectorGateways/$GATEWAY?api-version=2026-05-01-preview" \
+  --body "$(jq -cn --arg l "$LOCATION" '{location: $l, properties: {}}')"
+az rest --method put --output none --url "$GW?$API" \
+  --body "$(jq -cn --arg l "$LOCATION" '{location: $l, identity: {type: "SystemAssigned"}, properties: {publicNetworkAccess: "Enabled"}}')"
+```
 
-<!-- /steps -->
+```powershell title="PowerShell"
+foreach ($ns in "Microsoft.ApiManagement", "Microsoft.Web", "Microsoft.CognitiveServices") { az provider register --namespace $ns --wait }
+az group create --name $RG --location $LOCATION --output none
 
-> [!TIP]
-> In a hurry? `./infra/quickstart.sh` (Bash) or `./infra/quickstart.ps1` (PowerShell 7) runs this section and the
-> next one in one go, and prints the reply. Pass a resource group and a region to change the defaults.
+@{ location = $LOCATION; properties = @{} } | ConvertTo-Json -Compress | Set-Content body.json
+az rest --method put --output none --body "@body.json" `
+  --url "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Web/connectorGateways/${GATEWAY}?api-version=2026-05-01-preview"
+@{ location = $LOCATION; identity = @{ type = "SystemAssigned" }; properties = @{ publicNetworkAccess = "Enabled" } } |
+  ConvertTo-Json -Depth 5 -Compress | Set-Content body.json
+az rest --method put --output none --url "$GW`?$API" --body "@body.json"
+```
+
+### Deploy the model in Foundry
+
+While the gateway provisions, create a Foundry account with a `gpt-6-luna` deployment. Then give the gateway's
+managed identity the **Foundry User** role on the account. The gateway calls the model with this identity, so your
+apps never hold a Foundry key.
+
+```bash title="Bash"
+az cognitiveservices account create --resource-group "$RG" --name "$FOUNDRY" --location "$LOCATION" \
+  --kind AIServices --sku S0 --custom-domain "$FOUNDRY" --yes --output none
+az cognitiveservices account deployment create --resource-group "$RG" --name "$FOUNDRY" \
+  --deployment-name "$DEPLOYMENT" --model-name gpt-6-luna --model-version 2026-09-22 --model-format OpenAI \
+  --sku-name GlobalStandard --sku-capacity 10 --output none
+
+export FOUNDRY_ID="$(az cognitiveservices account show --resource-group "$RG" --name "$FOUNDRY" --query id --output tsv)"
+PRINCIPAL_ID="$(az resource show --ids "$GATEWAY_ID" --query identity.principalId --output tsv)"
+az role assignment create --assignee-object-id "$PRINCIPAL_ID" --assignee-principal-type ServicePrincipal \
+  --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope "$FOUNDRY_ID" --output none    # Foundry User
+```
+
+```powershell title="PowerShell"
+az cognitiveservices account create --resource-group $RG --name $FOUNDRY --location $LOCATION `
+  --kind AIServices --sku S0 --custom-domain $FOUNDRY --yes --output none
+az cognitiveservices account deployment create --resource-group $RG --name $FOUNDRY `
+  --deployment-name $DEPLOYMENT --model-name gpt-6-luna --model-version 2026-09-22 --model-format OpenAI `
+  --sku-name GlobalStandard --sku-capacity 10 --output none
+
+$FOUNDRY_ID   = az cognitiveservices account show --resource-group $RG --name $FOUNDRY --query id --output tsv
+$PRINCIPAL_ID = az resource show --ids $GATEWAY_ID --query identity.principalId --output tsv
+az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principal-type ServicePrincipal `
+  --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope $FOUNDRY_ID --output none    # Foundry User
+```
+
+### Publish the model
+
+Wait for the gateway, then publish the deployment in three requests: a provider that points at the Foundry account
+and signs in with the managed identity, a model for the deployment, and an alias that apps send in the `model` field.
+
+```bash title="Bash"
+az resource wait --ids "$GATEWAY_ID" --api-version 2025-09-01-preview --custom "properties.provisioningState=='Succeeded'"
+
+az rest --method put --output none --url "$WS/modelProviders/$PROVIDER?$API" \
+  --body "$(jq -cn --arg e "https://$FOUNDRY.cognitiveservices.azure.com/" --arg id "$FOUNDRY_ID" '{properties: {kind: "Foundry",
+      foundry: {endpoint: $e, resourceIds: [$id], authentication: {kind: "ManagedIdentity",
+        managedIdentity: {resource: "https://cognitiveservices.azure.com/"}}}}}')"
+az rest --method put --output none --url "$WS/modelProviders/$PROVIDER/models/$DEPLOYMENT?$API" \
+  --body "$(jq -cn --arg id "$FOUNDRY_ID/deployments/$DEPLOYMENT" --arg d "$DEPLOYMENT" '{properties: {
+      apiFormat: "OpenAIChatCompletions", supportedEndpoints: ["/openai/v1/chat/completions", "/openai/v1/responses"],
+      deployment: {resourceId: $id, modelName: $d}}}')"
+az rest --method put --url "$WS/aliases/$DEPLOYMENT?$API" --query properties.aliasName --output tsv \
+  --body "$(jq -cn --arg id "$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT" \
+      '{properties: {backendModels: [{resourceId: $id}]}}')"
+```
+
+```powershell title="PowerShell"
+az resource wait --ids $GATEWAY_ID --api-version 2025-09-01-preview --custom "properties.provisioningState=='Succeeded'"
+
+@{ properties = @{ kind = "Foundry"; foundry = @{
+      endpoint       = "https://$FOUNDRY.cognitiveservices.azure.com/"
+      resourceIds    = @($FOUNDRY_ID)
+      authentication = @{ kind = "ManagedIdentity"; managedIdentity = @{ resource = "https://cognitiveservices.azure.com/" } } } } } |
+  ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
+az rest --method put --output none --url "$WS/modelProviders/$PROVIDER`?$API" --body "@body.json"
+@{ properties = @{
+      apiFormat          = "OpenAIChatCompletions"
+      supportedEndpoints = @("/openai/v1/chat/completions", "/openai/v1/responses")
+      deployment         = @{ resourceId = "$FOUNDRY_ID/deployments/$DEPLOYMENT"; modelName = $DEPLOYMENT } } } |
+  ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
+az rest --method put --output none --url "$WS/modelProviders/$PROVIDER/models/$DEPLOYMENT`?$API" --body "@body.json"
+@{ properties = @{ backendModels = @(@{ resourceId = "$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT" }) } } |
+  ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
+az rest --method put --url "$WS/aliases/$DEPLOYMENT`?$API" --body "@body.json" --query properties.aliasName --output tsv
+Remove-Item body.json
+```
+
+### Create a runtime API key
+
+Create a key for your app. Then read the key, the gateway URL, and the alias into environment variables, so that
+the key never shows on screen.
+
+```bash title="Bash"
+az rest --method put --output none --url "$GW/apiKeys/app-first-call?$API" --body '{"properties":{}}'
+
+export AI_GATEWAY_API_KEY="$(az rest --method post --url "$GW/apiKeys/app-first-call/listSecrets?$API" \
+  --query primaryKey --output tsv)"
+export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname --output tsv)"
+export AI_GATEWAY_MODEL="$DEPLOYMENT"
+echo "$AI_GATEWAY_URL"
+```
+
+```powershell title="PowerShell"
+'{"properties":{}}' | Set-Content body.json
+az rest --method put --output none --url "$GW/apiKeys/app-first-call?$API" --body "@body.json"
+Remove-Item body.json
+
+$env:AI_GATEWAY_API_KEY = az rest --method post --url "$GW/apiKeys/app-first-call/listSecrets?$API" `
+  --query primaryKey --output tsv
+$env:AI_GATEWAY_URL     = "https://" + (az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname --output tsv)
+$env:AI_GATEWAY_MODEL   = $DEPLOYMENT
+$env:AI_GATEWAY_URL
+```
+
+> **Checkpoint:** the alias request printed `gpt-6-luna`, and the last command printed your gateway's runtime URL,
+> for example `https://aigw-abc123.eastus2-01.ai.gateway.azure.com`.
+
+<!-- /tracks -->
 
 ## Make your first call
 
-Read the deployment's outputs, get the runtime key, and call the alias. The key goes into an environment variable,
-so it never shows on screen.
+Send a Chat Completions request to the gateway's OpenAI-compatible base URL, with the alias in the `model` field and
+the key in the `api-key` header. Run it in the same shell as the track you followed.
 
 <!-- steps -->
 
-### Read the URL, the alias, and the key
-
-```bash title="Bash"
-out() { az deployment group show --resource-group "$RG" --name quickstart --query "properties.outputs.$1.value" --output tsv; }
-export AI_GATEWAY_URL="$(out gatewayUrl)"
-export AI_GATEWAY_MODEL="$(out aliasName)"
-export AI_GATEWAY_API_KEY="$(az rest --method post \
-  --url "https://management.azure.com$(out gatewayId)/apiKeys/$(out apiKeyName)/listSecrets?api-version=2025-09-01-preview" \
-  --query primaryKey --output tsv)"
-```
-
-```powershell title="PowerShell"
-$out = az deployment group show --resource-group $RG --name quickstart --query properties.outputs --output json | ConvertFrom-Json
-$env:AI_GATEWAY_URL = $out.gatewayUrl.value
-$env:AI_GATEWAY_MODEL = $out.aliasName.value
-$env:AI_GATEWAY_API_KEY = az rest --method post `
-  --url "https://management.azure.com$($out.gatewayId.value)/apiKeys/$($out.apiKeyName.value)/listSecrets?api-version=2025-09-01-preview" `
-  --query primaryKey --output tsv
-```
-
 ### Call the alias
-
-Send a Chat Completions request to the gateway, with the alias in the `model` field and the key in the `api-key`
-header.
 
 ```bash title="Bash"
 curl -sS "$AI_GATEWAY_URL/default/models/openai/v1/chat/completions" \
   -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
   -d "{\"model\":\"$AI_GATEWAY_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"In one sentence, what does an AI gateway do?\"}]}" \
-  | jq -r '.choices[0].message.content'
+  | jq -r '.choices[0].message.content // .error.message'
 ```
 
 ```powershell title="PowerShell"
@@ -193,55 +376,57 @@ curl -sS -o /dev/null -w "%{http_code}\n" "$AI_GATEWAY_URL/default/models/openai
   -ContentType "application/json" -Body $body -SkipHttpErrorCheck).StatusCode
 ```
 
-> **Checkpoint:** you got a reply with the key, and `401` without it. Your gateway is live, and the Foundry account
-> has no key that an app could leak: only the gateway's managed identity can call it.
+> **Checkpoint:** you got a reply with the key, and `401` without it. Your gateway is live, and your app never needed a
+> Foundry key: only the gateway's managed identity calls Foundry.
 
-<!-- /steps -->
+### See it in the portal
 
-### See it in the portal (optional)
-
-Open the [AI Gateway portal](https://ai.gateway.azure.com) and select your gateway:
+Open the [AI Gateway portal](https://ai.gateway.azure.com) and select your gateway in the top bar. If you followed the
+Azure CLI track, this is your first look at what you created:
 
 - **Models** lists the `gpt-6-luna` deployment, and its **Aliases** tab shows the alias.
 - **Catalog** has a playground: pick the model and send a prompt.
 - **Access** › **Keys** shows `app-first-call`.
 
+<!-- /steps -->
+
 ## Clean up
 
-To keep exploring, keep the gateway: it uses the same names as [lab 02](../02-first-model-call/README.md), so
-[lab 03](../03-multi-provider-aliases/README.md) and the labs after it work on it. Use `rg-aigw-quickstart` as the
-resource group and the gateway name that the deployment printed. On the labs site, save both in **Your values**.
+To keep exploring, keep the gateway. It has the same building blocks that [lab 02](../02-first-model-call/README.md)
+leaves behind, so [lab 03](../03-multi-provider-aliases/README.md) and the labs after it work on it. On the labs site,
+save the resource group and the gateway name in **Your values**.
 
-Otherwise, delete the resource group, then purge the Foundry account. Deleted Foundry accounts stay soft-deleted for
-48 hours, and the template reuses the same account name when you deploy to the same resource group again.
+Otherwise, delete the resource group. In the portal track, delete the resource group that you created for the gateway
+from the [Azure portal](https://portal.azure.com), and keep your Foundry account unless you created it for this quick
+start. In the Azure CLI track, delete the resource group, then purge the Foundry account. Deleted Foundry accounts
+stay soft-deleted for 48 hours and keep counting against your quota until you purge them.
 
 ```bash title="Bash"
-FOUNDRY="$(out foundryAccountName)"
 az group delete --name "$RG" --yes
 az cognitiveservices account purge --name "$FOUNDRY" --resource-group "$RG" --location "$LOCATION"
 ```
 
 ```powershell title="PowerShell"
-$foundry = $out.foundryAccountName.value
 az group delete --name $RG --yes
-az cognitiveservices account purge --name $foundry --resource-group $RG --location $LOCATION
+az cognitiveservices account purge --name $FOUNDRY --resource-group $RG --location $LOCATION
 ```
 
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
 |---|---|---|
+| A subscription is disabled in **Create AI gateway** | You can't write API Management or connector gateway resources in it | Pick another subscription, or ask for **Contributor** on it. |
 | `AuthorizationFailed` on `Microsoft.Authorization/roleAssignments` | You can create resources but not role assignments | Ask for **Owner**, or **Role Based Access Control Administrator**, on the resource group. |
-| `InsufficientQuota` on the model deployment | The subscription has no `gpt-6-luna` capacity left in the region | Deploy to `swedencentral` instead, or free capacity in [Foundry](https://ai.azure.com). |
-| `FlagMustBeSetForRestore` or a name conflict on the Foundry account | An earlier run's account is soft-deleted | Purge it with the clean-up command, then deploy again. |
-| `403` or `404` from the gateway in the first minute | The gateway's role on the Foundry account, or the new alias, is still taking effect | Wait a minute and call again. The scripts retry for you. |
-| `401` | The key is missing, wrong, or in the wrong header | Send it in the `api-key` header, or as `Authorization: Bearer <key>`. Read it again with the `listSecrets` command. |
+| `InsufficientQuota` on the model deployment | The subscription has no `gpt-6-luna` capacity left in the region | Set `LOCATION` to `swedencentral` and start again, or free capacity in [Foundry](https://ai.azure.com). |
+| `403` or `404` from the gateway in the first minute | The gateway's role on the Foundry account, or the new alias, is still taking effect | Wait a minute and call again. |
+| `403` from the backend that doesn't go away | The gateway's managed identity has no role on the Foundry account | Assign it **Foundry User** on the account, as in the Azure CLI track's **Deploy the model in Foundry** step, and wait a few minutes. |
+| `401` | The key is missing, wrong, or in the wrong header | Send it in the `api-key` header, or as `Authorization: Bearer <key>`. In the portal, create a new key if you lost the value. |
 | `400` that mentions authentication | The request has both an `api-key` and an `Authorization` header | Send only one of them. |
-| `The subscription is not registered to use namespace` | A resource provider isn't registered yet | Run `az provider register --namespace Microsoft.ApiManagement`, and the same for `Microsoft.CognitiveServices`, then deploy again. |
+| `The subscription is not registered to use namespace` | A resource provider isn't registered yet | Run the `az provider register` loop from **Start creating the gateway**, then try again. |
 
 ## Next steps
 
 - [How Azure AI Gateway works](../00-how-ai-gateway-works/README.md): a 3-minute video and a guided tour of every building block.
-- [Provision your AI Gateway](../01-provision-gateway/README.md) and [Publish a Foundry model and make your first call](../02-first-model-call/README.md): the same setup, step by step in the portal, with the Responses API and more SDKs.
+- [Provision your AI Gateway](../01-provision-gateway/README.md) and [Publish a Foundry model and make your first call](../02-first-model-call/README.md): the same setup in depth, with Bicep, the Responses API, and more SDKs.
 - [Publish models from any provider behind stable aliases](../03-multi-provider-aliases/README.md): put models from several providers behind names your apps keep.
 - [Throttle tokens per caller with token limits](../06-token-limits/README.md): give every app its own allowance.

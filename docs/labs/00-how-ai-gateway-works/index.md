@@ -233,8 +233,8 @@ Nothing to clean up. This lab doesn't create resources.
 
 ## Next steps
 
-Short on time? The [5-minute quick start](../quickstart/README.md) deploys a gateway with a Foundry model in one
-command and makes your first call. Then pick the path that fits your role. Each path is a sequence of labs, and your
+Short on time? The [5-minute quick start](../quickstart/README.md) creates a gateway with a Foundry model in the
+portal or Azure Cloud Shell and makes your first call. Then pick the path that fits your role. Each path is a sequence of labs, and your
 progress is saved in this browser.
 
 | Path | Start with | You'll learn to |

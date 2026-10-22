@@ -27,10 +27,10 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
 
 #### Labs changes
 
-- **October 22.** New [5-minute quick start](quickstart/README.md): learn the five building blocks, deploy a gateway
-  with a Foundry `gpt-6-luna` model, an alias, and a runtime key in one Bicep deployment, and make your first call.
-  It has Bash and PowerShell scripts that do it all in one command, and a notebook. The home page now starts with
-  it, and the former 30-minute quickstart path is now **30-minute essentials**.
+- **October 22.** New [5-minute quick start](quickstart/README.md): learn the five building blocks, create a gateway
+  with a Foundry `gpt-6-luna` model, an alias, and a runtime key, and make your first call. Follow it in the AI
+  Gateway portal or paste its Azure CLI commands (Bash or PowerShell) into Cloud Shell; there's nothing to clone. The
+  home page now starts with it, and the former 30-minute quickstart path is now **30-minute essentials**.
 - **October 22.** New lab [23 · Stream responses and count every token](23-streaming-responses/README.md), which
   covers usage for streamed Chat Completions responses from the [September 24](#september-24-2026) release. It
   streams with curl, PowerShell, Python, and TypeScript, shows each chunk and where usage arrives, proves that a

@@ -48,12 +48,14 @@ export const provisioning = () => svgDoc('provisioning', {
 
 export const quickstart = () => svgDoc('quickstart', {
   title: 'Azure AI Gateway quick start',
-  desc: 'Step 1: one Bicep deployment creates an AI Gateway with its connector gateway, a Foundry model deployment, a Foundry model provider that signs in with the gateway managed identity, an alias, and a runtime API key. Step 2: your app sends a request with the key to the gateway runtime URL. The gateway checks the key, routes the alias to the backend model, and calls Foundry with its managed identity. Without a key the gateway returns 401 and the request never reaches Foundry.',
+  desc: 'Step 1: in the AI Gateway portal, or with the Azure CLI in Azure Cloud Shell, you create an AI Gateway, a Foundry model deployment, a Foundry model provider that signs in with the gateway managed identity, an alias, and a runtime API key. Step 2: your app sends a request with the key to the gateway runtime URL. The gateway checks the key, routes the alias to the backend model, and calls Foundry with its managed identity. Without a key the gateway returns 401 and the request never reaches Foundry.',
   h: 436,
   body: () => {
-    let o = zone(16, 20, 928, 160, '1 · Deploy once · about 3 minutes', { ic: 'clock', tone: 'azure' });
-    o += box(32, 52, 260, 72, { t: 'One deployment', s: 'az deployment group create', s2: 'infra/main.bicep', icon: 'terminal', tone: 'azure', mono: 'all' });
-    o += arrow('M294 88 H326', { tone: 'azure' });
+    let o = zone(16, 20, 928, 160, '1 · Set up once · portal or Azure CLI', { ic: 'clock', tone: 'azure' });
+    o += box(32, 54, 260, 44, { t: 'AI Gateway portal', s: 'ai.gateway.azure.com', icon: 'globe', tone: 'azure', mono: 'all' });
+    o += label(162, 113, 'or', { cls: 'dg-cap' });
+    o += box(32, 120, 260, 44, { t: 'Azure CLI', s: 'paste into Azure Cloud Shell', icon: 'terminal', tone: 'azure' });
+    o += arrow('M294 76 C312 76 310 88 326 88', { tone: 'azure' }) + arrow('M294 142 C316 142 308 88 326 88', { tone: 'azure' });
     [['sparkle', 'AI Gateway', '+ connector gateway'], ['models', 'Foundry model', 'gpt-6-luna'], ['plug', 'Provider', 'managed identity'], ['route', 'Alias', 'gpt-6-luna'], ['key', 'Runtime key', 'app-first-call']]
       .forEach(([ic, l, sub], i) => { o += node(360 + i * 135, 60, ic, l, { sub, tone: i === 1 ? 'azure' : 'violet' }); });
     o += zone(16, 196, 928, 224, '2 · Call the model · seconds', { ic: 'bolt', tone: 'violet' });
