@@ -60,7 +60,7 @@ commands into Azure Cloud Shell. There's nothing to clone or install.
 <summary>Portal track without a Foundry deployment? Create one in Cloud Shell.</summary>
 
 Open [Azure Cloud Shell](https://shell.azure.com) in Bash and paste these commands. They create a Foundry account with
-a `gpt-6-luna` deployment in a new resource group, in about a minute. Then create the gateway in the same resource
+a `gpt-6-luna` deployment in a new resource group, in a minute or two. Then create the gateway in the same resource
 group, so that you can clean up with one command. Model inference is billed per use.
 
 ```bash title="Bash"
@@ -105,38 +105,88 @@ Sweden Central (`swedencentral`).
 ### Create the gateway
 
 1. Open the [AI Gateway portal](https://ai.gateway.azure.com) and sign in. For your first gateway, the portal opens
-   **Create AI gateway** right away. Otherwise, open the gateway switcher in the top bar and create a new one.
-2. Enter a **Name**, or select **Generate a new name**. Then choose your subscription, a **Resource group**, and the
-   **Region**: **East US 2** or **Sweden Central**.
-3. Keep the **Advanced** defaults and select **Create gateway**. Provisioning takes a few minutes, then **Home** opens
-   with a setup guide.
+   **Create AI gateway** right away. Otherwise, open the gateway switcher in the top bar and select
+   **Create new gateway**.
+
+   ![The gateway switcher open in the top bar, with Recent gateways, View all gateways, and Create new gateway](../assets/screens/quickstart-01-switcher.webp "The gateway switcher lists your recent gateways. Create new gateway opens the Create AI gateway dialog.")
+
+2. Enter a **Name**, or select **Generate a new name**. Then choose your **Subscription**, a **Resource group**, and
+   the **Region**: **East US 2** or **Sweden Central**. For the resource group, select **New**, or select
+   **Existing** and pick the resource group of your Foundry account, so that you can clean up both with one command.
+
+   ![The Create AI gateway dialog with a name, the Existing resource group rg-aigw-quickstart, and the East US 2 region](../assets/screens/quickstart-02-create.webp "Create AI gateway: a generated name, the existing resource group of the Foundry account, and East US 2.")
+
+3. Keep the **Advanced** defaults and select **Create gateway**. **All gateways** opens and shows the provisioning
+   status, which moves from **Activating** to **Succeeded** in a few minutes. Then the portal selects your new
+   gateway.
+
+   ![All gateways with the banner Gateway creation is in progress and the new gateway in the Activating state](../assets/screens/quickstart-03-provisioning.webp "All gateways while the gateway provisions. You can keep using other gateways in the meantime.")
 
 ### Import the model from Foundry
 
-1. Select **Models** › **Add models** › **Models from Microsoft Foundry**. The **Import from Foundry** card on
-   **Home** starts the same import.
-2. Select the subscription and resource group of your Foundry account, then select the `gpt-6-luna` deployment.
-3. Keep **Managed identity** as the **Authentication method** and **Create an alias for each model** selected, then
-   select **Add models**.
-4. Open the model and select the **Aliases** tab. Note the alias, for example `<foundry-account-name>/gpt-6-luna`.
+1. **Home** opens with the **Set up your gateway** guide. Under **Add a model**, select
+   **Add from Microsoft Foundry**.
+
+   ![Home with the new gateway in the switcher and the Set up your gateway guide, with Add from Microsoft Foundry highlighted](../assets/screens/quickstart-04-home.webp "Set up your gateway walks you through three steps: add a model, test a model, and apply policies.")
+
+   You can also start from **Models** › **Add** › **Models from Microsoft Foundry**.
+
+   ![The Models page with the Add menu open on Models from Microsoft Foundry](../assets/screens/quickstart-05-add-menu.webp "Models › Add imports models from Microsoft Foundry or a custom provider, or creates an alias for a model that you already added.")
+
+2. **Add models from Microsoft Foundry** discovers the model deployments in your subscriptions and selects all of
+   them. In **Resource groups**, select only the resource group of your Foundry account. Then check that **Models**
+   selects only your Foundry account with `gpt-6-luna`.
+3. Keep **Managed identity** as the **Authentication method**, with the system-assigned managed identity, and keep
+   **Create an alias for each model** selected. Then select **Add models**.
+
+   ![Add models from Microsoft Foundry, filtered to one resource group, with Managed identity, Create an alias for each model, one selected Foundry account with gpt-6-luna, and the Add models button highlighted](../assets/screens/quickstart-06-import.webp "Filter by resource group, so that you import only the deployment that you need. The gateway calls Foundry with its managed identity.")
+
+4. **Models** opens. The **Backend models** tab lists `gpt-6-luna`, and the **Aliases** tab shows the alias that
+   apps call: `<foundry-account-name>/gpt-6-luna`. Note the alias.
+
+   ![The Aliases tab of Models with the alias aigwb92bd1/gpt-6-luna, its backend model gpt-6-luna, and its provider](../assets/screens/quickstart-07-alias.webp "Each alias is named after the Foundry account and the deployment, and routes to the backend model gpt-6-luna.")
 
 ### Create a runtime API key
 
-1. Select **Access** › **Keys** › **Create API key**. Some portal versions show **Keys** directly in the left
-   navigation.
+1. Select **Access**, then the **Keys** tab, then **Create API key**.
+
+   ![Access with the Keys tab, the Create API key button, and the new key app-first-call in the list](../assets/screens/quickstart-08-keys.webp "Access › Keys lists the built-in all-access subscription and your keys. After the next step, app-first-call appears here.")
+
 2. Enter `app-first-call` as the **Key name**, then select **Create**.
-3. Copy the value from **API key created successfully**. Copy it now: the portal shows it only once.
+
+   ![The Create API key dialog with the key name app-first-call and the Create button](../assets/screens/quickstart-09-key-create.webp "Give the key a name that identifies the app. Limits, cost, and monitoring use it.")
+
+3. In **API key created successfully**, select **Copy & done** to copy the key. Keep it somewhere safe: you paste it
+   in the next steps. You can view, rotate, or delete it later in **Access** › **Keys**.
+
+   ![The API key created successfully dialog with a masked key, the key name, and the Copy & done button](../assets/screens/quickstart-10-key-done.webp "The key stays masked until you select Show. Copy & done copies it and closes the dialog.")
 
 ### Try the model in the playground
 
-Select **Catalog**, pick your model, and send a prompt in the playground, for example
-`In one sentence, what does an AI gateway do?`. The model also lists its endpoint and code samples in cURL,
-PowerShell, Python, TypeScript, and .NET.
+1. Select **Catalog**, then select your model.
+
+   ![The Catalog with the model card aigwb92bd1/gpt-6-luna](../assets/screens/quickstart-11-catalog.webp "The Catalog lists the models and MCP servers that apps can call through this gateway.")
+
+2. Under **Authentication**, choose `app-first-call` as the **API key**, so that you test with your new key. Then
+   send a prompt, for example `In one sentence, what does an AI gateway do?`.
+
+   ![The model page with the API key app-first-call, the prompt, and the model's reply](../assets/screens/quickstart-12-playground.webp "The playground calls the gateway's endpoint with the key that you choose, and shows the reply, the latency, and the tokens.")
+
+3. Optional: select **Continue in code**. It shows the endpoint URL and snippets for cURL, the OpenAI SDK, LangChain,
+   Vercel AI, the GitHub Copilot SDK, and Microsoft Agent Framework, plus a prompt that installs the AI Gateway
+   plugin in your coding agent.
+
+   ![Continue in code with the cURL snippet selected, which calls the alias with the api-key header](../assets/screens/quickstart-13-code.webp "The cURL snippet reads the key from AI_GATEWAY_API_KEY, the variable that you set in the next step.")
 
 ### Save the URL, the alias, and the key
 
 To call the gateway the way an app does, open [Azure Cloud Shell](https://shell.azure.com) or any terminal with the
-Azure CLI. Read the gateway URL, set the alias, and paste the key without showing it on screen.
+Azure CLI. You need the gateway name and its resource group: open the gateway switcher and select
+**View all gateways**. The **Runtime URL** column shows the gateway URL, with a copy button.
+
+![All gateways filtered to the new gateway, with its name, runtime URL, and resource group highlighted](../assets/screens/quickstart-14-runtime-url.webp "All gateways: the name, the runtime URL, and the resource group of each gateway.")
+
+Read the gateway URL, set the alias, and paste the key without showing it on screen.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
@@ -158,8 +208,8 @@ $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 ```
 </details> <!-- gh -->
 
-> **Checkpoint:** the playground answered, **Models** lists `gpt-6-luna`, and **Access** › **Keys** shows
-> `app-first-call`.
+> **Checkpoint:** the playground answered, **Models** › **Aliases** shows your alias, and **Access** › **Keys**
+> shows `app-first-call`.
 
 </details> <!-- gh -->
 <!-- track: cli | Azure CLI -->
@@ -457,8 +507,8 @@ curl -sS -o /dev/null -w "%{http_code}\n" "$AI_GATEWAY_URL/default/models/openai
 Open the [AI Gateway portal](https://ai.gateway.azure.com) and select your gateway in the top bar. If you followed the
 Azure CLI track, this is your first look at what you created:
 
-- **Models** lists the `gpt-6-luna` deployment, and its **Aliases** tab shows the alias.
-- **Catalog** has a playground: pick the model and send a prompt.
+- **Models** › **Backend models** lists `gpt-6-luna`, and **Aliases** shows the alias.
+- **Catalog** has a playground: pick the model and send a prompt. **Continue in code** shows code snippets.
 - **Access** › **Keys** shows `app-first-call`.
 
 <!-- /steps -->
@@ -499,7 +549,7 @@ az cognitiveservices account purge --name $FOUNDRY --resource-group $RG --locati
 | `InsufficientQuota` on the model deployment | The subscription has no `gpt-6-luna` capacity left in the region | Set `LOCATION` to `swedencentral` and start again, or free capacity in [Foundry](https://ai.azure.com). |
 | `403` or `404` from the gateway in the first minute | The gateway's role on the Foundry account, or the new alias, is still taking effect | Wait a minute and call again. |
 | `403` from the backend that doesn't go away | The gateway's managed identity has no role on the Foundry account | Assign it **Foundry User** on the account, as in the Azure CLI track's **Deploy the model in Foundry** step, and wait a few minutes. |
-| `401` | The key is missing, wrong, or in the wrong header | Send it in the `api-key` header, or as `Authorization: Bearer <key>`. In the portal, create a new key if you lost the value. |
+| `401` | The key is missing, wrong, or in the wrong header | Send it in the `api-key` header, or as `Authorization: Bearer <key>`. In the portal, copy it again from **Access** › **Keys**. |
 | `400` that mentions authentication | The request has both an `api-key` and an `Authorization` header | Send only one of them. |
 | `The subscription is not registered to use namespace` | A resource provider isn't registered yet | Run the `az provider register` loop from **Start creating the gateway**, then try again. |
 

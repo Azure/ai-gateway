@@ -121,8 +121,8 @@ Pick one track. Each track publishes the deployment, gives you a callable alias,
 ### Import the deployment from Foundry
 
 1. Open the [AI Gateway portal](https://ai.gateway.azure.com) and select your gateway in the top bar.
-2. Select **Models** › **Add models** › **Models from Microsoft Foundry**. (On **Home**, the
-   **Import from Foundry** card starts the same import.)
+2. Select **Models** › **Add** › **Models from Microsoft Foundry**. (On **Home**, **Add from Microsoft Foundry** in
+   the **Set up your gateway** guide starts the same import.)
 3. Select the subscription and resource group of your Foundry account. The wizard discovers the deployments
    automatically. Deployments that are already in this gateway can't be selected again.
 4. Select the `gpt-6-luna` deployment and keep **Managed identity** as the **Authentication method**.

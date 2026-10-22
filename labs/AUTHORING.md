@@ -166,7 +166,12 @@ Kinds: `NOTE`, `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`. A blockquote starting w
   `policy-cost-limit-details.png`, `monitoring-token-claim-attributes.png`, `models-aliases.png`,
   `mcp-tool-controls.png`, `policy-add-wizard.png`, `policy-gateway-scope.png`,
   `policy-cost-limit-entra-overrides.png`, `policy-tool-threat-protection.jpeg`,
-  `access-entra-role-assignments.png`, `managed-identities.png`, `models-alias-routing.png`.
+  `access-entra-role-assignments.png`, `managed-identities.png`, `models-alias-routing.png`. The
+  `quickstart-01…14-*.webp` set walks the whole portal flow: the gateway switcher, Create AI gateway, provisioning,
+  Home, the Foundry import, aliases, Access › Keys, the Create API key dialogs, Catalog, the playground,
+  Continue in code, and All gateways with the runtime URL.
+- New screenshots: crop to the relevant area, replace real names, emails, and IDs with Contoso placeholders, mask
+  every key, highlight the controls to select with magenta (`#e3008c`) boxes, and save as WebP, 1600 px wide at most.
 - Diagrams in `assets/diagrams/`: `architecture.svg`, `request-lifecycle.svg`, `aliases.svg`,
   `mcp-federation.svg`, `policy-scopes.svg`, `identity-boundaries.svg`, `observability.svg`,
   `private-networking.svg`, `hosted-agent.svg`, `agent-365.svg`, `threat-protection.svg`, `token-limits.svg`,

@@ -158,8 +158,8 @@ aliases. `support-chat` points to the fast model, and `anthropic/claude-sonnet-5
 ### Start the custom provider wizard
 
 Open the [AI Gateway portal](https://ai.gateway.azure.com) and select your gateway from the gateway switcher.
-Select **Models** › **Add models** › **Models from a custom provider**. The **Add a custom model** card on
-**Home** opens the same wizard.
+Select **Models** › **Add** › **Models from a custom provider**. **Add custom provider** in the
+**Set up your gateway** guide on **Home** opens the same wizard.
 
 On the **Provider** step, select **Create new provider** and fill in **Basic info**:
 
@@ -412,7 +412,7 @@ Select **Models** › **Aliases** › **Add alias**. The **Create alias** wizard
 | **Priority and weights** | Keep the defaults, priority `0` and weight `1`. With one backend model, it gets all requests. |
 | **Review** | Check the summary. |
 
-Select **Create**. You can also start from **Models** › **Add models** › **Alias for an existing model**.
+Select **Create**. You can also start from **Models** › **Add** › **Alias for an existing model**.
 
 ### Limit each alias
 

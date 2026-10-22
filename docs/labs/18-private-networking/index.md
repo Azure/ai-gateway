@@ -486,7 +486,7 @@ Foundry with its own system-assigned managed identity, which needs the **Foundry
 ### Import the deployment from Foundry
 
 1. In the [AI Gateway portal](https://ai.gateway.azure.com), select the new gateway in the top bar.
-2. Select **Models** › **Add models** › **Models from Microsoft Foundry**.
+2. Select **Models** › **Add** › **Models from Microsoft Foundry**.
 3. Select the subscription and resource group of your Foundry account, then select your deployment and keep
    **Managed identity** as the **Authentication method**.
 4. Under **Aliases**, keep **Create an alias for each model** selected, then select **Add models**.

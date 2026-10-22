@@ -207,7 +207,7 @@ weights `80` and `20`.
 ### Import the candidate model
 
 1. Open the [AI Gateway portal](https://ai.gateway.azure.com) and select your gateway in the top bar.
-2. Select **Models** › **Add models** › **Models from Microsoft Foundry**.
+2. Select **Models** › **Add** › **Models from Microsoft Foundry**.
 3. Select the subscription and resource group of your Foundry account, then select the `gpt-6.1-sol`
    deployment. Keep **Managed identity** as the **Authentication method**.
 4. Select **Add models**. If the wizard also creates an alias named after the model, keep it; this lab doesn't
