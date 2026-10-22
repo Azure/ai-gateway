@@ -11,6 +11,7 @@ export const I = {
   notebook: P('<rect x="4.5" y="2.5" width="12" height="15" rx="2"/><path d="M3 6h3M3 10h3M3 14h3M9 7h4.5M9 10.5h4.5"/>'),
   level: P('<path d="M4 16v-3M10 16V9M16 16V4"/>'),
   stream: P('<path d="M2.5 6c2-1.5 3.5-1.5 5 0s3 1.5 5 0 3.5-1.5 5 0M2.5 10c2-1.5 3.5-1.5 5 0s3 1.5 5 0 3.5-1.5 5 0M2.5 14c2-1.5 3.5-1.5 5 0s3 1.5 5 0 3.5-1.5 5 0"/>'),
+  bolt: P('<path d="M11.2 2.5 4.5 11h4.6l-.8 6.5 6.7-8.5h-4.6z"/>'),
   arrowR: P('<path d="M4 10h12M11.5 5.5 16 10l-4.5 4.5"/>'),
   arrowL: P('<path d="M16 10H4M8.5 5.5 4 10l4.5 4.5"/>'),
   chevR: P('<path d="m8 5 5 5-5 5"/>'),
@@ -158,6 +159,9 @@ function trackChips(tracks, { labels = true } = {}) {
   return `<span class="track-chips">${tracks.map((t) => `<span class="track-chip" title="${esc(TRACK_LABELS[t] || t)}">${trackIcon(t)}${labels ? `<span>${esc(SHORT_TRACK[t] || t)}</span>` : ''}</span>`).join('')}</span>`;
 }
 
+// Lab number, or a bolt for the unnumbered quick start.
+const numHtml = (l) => (l.quick ? `<span class="num-quick" title="${esc(l.label)}">${I.bolt}</span>` : l.num);
+
 function statusBadge(status) {
   if (!status) return '';
   const label = { new: 'New', preview: 'Preview', emerging: 'Emerging' }[status] || status;
@@ -170,7 +174,7 @@ export function labCard(lab, rel, cat, { compact = false } = {}) {
   const text = [lab.title, lab.summary, ...(lab.tags || []), cat?.title].join(' ').toLowerCase();
   return `<a class="lab-card${compact ? ' lab-card-compact' : ''}" href="${labUrl(rel, lab.slug)}" data-lab="${lab.slug}" data-category="${lab.category}" data-level="${esc(lab.level)}" data-tracks="${lab.tracks.join(' ')}" data-status="${esc(lab.status || '')}" data-paths="${paths}" data-text="${esc(text)}" style="--c: var(--cat-${cat?.color || 'violet'})">
   <div class="lab-card-top">
-    <span class="lab-card-num">${lab.num}</span>
+    <span class="lab-card-num">${numHtml(lab)}</span>
     <span class="lab-card-icon">${icon}</span>
     ${statusBadge(lab.status)}
     <span class="lab-card-progress" data-progress-for="${lab.slug}" hidden></span>
@@ -244,8 +248,20 @@ function heroDiagram(rel) {
 export function homePage({ rel, site, catalog, labs, totals, latest }) {
   const byId = Object.fromEntries(labs.map((l) => [l.slug, l]));
   const cats = Object.fromEntries(catalog.categories.map((c) => [c.id, c]));
-  const quick = catalog.paths.find((p) => p.id === 'quickstart');
-  const firstLab = quick ? quick.labs[0] : labs[0].slug;
+  const quick = byId.quickstart;
+  const essentials = catalog.paths.find((p) => p.id === 'essentials');
+  const startHref = labUrl(rel, quick ? 'quickstart' : labs[0].slug);
+  // Real output of labs/quickstart/infra/quickstart.sh. One block per line, so narrow screens wrap with a hanging indent.
+  const qsLines = [
+    ['', '<span class="qs-prompt">$</span> ./infra/quickstart.sh'],
+    ['qs-hang', '<span class="qs-dim">[1/3]</span> Deploying a gateway and a Foundry model…'],
+    ['qs-sub', 'Gateway <span class="qs-hl">aigw-vfcg3eujozqj4</span> is ready'],
+    ['qs-hang', '<span class="qs-dim">[2/3]</span> Reading the runtime key <span class="qs-nb">app-first-call</span>'],
+    ['qs-hang', '<span class="qs-dim">[3/3]</span> Calling <span class="qs-hl">gpt-6-luna</span> through the gateway'],
+    ['qs-gap', '<span class="qs-ok">HTTP 200</span> from <span class="qs-nb">gpt-6-luna-2026-09-22</span>:'],
+    ['qs-reply', 'An AI gateway sits between applications and AI models to route requests while managing security, access, and usage.'],
+    ['qs-gap', 'Done in <span class="qs-ok">2 min 18 s</span>.'],
+  ].map(([c, h]) => `<span class="qs-line${c ? ` ${c}` : ''}">${h}</span>`).join('');
 
   const trackCards = [
     { id: 'portal', title: 'Portal', text: 'Click-by-click guides in the AI Gateway portal, with exact labels and screenshots.' },
@@ -260,7 +276,7 @@ export function homePage({ rel, site, catalog, labs, totals, latest }) {
     return `<article class="path-card" data-path="${p.id}">
       <div class="path-card-head"><span class="path-icon">${I[p.icon] || I.flag}</span><div><h3>${esc(p.title)}</h3><span class="path-persona">${esc(p.persona)}</span></div></div>
       <p>${esc(p.description)}</p>
-      <ol class="path-steps">${pl.map((l) => `<li><a href="${labUrl(rel, l.slug)}?path=${p.id}" data-lab-link="${l.slug}"><span class="path-num">${l.num}</span><span class="path-title">${esc(l.short || l.title)}</span><span class="path-check" aria-hidden="true">${I.check}</span></a></li>`).join('')}</ol>
+      <ol class="path-steps">${pl.map((l) => `<li><a href="${labUrl(rel, l.slug)}?path=${p.id}" data-lab-link="${l.slug}"><span class="path-num">${numHtml(l)}</span><span class="path-title">${esc(l.short || l.title)}</span><span class="path-check" aria-hidden="true">${I.check}</span></a></li>`).join('')}</ol>
       <div class="path-card-foot"><span class="meta">${I.book}${pl.length} labs</span><span class="meta">${I.clock}${fmtDuration(mins)}</span><a class="btn btn-secondary btn-sm" href="${labUrl(rel, pl[0].slug)}?path=${p.id}" data-path-start="${p.id}">Start path ${I.arrowR}</a></div>
     </article>`;
   }).join('');
@@ -269,7 +285,7 @@ export function homePage({ rel, site, catalog, labs, totals, latest }) {
     const l = byId[u.lab];
     return `<a class="usecase ${kind}" href="${labUrl(rel, u.lab)}">
       <span class="usecase-icon">${I[u.icon] || I.sparkle}</span>
-      <span class="usecase-body"><span class="usecase-title">${esc(u.title)}</span><span class="usecase-text">${esc(u.text)}</span>${l ? `<span class="usecase-lab">Lab ${l.num} · ${esc(l.short || l.title)} ${I.arrowR}</span>` : ''}</span>
+      <span class="usecase-body"><span class="usecase-title">${esc(u.title)}</span><span class="usecase-text">${esc(u.text)}</span>${l ? `<span class="usecase-lab">${l.label} · ${esc(l.short || l.title)} ${I.arrowR}</span>` : ''}</span>
     </a>`;
   };
 
@@ -291,7 +307,7 @@ export function homePage({ rel, site, catalog, labs, totals, latest }) {
         <h1>Learn AI Gateway by <span class="grad-text">building with it</span></h1>
         <p class="hero-lead">${esc(site.tagline)} Guided labs for customers and field teams: publish models from any provider, federate MCP tools, enforce limits and budgets, go keyless, observe every token, and govern agents.</p>
         <div class="hero-cta">
-          <a class="btn btn-primary btn-lg" href="${labUrl(rel, firstLab)}?path=quickstart">${I.play}Start the 30-minute quickstart</a>
+          <a class="btn btn-primary btn-lg" href="${startHref}">${I.bolt}Start the 5-minute quick start</a>
           <a class="btn btn-secondary btn-lg" href="${rel}labs/">Browse all ${totals.labs} labs</a>
         </div>
         <dl class="hero-stats">
@@ -304,6 +320,30 @@ export function homePage({ rel, site, catalog, labs, totals, latest }) {
       <div class="hero-visual">${heroDiagram(rel)}</div>
     </div>
   </section>
+${quick ? `
+  <section class="section qs-band" id="quick-start" aria-labelledby="qs-band-title"><div class="container">
+    <div class="qs-card">
+      <div class="qs-copy">
+        <p class="eyebrow"><span class="num-quick">${I.bolt}</span>Start here · ${quick.duration} minutes</p>
+        <h2 id="qs-band-title">Your first model call in five minutes</h2>
+        <p>One Bicep deployment creates a gateway, a Microsoft Foundry model, an alias, and a runtime key. Then you call the model the way an app does, and watch the gateway turn away a call without a key.</p>
+        <ol class="qs-steps">
+          <li><span class="qs-step-num">1</span><span><strong>Understand</strong> the five building blocks</span><span class="qs-step-time">1 min</span></li>
+          <li><span class="qs-step-num">2</span><span><strong>Deploy</strong> everything with one command</span><span class="qs-step-time">3 min</span></li>
+          <li><span class="qs-step-num">3</span><span><strong>Call</strong> the model through the gateway</span><span class="qs-step-time">1 min</span></li>
+        </ol>
+        <div class="qs-cta">
+          <a class="btn btn-primary" href="${startHref}">Start the quick start ${I.arrowR}</a>
+          ${essentials ? `<a class="btn btn-ghost" href="#paths">Then go deeper: ${esc(essentials.title)}</a>` : ''}
+        </div>
+      </div>
+      <figure class="qs-terminal">
+        <div class="qs-terminal-bar" aria-hidden="true"><span></span><span></span><span></span><b>Bash · Cloud Shell</b></div>
+        <pre tabindex="0"><code>${qsLines}</code></pre>
+        <figcaption>Output of a real run of the quick start script.</figcaption>
+      </figure>
+    </div>
+  </div></section>` : ''}
 
   <section class="section" id="tracks"><div class="container">
     <div class="section-head"><p class="eyebrow">How you learn</p><h2>Your tools, your pace</h2><p>Every lab offers the tracks that fit the task. Pick one and the site remembers it across labs.</p></div>
@@ -423,7 +463,7 @@ export function labPage({ rel, site, catalog, labs, lab, html, toc, prev, next }
   const sidebar = catalog.categories.map((c) => {
     const items = labs.filter((l) => l.category === c.id);
     if (!items.length) return '';
-    return `<div class="side-group"><h2 style="--c: var(--cat-${c.color})">${esc(c.title)}</h2><ul>${items.map((l) => `<li><a href="${labUrl(rel, l.slug)}"${l.slug === lab.slug ? ' aria-current="page"' : ''} data-lab-link="${l.slug}"><span class="side-num">${l.num}</span><span class="side-title">${esc(l.short || l.title)}</span><span class="side-state" aria-hidden="true"></span></a></li>`).join('')}</ul></div>`;
+    return `<div class="side-group"><h2 style="--c: var(--cat-${c.color})">${esc(c.title)}</h2><ul>${items.map((l) => `<li><a href="${labUrl(rel, l.slug)}"${l.slug === lab.slug ? ' aria-current="page"' : ''} data-lab-link="${l.slug}"><span class="side-num">${numHtml(l)}</span><span class="side-title">${esc(l.short || l.title)}</span><span class="side-state" aria-hidden="true"></span></a></li>`).join('')}</ul></div>`;
   }).join('');
 
   const prereqs = (lab.prereqs || []).map((s) => byId[s]).filter(Boolean);
@@ -434,8 +474,8 @@ export function labPage({ rel, site, catalog, labs, lab, html, toc, prev, next }
   const updatedText = updated ? updated.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
 
   const pager = `<nav class="pager" aria-label="Previous and next labs">
-    ${prev ? `<a class="pager-link prev" href="${labUrl(rel, prev.slug)}" data-pager="prev"><span class="pager-dir">${I.arrowL}Previous</span><span class="pager-title">${prev.num} · ${esc(prev.title)}</span></a>` : '<span></span>'}
-    ${next ? `<a class="pager-link next" href="${labUrl(rel, next.slug)}" data-pager="next"><span class="pager-dir">Next${I.arrowR}</span><span class="pager-title">${next.num} · ${esc(next.title)}</span></a>` : '<span></span>'}
+    ${prev ? `<a class="pager-link prev" href="${labUrl(rel, prev.slug)}" data-pager="prev"><span class="pager-dir">${I.arrowL}Previous</span><span class="pager-title">${prev.quick ? prev.label : prev.num} · ${esc(prev.title)}</span></a>` : '<span></span>'}
+    ${next ? `<a class="pager-link next" href="${labUrl(rel, next.slug)}" data-pager="next"><span class="pager-dir">Next${I.arrowR}</span><span class="pager-title">${next.quick ? next.label : next.num} · ${esc(next.title)}</span></a>` : '<span></span>'}
   </nav>`;
 
   return `<div class="lab-layout" style="--c: var(--cat-${cat?.color || 'violet'})">
@@ -449,9 +489,9 @@ export function labPage({ rel, site, catalog, labs, lab, html, toc, prev, next }
   </aside>
   <div class="sidebar-scrim" data-nav-close hidden></div>
   <main id="main" class="lab-main" data-lab="${lab.slug}">
-    <nav class="breadcrumb" aria-label="Breadcrumb"><a href="${rel}labs/">Labs</a><span>/</span><a href="${rel}labs/?category=${lab.category}">${esc(cat?.title || lab.category)}</a><span>/</span><span aria-current="page">Lab ${lab.num}</span></nav>
+    <nav class="breadcrumb" aria-label="Breadcrumb"><a href="${rel}labs/">Labs</a><span>/</span><a href="${rel}labs/?category=${lab.category}">${esc(cat?.title || lab.category)}</a><span>/</span><span aria-current="page">${lab.label}</span></nav>
     <header class="lab-header">
-      <div class="lab-eyebrow"><span class="lab-eyebrow-icon">${I[CATEGORY_ICONS[lab.category]] || I.book}</span>${esc(cat?.title || lab.category)} · Lab ${lab.num}${statusBadge(lab.status)}</div>
+      <div class="lab-eyebrow"><span class="lab-eyebrow-icon">${I[CATEGORY_ICONS[lab.category]] || I.book}</span>${esc(cat?.title || lab.category)} · ${lab.label}${statusBadge(lab.status)}</div>
       <h1>${esc(lab.title)}</h1>
       <p class="lead">${esc(lab.summary)}</p>
       <div class="lab-meta">
@@ -476,7 +516,7 @@ export function labPage({ rel, site, catalog, labs, lab, html, toc, prev, next }
       </div>
       <div class="overview-col">
         <h2>${I.book}Before you start</h2>
-        ${prereqs.length ? `<ul class="prereq-list">${prereqs.map((p) => `<li><a href="${labUrl(rel, p.slug)}" data-lab-link="${p.slug}"><span class="side-num">${p.num}</span>${esc(p.title)}<span class="side-state" aria-hidden="true"></span></a></li>`).join('')}</ul>` : '<p class="muted">No prerequisite labs. Start here.</p>'}
+        ${prereqs.length ? `<ul class="prereq-list">${prereqs.map((p) => `<li><a href="${labUrl(rel, p.slug)}" data-lab-link="${p.slug}"><span class="side-num">${numHtml(p)}</span>${esc(p.title)}<span class="side-state" aria-hidden="true"></span></a></li>`).join('')}</ul>` : '<p class="muted">No prerequisite labs. Start here.</p>'}
         <p class="overview-tracks">Tracks: ${lab.tracks.map((t) => `<span>${esc(TRACK_LABELS[t] || t)}</span>`).join(', ')}</p>
       </div>
     </section>
@@ -489,7 +529,7 @@ ${html}
       <button class="btn btn-primary" type="button" data-complete-lab>${I.check}<span>Mark lab complete</span></button>
     </section>
     ${pager}
-    <p class="feedback">Found a problem or have an idea? <a href="${site.repo}/issues/new?labels=labs&title=${encodeURIComponent(`[Lab ${lab.num}] `)}" target="_blank" rel="noopener">Open an issue</a> or <a href="${editUrl}" target="_blank" rel="noopener">edit this lab on GitHub</a>.</p>
+    <p class="feedback">Found a problem or have an idea? <a href="${site.repo}/issues/new?labels=labs&title=${encodeURIComponent(`[${lab.label}] `)}" target="_blank" rel="noopener">Open an issue</a> or <a href="${editUrl}" target="_blank" rel="noopener">edit this lab on GitHub</a>.</p>
   </main>
   <aside class="toc" aria-label="On this page">
     <div class="toc-inner">

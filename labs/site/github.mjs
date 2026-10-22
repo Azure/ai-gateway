@@ -214,7 +214,7 @@ export function syncLab(raw, { lab, labs, catalog, site }) {
 
   // Header: breadcrumb above the title, lab card below it.
   out.push(...region('nav', [
-    `[AI Gateway labs](../README.md) › [${cat?.title || lab.category}](../README.md#${ghSlug(cat?.title || lab.category)}) › Lab ${lab.num}`,
+    `[AI Gateway labs](../README.md) › [${cat?.title || lab.category}](../README.md#${ghSlug(cat?.title || lab.category)}) › ${lab.label}`,
   ]), '');
   const prereqs = (lab.prereqs || []).map((s) => byId[s]).filter(Boolean);
   const tracks = (lab.tracks || []).map((t) => GH_TRACK_LABELS[t] || t).join(' · ');

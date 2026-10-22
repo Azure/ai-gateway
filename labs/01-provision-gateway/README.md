@@ -583,5 +583,5 @@ az resource delete -g $RG -n $GATEWAY --resource-type Microsoft.Web/connectorGat
 | :-- | :-: | --: |
 | [00 · How AI Gateway works](../00-how-ai-gateway-works/README.md) | [All labs](../README.md) | [02 · First model call](../02-first-model-call/README.md) |
 
-<sub>Learning paths: [30-minute quickstart](../README.md#learning-paths) (2 of 4) · [Platform engineer](../README.md#learning-paths) (1 of 9)</sub>
+<sub>Learning paths: [30-minute essentials](../README.md#learning-paths) (2 of 4) · [Platform engineer](../README.md#learning-paths) (1 of 9)</sub>
 <!-- gh:end -->

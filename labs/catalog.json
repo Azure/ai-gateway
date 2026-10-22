@@ -61,8 +61,8 @@
   ],
   "paths": [
     {
-      "id": "quickstart",
-      "title": "30-minute quickstart",
+      "id": "essentials",
+      "title": "30-minute essentials",
       "persona": "Everyone",
       "icon": "rocket",
       "description": "Provision a gateway, publish a model and an MCP server, and make your first governed calls.",
@@ -236,6 +236,7 @@
     ]
   },
   "shortTitles": {
+    "quickstart": "Quick start",
     "00-how-ai-gateway-works": "How AI Gateway works",
     "01-provision-gateway": "Provision a gateway",
     "02-first-model-call": "First model call",

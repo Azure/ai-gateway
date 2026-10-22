@@ -78,7 +78,7 @@ function prefixSvgIds(svg) {
 
 function loadLabs(catalog) {
   const dirs = fs.readdirSync(LABS, { withFileTypes: true })
-    .filter((d) => d.isDirectory() && /^\d{2}-[a-z0-9-]+$/.test(d.name) && fs.existsSync(path.join(LABS, d.name, 'README.md')))
+    .filter((d) => d.isDirectory() && /^(\d{2}-[a-z0-9-]+|quickstart)$/.test(d.name) && fs.existsSync(path.join(LABS, d.name, 'README.md')))
     .map((d) => d.name);
   const cats = new Set(catalog.categories.map((c) => c.id));
   const labs = dirs.map((slug) => {
@@ -87,11 +87,16 @@ function loadLabs(catalog) {
     const content = stripGitHub(body);
     const notebook = fs.readdirSync(path.join(LABS, slug)).filter((f) => f.endsWith('.ipynb')).sort()[0] || null;
     for (const k of REQUIRED) if (data[k] == null) warn(`${slug}: missing front matter "${k}"`);
+    // The quick start is the one unnumbered lab: it shows a bolt instead of a number.
+    const quick = slug === 'quickstart';
+    const num = quick ? '⚡' : slug.slice(0, 2);
     if (data.category && !cats.has(data.category)) warn(`${slug}: unknown category "${data.category}"`);
     return {
       ...data,
       slug,
-      num: slug.slice(0, 2),
+      num,
+      quick,
+      label: quick ? 'Quick start' : `Lab ${num}`,
       short: catalog.shortTitles?.[slug] || data.title,
       tracks: data.tracks || [],
       tags: (data.tags || []).map(String),
@@ -143,7 +148,7 @@ function makeCtx(lab, site, knownSlugs, { labsPrefix = '../' } = {}) {
       const h = hash ? `#${hash}` : '';
       const abs = path.resolve(lab.dir, decodeURI(p));
       const relLabs = path.relative(LABS, abs).split(path.sep).join('/');
-      const m = relLabs.match(/^(\d{2}-[a-z0-9-]+)(?:\/(?:README\.md)?)?$/);
+      const m = relLabs.match(/^(\d{2}-[a-z0-9-]+|quickstart)(?:\/(?:README\.md)?)?$/);
       if (m) {
         if (!knownSlugs.has(m[1])) warn(`${lab.slug}: link to unknown lab ${href}`);
         return { url: m[1] === lab.slug ? (h || './') : `${labsPrefix}${m[1]}/${h}`, external: false };
@@ -174,7 +179,7 @@ const htmlToText = (html) => html
 function checkAnchors(lab, html, allHtml) {
   const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
   for (const m of html.matchAll(/href="#([^"]+)"/g)) if (!ids.has(m[1])) warn(`${lab.slug}: anchor #${m[1]} not found`);
-  for (const m of html.matchAll(/href="\.\.\/(\d{2}-[a-z0-9-]+)\/#([^"]+)"/g)) {
+  for (const m of html.matchAll(/href="\.\.\/(\d{2}-[a-z0-9-]+|quickstart)\/#([^"]+)"/g)) {
     const other = allHtml.get(m[1]);
     if (other && !other.includes(` id="${m[2]}"`)) warn(`${lab.slug}: anchor ../${m[1]}/#${m[2]} not found`);
   }
@@ -227,7 +232,7 @@ async function renderReleaseNotes(site, known, rendered) {
   }
   const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
   for (const m of html.matchAll(/href="#([^"]+)"/g)) if (!ids.has(m[1])) warn(`RELEASE-NOTES.md: anchor #${m[1]} not found`);
-  for (const m of html.matchAll(/href="\.\.\/labs\/(\d{2}-[a-z0-9-]+)\/#([^"]+)"/g)) {
+  for (const m of html.matchAll(/href="\.\.\/labs\/(\d{2}-[a-z0-9-]+|quickstart)\/#([^"]+)"/g)) {
     if (!rendered.get(m[1])?.includes(` id="${m[2]}"`)) warn(`RELEASE-NOTES.md: anchor ${m[1]}#${m[2]} not found`);
   }
 
@@ -301,7 +306,7 @@ export async function build({ strict = false } = {}) {
     const headings = [...lab.html.matchAll(/<h([23]) id="([^"]+)"><a class="anchor"[^>]*>#<\/a>([\s\S]*?)<\/h\1>/g)]
       .map((m) => ({ id: m[2], text: htmlToText(m[3]), level: Number(m[1]) }));
     searchIndex.push({
-      slug: lab.slug, num: lab.num, title: lab.title, summary: lab.summary, category: lab.category,
+      slug: lab.slug, num: lab.num, quick: lab.quick || undefined, title: lab.title, summary: lab.summary, category: lab.category,
       level: lab.level, duration: lab.duration, tracks: lab.tracks, tags: lab.tags,
       headings: headings.filter((h, i, a) => a.findIndex((x) => x.text === h.text) === i).slice(0, 60),
       text: htmlToText(lab.html).slice(0, 6000),

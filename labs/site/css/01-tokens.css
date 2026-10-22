@@ -89,6 +89,9 @@ kbd {
 ::selection { background: color-mix(in srgb, var(--brand) 22%, transparent); }
 .i { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; vertical-align: middle; }
 .i-fill { fill: currentColor; stroke: none; }
+.num-quick { display: inline-flex; align-items: center; color: var(--violet-fg, currentColor); }
+.num-quick .i { width: 1.3em; height: 1.3em; fill: currentColor; fill-opacity: .18; }
+.sr-num .i { width: 16px; height: 16px; }
 .muted { color: var(--fg-3); }
 .container { width: min(1240px, 100% - 48px); margin-inline: auto; }
 .skip-link { position: absolute; left: 12px; top: -48px; z-index: 100; padding: 8px 14px; background: var(--brand); color: var(--on-brand); border-radius: var(--radius); }

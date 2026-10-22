@@ -41,6 +41,7 @@ const IC = {
   sparkle: SV('<path d="M10 2.5 11.6 8.4 17.5 10l-5.9 1.6L10 17.5l-1.6-5.9L2.5 10l5.9-1.6Z"/>'),
   flag: SV('<path d="M5 17.5V3M5 3.5h9.5l-2 3.5 2 3.5H5"/>'),
   stream: SV('<path d="M2.5 6c2-1.5 3.5-1.5 5 0s3 1.5 5 0 3.5-1.5 5 0M2.5 10c2-1.5 3.5-1.5 5 0s3 1.5 5 0 3.5-1.5 5 0M2.5 14c2-1.5 3.5-1.5 5 0s3 1.5 5 0 3.5-1.5 5 0"/>'),
+  bolt: SV('<path d="M11.2 2.5 4.5 11h4.6l-.8 6.5 6.7-8.5h-4.6z"/>'),
   arrowR: SV('<path d="M4 10h12M11.5 5.5 16 10l-4.5 4.5"/>'),
   arrowL: SV('<path d="M16 10H4M8.5 5.5 4 10l4.5 4.5"/>'),
   lock: SV('<rect x="4" y="9" width="12" height="8.5" rx="2"/><path d="M7 9V6.5a3 3 0 0 1 6 0V9"/>'),
@@ -221,7 +222,7 @@ function runSearch(q) {
   const res = [];
   for (const lab of searchIndex || []) {
     const url = `${D.rel}labs/${lab.slug}/`;
-    if (!terms.length) { res.push({ score: 100 - Number(lab.num), lab, url, kind: 'lab' }); continue; }
+    if (!terms.length) { res.push({ score: lab.quick ? 101 : 100 - Number(lab.num), lab, url, kind: 'lab' }); continue; }
     const fields = { title: norm(lab.title), num: lab.num, summary: norm(lab.summary), tags: norm((lab.tags || []).join(' ')), text: norm(lab.text) };
     let score = 0, all = true;
     for (const t of terms) {
@@ -252,7 +253,7 @@ function renderSearch(q) {
   const labsHtml = items.filter((x) => x.kind === 'lab');
   const secs = items.filter((x) => x.kind === 'section');
   const row = (x, i) => `<a class="sr-item" href="${x.url}" role="option" id="sr-${i}" aria-selected="${i === 0}">
-    <span class="sr-num">${x.lab.num}</span><span class="sr-body">
+    <span class="sr-num">${x.lab.quick ? IC.bolt : x.lab.num}</span><span class="sr-body">
     <span class="sr-title">${hl(x.kind === 'section' ? x.heading : x.lab.title, terms)}</span>
     <span class="sr-sub">${x.kind === 'section' ? `in ${escHtml(x.lab.title)}` : escHtml(x.lab.summary)}</span>
     ${x.snip ? `<span class="sr-snippet">${hl(x.snip, terms)}</span>` : ''}</span></a>`;

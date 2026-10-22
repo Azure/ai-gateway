@@ -6,7 +6,7 @@ Guidance for coding agents (GitHub Copilot, Claude Code, Codex, Cursor, and othe
 
 | Path | What it is | Edit? |
 |---|---|---|
-| `labs/` | The Azure AI Gateway hands-on labs: one folder per lab (`NN-slug/README.md`, `infra/`, optional notebook), the site engine (`site/`, `build.mjs`), tools, shared assets, and the `azure-ai-gateway-labs` agent skill | Yes. Read [`labs/AUTHORING.md`](labs/AUTHORING.md) first |
+| `labs/` | The Azure AI Gateway hands-on labs: one folder per lab (`NN-slug/README.md`, `infra/`, optional notebook, plus the unnumbered `quickstart/`), the site engine (`site/`, `build.mjs`), tools, shared assets, and the `azure-ai-gateway-labs` agent skill | Yes. Read [`labs/AUTHORING.md`](labs/AUTHORING.md) first |
 | `labs/RELEASE-NOTES.md` | The labs release notes, one section per [product release](https://ai.gateway.azure.com/docs/) | Yes |
 | `docs/` | The generated labs site, served by GitHub Pages from `main` | Never by hand. `npm run build` writes it |
 | `skills/use-ai-gateway/`, `commands/`, `.claude-plugin/`, `.cursor-plugin/`, `.github/plugin/`, `gemini-extension.json` | The read-only coding-agent plugin that integrates an existing gateway's models and tools into apps | Only when asked |
@@ -64,7 +64,7 @@ newer models.
 
 ### 2. Map every change to a lab
 
-For each product change, search the labs (`grep -il "<feature>" labs/[0-9][0-9]-*/README.md`) and
+For each product change, search the labs (`grep -il "<feature>" labs/[0-9][0-9]-*/README.md labs/quickstart/README.md`) and
 `labs/catalog.json`, and choose one action:
 
 | Status | When | What to do |
@@ -100,6 +100,8 @@ Add a `## <Month D, YYYY>` section at the top of `labs/RELEASE-NOTES.md`, as des
 
 - `labs/README.md`: hand-written text that mentions the labs.
 - The root `README.md`: the lab count and the use-case list.
+- `labs/quickstart/`: when provisioning, the default model, or the runtime URL changes, update its template, its
+  scripts, and the sample output of a real run that the home page shows (`homePage` in `labs/site/templates.mjs`).
 - `labs/AUTHORING.md`: the lists of screens, diagrams, and widgets.
 - `labs/skills/azure-ai-gateway-labs/SKILL.md`: the hand-written facts, when runtime behavior or lab conventions
   change. `npm run sync` regenerates its catalog.

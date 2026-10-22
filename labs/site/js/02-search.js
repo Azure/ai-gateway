@@ -27,7 +27,7 @@ function runSearch(q) {
   const res = [];
   for (const lab of searchIndex || []) {
     const url = `${D.rel}labs/${lab.slug}/`;
-    if (!terms.length) { res.push({ score: 100 - Number(lab.num), lab, url, kind: 'lab' }); continue; }
+    if (!terms.length) { res.push({ score: lab.quick ? 101 : 100 - Number(lab.num), lab, url, kind: 'lab' }); continue; }
     const fields = { title: norm(lab.title), num: lab.num, summary: norm(lab.summary), tags: norm((lab.tags || []).join(' ')), text: norm(lab.text) };
     let score = 0, all = true;
     for (const t of terms) {
@@ -58,7 +58,7 @@ function renderSearch(q) {
   const labsHtml = items.filter((x) => x.kind === 'lab');
   const secs = items.filter((x) => x.kind === 'section');
   const row = (x, i) => `<a class="sr-item" href="${x.url}" role="option" id="sr-${i}" aria-selected="${i === 0}">
-    <span class="sr-num">${x.lab.num}</span><span class="sr-body">
+    <span class="sr-num">${x.lab.quick ? IC.bolt : x.lab.num}</span><span class="sr-body">
     <span class="sr-title">${hl(x.kind === 'section' ? x.heading : x.lab.title, terms)}</span>
     <span class="sr-sub">${x.kind === 'section' ? `in ${escHtml(x.lab.title)}` : escHtml(x.lab.summary)}</span>
     ${x.snip ? `<span class="sr-snippet">${hl(x.snip, terms)}</span>` : ''}</span></a>`;

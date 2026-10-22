@@ -8,6 +8,7 @@ on the **labs site** (`docs/`, published with GitHub Pages) and a self-contained
 ```text
 labs/
 ├── catalog.json                 # categories, learning paths, use-case map
+├── quickstart/                  # the 5-minute quick start: the only lab without a number
 ├── RELEASE-NOTES.md             # labs release notes, aligned with the product releases
 ├── assets/                      # shared images: screens/, diagrams/, providers/
 ├── 06-token-limits/
@@ -32,7 +33,7 @@ category: governance            # foundations | models | tools | governance | se
 level: Beginner                 # Beginner | Intermediate | Advanced
 duration: 25                    # minutes, realistic for a first-timer
 tracks: [portal, cli, rest, iac] # portal | cli | iac | code | rest – only tracks the lab really offers
-order: 6                        # catalog order (matches folder number)
+order: 6                        # catalog order (matches folder number; the quick start uses -1)
 status: new                     # optional: new | preview | emerging
 illustration: diagrams/token-limits.svg   # optional, relative to labs/assets/
 tags: [tokenLimit, 429, TPM]
@@ -44,6 +45,13 @@ prereqs:                        # lab folder names, rendered as links
   - 02-first-model-call
 -->
 ```
+
+### The quick start
+
+`quickstart/` is the only lab without a number. It sets `order: -1`, so it comes before lab 00 everywhere, and the
+site shows a ⚡ instead of a number and "Quick start" instead of "Lab NN". The home page's hero and its **Start here**
+band link to it. Keep it to five minutes: one Bicep deployment (`quickstart/infra/main.bicep` composes the lab 01 and
+lab 02 modules, so the names match lab 02), one call, and one check. Teach the details in labs 00 to 02 instead.
 
 ## GitHub view
 
@@ -160,7 +168,7 @@ Kinds: `NOTE`, `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`. A blockquote starting w
 - Diagrams in `assets/diagrams/`: `architecture.svg`, `request-lifecycle.svg`, `aliases.svg`,
   `mcp-federation.svg`, `policy-scopes.svg`, `identity-boundaries.svg`, `observability.svg`,
   `private-networking.svg`, `hosted-agent.svg`, `agent-365.svg`, `threat-protection.svg`, `token-limits.svg`,
-  `alias-routing.svg`, `streaming-usage.svg`.
+  `alias-routing.svg`, `streaming-usage.svg`, `quickstart.svg`.
 - Provider logos in `assets/providers/`: `microsoft-foundry.png`, `azure-openai.png`, `openai.png`,
   `anthropic.png`, `aws-bedrock.png`, `google-vertex.png`, `custom-models.png`.
 

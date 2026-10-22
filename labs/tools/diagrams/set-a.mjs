@@ -46,6 +46,31 @@ export const provisioning = () => svgDoc('provisioning', {
   },
 });
 
+export const quickstart = () => svgDoc('quickstart', {
+  title: 'Azure AI Gateway quick start',
+  desc: 'Step 1: one Bicep deployment creates an AI Gateway with its connector gateway, a Foundry model deployment, a Foundry model provider that signs in with the gateway managed identity, an alias, and a runtime API key. Step 2: your app sends a request with the key to the gateway runtime URL. The gateway checks the key, routes the alias to the backend model, and calls Foundry with its managed identity. Without a key the gateway returns 401 and the request never reaches Foundry.',
+  h: 436,
+  body: () => {
+    let o = zone(16, 20, 928, 160, '1 · Deploy once · about 3 minutes', { ic: 'clock', tone: 'azure' });
+    o += box(32, 52, 260, 72, { t: 'One deployment', s: 'az deployment group create', s2: 'infra/main.bicep', icon: 'terminal', tone: 'azure', mono: 'all' });
+    o += arrow('M294 88 H326', { tone: 'azure' });
+    [['sparkle', 'AI Gateway', '+ connector gateway'], ['models', 'Foundry model', 'gpt-6-luna'], ['plug', 'Provider', 'managed identity'], ['route', 'Alias', 'gpt-6-luna'], ['key', 'Runtime key', 'app-first-call']]
+      .forEach(([ic, l, sub], i) => { o += node(360 + i * 135, 60, ic, l, { sub, tone: i === 1 ? 'azure' : 'violet' }); });
+    o += zone(16, 196, 928, 224, '2 · Call the model · seconds', { ic: 'bolt', tone: 'violet' });
+    o += node(90, 280, 'app', 'Your app', { tone: 'azure', sub: 'curl or OpenAI SDK', accent: false });
+    o += zone(176, 232, 560, 172, 'AI Gateway', { gw: true, ic: 'sparkle' });
+    o += node(276, 280, 'key', 'Check the key', { sub: 'api-key header' });
+    o += node(456, 280, 'route', 'Route the alias', { sub: 'gpt-6-luna → model' });
+    o += node(636, 280, 'lock', 'Managed identity', { sub: 'Foundry User role' });
+    o += node(860, 280, 'models', 'Foundry', { tone: 'azure', sub: 'gpt-6-luna deployment', accent: false });
+    o += arrow('M120 308 H244', { tone: 'azure' }) + arrow('M306 308 H424') + arrow('M486 308 H604') + arrow('M666 308 H828', { tone: 'azure' });
+    o += label(182, 300, 'POST + key') + label(747, 300, 'Entra token');
+    o += pill(276, 374, '401 without a key', { tone: 'red', anchor: 'middle' });
+    o += pill(860, 374, '200 · the reply', { tone: 'green', anchor: 'middle' });
+    return o;
+  },
+});
+
 export const createGateway = () => svgDoc('create-gateway', {
   title: 'What to choose in Create AI gateway',
   desc: 'Basics: a globally unique name of 24 characters or fewer, a subscription where you can create API Management and connector gateways, a new or existing resource group, and East US 2 or Sweden Central. Advanced: keep the system-assigned managed identity enabled, public network access enabled, and public routing. Private routing is for virtual network backends and can only be chosen at creation. Then select Create gateway; provisioning takes a few minutes and Home opens with a setup guide.',

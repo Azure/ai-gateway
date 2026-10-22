@@ -12,6 +12,7 @@ Release notes: https://azure.github.io/ai-gateway/release-notes/index.md
 
 ## Labs
 
+- [⚡ Your first model call in 5 minutes](https://azure.github.io/ai-gateway/labs/quickstart/index.md): Learn the five building blocks of Azure AI Gateway, deploy a gateway with a Microsoft Foundry model in one command, and make your first model call, all in about five minutes.
 - [00 How Azure AI Gateway works](https://azure.github.io/ai-gateway/labs/00-how-ai-gateway-works/index.md): A 20-minute visual tour of the AI Gateway tier of Azure API Management. Follow one request through the gateway, meet models, aliases, MCP servers, policies, and identities, and pick the learning path that fits your role.
 - [01 Provision your AI Gateway](https://azure.github.io/ai-gateway/labs/01-provision-gateway/index.md): Create the shared AI Gateway that your apps and agents will call, from the AI Gateway portal, the Azure CLI, or Bicep, then take a guided tour of the portal.
 - [02 Publish a Foundry model and make your first call](https://azure.github.io/ai-gateway/labs/02-first-model-call/index.md): Publish a Microsoft Foundry model deployment through your gateway with its managed identity, create a runtime API key, try the model in the Catalog playground, and call it from curl, PowerShell, Python, TypeScript, and C#.
@@ -39,7 +40,7 @@ Release notes: https://azure.github.io/ai-gateway/release-notes/index.md
 
 ## Learning paths
 
-- 30-minute quickstart: 00-how-ai-gateway-works, 01-provision-gateway, 02-first-model-call, 04-federate-mcp-tools
+- 30-minute essentials: 00-how-ai-gateway-works, 01-provision-gateway, 02-first-model-call, 04-federate-mcp-tools
 - Platform engineer: 01-provision-gateway, 02-first-model-call, 03-multi-provider-aliases, 22-model-routing, 04-federate-mcp-tools, 09-gateway-baselines, 12-backend-identity, 18-private-networking, 21-enterprise-reference
 - App & agent developer: 02-first-model-call, 03-multi-provider-aliases, 22-model-routing, 23-streaming-responses, 04-federate-mcp-tools, 15-agent-frameworks, 16-foundry-hosted-agent, 17-coding-agent-plugin
 - Security & compliance: 10-api-keys, 11-entra-rbac, 08-content-safety, 05-mcp-tool-controls, 09-gateway-baselines, 19-tool-threat-protection, 20-agent-365-governance

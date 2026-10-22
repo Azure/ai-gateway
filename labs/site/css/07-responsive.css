@@ -9,6 +9,7 @@
   .hero-inner { grid-template-columns: 1fr; gap: 24px; padding-top: 56px; }
   .hero-visual { max-width: 620px; margin: 0 auto; width: 100%; }
   .track-grid { grid-template-columns: repeat(2, 1fr); }
+  .qs-card { grid-template-columns: 1fr; gap: 28px; padding: 28px; }
   .cat-grid, .resource-grid, .home .lab-grid, .feature-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .feature-row { justify-content: stretch; }
   .anatomy { grid-template-columns: minmax(0, 1fr); gap: 32px; }
@@ -80,6 +81,9 @@
   .cat-grid, .resource-grid, .feature-row { grid-template-columns: 1fr; }
   .path-grid, .track-grid { grid-template-columns: 1fr; }
   .track-grid { gap: 10px; }
+  .qs-band { padding-top: 40px; }
+  .qs-card { padding: 20px 18px; border-radius: var(--radius-l); }
+  .qs-terminal pre { font-size: 11.5px; padding: 14px; }
   .track-card { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 2px 14px; padding: 16px 18px; }
   .track-card-icon { grid-row: span 2; width: 40px; height: 40px; }
   .track-card h3 { margin: 0; font-size: 17px; }

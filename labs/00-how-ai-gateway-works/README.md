@@ -270,11 +270,13 @@ Nothing to clean up. This lab doesn't create resources.
 
 ## Next steps
 
-Pick the path that fits your role. Each path is a sequence of labs, and your progress is saved in this browser.
+Short on time? The [5-minute quick start](../quickstart/README.md) deploys a gateway with a Foundry model in one
+command and makes your first call. Then pick the path that fits your role. Each path is a sequence of labs, and your
+progress is saved in this browser.
 
 | Path | Start with | You'll learn to |
 |---|---|---|
-| **30-minute quickstart** | [Provision a gateway](../01-provision-gateway/README.md) | Create a gateway, call a model, and add MCP tools |
+| **30-minute essentials** | [Provision a gateway](../01-provision-gateway/README.md) | Create a gateway, call a model, and add MCP tools |
 | **Platform engineer** | [Provision a gateway](../01-provision-gateway/README.md) | Build a governed, multi-provider gateway with code |
 | **App & agent developer** | [First model call](../02-first-model-call/README.md) | Call models and tools from SDKs, agents, and hosted agents |
 | **Security & compliance** | [API keys](../10-api-keys/README.md) | Control access, content, tools, and threats |
@@ -289,7 +291,7 @@ Pick the path that fits your role. Each path is a sequence of labs, and your pro
 
 | ⬅️ Previous | 🏠 | Next ➡️ |
 | :-- | :-: | --: |
-|   | [All labs](../README.md) | [01 · Provision a gateway](../01-provision-gateway/README.md) |
+| [⚡ · Quick start](../quickstart/README.md) | [All labs](../README.md) | [01 · Provision a gateway](../01-provision-gateway/README.md) |
 
-<sub>Learning paths: [30-minute quickstart](../README.md#learning-paths) (1 of 4)</sub>
+<sub>Learning paths: [30-minute essentials](../README.md#learning-paths) (1 of 4)</sub>
 <!-- gh:end -->
