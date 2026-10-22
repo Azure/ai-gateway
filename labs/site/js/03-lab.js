@@ -182,7 +182,7 @@ function initPathBanner() {
 }
 
 function initToc() {
-  const links = $$('.toc-list a[data-toc]');
+  const links = $$('.toc-list a[data-toc], .rn-nav-list a[data-toc]');
   if (!links.length) return;
   const map = new Map(links.map((a) => [a.dataset.toc, a]));
   const heads = links.map((a) => document.getElementById(a.dataset.toc)).filter(Boolean);

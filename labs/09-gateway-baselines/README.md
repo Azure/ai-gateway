@@ -733,5 +733,5 @@ Keep the gateway, model, and key. The next labs reuse them.
 | :-- | :-: | --: |
 | [08 · Content safety](../08-content-safety/README.md) | [All labs](../README.md) | [10 · Runtime API keys](../10-api-keys/README.md) |
 
-<sub>Learning paths: [Platform engineer](../README.md#learning-paths) (5 of 8) · [Security & compliance](../README.md#learning-paths) (5 of 7)</sub>
+<sub>Learning paths: [Platform engineer](../README.md#learning-paths) (6 of 9) · [Security & compliance](../README.md#learning-paths) (5 of 7)</sub>
 <!-- gh:end -->

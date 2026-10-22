@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Release notes · Azure AI Gateway Labs</title>
+<meta name="description" content="What changed in the Azure AI Gateway labs for each product release, and where to practice every new feature.">
+<meta property="og:title" content="Release notes · Azure AI Gateway Labs">
+<meta property="og:description" content="What changed in the Azure AI Gateway labs for each product release, and where to practice every new feature.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Azure AI Gateway Labs">
+<meta property="og:url" content="https://azure.github.io/ai-gateway/release-notes/">
+<meta property="og:image" content="https://azure.github.io/ai-gateway/assets/og-image.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Azure AI Gateway Labs: learn AI Gateway by building with it. Apps, agents, and code connect through one gateway to models and tools.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://azure.github.io/ai-gateway/assets/og-image.jpg">
+<link rel="canonical" href="https://azure.github.io/ai-gateway/release-notes/">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1b1a1f" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<script>(function(){try{var t=localStorage.getItem('aigw-theme');if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;}catch(e){}})();</script>
+
+</head>
+<body class="page-releases">
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="topbar">
+  <div class="topbar-inner">
+    
+    <a class="brand" href="../index.html" aria-label="AI Gateway Labs home">
+      <img class="brand-logo" src="../assets/favicon.svg" width="28" height="28" alt="">
+      <span class="brand-name">AI Gateway</span><span class="brand-badge">Labs</span>
+    </a>
+    <nav class="topnav" aria-label="Primary">
+      <a href="../labs/">All labs</a>
+      <a href="../index.html#paths">Learning paths</a>
+      <a href="../index.html#use-cases">Use cases</a>
+      <a href="../release-notes/" aria-current="page">What's new</a>
+    </nav>
+    <div class="topbar-actions">
+      <button class="search-trigger" type="button" data-search-open aria-label="Search labs"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5"/><path d="m12.5 12.5 4.5 4.5"/></svg><span>Search labs</span><kbd data-kbd>Ctrl K</kbd></button>
+      <a class="topbar-link hide-sm" href="https://ai.gateway.azure.com/docs" target="_blank" rel="noopener">Documentation</a>
+      <button class="icon-btn" type="button" data-theme-toggle aria-label="Toggle dark mode"><span class="theme-sun"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.5"/><path d="M10 2v1.5M10 16.5V18M2 10h1.5M16.5 10H18M4.3 4.3l1.1 1.1M14.6 14.6l1.1 1.1M4.3 15.7l1.1-1.1M14.6 5.4l1.1-1.1"/></svg></span><span class="theme-moon"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><path d="M16.5 12.2A6.8 6.8 0 0 1 7.8 3.5a6.8 6.8 0 1 0 8.7 8.7Z"/></svg></span></button>
+      <a class="icon-btn hide-sm" href="https://github.com/Azure/ai-gateway" target="_blank" rel="noopener" aria-label="GitHub repository"><svg class="i i-fill" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.22 1.88.87 2.34.66.07-.52.28-.87.5-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"/></svg></a>
+      <a class="btn btn-primary btn-pill btn-sm hide-xs" href="https://ai.gateway.azure.com" target="_blank" rel="noopener">Open portal</a>
+    </div>
+  </div>
+</header>
+<main id="main" class="releases">
+  <section class="page-hero">
+    <div class="page-hero-bg" aria-hidden="true"></div>
+    <div class="container">
+      <nav class="breadcrumb" aria-label="Breadcrumb"><a href="../index.html">Home</a><span>/</span><span aria-current="page">Release notes</span></nav>
+      <h1>What's new in the labs</h1>
+      <p class="lead">Every Azure AI Gateway release, and where to practice it. The labs follow the <a href="https://ai.gateway.azure.com/docs/releases/2026-10-16" target="_blank" rel="noopener">product release notes</a>: each entry lists the new product features, the lab that covers each one, and what changed in the labs.</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary btn-sm rn-hero-latest" href="#october-16-2026" title="Latest: Priority and weighted model routing, MCP 2026-07-28"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5 11.6 8.4 17.5 10l-5.9 1.6L10 17.5l-1.6-5.9L2.5 10l5.9-1.6Z"/></svg><span>Latest: Priority and weighted model routing, MCP 2026-07-28</span></a>
+        <a class="btn btn-ghost btn-sm" href="https://github.com/Azure/ai-gateway/blob/main/labs/RELEASE-NOTES.md" target="_blank" rel="noopener"><svg class="i i-fill" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.22 1.88.87 2.34.66.07-.52.28-.87.5-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"/></svg>View on GitHub</a>
+        <button class="btn btn-ghost btn-sm" type="button" data-copy-md="index.md"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="4.5" width="16" height="11" rx="2"/><path d="M5 12.5v-5l2 2.5 2-2.5v5M13 7.5v5M11 10.5l2 2 2-2"/></svg>Copy as Markdown</button>
+      </div>
+    </div>
+  </section>
+  <div class="container rn-body">
+    <aside class="rn-nav" aria-label="Releases">
+      <h2>Releases</h2>
+      <ol class="rn-nav-list"><li><a href="#october-16-2026" data-toc="october-16-2026"><time datetime="2026-10-16">Oct 16, 2026</time><span>Priority and weighted model routing, MCP 2026-07-28</span><span class="rn-latest">Latest</span></a></li><li><a href="#october-8-2026" data-toc="october-8-2026"><time datetime="2026-10-08">Oct 8, 2026</time><span>Agent 365 integration and tool threat protection</span></a></li><li><a href="#october-1-2026" data-toc="october-1-2026"><time datetime="2026-10-01">Oct 1, 2026</time><span>Cost limit overrides for Microsoft Entra identities</span></a></li><li><a href="#september-24-2026" data-toc="september-24-2026"><time datetime="2026-09-24">Sep 24, 2026</time><span>Model aliases, Entra access, and Chat Completions streaming usage</span></a></li><li><a href="#september-10-2026" data-toc="september-10-2026"><time datetime="2026-09-10">Sep 10, 2026</time><span>Per-key budget overrides and MCP tool filtering and blocking</span></a></li><li><a href="#august-28-2026" data-toc="august-28-2026"><time datetime="2026-08-28">Aug 28, 2026</time><span>OpenTelemetry observability and model budgets</span></a></li></ol>
+    </aside>
+    <article class="prose rn-prose" id="lab-content">
+<p>What changed in the Azure AI Gateway labs for each <a href="https://ai.gateway.azure.com/docs/" target="_blank" rel="noopener">product release<span class="ext" aria-hidden="true">↗</span></a>, and
+where to practice every new feature. Newest first. 🆕 marks a new lab, ✏️ an updated lab, ✅ a lab that already
+covered the feature, and ➖ a feature that no lab covers yet.</p>
+<section class="release" data-release="2026-10-16"><h2 id="october-16-2026"><a class="anchor" href="#october-16-2026" aria-hidden="true" tabindex="-1">#</a>October 16, 2026</h2>
+<h3 id="priority-and-weighted-model-routing-mcp-2026-07-28"><a class="anchor" href="#priority-and-weighted-model-routing-mcp-2026-07-28" aria-hidden="true" tabindex="-1">#</a>Priority and weighted model routing, MCP 2026-07-28</h3>
+<p>Keep a stable alias while you prefer purchased capacity, balance traffic across deployments, or test a new
+model version, and manage MCP servers that use the 2026-07-28 MCP specification.
+<a href="https://ai.gateway.azure.com/docs/releases/2026-10-16" target="_blank" rel="noopener">Read the product release notes<span class="ext" aria-hidden="true">↗</span></a>.</p>
+<div class="table-wrap"><table><thead><tr><th>In the product</th><th>Practice it in the labs</th><th>Status</th></tr></thead><tbody><tr><td>Route an alias&#39;s traffic across backend models by priority and weight</td><td><a href="../labs/22-model-routing/">22 · Route an alias across models by priority and weight</a></td><td>🆕 New lab</td></tr><tr><td>Canary a new model version or run an A/B test with a controlled split</td><td><a href="../labs/22-model-routing/#split-traffic-8020-between-two-models">22 · Split traffic 80/20 between two models</a></td><td>🆕 New lab</td></tr><tr><td>Prefer purchased capacity with priorities</td><td><a href="../labs/22-model-routing/#prefer-one-model-by-priority">22 · Prefer one model by priority</a></td><td>🆕 New lab</td></tr><tr><td>Create and edit aliases with the <strong>Create alias</strong> wizard</td><td><a href="../labs/03-multi-provider-aliases/#give-one-backend-model-two-aliases">03 · Publish models from any provider behind stable aliases</a></td><td>✏️ Updated</td></tr><tr><td>Choose the MCP protocol versions a server supports, including 2026-07-28</td><td><a href="../labs/04-federate-mcp-tools/#choose-supported-mcp-versions">04 · Choose supported MCP versions</a></td><td>✏️ Updated</td></tr><tr><td>See supported MCP versions on the server page and in <strong>Catalog</strong></td><td><a href="../labs/04-federate-mcp-tools/#check-the-negotiated-version">04 · Check the negotiated version</a></td><td>✏️ Updated</td></tr></tbody></table></div>
+<h4 id="labs-changes"><a class="anchor" href="#labs-changes" aria-hidden="true" tabindex="-1">#</a>Labs changes</h4>
+<ul>
+<li><strong>October 22.</strong> New lab <a href="../labs/22-model-routing/">22 · Route an alias across models by priority and weight</a>,
+with portal, Azure CLI, and Bicep tracks, a script that counts which model served each request, and an
+interactive priority and weight simulator on the site.</li>
+<li><strong>October 22.</strong> <a href="../labs/04-federate-mcp-tools/">Lab 04</a> adds <strong>Supported MCP versions</strong>: the version list,
+the legacy defaults, the rule that every backend must support every listed version, and a <code>supportedVersions</code>
+Bicep parameter. <a href="../labs/03-multi-provider-aliases/">Lab 03</a> follows the new alias wizard and links to lab 22.</li>
+<li><strong>October 22.</strong> The labs use the latest models: <code>gpt-6-luna</code> and <code>gpt-6.1-sol</code> from Microsoft Foundry, and
+<code>claude-haiku-5-5</code> and <code>claude-sonnet-5-5</code> from Anthropic. Portal steps say <strong>Catalog</strong> where the portal used
+to say <strong>Discover</strong>.</li>
+<li><strong>October 22.</strong> <a href="../labs/00-how-ai-gateway-works/">Lab 00</a> has a narrated three-minute video tour of the
+portal.</li>
+<li><strong>October 19.</strong> Every lab creates the dedicated <code>Microsoft.ApiManagement/aigateways</code> resource type.</li>
+<li><strong>October 19.</strong> Each lab&#39;s <code>README.md</code> is the source of truth for both the site and GitHub, with navigation
+that works on GitHub. Jupyter notebooks run five labs end to end by deploying the labs&#39; own Bicep files
+through a shared <a href="https://github.com/Azure/ai-gateway/blob/main/labs/shared/utils.py" target="_blank" rel="noopener"><code>utils.py</code><span class="ext" aria-hidden="true">↗</span></a>.</li>
+<li><strong>October 19.</strong> <a href="../labs/01-provision-gateway/">Lab 01</a> has a narrated video, and the
+<a href="https://github.com/Azure/ai-gateway/blob/main/labs/skills/azure-ai-gateway-labs/SKILL.md" target="_blank" rel="noopener"><code>azure-ai-gateway-labs</code><span class="ext" aria-hidden="true">↗</span></a> agent skill teaches coding agents how to use
+the labs.</li>
+</ul>
+</section><section class="release" data-release="2026-10-08"><h2 id="october-8-2026"><a class="anchor" href="#october-8-2026" aria-hidden="true" tabindex="-1">#</a>October 8, 2026</h2>
+<h3 id="agent-365-integration-and-tool-threat-protection"><a class="anchor" href="#agent-365-integration-and-tool-threat-protection" aria-hidden="true" tabindex="-1">#</a>Agent 365 integration and tool threat protection</h3>
+<p>Discover and govern AI Gateway MCP servers and tools from Microsoft Agent 365, and protect tool calls with
+Microsoft Defender and Microsoft Purview.
+<a href="https://ai.gateway.azure.com/docs/releases/2026-10-08" target="_blank" rel="noopener">Read the product release notes<span class="ext" aria-hidden="true">↗</span></a>.</p>
+<div class="table-wrap"><table><thead><tr><th>In the product</th><th>Practice it in the labs</th><th>Status</th></tr></thead><tbody><tr><td>Discover AI Gateway MCP servers in the Agent 365 inventory</td><td><a href="../labs/20-agent-365-governance/#connect-agent-365-to-your-gateways">20 · Connect Agent 365 to your gateways</a></td><td>✅ Covered</td></tr><tr><td>Block or unblock MCP servers and individual tools from Agent 365</td><td><a href="../labs/20-agent-365-governance/#block-a-tool">20 · Block a tool</a></td><td>✅ Covered</td></tr><tr><td>Evaluate tool calls before and after invocation with Defender and Purview</td><td><a href="../labs/19-tool-threat-protection/">19 · Protect tool calls with Agent 365 threat protection</a></td><td>✅ Covered</td></tr></tbody></table></div>
+<h4 id="labs-changes-1"><a class="anchor" href="#labs-changes-1" aria-hidden="true" tabindex="-1">#</a>Labs changes</h4>
+<ul>
+<li><strong>October 14.</strong> The labs launch with 22 labs that cover every product release through October 8, each with
+portal steps and, where the product supports them, Azure CLI, REST, Bicep, and code tracks.</li>
+</ul>
+</section><section class="release" data-release="2026-10-01"><h2 id="october-1-2026"><a class="anchor" href="#october-1-2026" aria-hidden="true" tabindex="-1">#</a>October 1, 2026</h2>
+<h3 id="cost-limit-overrides-for-microsoft-entra-identities"><a class="anchor" href="#cost-limit-overrides-for-microsoft-entra-identities" aria-hidden="true" tabindex="-1">#</a>Cost limit overrides for Microsoft Entra identities</h3>
+<p>Set different cost limit amounts for Microsoft Entra callers by identity or by an exact combination of
+validated token claims.
+<a href="https://ai.gateway.azure.com/docs/releases/2026-10-01" target="_blank" rel="noopener">Read the product release notes<span class="ext" aria-hidden="true">↗</span></a>.</p>
+<div class="table-wrap"><table><thead><tr><th>In the product</th><th>Practice it in the labs</th><th>Status</th></tr></thead><tbody><tr><td>A higher or lower budget for a selected identity or matching token claims</td><td><a href="../labs/07-cost-budgets/#give-a-microsoft-entra-identity-its-own-budget">07 · Give a Microsoft Entra identity its own budget</a></td><td>✅ Covered</td></tr><tr><td>Separate budgets per caller by tenant ID and object ID</td><td><a href="../labs/07-cost-budgets/">07 · Enforce cost budgets with per-caller overrides</a></td><td>✅ Covered</td></tr><tr><td>The first matching override wins</td><td><a href="../labs/07-cost-budgets/#how-it-works">07 · How it works</a></td><td>✅ Covered</td></tr></tbody></table></div>
+</section><section class="release" data-release="2026-09-24"><h2 id="september-24-2026"><a class="anchor" href="#september-24-2026" aria-hidden="true" tabindex="-1">#</a>September 24, 2026</h2>
+<h3 id="model-aliases-entra-access-and-chat-completions-streaming-usage"><a class="anchor" href="#model-aliases-entra-access-and-chat-completions-streaming-usage" aria-hidden="true" tabindex="-1">#</a>Model aliases, Entra access, and Chat Completions streaming usage</h3>
+<p>Aliases become the stable model contract, with Microsoft Entra authentication, gateway-scoped policies, and
+complete usage for streamed Chat Completions responses.
+<a href="https://ai.gateway.azure.com/docs/releases/2026-09-24" target="_blank" rel="noopener">Read the product release notes<span class="ext" aria-hidden="true">↗</span></a>.</p>
+<div class="table-wrap"><table><thead><tr><th>In the product</th><th>Practice it in the labs</th><th>Status</th></tr></thead><tbody><tr><td>Callable aliases, several aliases for one backend model, and retargeting</td><td><a href="../labs/03-multi-provider-aliases/">03 · Publish models from any provider behind stable aliases</a></td><td>✅ Covered</td></tr><tr><td>Grant model and MCP access to Microsoft Entra users, groups, apps, and managed identities</td><td><a href="../labs/11-entra-rbac/">11 · Go keyless with Microsoft Entra ID and RBAC</a></td><td>✅ Covered</td></tr><tr><td>Export selected JWT claims to OTLP logs, traces, and metrics</td><td><a href="../labs/14-otel-chargeback/#choose-the-claims-to-export">14 · Choose the claims to export</a></td><td>✅ Covered</td></tr><tr><td>Apply one policy to every current and future asset, including a gateway-wide cost limit</td><td><a href="../labs/09-gateway-baselines/">09 · Set gateway-wide policy baselines</a></td><td>✅ Covered</td></tr><tr><td>Usage for streamed Chat Completions responses without <code>include_usage</code></td><td>Not in the labs yet. See the product release notes.</td><td>➖</td></tr></tbody></table></div>
+</section><section class="release" data-release="2026-09-10"><h2 id="september-10-2026"><a class="anchor" href="#september-10-2026" aria-hidden="true" tabindex="-1">#</a>September 10, 2026</h2>
+<h3 id="per-key-budget-overrides-and-mcp-tool-filtering-and-blocking"><a class="anchor" href="#per-key-budget-overrides-and-mcp-tool-filtering-and-blocking" aria-hidden="true" tabindex="-1">#</a>Per-key budget overrides and MCP tool filtering and blocking</h3>
+<p>Assign higher or lower model budgets to selected API keys, and control which MCP tools agents can discover and
+invoke.
+<a href="https://ai.gateway.azure.com/docs/releases/2026-09-10" target="_blank" rel="noopener">Read the product release notes<span class="ext" aria-hidden="true">↗</span></a>.</p>
+<div class="table-wrap"><table><thead><tr><th>In the product</th><th>Practice it in the labs</th><th>Status</th></tr></thead><tbody><tr><td>A different budget for selected API keys</td><td><a href="../labs/07-cost-budgets/#give-an-api-key-a-bigger-budget">07 · Give an API key a bigger budget</a></td><td>✅ Covered</td></tr><tr><td>Expose all, selected, or pattern-matched tools</td><td><a href="../labs/05-mcp-tool-controls/#publish-only-approved-tools">05 · Publish only approved tools</a></td><td>✅ Covered</td></tr><tr><td>Block individual tools or a whole MCP server</td><td><a href="../labs/05-mcp-tool-controls/#take-the-whole-server-offline">05 · Take the whole server offline</a></td><td>✅ Covered</td></tr><tr><td>Redesigned Home and first-run gateway setup</td><td><a href="../labs/01-provision-gateway/">01 · Provision your AI Gateway</a></td><td>✅ Covered</td></tr></tbody></table></div>
+</section><section class="release" data-release="2026-08-28"><h2 id="august-28-2026"><a class="anchor" href="#august-28-2026" aria-hidden="true" tabindex="-1">#</a>August 28, 2026</h2>
+<h3 id="opentelemetry-observability-and-model-budgets"><a class="anchor" href="#opentelemetry-observability-and-model-budgets" aria-hidden="true" tabindex="-1">#</a>OpenTelemetry observability and model budgets</h3>
+<p>Export logs, traces, token metrics, and estimated cost metrics through OTLP, and enforce model spend with cost
+limits.
+<a href="https://ai.gateway.azure.com/docs/releases/2026-08-28" target="_blank" rel="noopener">Read the product release notes<span class="ext" aria-hidden="true">↗</span></a>.</p>
+<div class="table-wrap"><table><thead><tr><th>In the product</th><th>Practice it in the labs</th><th>Status</th></tr></thead><tbody><tr><td>The built-in Application Insights dashboard and request traces</td><td><a href="../labs/13-monitoring/">13 · Monitor usage, cost, and traces</a></td><td>✅ Covered</td></tr><tr><td>OTLP export of logs, traces, and token and cost metrics</td><td><a href="../labs/14-otel-chargeback/">14 · Attribute tokens and cost with OpenTelemetry</a></td><td>✅ Covered</td></tr><tr><td>Cost limits with hourly to yearly budget windows</td><td><a href="../labs/07-cost-budgets/">07 · Enforce cost budgets with per-caller overrides</a></td><td>✅ Covered</td></tr><tr><td>Import Microsoft Foundry models and onboard custom providers</td><td><a href="../labs/02-first-model-call/">02 · Publish a Foundry model</a> and <a href="../labs/03-multi-provider-aliases/#add-anthropic-as-a-custom-provider">03 · Add Anthropic as a custom provider</a></td><td>✅ Covered</td></tr></tbody></table></div>
+</section><section class="release-extra"><h2 id="how-these-notes-work"><a class="anchor" href="#how-these-notes-work" aria-hidden="true" tabindex="-1">#</a>How these notes work</h2>
+<p>Each section matches one entry in the <a href="https://ai.gateway.azure.com/docs/" target="_blank" rel="noopener">product release notes<span class="ext" aria-hidden="true">↗</span></a>, with the same
+date and title, and maps every product change to the lab where you can practice it. Changes to the labs that
+don&#39;t come from a product release are listed under <strong>Labs changes</strong> in the release they followed.</p>
+<p>This file, <a href="../labs/../release-notes/"><code>labs/RELEASE-NOTES.md</code></a>, is the source of truth: the labs site renders it at
+<a href="https://azure.github.io/ai-gateway/release-notes/">/release-notes/</a>. To check for product releases that the
+notes don&#39;t cover yet, run <code>npm run releases</code> in <code>labs/</code>. See <a href="https://github.com/Azure/ai-gateway/blob/main/labs/AUTHORING.md#release-notes" target="_blank" rel="noopener">Authoring<span class="ext" aria-hidden="true">↗</span></a>.</p>
+</section>
+    </article>
+  </div>
+</main>
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a class="brand" href="../index.html"><img class="brand-logo" src="../assets/favicon.svg" width="24" height="24" alt=""><span class="brand-name">AI Gateway</span><span class="brand-badge">Labs</span></a>
+      <p>Hands-on labs for the Azure AI Gateway.</p>
+    </div>
+    <div class="footer-cols">
+      <div><h2>Labs</h2><a href="../labs/">All labs</a><a href="../index.html#paths">Learning paths</a><a href="../index.html#use-cases">Use cases</a><a href="../release-notes/">Release notes</a><a href="../skills/azure-ai-gateway-labs/SKILL.md" title="azure-ai-gateway-labs: the agent skill that teaches coding agents how to use these labs">Agent skill</a></div>
+      <div><h2>Product</h2><a href="https://ai.gateway.azure.com" target="_blank" rel="noopener">AI Gateway portal</a><a href="https://ai.gateway.azure.com/docs" target="_blank" rel="noopener">Documentation</a><a href="https://learn.microsoft.com/azure/api-management/ai-gateway-overview" target="_blank" rel="noopener">Microsoft Learn</a></div>
+      <div><h2>Contribute</h2><a href="https://github.com/Azure/ai-gateway" target="_blank" rel="noopener">GitHub repository</a><a href="https://github.com/Azure/ai-gateway/blob/main/labs/AUTHORING.md" target="_blank" rel="noopener">Authoring guide</a><a href="https://github.com/Azure/ai-gateway/issues/new?labels=labs" target="_blank" rel="noopener">Report an issue</a></div>
+    </div>
+  </div>
+  <div class="footer-legal"><span>© 2026 Microsoft</span><a href="https://go.microsoft.com/fwlink/?LinkId=521839" target="_blank" rel="noopener">Privacy</a><a href="https://go.microsoft.com/fwlink/?LinkID=206977" target="_blank" rel="noopener">Terms of use</a><a href="https://www.microsoft.com/trademarks" target="_blank" rel="noopener">Trademarks</a></div>
+</footer>
+<script>window.AIGW={"rel":"../","labs":[{"slug":"00-how-ai-gateway-works","num":"00","title":"How Azure AI Gateway works","short":"How AI Gateway works"},{"slug":"01-provision-gateway","num":"01","title":"Provision your AI Gateway","short":"Provision a gateway"},{"slug":"02-first-model-call","num":"02","title":"Publish a Foundry model and make your first call","short":"First model call"},{"slug":"03-multi-provider-aliases","num":"03","title":"Publish models from any provider behind stable aliases","short":"Multi-provider aliases"},{"slug":"22-model-routing","num":"22","title":"Route an alias across models by priority and weight","short":"Priority & weighted routing"},{"slug":"04-federate-mcp-tools","num":"04","title":"Federate MCP tools behind one endpoint","short":"Federate MCP tools"},{"slug":"05-mcp-tool-controls","num":"05","title":"Control which tools agents can call","short":"Tool allow & block lists"},{"slug":"06-token-limits","num":"06","title":"Throttle tokens per caller with token limits","short":"Token limits"},{"slug":"07-cost-budgets","num":"07","title":"Enforce cost budgets with per-caller overrides","short":"Cost budgets"},{"slug":"08-content-safety","num":"08","title":"Screen prompts and responses with content safety","short":"Content safety"},{"slug":"09-gateway-baselines","num":"09","title":"Set gateway-wide policy baselines","short":"Gateway-wide baselines"},{"slug":"10-api-keys","num":"10","title":"Issue and rotate runtime API keys","short":"Runtime API keys"},{"slug":"11-entra-rbac","num":"11","title":"Go keyless with Microsoft Entra ID and RBAC","short":"Entra ID & RBAC"},{"slug":"12-backend-identity","num":"12","title":"Call backends with managed identities","short":"Backend identities"},{"slug":"13-monitoring","num":"13","title":"Monitor usage, cost, and traces","short":"Monitoring"},{"slug":"14-otel-chargeback","num":"14","title":"Attribute tokens and cost with OpenTelemetry","short":"OpenTelemetry chargeback"},{"slug":"15-agent-frameworks","num":"15","title":"Connect agent frameworks to models and tools","short":"Agent frameworks"},{"slug":"16-foundry-hosted-agent","num":"16","title":"Deploy a Foundry hosted agent behind AI Gateway","short":"Foundry hosted agent"},{"slug":"17-coding-agent-plugin","num":"17","title":"Build on your gateway with coding agents","short":"Coding-agent plugin"},{"slug":"18-private-networking","num":"18","title":"Lock down backend traffic with private networking","short":"Private networking"},{"slug":"19-tool-threat-protection","num":"19","title":"Protect tool calls with Agent 365 threat protection","short":"Tool threat protection"},{"slug":"20-agent-365-governance","num":"20","title":"Govern MCP servers with Agent 365","short":"Agent 365 governance"},{"slug":"21-enterprise-reference","num":"21","title":"Deploy an enterprise reference architecture","short":"Enterprise reference"}],"paths":[{"id":"quickstart","title":"30-minute quickstart","labs":["00-how-ai-gateway-works","01-provision-gateway","02-first-model-call","04-federate-mcp-tools"]},{"id":"platform","title":"Platform engineer","labs":["01-provision-gateway","02-first-model-call","03-multi-provider-aliases","22-model-routing","04-federate-mcp-tools","09-gateway-baselines","12-backend-identity","18-private-networking","21-enterprise-reference"]},{"id":"developer","title":"App & agent developer","labs":["02-first-model-call","03-multi-provider-aliases","22-model-routing","04-federate-mcp-tools","15-agent-frameworks","16-foundry-hosted-agent","17-coding-agent-plugin"]},{"id":"security","title":"Security & compliance","labs":["10-api-keys","11-entra-rbac","08-content-safety","05-mcp-tool-controls","09-gateway-baselines","19-tool-threat-protection","20-agent-365-governance"]},{"id":"finops","title":"FinOps & operations","labs":["06-token-limits","07-cost-budgets","13-monitoring","14-otel-chargeback"]}]};</script>
+<script src="../assets/site.js" defer></script>
+</body>
+</html>

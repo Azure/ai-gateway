@@ -83,6 +83,7 @@
         "01-provision-gateway",
         "02-first-model-call",
         "03-multi-provider-aliases",
+        "22-model-routing",
         "04-federate-mcp-tools",
         "09-gateway-baselines",
         "12-backend-identity",
@@ -99,6 +100,7 @@
       "labs": [
         "02-first-model-call",
         "03-multi-provider-aliases",
+        "22-model-routing",
         "04-federate-mcp-tools",
         "15-agent-frameworks",
         "16-foundry-hosted-agent",
@@ -142,6 +144,12 @@
         "lab": "03-multi-provider-aliases",
         "icon": "models",
         "text": "Foundry, Azure OpenAI, OpenAI, Anthropic, Bedrock, and Vertex AI behind stable aliases."
+      },
+      {
+        "title": "Priority & weighted routing",
+        "lab": "22-model-routing",
+        "icon": "route",
+        "text": "Canary a new model, run A/B tests, or prefer purchased capacity behind one alias."
       },
       {
         "title": "Token limits & quotas",
@@ -241,6 +249,7 @@
     "18-private-networking": "Private networking",
     "19-tool-threat-protection": "Tool threat protection",
     "20-agent-365-governance": "Agent 365 governance",
-    "21-enterprise-reference": "Enterprise reference"
+    "21-enterprise-reference": "Enterprise reference",
+    "22-model-routing": "Priority & weighted routing"
   }
 }

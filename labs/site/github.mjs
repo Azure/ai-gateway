@@ -33,6 +33,7 @@ const WIDGET_TITLES = {
   'policy-layers': 'policy layers explorer',
   'tool-patterns': 'tool patterns explorer',
   'alias-retarget': 'alias retargeting demo',
+  'alias-routing': 'priority and weight routing simulator',
   'token-limit': 'token limit simulator',
   'request-rate': 'request rate simulator',
   budget: 'cost budget simulator',

@@ -668,5 +668,5 @@ Your gateway, its alias, and the `learn` MCP server aren't affected.
 | :-- | :-: | --: |
 | [15 · Agent frameworks](../15-agent-frameworks/README.md) | [All labs](../README.md) | [17 · Coding-agent plugin](../17-coding-agent-plugin/README.md) |
 
-<sub>Learning paths: [App & agent developer](../README.md#learning-paths) (5 of 6)</sub>
+<sub>Learning paths: [App & agent developer](../README.md#learning-paths) (6 of 7)</sub>
 <!-- gh:end -->

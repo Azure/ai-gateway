@@ -39,6 +39,7 @@ export const I = {
   radar: P('<circle cx="10" cy="10" r="7.5"/><circle cx="10" cy="10" r="4"/><path d="m10 10 5-5"/>'),
   building: P('<path d="M3.5 17.5V5l6-2.5v15M9.5 7.5h7v10M2 17.5h16M6 7.5h1M6 10.5h1M6 13.5h1M12 10.5h2M12 13.5h2"/>'),
   sparkle: P('<path d="M10 2.5 11.6 8.4 17.5 10l-5.9 1.6L10 17.5l-1.6-5.9L2.5 10l5.9-1.6Z"/>'),
+  route: P('<circle cx="5" cy="5" r="2"/><circle cx="15" cy="15" r="2"/><path d="M7 5h5.5a2.5 2.5 0 0 1 0 5h-5a2.5 2.5 0 0 0 0 5H13"/>'),
   compass: P('<circle cx="10" cy="10" r="7.5"/><path d="m12.8 7.2-1.6 4-4 1.6 1.6-4Z"/>'),
   plug: P('<path d="M7 2.5v4M13 2.5v4M5 6.5h10v3a5 5 0 0 1-10 0ZM10 14.5v3"/>'),
   server: P('<rect x="3" y="3" width="14" height="6" rx="1.5"/><rect x="3" y="11" width="14" height="6" rx="1.5"/><path d="M6 6h.01M6 14h.01"/>'),
@@ -120,6 +121,7 @@ function topbar(rel, site, kind) {
       <a href="${rel}labs/"${kind === 'catalog' || kind === 'lab' ? ' aria-current="page"' : ''}>All labs</a>
       <a href="${rel}index.html#paths">Learning paths</a>
       <a href="${rel}index.html#use-cases">Use cases</a>
+      <a href="${rel}release-notes/"${kind === 'releases' ? ' aria-current="page"' : ''}>What's new</a>
     </nav>
     <div class="topbar-actions">
       <button class="search-trigger" type="button" data-search-open aria-label="Search labs">${I.search}<span>Search labs</span><kbd data-kbd>Ctrl K</kbd></button>
@@ -141,7 +143,7 @@ function footer(rel, site) {
       <p>Hands-on labs for the Azure AI Gateway.</p>
     </div>
     <div class="footer-cols">
-      <div><h2>Labs</h2><a href="${rel}labs/">All labs</a><a href="${rel}index.html#paths">Learning paths</a><a href="${rel}index.html#use-cases">Use cases</a><a href="${rel}skills/azure-ai-gateway-labs/SKILL.md" title="azure-ai-gateway-labs: the agent skill that teaches coding agents how to use these labs">Agent skill</a></div>
+      <div><h2>Labs</h2><a href="${rel}labs/">All labs</a><a href="${rel}index.html#paths">Learning paths</a><a href="${rel}index.html#use-cases">Use cases</a><a href="${rel}release-notes/">Release notes</a><a href="${rel}skills/azure-ai-gateway-labs/SKILL.md" title="azure-ai-gateway-labs: the agent skill that teaches coding agents how to use these labs">Agent skill</a></div>
       <div><h2>Product</h2><a href="${site.portal}" target="_blank" rel="noopener">AI Gateway portal</a><a href="${site.docs}" target="_blank" rel="noopener">Documentation</a><a href="${site.learn}" target="_blank" rel="noopener">Microsoft Learn</a></div>
       <div><h2>Contribute</h2><a href="${site.repo}" target="_blank" rel="noopener">GitHub repository</a><a href="${site.repo}/blob/${site.branch}/labs/AUTHORING.md" target="_blank" rel="noopener">Authoring guide</a><a href="${site.repo}/issues/new?labels=labs" target="_blank" rel="noopener">Report an issue</a></div>
     </div>
@@ -238,7 +240,7 @@ function heroDiagram(rel) {
 }
 
 // ---------- Home ----------
-export function homePage({ rel, site, catalog, labs, totals }) {
+export function homePage({ rel, site, catalog, labs, totals, latest }) {
   const byId = Object.fromEntries(labs.map((l) => [l.slug, l]));
   const cats = Object.fromEntries(catalog.categories.map((c) => [c.id, c]));
   const quick = catalog.paths.find((p) => p.id === 'quickstart');
@@ -283,6 +285,7 @@ export function homePage({ rel, site, catalog, labs, totals }) {
     <div class="hero-bg" aria-hidden="true"></div>
     <div class="hero-inner container">
       <div class="hero-copy">
+        ${latest ? `<a class="hero-news" href="${rel}release-notes/#${latest.id}"><span class="hero-news-tag">New</span><span class="hero-news-text">${esc(latest.title)}</span>${I.arrowR}</a>` : ''}
         <p class="eyebrow">Azure AI Gateway labs</p>
         <h1>Learn AI Gateway by <span class="grad-text">building with it</span></h1>
         <p class="hero-lead">${esc(site.tagline)} Guided labs for customers and field teams: publish models from any provider, federate MCP tools, enforce limits and budgets, go keyless, observe every token, and govern agents.</p>
@@ -503,6 +506,36 @@ ${html}
     </div>
   </aside>
 </div>`;
+}
+
+// ---------- Release notes ----------
+export function releaseNotesPage({ rel, site, html, releases }) {
+  const fmt = (iso) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+  const nav = releases.map((r, i) => `<li><a href="#${r.id}" data-toc="${r.id}"><time datetime="${r.product}">${fmt(r.product)}</time><span>${esc(r.title)}</span>${i === 0 ? '<span class="rn-latest">Latest</span>' : ''}</a></li>`).join('');
+  return `<main id="main" class="releases">
+  <section class="page-hero">
+    <div class="page-hero-bg" aria-hidden="true"></div>
+    <div class="container">
+      <nav class="breadcrumb" aria-label="Breadcrumb"><a href="${rel}index.html">Home</a><span>/</span><span aria-current="page">Release notes</span></nav>
+      <h1>What's new in the labs</h1>
+      <p class="lead">Every Azure AI Gateway release, and where to practice it. The labs follow the <a href="${site.docs}/releases/${releases[0]?.product || ''}" target="_blank" rel="noopener">product release notes</a>: each entry lists the new product features, the lab that covers each one, and what changed in the labs.</p>
+      <div class="hero-cta">
+        ${releases[0] ? `<a class="btn btn-primary btn-sm rn-hero-latest" href="#${releases[0].id}" title="Latest: ${esc(releases[0].title)}">${I.sparkle}<span>Latest: ${esc(releases[0].title)}</span></a>` : ''}
+        <a class="btn btn-ghost btn-sm" href="${site.repo}/blob/${site.branch}/labs/RELEASE-NOTES.md" target="_blank" rel="noopener">${I.github}View on GitHub</a>
+        <button class="btn btn-ghost btn-sm" type="button" data-copy-md="index.md">${I.markdown}Copy as Markdown</button>
+      </div>
+    </div>
+  </section>
+  <div class="container rn-body">
+    <aside class="rn-nav" aria-label="Releases">
+      <h2>Releases</h2>
+      <ol class="rn-nav-list">${nav}</ol>
+    </aside>
+    <article class="prose rn-prose" id="lab-content">
+${html}
+    </article>
+  </div>
+</main>`;
 }
 
 export function notFoundPage({ rel }) {

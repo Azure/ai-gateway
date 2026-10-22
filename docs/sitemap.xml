@@ -2,10 +2,12 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://azure.github.io/ai-gateway/</loc></url>
   <url><loc>https://azure.github.io/ai-gateway/labs/</loc></url>
+  <url><loc>https://azure.github.io/ai-gateway/release-notes/</loc></url>
   <url><loc>https://azure.github.io/ai-gateway/labs/00-how-ai-gateway-works/</loc></url>
   <url><loc>https://azure.github.io/ai-gateway/labs/01-provision-gateway/</loc></url>
   <url><loc>https://azure.github.io/ai-gateway/labs/02-first-model-call/</loc></url>
   <url><loc>https://azure.github.io/ai-gateway/labs/03-multi-provider-aliases/</loc></url>
+  <url><loc>https://azure.github.io/ai-gateway/labs/22-model-routing/</loc></url>
   <url><loc>https://azure.github.io/ai-gateway/labs/04-federate-mcp-tools/</loc></url>
   <url><loc>https://azure.github.io/ai-gateway/labs/05-mcp-tool-controls/</loc></url>
   <url><loc>https://azure.github.io/ai-gateway/labs/06-token-limits/</loc></url>

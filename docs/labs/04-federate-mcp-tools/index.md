@@ -3,15 +3,16 @@ title: Federate MCP tools behind one endpoint
 summary: Register a remote MCP server in AI Gateway, add a second backend under its own namespace, and connect curl, VS Code, and Python to one governed MCP endpoint.
 category: tools
 level: Beginner
-duration: 25
+duration: 30
 tracks: [portal, cli, iac, code]
 order: 4
 illustration: diagrams/mcp-federation.svg
-tags: [MCP, tools, federation, toolServers, Streamable HTTP, namespace, VS Code]
+tags: [MCP, tools, federation, toolServers, Streamable HTTP, namespace, protocol versions, VS Code]
 objectives:
   - Explain the four tool source types and how AI Gateway namespaces the tools of each backend
   - Register the public Microsoft Learn MCP server in the portal, with the Azure CLI, or with Bicep
   - Federate a second backend into the same MCP server and mark it optional
+  - Choose the MCP protocol versions the server supports and check what clients negotiate
   - Connect curl, VS Code, and a Python MCP client to the governed endpoint with a runtime key
 prereqs:
   - 01-provision-gateway
@@ -304,6 +305,130 @@ The template adds the second endpoint with `required: false`.
 > **Checkpoint**
 > The `learn` server has two backends: `learn` (required) and `docs` (optional).
 
+## Choose supported MCP versions
+
+MCP is versioned by date. A client opens a connection by naming the protocol version it speaks, and the server
+answers with the version both sides will use. AI Gateway negotiates one version for the whole MCP server, so
+that version must work with **every backend** behind it.
+
+| Supported MCP versions | What clients get |
+|---|---|
+| Not configured | The legacy defaults: `2025-06-18`, `2025-03-26`, and `2024-11-05`. The portal labels them **Legacy defaults**. |
+| A list that you choose | Version restrictions. Clients negotiate only a version in the list, and a request whose `MCP-Protocol-Version` header names any other version is rejected with `400`. |
+
+You can choose `2026-07-28`, `2025-11-25`, `2025-06-18`, `2025-03-26`, and `2024-11-05`. Version
+`2026-07-28` is the stateless revision of the specification: it replaces the `initialize` handshake and
+sessions with a `server/discover` request, and every request carries `MCP-Protocol-Version`, `Mcp-Method`, and
+`Mcp-Name` headers plus metadata in `params._meta`. Select it only when every backend supports it, and use an
+MCP SDK that implements it rather than hand-written requests.
+
+In this lab, pin the server to `2025-06-18`. At the time of writing, that's the version the Microsoft Learn MCP
+server negotiates, so both backends, `learn` and `docs`, support it.
+
+<!-- track: portal | Portal -->
+
+### Pin the version
+
+1. On the `learn` details page, find **Supported MCP versions**. Unless you changed it, it lists the legacy
+   defaults.
+2. Select **Edit**. On **Basic info**, open **Supported MCP versions** and keep only `2025-06-18` selected.
+3. Go to **Backends**. Because the list changed, the portal asks you to recheck the backends: "Supported MCP
+   versions changed. Edit and save each external MCP backend before saving this server." For each backend row,
+   select **Edit**, then **Save** in **Edit MCP backend**. The portal checks which versions the backend
+   supports before it saves the row.
+4. Select **Save**.
+
+If a backend doesn't support a selected version, **Edit MCP backend** shows "Backend isn't compatible with all
+configured MCP versions." and lists the versions the backend reports. Return to **Basic info** and change the
+list, or update the backend.
+
+<!-- track: cli | Azure CLI -->
+
+### Set the versions
+
+A `PATCH` that sends only `properties.versions` keeps the backends, tool rules, and policies as they are.
+
+```bash title="Bash"
+az rest --method patch --url "$WS/toolServers/learn?$API" \
+  --body '{"properties": {"versions": ["2025-06-18"]}}' --query properties.versions
+```
+
+```powershell title="PowerShell"
+@{ properties = @{ versions = @('2025-06-18') } } | ConvertTo-Json -Depth 5 -Compress | Set-Content -Path body.json
+az rest --method patch --url "$WS/toolServers/learn?$API" --body '@body.json' --query properties.versions
+Remove-Item body.json
+```
+
+Unlike the portal, the API doesn't ask the backends which versions they support. If you list a version that a
+backend can't speak, the `PATCH` succeeds and clients that negotiate that version fail. See
+[Troubleshooting](#troubleshooting).
+
+<!-- track: iac | Bicep -->
+
+### Redeploy with pinned versions
+
+The `supportedVersions` parameter takes a comma-separated list, such as `2025-06-18` or
+`2026-07-28,2025-06-18`. Leave it empty to keep the legacy defaults.
+
+```bash title="Bash"
+az deployment group create -g "$RG" \
+  --template-file infra/main.bicep \
+  --parameters gatewayName="$GATEWAY" serverName=learn namespace=learn secondNamespace=docs \
+               supportedVersions=2025-06-18 \
+  --query properties.outputs.supportedVersions.value
+```
+
+```powershell title="PowerShell"
+az deployment group create -g $RG `
+  --template-file infra/main.bicep `
+  --parameters gatewayName=$GATEWAY serverName=learn namespace=learn secondNamespace=docs `
+               supportedVersions=2025-06-18 `
+  --query properties.outputs.supportedVersions.value
+```
+
+<!-- /tracks -->
+
+### Check the negotiated version
+
+Ask for an older version. The gateway answers with the version it will use:
+
+```bash title="Bash"
+curl -sS "${AI_GATEWAY_URL%/}/default/toolservers/learn/mcp" \
+  -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26",
+       "capabilities":{},"clientInfo":{"name":"curl","version":"1.0"}}}'
+```
+
+```powershell title="PowerShell"
+$mcp     = "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/toolservers/learn/mcp"
+$headers = @{ 'api-key' = $env:AI_GATEWAY_API_KEY; Accept = 'application/json, text/event-stream' }
+$body    = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26",
+             "capabilities":{},"clientInfo":{"name":"pwsh","version":"1.0"}}}'
+(Invoke-WebRequest -Method Post -Uri $mcp -Headers $headers -ContentType 'application/json' -Body $body).Content
+```
+
+The result includes `"protocolVersion":"2025-06-18"`. Now send a request that names a version outside the list:
+
+```bash title="Bash"
+curl -sS -w "\nHTTP %{http_code}\n" "${AI_GATEWAY_URL%/}/default/toolservers/learn/mcp" \
+  -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" -H "MCP-Protocol-Version: 2026-07-28" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+```powershell title="PowerShell"
+$r = Invoke-WebRequest -Method Post -Uri $mcp -SkipHttpErrorCheck -ContentType 'application/json' `
+  -Headers ($headers + @{ 'MCP-Protocol-Version' = '2026-07-28' }) -Body '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+"HTTP $($r.StatusCode) $($r.Content)"
+```
+
+The gateway rejects it with `400` and `Unsupported MCP-Protocol-Version` before any backend is called.
+
+> **Checkpoint**
+> **Supported MCP versions** shows `2025-06-18` on the details page and in **Catalog**, an `initialize` request
+> for `2025-03-26` returns `2025-06-18`, and a `2026-07-28` request is rejected with `400`.
+
 ## Connect a client
 
 Any MCP-compatible client or agent framework can use the endpoint. Store the runtime key in the client's
@@ -527,6 +652,11 @@ Delete the `ai-gateway-learn` entry from `.vscode/mcp.json` and the `.venv` fold
 | The whole server fails when one backend is down | That backend is **Required** | Turn **Required** off for backends that are nice-to-have, or fix the backend. |
 | Backends or policies disappeared after a `PUT` or a Bicep deployment | A `PUT` replaces an existing registration with the same name | Change existing servers with `GET`, edit, `PATCH`, as in the CLI track, or `PUT` to a new name. |
 | `PATCH` fails with "Tool server endpoints are required" | The request removes the last backend | Keep at least one backend, or delete the server. |
+| `400` with `Unsupported MCP-Protocol-Version` | The client sent an `MCP-Protocol-Version` header that isn't in **Supported MCP versions** | Add the version to the list if every backend supports it, or let the client negotiate a listed version. |
+| `404` with "Federation tools/list failed: required endpoint '…' returned error: Backend selected protocol version '…' instead of '…'" | **Supported MCP versions** includes a version that this backend doesn't support, and the client negotiated it | Keep only versions that every backend supports. In the portal, edit and save each backend to recheck it. |
+| `400` with JSON-RPC error `-32603`, "The request cannot be completed using the requested protocol version." | A `2026-07-28` request reached a backend that doesn't support `2026-07-28` | Remove `2026-07-28` from **Supported MCP versions** until every backend supports it. |
+| `400` with JSON-RPC error `-32602`, "Required MCP request metadata is missing or malformed." | A `2026-07-28` request lacks the `Mcp-Method` or `Mcp-Name` header, or `params._meta` | Use an MCP SDK that implements `2026-07-28` instead of hand-written requests. |
+| The portal shows "Backend isn't compatible with all configured MCP versions." | The backend doesn't report support for every selected version | Return to **Basic info** and change **Supported MCP versions**, or update the backend. |
 | Creating a server fails with `502 Bad Gateway`, or a Bicep deployment keeps running | Another MCP server in the gateway already uses the same display name | Choose a unique display name, for example with the Bicep `displayName` parameter. |
 
 ## Next steps
@@ -536,3 +666,4 @@ Delete the `ai-gateway-learn` entry from `.vscode/mcp.json` and the `.venv` fold
 - [Connect agent frameworks to models and tools](../15-agent-frameworks/README.md): give an agent your governed tools and models.
 - [Set gateway-wide policy baselines](../09-gateway-baselines/README.md): apply defaults to every MCP server and model.
 - Docs: [Connect to MCP tools through AI Gateway](https://ai.gateway.azure.com/docs/mcp-access).
+- Release: [October 16 release: MCP 2026-07-28 protocol versions](https://ai.gateway.azure.com/docs/releases/2026-10-16).

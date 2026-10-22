@@ -8,6 +8,7 @@ Product docs: https://ai.gateway.azure.com/docs
 Portal: https://ai.gateway.azure.com
 Source: https://github.com/Azure/ai-gateway/tree/main/labs
 Agent skill: https://azure.github.io/ai-gateway/skills/azure-ai-gateway-labs/SKILL.md
+Release notes: https://azure.github.io/ai-gateway/release-notes/index.md
 
 ## Labs
 
@@ -15,6 +16,7 @@ Agent skill: https://azure.github.io/ai-gateway/skills/azure-ai-gateway-labs/SKI
 - [01 Provision your AI Gateway](https://azure.github.io/ai-gateway/labs/01-provision-gateway/index.md): Create the shared AI Gateway that your apps and agents will call, from the AI Gateway portal, the Azure CLI, or Bicep, then take a guided tour of the portal.
 - [02 Publish a Foundry model and make your first call](https://azure.github.io/ai-gateway/labs/02-first-model-call/index.md): Publish a Microsoft Foundry model deployment through your gateway with its managed identity, create a runtime API key, try the model in the Catalog playground, and call it from curl, PowerShell, Python, TypeScript, and C#.
 - [03 Publish models from any provider behind stable aliases](https://azure.github.io/ai-gateway/labs/03-multi-provider-aliases/index.md): Connect Anthropic or another non-Azure provider with a credential that stays in the gateway, publish its models behind callable aliases, call Claude with the native Messages API, and retarget an alias to a different backend model without changing a single client.
+- [22 Route an alias across models by priority and weight](https://azure.github.io/ai-gateway/labs/22-model-routing/index.md): Put two Foundry models behind one alias, canary a new model version with an 80/20 weighted split, then prefer one model by priority, all without changing the model name that clients send.
 - [04 Federate MCP tools behind one endpoint](https://azure.github.io/ai-gateway/labs/04-federate-mcp-tools/index.md): Register a remote MCP server in AI Gateway, add a second backend under its own namespace, and connect curl, VS Code, and Python to one governed MCP endpoint.
 - [05 Control which tools agents can call](https://azure.github.io/ai-gateway/labs/05-mcp-tool-controls/index.md): Publish only approved MCP tools with name patterns, block risky tools, take a whole MCP server offline, and cap tool traffic per caller with a request rate limit.
 - [06 Throttle tokens per caller with token limits](https://azure.github.io/ai-gateway/labs/06-token-limits/index.md): Cap how many tokens each app, agent, or user can consume per minute, hour, or day, and watch the gateway answer with 429 and Retry-After before your backend capacity runs out.
@@ -37,7 +39,7 @@ Agent skill: https://azure.github.io/ai-gateway/skills/azure-ai-gateway-labs/SKI
 ## Learning paths
 
 - 30-minute quickstart: 00-how-ai-gateway-works, 01-provision-gateway, 02-first-model-call, 04-federate-mcp-tools
-- Platform engineer: 01-provision-gateway, 02-first-model-call, 03-multi-provider-aliases, 04-federate-mcp-tools, 09-gateway-baselines, 12-backend-identity, 18-private-networking, 21-enterprise-reference
-- App & agent developer: 02-first-model-call, 03-multi-provider-aliases, 04-federate-mcp-tools, 15-agent-frameworks, 16-foundry-hosted-agent, 17-coding-agent-plugin
+- Platform engineer: 01-provision-gateway, 02-first-model-call, 03-multi-provider-aliases, 22-model-routing, 04-federate-mcp-tools, 09-gateway-baselines, 12-backend-identity, 18-private-networking, 21-enterprise-reference
+- App & agent developer: 02-first-model-call, 03-multi-provider-aliases, 22-model-routing, 04-federate-mcp-tools, 15-agent-frameworks, 16-foundry-hosted-agent, 17-coding-agent-plugin
 - Security & compliance: 10-api-keys, 11-entra-rbac, 08-content-safety, 05-mcp-tool-controls, 09-gateway-baselines, 19-tool-threat-protection, 20-agent-365-governance
 - FinOps & operations: 06-token-limits, 07-cost-budgets, 13-monitoring, 14-otel-chargeback

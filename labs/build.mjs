@@ -10,7 +10,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { initHighlighter, renderLab, escapeHtml } from './site/markdown.mjs';
 import { parseLab, stripGitHub, syncLab, syncIndex, syncSkill, findVideo } from './site/github.mjs';
-import { layout, homePage, catalogPage, labPage, notFoundPage } from './site/templates.mjs';
+import { layout, homePage, catalogPage, labPage, releaseNotesPage, notFoundPage } from './site/templates.mjs';
 
 const LABS = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(LABS, '..');
@@ -21,7 +21,8 @@ const SKILL_NAME = 'azure-ai-gateway-labs';
 const SKILL_FILE = path.join(LABS, 'skills', SKILL_NAME, 'SKILL.md');
 const BASE_URL = (process.env.LABS_SITE_URL || 'https://azure.github.io/ai-gateway/').replace(/\/?$/, '/');
 const BASE_PATH = new URL(BASE_URL).pathname;
-const GENERATED = ['index.html', '404.html', 'labs', 'assets', 'search.json', 'llms.txt', 'llms-full.txt', 'skills', 'sitemap.xml', 'robots.txt', '.nojekyll'];
+const RELEASE_NOTES = path.join(LABS, 'RELEASE-NOTES.md');
+const GENERATED = ['index.html', '404.html', 'labs', 'release-notes', 'assets', 'search.json', 'llms.txt', 'llms-full.txt', 'skills', 'sitemap.xml', 'robots.txt', '.nojekyll'];
 const MEDIA_RE = /\.(png|jpe?g|gif|webp|svg|mp4|webm|avif)$/i;
 const REQUIRED = ['title', 'summary', 'category', 'level', 'duration', 'tracks', 'objectives'];
 
@@ -112,7 +113,8 @@ function loadLabs(catalog) {
   return labs;
 }
 
-function makeCtx(lab, site, knownSlugs) {
+// labsPrefix is how the rendered page reaches the labs folder: lab pages are siblings, other pages use ../labs/.
+function makeCtx(lab, site, knownSlugs, { labsPrefix = '../' } = {}) {
   const ghBase = `${site.repo}/blob/${site.branch}`;
   const media = new Set();
   const ctx = {
@@ -143,8 +145,10 @@ function makeCtx(lab, site, knownSlugs) {
       const m = relLabs.match(/^(\d{2}-[a-z0-9-]+)(?:\/(?:README\.md)?)?$/);
       if (m) {
         if (!knownSlugs.has(m[1])) warn(`${lab.slug}: link to unknown lab ${href}`);
-        return { url: m[1] === lab.slug ? (h || './') : `../${m[1]}/${h}`, external: false };
+        return { url: m[1] === lab.slug ? (h || './') : `${labsPrefix}${m[1]}/${h}`, external: false };
       }
+      if (relLabs === 'README.md') return { url: `${labsPrefix}${h}`, external: false };
+      if (relLabs === 'RELEASE-NOTES.md') return { url: `${labsPrefix}../release-notes/${h}`, external: false };
       if (!fs.existsSync(abs)) warn(`${lab.slug}: broken link ${href}`);
       if (relLabs.startsWith('assets/') || (abs.startsWith(lab.dir + path.sep) && MEDIA_RE.test(abs))) {
         if (abs.startsWith(lab.dir + path.sep)) media.add(path.relative(lab.dir, abs));
@@ -205,6 +209,47 @@ function syncSources(labs, catalog, { check = false } = {}) {
   if (check) for (const f of stale) warn(`${f} is out of sync with its metadata; run "npm run sync"`);
   else if (stale.length) console.log(`Synced ${stale.length} file(s): ${stale.join(', ')}`);
   return stale;
+}
+
+// Renders labs/RELEASE-NOTES.md. Each "## <date>" section is one product release: an "### <title>" heading and a
+// link to https://ai.gateway.azure.com/docs/releases/YYYY-MM-DD, then what changed in the labs.
+async function renderReleaseNotes(site, known, rendered) {
+  if (!fs.existsSync(RELEASE_NOTES)) return null;
+  const source = stripGitHub(fs.readFileSync(RELEASE_NOTES, 'utf8'));
+  const page = { dir: LABS, slug: 'release-notes' };
+  const ctx = makeCtx(page, site, known, { labsPrefix: '../labs/' });
+  const { html, toc } = await renderLab(source, ctx);
+  for (const m of ctx.media) {
+    const dest = path.join(OUT, 'release-notes', m);
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.copyFileSync(path.join(LABS, m), dest);
+  }
+  const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
+  for (const m of html.matchAll(/href="#([^"]+)"/g)) if (!ids.has(m[1])) warn(`RELEASE-NOTES.md: anchor #${m[1]} not found`);
+  for (const m of html.matchAll(/href="\.\.\/labs\/(\d{2}-[a-z0-9-]+)\/#([^"]+)"/g)) {
+    if (!rendered.get(m[1])?.includes(` id="${m[2]}"`)) warn(`RELEASE-NOTES.md: anchor ${m[1]}#${m[2]} not found`);
+  }
+
+  const releases = [];
+  for (const section of source.split(/^(?=## )/m).slice(1)) {
+    const date = section.match(/^## (.+)/)[1].trim();
+    const title = section.match(/^### (.+)/m)?.[1].trim();
+    const product = section.match(/https:\/\/ai\.gateway\.azure\.com\/docs\/releases\/(\d{4}-\d{2}-\d{2})/)?.[1];
+    if (!title || !product) continue;
+    const id = toc.find((t) => t.text === date)?.id;
+    releases.push({ date, title: title.replace(/[*`_]/g, ''), product, id });
+  }
+  if (!releases.length) warn('RELEASE-NOTES.md: no release sections found (expected "## <date>", "### <title>", and a product release link)');
+  const sections = html.split(/(?=<h2 id=")/).map((part) => {
+    const id = part.match(/^<h2 id="([^"]+)"/)?.[1];
+    if (!id) return part;
+    const r = releases.find((x) => x.id === id);
+    return r ? `<section class="release" data-release="${r.product}">${part}</section>` : `<section class="release-extra">${part}</section>`;
+  }).join('');
+  return {
+    source, html: sections, toc, releases,
+    description: 'What changed in the Azure AI Gateway labs for each product release, and where to practice every new feature.',
+  };
 }
 
 export async function build({ strict = false } = {}) {
@@ -274,7 +319,18 @@ export async function build({ strict = false } = {}) {
   }
 
   const totals = { labs: labs.length, minutes: labs.reduce((a, l) => a + l.duration, 0) };
-  write('index.html', layout({ rel: '', site, kind: 'home', title: '', description: site.tagline, body: homePage({ rel: '', site, catalog, labs, totals }), canonical: BASE_URL, data: shared }));
+
+  // Release notes: labs/RELEASE-NOTES.md is the source of truth, rendered at /release-notes/
+  const notes = await renderReleaseNotes(site, known, rendered);
+  if (notes) {
+    write('release-notes/index.html', layout({
+      rel: '../', site, kind: 'releases', title: 'Release notes', description: notes.description,
+      body: releaseNotesPage({ rel: '../', site, ...notes }), canonical: `${BASE_URL}release-notes/`, data: shared,
+    }));
+    write('release-notes/index.md', notes.source);
+  }
+
+  write('index.html', layout({ rel: '', site, kind: 'home', title: '', description: site.tagline, body: homePage({ rel: '', site, catalog, labs, totals, latest: notes?.releases[0] }), canonical: BASE_URL, data: shared }));
   write('labs/index.html', layout({ rel: '../', site, kind: 'catalog', title: 'All labs', description: `${labs.length} hands-on labs for Azure AI Gateway.`, body: catalogPage({ rel: '../', catalog, labs }), canonical: `${BASE_URL}labs/`, data: shared }));
   write('404.html', layout({ rel: BASE_PATH, site, kind: 'notfound', title: 'Page not found', body: notFoundPage({ rel: BASE_PATH }), data: shared }));
   write('search.json', JSON.stringify(searchIndex));
@@ -283,14 +339,14 @@ export async function build({ strict = false } = {}) {
   const llms = [`# ${site.title}`, '', `> ${site.tagline}`, '',
     'Hands-on labs for the AI Gateway tier of Azure API Management. Each lab has portal, Azure CLI, REST, Bicep, or code tracks.', '',
     `Product docs: ${site.docs}`, `Portal: ${site.portal}`, `Source: ${site.repo}/tree/${site.branch}/labs`,
-    `Agent skill: ${BASE_URL}skills/${SKILL_NAME}/SKILL.md`, '', '## Labs', '',
+    `Agent skill: ${BASE_URL}skills/${SKILL_NAME}/SKILL.md`, ...(notes ? [`Release notes: ${BASE_URL}release-notes/index.md`] : []), '', '## Labs', '',
     ...labs.map((l) => `- [${l.num} ${l.title}](${BASE_URL}labs/${l.slug}/index.md): ${l.summary}`), '',
     '## Learning paths', '', ...catalog.paths.map((p) => `- ${p.title}: ${p.labs.filter((s) => known.has(s)).join(', ')}`), ''].join('\n');
   write('llms.txt', llms);
   // The agent skill, without the generated-region markers
   write(`skills/${SKILL_NAME}/SKILL.md`, fs.readFileSync(SKILL_FILE, 'utf8').replace(/^<!-- gh:(?:begin\b[^>]*|end) -->\n/gm, ''));
   write('llms-full.txt', labs.map((l) => `<!-- ${BASE_URL}labs/${l.slug}/ -->\n${l.raw.trim()}\n`).join('\n\n'));
-  const urls = ['', 'labs/', ...labs.map((l) => `labs/${l.slug}/`)];
+  const urls = ['', 'labs/', ...(notes ? ['release-notes/'] : []), ...labs.map((l) => `labs/${l.slug}/`)];
   write('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `  <url><loc>${escapeHtml(BASE_URL + u)}</loc></url>`).join('\n')}\n</urlset>\n`);
   write('robots.txt', `User-agent: *\nAllow: /\nSitemap: ${BASE_URL}sitemap.xml\n`);
 

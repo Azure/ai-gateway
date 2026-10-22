@@ -1230,5 +1230,5 @@ Keep the gateway, model, and key from the earlier labs. The next labs reuse them
 | :-- | :-: | --: |
 | [17 · Coding-agent plugin](../17-coding-agent-plugin/README.md) | [All labs](../README.md) | [19 · Tool threat protection](../19-tool-threat-protection/README.md) |
 
-<sub>Learning paths: [Platform engineer](../README.md#learning-paths) (7 of 8)</sub>
+<sub>Learning paths: [Platform engineer](../README.md#learning-paths) (8 of 9)</sub>
 <!-- gh:end -->

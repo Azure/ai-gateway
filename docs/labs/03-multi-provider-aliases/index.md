@@ -26,7 +26,7 @@ In this lab you add Anthropic as a provider whose key only the gateway knows, pu
 aliases such as `support-chat`, and then point `support-chat` at a bigger model while the clients keep sending
 the same name.
 
-![Clients call an alias, and the alias points to one backend model of one provider](../assets/diagrams/aliases.svg "An alias is the stable name in the request's model field. You can point it at a different backend model at any time.")
+![Clients call an alias, and the alias points to a backend model of a provider](../assets/diagrams/aliases.svg "An alias is the stable name in the request's model field. You can point it at a different backend model at any time.")
 
 <!-- widget: alias-retarget {"alias":"team-chat","targets":[{"provider":"Microsoft Foundry","model":"gpt-6-luna","note":"Lower cost","logo":"microsoft-foundry"},{"provider":"Microsoft Foundry","model":"gpt-6.1-sol","note":"Higher quality","logo":"microsoft-foundry"},{"provider":"OpenAI","model":"gpt-6-luna","note":"Custom provider","logo":"openai"}]} -->
 
@@ -84,9 +84,11 @@ The gateway publishes models in three layers:
 |---|---|---|---|
 | **Model provider** | A backend endpoint and the credential the gateway uses to call it | The gateway | `anthropic`, key sent in `x-api-key` |
 | **Backend model** | A model that the provider serves, and the interfaces it supports | Its provider | `claude-haiku-5-5` |
-| **Alias** | The callable name that clients put in the `model` field. It points to exactly one backend model and can carry its own policies. | The gateway | `support-chat` |
+| **Alias** | The callable name that clients put in the `model` field. It points to one or more backend models and can carry its own policies. | The gateway | `support-chat` |
 
 Clients only ever see the gateway URL, their runtime key, and the alias. The provider key stays in the gateway.
+In this lab each alias points to one backend model. To split traffic across several backend models by priority
+and weight, see [Route an alias across models by priority and weight](../22-model-routing/README.md).
 
 Each interface has its own route under `https://<gateway>.eastus2-01.ai.gateway.azure.com/default/models`:
 
@@ -257,7 +259,8 @@ Remove-Item model.json
 
 ### Create the aliases
 
-An alias names one backend model by its resource ID. The callable name goes in `properties.aliasName`. Callable
+An alias lists its backend models by resource ID in `properties.backendModels`. Here each alias has one. The
+callable name goes in `properties.aliasName`. Callable
 names may contain `/`, but resource names can't, so the script derives the resource name the same way the
 portal does: `anthropic/claude-sonnet-5-5` is stored as `anthropic-claude-sonnet-5-5`.
 
@@ -339,15 +342,16 @@ Policies on the backend model apply to every alias that targets it.
 
 ### Add the batch-chat alias
 
-Select **Models** › **Add models** › **Alias for an existing model**. In **Create alias**, set:
+Select **Models** › **Aliases** › **Add alias**. The **Create alias** wizard has four steps:
 
-| Field | Value |
+| Step | What to do |
 |---|---|
-| **Alias** | `batch-chat` |
-| **Backend model** | `claude-haiku-5-5` from the `Anthropic` provider |
-| **Description** | `Nightly batch summaries` |
+| **Basics** | Set **Alias name** to `batch-chat` and **Description** to `Nightly batch summaries`. |
+| **Select models** | Under **Available backend models**, select `claude-haiku-5-5` from the `Anthropic` provider. |
+| **Priority and weights** | Keep the defaults, priority `0` and weight `1`. With one backend model, it gets all requests. |
+| **Review** | Check the summary. |
 
-Select **Create**. You can also open the backend model, select its **Aliases** tab, and then **Add alias**.
+Select **Create**. You can also start from **Models** › **Add models** › **Alias for an existing model**.
 
 ### Limit each alias
 
@@ -402,18 +406,19 @@ The support team wants better answers. Point `support-chat` at the bigger model.
 
 ### Edit the alias
 
-In **Models**, open the `support-chat` alias and select **Edit**. In **Edit alias**, change **Backend model** to
-`claude-sonnet-5-5` from the `Anthropic` provider, then select **Save**. New requests use the selected backend
-model immediately.
+In **Models** › **Aliases**, open the `support-chat` alias and select **Edit**. **Edit alias** has the same
+steps as **Create alias**. On **Select models**, clear `claude-haiku-5-5` and select `claude-sonnet-5-5` from
+the `Anthropic` provider. Keep the defaults on **Priority and weights**, select **Next** until you reach
+**Review**, then select **Save**. New requests use the selected backend model immediately.
 
-![The Edit alias panel with the Alias, Backend model, and Description fields](../assets/screens/models-aliases.png "Edit alias changes only the backend model. The alias name that clients send stays the same. This example shows a Foundry alias.")
+![The Priority and weights step of the alias wizard, with a backend model at priority 0 and two at priority 1 split 75/25](../assets/screens/models-alias-routing.png "Edit alias changes the backend models behind the name. The alias name that clients send stays the same. With several backend models, Priority and weights decides which one serves each request, as in lab 22.")
 
 ### Check that the policy stayed
 
 On the `support-chat` alias page, select the **Policies** tab.
 
 > **Checkpoint**
-> The alias page shows `claude-sonnet-5-5` under **Target details**, and the **Policies** tab still lists the
+> The alias page shows `claude-sonnet-5-5` on the **Backend models** tab, and the **Policies** tab still lists the
 > 20,000-token **Token rate limit**.
 
 <!-- track: rest | REST API -->
@@ -593,6 +598,8 @@ you created the key only for this lab, delete it in the Claude Console.
 
 ## Next steps
 
+- [Route an alias across models by priority and weight](../22-model-routing/README.md): canary a new model or prefer
+  purchased capacity behind one alias.
 - [Throttle tokens per caller with token limits](../06-token-limits/README.md)
 - [Enforce cost budgets with per-caller overrides](../07-cost-budgets/README.md)
 - [Monitor usage, cost, and traces](../13-monitoring/README.md)

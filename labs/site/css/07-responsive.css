@@ -40,6 +40,9 @@
   .wd-alias { grid-template-columns: 1fr; gap: 12px; }
   .wd-alias-hub { min-height: 60px; }
   .wd-alias-hub svg { display: none; }
+  .wr-run { grid-template-columns: 1fr; }
+  .wr-dots { grid-template-columns: repeat(10, minmax(0, 1fr)); }
+  .wr-dots span { max-width: 26px; }
   .footer-inner { grid-template-columns: 1fr; gap: 28px; }
 }
 @media (max-width: 720px) {
@@ -86,6 +89,9 @@
   .brand-badge { display: none; }
   .wd-caller { grid-template-columns: 1fr; }
   .wd-caller .btn { grid-row: auto; justify-self: start; }
+  .wr-row { grid-template-columns: minmax(0, 1fr) 64px 64px; gap: 8px; }
+  .wr-share { grid-column: 1 / -1; }
+  .wr-head span:last-child { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

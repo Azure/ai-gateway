@@ -1,0 +1,49 @@
+/* Release notes timeline and the home "What's new" pill. */
+.hero-news { display: inline-flex; align-items: center; gap: 10px; max-width: 100%; margin: 0 0 18px; padding: 4px 14px 4px 4px; border: 1px solid var(--stroke); border-radius: 999px; background: var(--bg-glass); box-shadow: var(--shadow-s); color: var(--fg-2); font-size: 13.5px; line-height: 1.3; transition: border-color .2s var(--ease), box-shadow .2s var(--ease); }
+.hero-news:hover { border-color: var(--brand-bg-2); box-shadow: var(--shadow); color: var(--fg); text-decoration: none; }
+.hero-news-tag { flex: none; padding: 3px 9px; border-radius: 999px; background: var(--grad); color: #fff; font-size: 12px; font-weight: 600; letter-spacing: .02em; }
+.hero-news-text { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.hero-news .i { flex: none; width: 14px; height: 14px; color: var(--brand-fg); transition: transform .2s var(--ease); }
+.hero-news:hover .i { transform: translateX(2px); }
+
+.releases .hero-cta { margin-top: 20px; }
+.rn-body { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 56px; padding: 40px 0 96px; }
+.rn-nav { position: sticky; top: calc(var(--topbar-h) + 28px); align-self: start; }
+.rn-nav h2 { margin: 0 0 10px; color: var(--fg-3); font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+.rn-nav-list { margin: 0; padding: 0; border-left: 1px solid var(--stroke); list-style: none; }
+.rn-nav-list a { display: grid; gap: 1px; margin-left: -1px; padding: 7px 0 7px 14px; border-left: 2px solid transparent; color: var(--fg-3); font-size: 13.5px; line-height: 1.35; }
+.rn-nav-list a:hover { color: var(--fg); text-decoration: none; }
+.rn-nav-list a.active { border-left-color: var(--brand); color: var(--fg); }
+.rn-nav-list time { color: var(--fg-4); font-size: 12px; font-variant-numeric: tabular-nums; }
+.rn-nav-list a.active time { color: var(--brand-fg); font-weight: 600; }
+.rn-hero-latest { max-width: 100%; min-width: 0; }
+.rn-hero-latest > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rn-latest { justify-self: start; margin-top: 4px; padding: 1px 7px; border-radius: 999px; background: var(--brand-bg); color: var(--brand-fg); font-size: 11px; font-weight: 600; }
+
+.rn-prose { max-width: 860px; }
+.rn-prose > p:first-child { margin-top: 0; }
+.release { position: relative; margin-left: 7px; padding: 0 0 40px 34px; border-left: 2px solid var(--stroke); }
+.release:last-of-type { border-image: linear-gradient(var(--stroke) 60%, transparent) 1; }
+.release > h2 { margin: 0 0 4px; padding-top: 0; color: var(--brand-fg); font-size: 14px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.release + .release > h2, .release-extra + .release > h2 { padding-top: 8px; }
+.release > h2::before { content: ""; position: absolute; top: 50%; left: -43px; width: 14px; height: 14px; margin-top: -7px; border: 3px solid var(--brand); border-radius: 50%; background: var(--bg); }
+.release + .release > h2::before { margin-top: -3px; }
+.release:first-of-type > h2::before { border: 0; background: var(--grad); box-shadow: 0 0 0 4px var(--bg), 0 0 0 7px color-mix(in srgb, var(--violet) 25%, transparent); }
+.release:first-of-type > h2::after { content: "Latest"; margin-left: 10px; padding: 2px 8px; border-radius: 999px; background: var(--grad); color: #fff; font-size: 11px; letter-spacing: .04em; vertical-align: 2px; }
+.release > h3:first-of-type { margin: 2px 0 10px; font-family: var(--font-display); font-size: 25px; line-height: 1.25; letter-spacing: -.01em; }
+.release > h4 { margin: 26px 0 8px; color: var(--fg-2); font-size: 15px; }
+.release table { font-size: 14px; }
+.release table td:first-child { width: 42%; }
+.release table th:last-child, .release table td:last-child { width: 1%; white-space: nowrap; }
+.release-extra { margin-top: 16px; padding-top: 8px; border-top: 1px solid var(--stroke); }
+.release-extra > h2 { margin-top: 24px; font-size: 20px; }
+
+@media (max-width: 900px) {
+  .rn-body { grid-template-columns: minmax(0, 1fr); gap: 0; padding-top: 24px; }
+  .rn-nav { display: none; }
+  .release { margin-left: 5px; padding-left: 24px; }
+  .release > h2::before { left: -33px; }
+  .release > h3:first-of-type { font-size: 21px; }
+  .release table td:first-child { width: auto; }
+  .release table td:last-child { white-space: normal; }
+}

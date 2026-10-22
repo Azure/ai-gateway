@@ -1527,5 +1527,5 @@ If you deployed prod, repeat the clean-up with the `aigw-prod` deployment's outp
 | :-- | :-: | --: |
 | [20 · Agent 365 governance](../20-agent-365-governance/README.md) | [All labs](../README.md) |   |
 
-<sub>Learning paths: [Platform engineer](../README.md#learning-paths) (8 of 8)</sub>
+<sub>Learning paths: [Platform engineer](../README.md#learning-paths) (9 of 9)</sub>
 <!-- gh:end -->

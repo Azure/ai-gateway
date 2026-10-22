@@ -499,7 +499,7 @@ function initPathBanner() {
 }
 
 function initToc() {
-  const links = $$('.toc-list a[data-toc]');
+  const links = $$('.toc-list a[data-toc], .rn-nav-list a[data-toc]');
   if (!links.length) return;
   const map = new Map(links.map((a) => [a.dataset.toc, a]));
   const heads = links.map((a) => document.getElementById(a.dataset.toc)).filter(Boolean);
@@ -953,7 +953,7 @@ WIDGETS['request-rate'] = (el, c) => quotaWidget(el, c, 'request-rate');
 WIDGETS.budget = (el, c) => quotaWidget(el, c, 'budget');
 
 /* 06-widgets.js */
-// Widgets: request lifecycle, alias retarget, tool patterns, policy layers.
+// Widgets: request lifecycle, alias retarget, alias routing, tool patterns, policy layers.
 const LC_STAGES = [
   ['client', 'Client app', 'SDK or agent', 'app'],
   ['auth', 'Auth', 'key or Entra', 'key', 1],
@@ -1071,6 +1071,98 @@ WIDGETS['alias-retarget'] = (el, cfg) => {
   });
   new ResizeObserver(draw).observe(el);
   draw();
+};
+
+// Priority and weight routing: the lowest priority number wins, weights split traffic inside that tier.
+WIDGETS['alias-routing'] = (el, cfg) => {
+  const alias = cfg.alias || 'chat', N = 20;
+  const COL = ['var(--cat-violet)', 'var(--cat-magenta)', 'var(--cat-azure)', 'var(--cat-cyan)', 'var(--cat-amber)'];
+  const rows = (cfg.backends || [
+    { model: 'gpt-6-luna', provider: 'Microsoft Foundry', logo: 'microsoft-foundry', priority: 0, weight: 80 },
+    { model: 'gpt-6.1-sol', provider: 'Microsoft Foundry', logo: 'microsoft-foundry', priority: 0, weight: 20 },
+    { model: 'gpt-6-sol', provider: 'Azure OpenAI', logo: 'azure-openai', priority: 1, weight: 1 },
+  ]).map((b, i) => ({ ...b, priority: String(b.priority ?? 0), weight: String(b.weight ?? 1), c: COL[i % COL.length] }));
+  const presets = cfg.presets || [
+    ['canary', 'Canary 80/20', [[0, 80], [0, 20], [1, 1]]],
+    ['ab', 'A/B 50/50', [[0, 50], [0, 50], [1, 1]]],
+    ['prefer', 'Prefer by priority', [[0, 1], [1, 1], [2, 1]]],
+  ];
+  const bad = (v, k) => {
+    const ok = /^\d+$/.test(String(v).trim()) && +v >= (k === 'weight' ? 1 : 0) && +v <= 100;
+    return ok ? null : k === 'weight' ? 'Weight must be a whole number from 1 to 100.' : 'Priority must be a whole number from 0 to 100.';
+  };
+  const pct = (s) => (s > 0 && s < 0.001 ? '<0.1%' : `${+(s * 100).toFixed(1)}%`);
+  const controls = wdGroup('Scenario', wdSeg('preset', presets.map(([v, l]) => [v, l]), presets[0][0]));
+  const table = `<div class="wr-table" role="table" aria-label="Backend models of alias ${escHtml(alias)}"><div class="wr-row wr-head" role="row"><span role="columnheader">Backend model</span><span role="columnheader">Priority</span><span role="columnheader">Weight</span><span role="columnheader">Share within priority</span></div>`
+    + rows.map((r, i) => `<div class="wr-row" role="row" data-i="${i}" style="--c:${r.c}"><span class="wr-model" role="cell"><i></i><img src="${D.rel}labs/assets/providers/${r.logo}.png" alt="" width="20" height="20"><span><b>${escHtml(r.model)}</b><small>${escHtml(r.provider)}</small></span></span>`
+      + ['priority', 'weight'].map((k) => `<span role="cell"><input type="number" inputmode="numeric" step="1" min="${k === 'weight' ? 1 : 0}" max="100" data-k="${k}" data-i="${i}" value="${r[k]}" aria-label="${k === 'weight' ? 'Weight' : 'Priority'} for ${escHtml(r.model)}"></span>`).join('')
+      + `<span class="wr-share" role="cell"><span class="wr-bar"><span></span></span><b data-r="share"></b><em data-r="tier"></em></span></div>`).join('') + '</div>';
+  const body = `<div class="wr">${table}<p class="wr-err" role="alert" hidden></p>
+    <div class="wr-run"><div><p class="wd-pane-title">Next ${N} requests with <code>"model": "${escHtml(alias)}"</code></p><div class="wr-dots" aria-hidden="true">${'<span></span>'.repeat(N)}</div></div><div class="wr-tally" aria-live="polite"></div></div></div>`;
+  const foot = `<span>${IC.info}Shares match the alias settings. The gateway's exact request order can differ.</span><button class="btn btn-ghost btn-sm" type="button" data-send>${IC.play}Send ${N} requests</button>`;
+  el.innerHTML = wdShell({ icon: 'route', title: 'Route one alias by priority and weight', desc: `Clients keep calling <code>${escHtml(alias)}</code>. The gateway uses the backend models with the lowest priority number, then splits traffic among them in proportion to their weights.`, controls, body, foot });
+  const dots = $$('.wr-dots span', el);
+  let timer = null;
+
+  function plan() {
+    const err = rows.flatMap((r) => [bad(r.priority, 'priority'), bad(r.weight, 'weight')]).find(Boolean);
+    if (err) return { err };
+    const top = Math.min(...rows.map((r) => +r.priority));
+    const tier = rows.filter((r) => +r.priority === top);
+    // Smooth weighted round robin: an even spread that converges on the exact weights.
+    const tot = tier.reduce((a, r) => a + +r.weight, 0), cur = tier.map(() => 0), seq = [];
+    for (let k = 0; k < N; k++) {
+      let bi = 0;
+      tier.forEach((r, i) => { cur[i] += +r.weight; if (cur[i] > cur[bi]) bi = i; });
+      cur[bi] -= tot; seq.push(tier[bi]);
+    }
+    return { top, seq };
+  }
+  function render(animate) {
+    clearTimeout(timer);
+    const p = plan();
+    $('.wr-err', el).hidden = !p.err;
+    $('.wr-err', el).textContent = p.err || '';
+    el.classList.toggle('wr-invalid', !!p.err);
+    rows.forEach((r, i) => {
+      const row = $(`.wr-row[data-i="${i}"]`, el);
+      ['priority', 'weight'].forEach((k) => $(`[data-k="${k}"]`, row).setAttribute('aria-invalid', !!bad(r[k], k)));
+      const same = rows.filter((x) => !bad(x.priority, 'priority') && x.priority.trim() === r.priority.trim());
+      const sum = same.reduce((a, x) => a + (bad(x.weight, 'weight') ? 0 : +x.weight), 0);
+      const share = p.err ? 0 : +r.weight / sum;
+      const active = !p.err && +r.priority === p.top;
+      row.classList.toggle('active', active);
+      $('.wr-bar span', row).style.setProperty('--p', share);
+      $('[data-r="share"]', row).textContent = p.err ? '--' : pct(share);
+      $('[data-r="tier"]', row).textContent = p.err ? '' : active ? 'Preferred tier' : 'Lower preference';
+    });
+    if (p.err) { dots.forEach((d) => { d.style.removeProperty('--c'); d.className = ''; }); $('.wr-tally', el).innerHTML = ''; return; }
+    const counts = new Map();
+    const show = (k) => {
+      if (k >= N) return;
+      const r = p.seq[k];
+      dots[k].style.setProperty('--c', r.c); dots[k].className = 'on'; dots[k].title = r.model;
+      counts.set(r, (counts.get(r) || 0) + 1);
+      $('.wr-tally', el).innerHTML = rows.map((x) => `<span style="--c:${x.c}"><i></i>${escHtml(x.model)}<b>${counts.get(x) || 0}</b></span>`).join('');
+      if (animate && !reduceMotion) timer = setTimeout(() => show(k + 1), 70); else show(k + 1);
+    };
+    dots.forEach((d) => { d.className = ''; d.style.removeProperty('--c'); });
+    show(0);
+  }
+  wdBindSeg(el, (seg, v) => {
+    const ps = presets.find((x) => x[0] === v[0]);
+    if (!ps) return;
+    rows.forEach((r, i) => { const [pr, w] = ps[2][i] || [9, 1]; r.priority = String(pr); r.weight = String(w); $(`[data-k="priority"][data-i="${i}"]`, el).value = r.priority; $(`[data-k="weight"][data-i="${i}"]`, el).value = r.weight; });
+    render(true);
+  });
+  $$('input[data-k]', el).forEach((inp) => inp.addEventListener('input', () => {
+    rows[+inp.dataset.i][inp.dataset.k] = inp.value;
+    $$('.wd-seg button', el).forEach((b) => b.setAttribute('aria-pressed', 'false'));
+    render(false);
+  }));
+  $('[data-send]', el).addEventListener('click', () => render(true));
+  render(false);
+  new IntersectionObserver(([en], io) => { if (en.isIntersecting) { io.disconnect(); render(true); } }, { threshold: 0.4 }).observe(el);
 };
 
 const globRe = (g) => new RegExp(`^${g.trim().replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')}$`);

@@ -950,5 +950,5 @@ Delete the role assignment first. Deleting the identity alone leaves an orphaned
 | :-- | :-: | --: |
 | [11 · Entra ID & RBAC](../11-entra-rbac/README.md) | [All labs](../README.md) | [13 · Monitoring](../13-monitoring/README.md) |
 
-<sub>Learning paths: [Platform engineer](../README.md#learning-paths) (6 of 8)</sub>
+<sub>Learning paths: [Platform engineer](../README.md#learning-paths) (7 of 9)</sub>
 <!-- gh:end -->

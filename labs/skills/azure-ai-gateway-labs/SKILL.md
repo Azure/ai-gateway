@@ -28,6 +28,7 @@ product docs that the lab links to before you improvise a fix.
 | The lab page to share with a person | `https://azure.github.io/ai-gateway/labs/<slug>/` |
 | Files the lab uses (`infra/`, the notebook) | `labs/<slug>/` in a clone, or `https://raw.githubusercontent.com/Azure/ai-gateway/main/labs/<slug>/<path>` |
 | Every lab in one file | `https://azure.github.io/ai-gateway/llms-full.txt` |
+| Which lab covers a product release or a new feature | `https://azure.github.io/ai-gateway/release-notes/index.md`, or `labs/RELEASE-NOTES.md` in a clone |
 
 When the workspace is a clone of `Azure/ai-gateway`, read `labs/<slug>/README.md` from disk instead.
 
@@ -107,10 +108,11 @@ Each entry shows the level, time, tracks, and the labs it needs.
 ### Models & routing
 
 - **03** [Publish models from any provider behind stable aliases](https://azure.github.io/ai-gateway/labs/03-multi-provider-aliases/index.md) `03-multi-provider-aliases` (Intermediate, 30 min · Portal, REST · needs 02): Connect Anthropic or another non-Azure provider with a credential that stays in the gateway, publish its models behind callable aliases, call Claude with the native Messages API, and retarget an alias to a different backend model without changing a single client.
+- **22** [Route an alias across models by priority and weight](https://azure.github.io/ai-gateway/labs/22-model-routing/index.md) `22-model-routing` (Intermediate, 25 min · Portal, CLI, Bicep · needs 02): Put two Foundry models behind one alias, canary a new model version with an 80/20 weighted split, then prefer one model by priority, all without changing the model name that clients send.
 
 ### MCP & tools
 
-- **04** [Federate MCP tools behind one endpoint](https://azure.github.io/ai-gateway/labs/04-federate-mcp-tools/index.md) `04-federate-mcp-tools` (Beginner, 25 min · Portal, CLI, Bicep, Code, Notebook · needs 01): Register a remote MCP server in AI Gateway, add a second backend under its own namespace, and connect curl, VS Code, and Python to one governed MCP endpoint.
+- **04** [Federate MCP tools behind one endpoint](https://azure.github.io/ai-gateway/labs/04-federate-mcp-tools/index.md) `04-federate-mcp-tools` (Beginner, 30 min · Portal, CLI, Bicep, Code, Notebook · needs 01): Register a remote MCP server in AI Gateway, add a second backend under its own namespace, and connect curl, VS Code, and Python to one governed MCP endpoint.
 - **05** [Control which tools agents can call](https://azure.github.io/ai-gateway/labs/05-mcp-tool-controls/index.md) `05-mcp-tool-controls` (Intermediate, 20 min · Portal, REST · needs 04): Publish only approved MCP tools with name patterns, block risky tools, take a whole MCP server offline, and cap tool traffic per caller with a request rate limit.
 
 ### Governance & cost
@@ -151,8 +153,8 @@ Each entry shows the level, time, tracks, and the labs it needs.
 | Path | For | Labs, in order |
 | :-- | :-- | :-- |
 | 30-minute quickstart | Everyone | 00 → 01 → 02 → 04 |
-| Platform engineer | Build the shared AI platform | 01 → 02 → 03 → 04 → 09 → 12 → 18 → 21 |
-| App & agent developer | Ship apps and agents on governed endpoints | 02 → 03 → 04 → 15 → 16 → 17 |
+| Platform engineer | Build the shared AI platform | 01 → 02 → 03 → 22 → 04 → 09 → 12 → 18 → 21 |
+| App & agent developer | Ship apps and agents on governed endpoints | 02 → 03 → 22 → 04 → 15 → 16 → 17 |
 | Security & compliance | Protect data, identities, and tools | 10 → 11 → 08 → 05 → 09 → 19 → 20 |
 | FinOps & operations | Control spend and run the gateway | 06 → 07 → 13 → 14 |
 <!-- gh:end -->
@@ -163,6 +165,7 @@ Each entry shows the level, time, tracks, and the labs it needs.
 | Use case | Start with |
 | :-- | :-- |
 | One endpoint for every model: Foundry, Azure OpenAI, OpenAI, Anthropic, Bedrock, and Vertex AI behind stable aliases | 03 Multi-provider aliases |
+| Priority & weighted routing: Canary a new model, run A/B tests, or prefer purchased capacity behind one alias | 22 Priority & weighted routing |
 | Token limits & quotas: Cap tokens per minute, hour, or day for each caller | 06 Token limits |
 | Budgets & cost control: Dollar budgets per key, per Entra identity, or across the gateway | 07 Cost budgets |
 | Federated MCP tools: One governed MCP endpoint for remote servers, APIs, and connectors | 04 Federate MCP tools |
@@ -202,6 +205,10 @@ To run a notebook headless, `cd labs/<slug>` and use
 In a clone of `Azure/ai-gateway`, edit only `labs/<slug>/README.md`, following `labs/AUTHORING.md`. Then run
 `npm run sync` and `npm run check` in `labs/`. Never edit `docs/` or the generated `<!-- gh:begin -->` regions by
 hand. `npm run sync` also regenerates the catalog, paths, and use-case map in this skill.
+
+When the user asks to update the labs for new product releases, follow the "Update the labs" workflow in the
+repository's `AGENTS.md`: `npm run releases` lists the product releases that `labs/RELEASE-NOTES.md` doesn't cover
+yet.
 
 ## Related skill
 

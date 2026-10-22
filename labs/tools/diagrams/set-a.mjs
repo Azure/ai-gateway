@@ -131,6 +131,41 @@ export const aliases = () => svgDoc('aliases', {
   },
 });
 
+export const aliasRouting = () => svgDoc('alias-routing', {
+  title: 'Priority and weighted routing behind one alias',
+  desc: 'Clients keep calling the alias chat. The alias lists several backend models, each with a priority and a weight. The gateway picks the lowest priority number, then splits traffic among the backend models at that priority in proportion to their weights: gpt-6-luna with weight 80 gets 80 percent and the gpt-6.1-sol canary with weight 20 gets 20 percent. A backend model at priority 1 is a lower preference.',
+  h: 420,
+  body: () => {
+    let o = zone(16, 20, 200, 360, 'Clients', { ic: 'users', tone: 'azure' });
+    o += box(28, 96, 176, 60, { t: 'Chat app', s: 'model: chat', icon: 'app', tone: 'azure', mono: true });
+    o += box(28, 236, 176, 60, { t: 'Support agent', s: 'model: chat', icon: 'agent', tone: 'azure', mono: true });
+    o += zone(252, 20, 312, 360, 'AI Gateway', { gw: true, ic: 'sparkle' });
+    o += box(268, 60, 280, 64, { t: 'Alias: chat', s: 'Lowest priority first,', s2: 'then split by weight', icon: 'route', accent: true });
+    o += text(272, 162, 'SHARE WITHIN PRIORITY 0', 'dg-cap');
+    [['gpt-6-luna', 0.8, '80%', 'violet', 190], ['gpt-6.1-sol', 0.2, '20%', 'magenta', 240]].forEach(([m, r, pct, tone, y]) => {
+      o += text(272, y, m, 'dg-m');
+      o += `<g class="tn-${tone}"><rect class="dg-bar" x="272" y="${y + 8}" width="214" height="10" rx="5"/><rect class="dg-bar-fill" x="272" y="${y + 8}" width="${Math.round(214 * r)}" height="10" rx="5"/></g>`;
+      o += text(548, y + 18, pct, 'dg-t', 'end');
+    });
+    o += text(272, 300, 'share = weight ÷ sum of the weights', 'dg-s');
+    o += text(272, 318, 'at the same priority', 'dg-s');
+    o += text(272, 346, '80 ÷ (80 + 20) = 80%', 'dg-m');
+    o += zone(600, 20, 344, 360, 'Backend models', { ic: 'models', tone: 'azure' });
+    o += zone(612, 52, 320, 196, 'Priority 0 · preferred', { tone: 'violet' });
+    o += box(624, 88, 296, 64, { t: 'gpt-6-luna', s: 'Weight 80 · 80% of requests', icon: 'models', tone: 'violet', accent: true });
+    o += box(624, 166, 296, 64, { t: 'gpt-6.1-sol', s: 'Weight 20 · 20% (canary)', icon: 'models', tone: 'magenta', accent: true });
+    o += zone(612, 262, 320, 106, 'Priority 1 · lower preference', { tone: 'azure' });
+    o += box(624, 296, 296, 60, { t: 'gpt-6-sol', s: 'Azure OpenAI · weight 1', icon: 'models', tone: 'azure' });
+    o += arrow('M206 126 C232 126 240 92 264 92', { tone: 'azure' });
+    o += arrow('M206 266 C240 266 236 100 264 100', { tone: 'azure' });
+    o += arrow('M550 88 C582 88 592 120 620 120', { tone: 'violet' });
+    o += arrow('M550 98 C586 98 590 198 620 198', { tone: 'magenta' });
+    o += arrow('M550 108 C580 120 596 326 620 326', { tone: 'azure', dashed: true });
+    o += text(16, 404, 'Clients never change: they send model: chat. Change priorities and weights on the alias to shift traffic.', 'dg-s');
+    return o;
+  },
+});
+
 export const mcpFederation = () => svgDoc('mcp-federation', {
   title: 'MCP tool federation through Azure AI Gateway',
   desc: 'MCP clients connect to one MCP server endpoint on the gateway. The server federates tools from remote MCP servers, OpenAPI specifications, built-in connectors and Foundry Toolbox. Tool names are namespaced per backend, tool availability rules decide which tools clients see, and policies apply to every call.',

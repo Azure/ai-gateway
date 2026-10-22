@@ -211,8 +211,9 @@ function enhanceHtml(html) {
     const items = [...all.matchAll(/<strong>([^<]+)<\/strong>/g)].map((x) => x[1]);
     return `<span class="uipath">${items.map((i) => `<span class="uipath-item">${i}</span>`).join('<span class="uipath-sep" aria-hidden="true">›</span>')}</span>`;
   });
-  // Adjacent titled code blocks => tabs
-  html = html.replace(/(?:<div class="code" data-lang="[^"]+" data-group="1"><div class="code-head"><span class="code-title">[^<]*<\/span>[\s\S]*?<\/pre><\/div>\s*){2,}/g, (group) => {
+  // Adjacent titled code blocks => tabs. Each block's body stops at its own </pre>, so a group can't reach across
+  // other content to a later titled block.
+  html = html.replace(/(?:<div class="code" data-lang="[^"]+" data-group="1"><div class="code-head"><span class="code-title">[^<]*<\/span>(?:(?!<\/pre>)[\s\S])*<\/pre><\/div>\s*){2,}/g, (group) => {
     const blocks = [...group.matchAll(/<div class="code" data-lang="([^"]+)" data-group="1"><div class="code-head"><span class="code-title">([^<]*)<\/span>[\s\S]*?(<pre class="shiki">[\s\S]*?<\/pre>)<\/div>/g)]
       .map(([, lang, title, pre]) => ({ lang, title: title.replace(/&amp;/g, '&'), pre }));
     if (blocks.length < 2) return group;
