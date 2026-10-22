@@ -7,6 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { initHighlighter, renderLab, escapeHtml } from './site/markdown.mjs';
 import { parseLab, stripGitHub, syncLab, syncIndex, syncSkill, findVideo } from './site/github.mjs';
@@ -257,7 +258,8 @@ export async function build({ strict = false } = {}) {
   warnings.length = 0;
   svgCounter = 0;
   const catalog = JSON.parse(fs.readFileSync(path.join(LABS, 'catalog.json'), 'utf8'));
-  const site = { ...catalog.site, baseUrl: BASE_URL };
+  const ogVersion = createHash('sha256').update(fs.readFileSync(path.join(SITE_SRC, 'og-image.jpg'))).digest('hex').slice(0, 8);
+  const site = { ...catalog.site, baseUrl: BASE_URL, ogVersion };
   const labs = loadLabs(catalog);
   const known = new Set(labs.map((l) => l.slug));
   syncSources(labs, catalog, { check: strict });

@@ -82,13 +82,13 @@ export function layout({ rel, title, description, body, kind, site, canonical, e
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="${esc(site.title)}">
 ${canonical ? `<meta property="og:url" content="${esc(canonical)}">` : ''}
-<meta property="og:image" content="${esc(site.baseUrl)}assets/og-image.jpg">
+<meta property="og:image" content="${esc(site.baseUrl)}assets/og-image.jpg${site.ogVersion ? `?v=${site.ogVersion}` : ''}">
 <meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Azure AI Gateway Labs: learn AI Gateway by building with it. Apps, agents, and code connect through one gateway to models and tools.">
+<meta property="og:image:alt" content="Azure AI Gateway Labs. Apps, agents, and code connect through one gateway to models, tools, and connectors.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="${esc(site.baseUrl)}assets/og-image.jpg">
+<meta name="twitter:image" content="${esc(site.baseUrl)}assets/og-image.jpg${site.ogVersion ? `?v=${site.ogVersion}` : ''}">
 ${canonical ? `<link rel="canonical" href="${esc(canonical)}">` : ''}
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1b1a1f" media="(prefers-color-scheme: dark)">
