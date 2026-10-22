@@ -12,7 +12,7 @@ tags: [quick start, getting started, first call, gateway, model provider, alias,
 objectives:
   - Name the five building blocks that every AI Gateway call goes through
   - Create a gateway, publish a Foundry model behind an alias, and create a runtime API key in the portal, the Azure CLI, or Bicep with azd
-  - Call the model through the gateway with a key, and see the gateway reject a call without one
+  - Make your first model call through the gateway, the way an app does: with an alias and a runtime API key
 prereqs: []
 ---
 
@@ -48,16 +48,14 @@ Your app calls the OpenAI-compatible base URL `<gateway URL>/default/models/open
 a different base URL and the runtime key. For the full tour, watch the 3-minute video in
 [How Azure AI Gateway works](../00-how-ai-gateway-works/README.md).
 
-## Create the gateway and publish a model
+## Create a gateway and make your first call
 
-Pick one track. All three create the same five building blocks, and all three end with three environment variables in
-your shell: the gateway URL, the alias, and the key. During the preview, AI Gateway runs in East US 2 (`eastus2`) and
-Sweden Central (`swedencentral`).
+Pick one track. All three create the same five building blocks and end with your first call through the gateway.
+During the preview, AI Gateway runs in East US 2 (`eastus2`) and Sweden Central (`swedencentral`).
 
 <!-- track: portal | Portal -->
 
-**What you need:** a browser, and a model deployment in a Microsoft Foundry account, for example `gpt-6-luna`. At the
-end, you read the gateway URL in [Azure Cloud Shell](https://shell.azure.com) or any terminal with the Azure CLI.
+**What you need:** a browser, and a model deployment in a Microsoft Foundry account, for example `gpt-6-luna`.
 
 <details>
 <summary>No Foundry deployment yet? Create one in Cloud Shell.</summary>
@@ -138,49 +136,34 @@ echo "Foundry account $FOUNDRY in $RG"
 
    ![The API key created successfully dialog with a masked key, the key name, and the Copy & done button](../assets/screens/quickstart-10-key-done.webp "The key stays masked until you select Show. Copy & done copies it and closes the dialog.")
 
-### Try the model in the playground
+### Make your first call
+
+Call the model through the gateway in the playground, with your new key, the way an app does.
 
 1. Select **Catalog**, then select your model.
 
    ![The Catalog with the model card aigwb92bd1/gpt-6-luna](../assets/screens/quickstart-11-catalog.webp "The Catalog lists the models and MCP servers that apps can call through this gateway.")
 
-2. Under **Authentication**, choose `app-first-call` as the **API key**, so that you test with your new key. Then
-   send a prompt, for example `In one sentence, what does an AI gateway do?`.
+2. Under **Authentication**, choose `app-first-call` as the **API key**, so that the playground calls the gateway
+   with your new key. Then send a prompt, for example `In one sentence, what does an AI gateway do?`.
 
    ![The model page with the API key app-first-call, the prompt, and the model's reply](../assets/screens/quickstart-12-playground.webp "The playground calls the gateway's endpoint with the key that you choose, and shows the reply, the latency, and the tokens.")
 
-3. Optional: select **Continue in code**. It shows the endpoint URL and snippets for cURL, the OpenAI SDK, LangChain,
-   Vercel AI, the GitHub Copilot SDK, and Microsoft Agent Framework, plus a prompt that installs the AI Gateway
-   plugin in your coding agent.
+3. Optional: to make the same call from code, select **Continue in code**. It shows the endpoint URL and snippets
+   for cURL, the OpenAI SDK, LangChain, Vercel AI, the GitHub Copilot SDK, and Microsoft Agent Framework, plus a
+   prompt that installs the AI Gateway plugin in your coding agent.
 
-   ![Continue in code with the cURL snippet selected, which calls the alias with the api-key header](../assets/screens/quickstart-13-code.webp "The cURL snippet reads the key from AI_GATEWAY_API_KEY, the variable that you set in the next step.")
+   ![Continue in code with the cURL snippet selected, which calls the alias with the api-key header](../assets/screens/quickstart-13-code.webp "The cURL snippet has your gateway's URL and alias, and reads the key from the AI_GATEWAY_API_KEY environment variable.")
 
-### Save the URL, the alias, and the key
-
-To call the gateway the way an app does, open [Azure Cloud Shell](https://shell.azure.com) or any terminal with the
-Azure CLI. You need the gateway name and its resource group: open the gateway switcher and select
-**View all gateways**. The **Runtime URL** column shows the gateway URL, with a copy button.
-
-![All gateways filtered to the new gateway, with its name, runtime URL, and resource group highlighted](../assets/screens/quickstart-14-runtime-url.webp "All gateways: the name, the runtime URL, and the resource group of each gateway.")
-
-Read the gateway URL, set the alias, and paste the key without showing it on screen.
+To run the cURL snippet, open [Azure Cloud Shell](https://shell.azure.com) in Bash, paste your key at this prompt so
+that it never shows on screen, and then paste the snippet:
 
 ```bash title="Bash"
-export AI_GATEWAY_URL="https://$(az resource show --resource-group "<resource-group>" --name "<gateway>" \
-  --resource-type Microsoft.ApiManagement/aigateways --query properties.frontend.defaultHostname --output tsv)"
-export AI_GATEWAY_MODEL="<model-name>"    # the alias from the Aliases tab
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
 ```
 
-```powershell title="PowerShell"
-$env:AI_GATEWAY_URL = "https://" + (az resource show --resource-group "<resource-group>" --name "<gateway>" `
-  --resource-type Microsoft.ApiManagement/aigateways --query properties.frontend.defaultHostname --output tsv)
-$env:AI_GATEWAY_MODEL = "<model-name>"    # the alias from the Aliases tab
-$env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
-```
-
-> **Checkpoint:** the playground answered, **Models** › **Aliases** shows your alias, and **Access** › **Keys**
-> shows `app-first-call`.
+> **Checkpoint:** the playground answered with the key `app-first-call`. Your gateway is live, and your app never
+> needs a Foundry key: only the gateway's managed identity calls Foundry.
 
 <!-- track: cli | Azure CLI -->
 
@@ -357,6 +340,35 @@ $env:AI_GATEWAY_URL
 > **Checkpoint:** the alias request printed `gpt-6-luna`, and the last command printed your gateway's runtime URL,
 > for example `https://aigw-abc123.eastus2-01.ai.gateway.azure.com`.
 
+### Make your first call
+
+Send a Chat Completions request to the gateway's OpenAI-compatible base URL, the way an app does: the alias in the
+`model` field and the key in the `api-key` header.
+
+```bash title="Bash"
+curl -sS "$AI_GATEWAY_URL/default/models/openai/v1/chat/completions" \
+  -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
+  -d "{\"model\":\"$AI_GATEWAY_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"In one sentence, what does an AI gateway do?\"}]}" \
+  | jq -r '.choices[0].message.content // .error.message'
+```
+
+```powershell title="PowerShell"
+$body = @{
+  model    = $env:AI_GATEWAY_MODEL
+  messages = @(@{ role = "user"; content = "In one sentence, what does an AI gateway do?" })
+} | ConvertTo-Json -Depth 5
+$reply = Invoke-RestMethod -Method Post -Uri "$env:AI_GATEWAY_URL/default/models/openai/v1/chat/completions" `
+  -Headers @{ "api-key" = $env:AI_GATEWAY_API_KEY } -ContentType "application/json" -Body $body
+$reply.choices[0].message.content
+```
+
+> **Checkpoint:** the model answers in one sentence. Your gateway is live, and your app never needed a Foundry key:
+> only the gateway's managed identity calls Foundry. If you get `403` or `404` in the first minute, the gateway's new
+> role on the Foundry account is still taking effect. Wait a minute and run the call again.
+
+To see what you created, open the [AI Gateway portal](https://ai.gateway.azure.com) and select your gateway in the top
+bar: **Models**, **Access** › **Keys**, and the **Catalog** playground.
+
 <!-- track: iac | Bicep + azd -->
 
 **What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell. It's already signed in and has
@@ -427,16 +439,10 @@ $env:AI_GATEWAY_URL
 > **Checkpoint:** `azd up` ended with `SUCCESS`, and the last command printed your gateway's runtime URL, for example
 > `https://aigw-abc123.eastus2-01.ai.gateway.azure.com`.
 
-<!-- /tracks -->
+### Make your first call
 
-## Make your first call
-
-Send a Chat Completions request to the gateway's OpenAI-compatible base URL, with the alias in the `model` field and
-the key in the `api-key` header. Run it in the same shell as the track you followed.
-
-<!-- steps -->
-
-### Call the alias
+Send a Chat Completions request to the gateway's OpenAI-compatible base URL, the way an app does: the alias in the
+`model` field and the key in the `api-key` header.
 
 ```bash title="Bash"
 curl -sS "$AI_GATEWAY_URL/default/models/openai/v1/chat/completions" \
@@ -455,62 +461,14 @@ $reply = Invoke-RestMethod -Method Post -Uri "$env:AI_GATEWAY_URL/default/models
 $reply.choices[0].message.content
 ```
 
-> **Checkpoint:** the model answers in one sentence. If you get `403` or `404` in the first minute, the gateway's
-> new role on the Foundry account is still taking effect. Wait a minute and run the call again.
+> **Checkpoint:** the model answers in one sentence. Your gateway is live, and your app never needed a Foundry key:
+> only the gateway's managed identity calls Foundry. If you get `403` or `404` in the first minute, the gateway's new
+> role on the Foundry account is still taking effect. Wait a minute and run the call again.
 
-<!-- /steps -->
+To see what you created, open the [AI Gateway portal](https://ai.gateway.azure.com) and select your gateway in the top
+bar: **Models**, **Access** › **Keys**, and the **Catalog** playground.
 
-The same call from the OpenAI Python SDK (`pip install openai`), with the three environment variables that you set
-above. The SDK sends the key as a bearer token, which the gateway accepts too.
-
-```python title="Python"
-import os
-
-from openai import OpenAI
-
-client = OpenAI(
-    base_url=f"{os.environ['AI_GATEWAY_URL']}/default/models/openai/v1",
-    api_key=os.environ["AI_GATEWAY_API_KEY"],
-)
-completion = client.chat.completions.create(
-    model=os.environ["AI_GATEWAY_MODEL"],
-    messages=[{"role": "user", "content": "In one sentence, what does an AI gateway do?"}],
-)
-print(completion.choices[0].message.content)
-```
-
-## Verify
-
-<!-- steps -->
-
-### Call without a key
-
-The gateway answers only callers that it can identify. Send the same request without the key:
-
-```bash title="Bash"
-curl -sS -o /dev/null -w "%{http_code}\n" "$AI_GATEWAY_URL/default/models/openai/v1/chat/completions" \
-  -H "Content-Type: application/json" \
-  -d "{\"model\":\"$AI_GATEWAY_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}]}"
-```
-
-```powershell title="PowerShell"
-(Invoke-WebRequest -Method Post -Uri "$env:AI_GATEWAY_URL/default/models/openai/v1/chat/completions" `
-  -ContentType "application/json" -Body $body -SkipHttpErrorCheck).StatusCode
-```
-
-> **Checkpoint:** you got a reply with the key, and `401` without it. Your gateway is live, and your app never needed a
-> Foundry key: only the gateway's managed identity calls Foundry.
-
-### See it in the portal
-
-Open the [AI Gateway portal](https://ai.gateway.azure.com) and select your gateway in the top bar. If you followed the
-Azure CLI or Bicep + azd track, this is your first look at what you created:
-
-- **Models** › **Backend models** lists `gpt-6-luna`, and **Aliases** shows the alias.
-- **Catalog** has a playground: pick the model and send a prompt. **Continue in code** shows code snippets.
-- **Access** › **Keys** shows `app-first-call`.
-
-<!-- /steps -->
+<!-- /tracks -->
 
 ## Clean up
 

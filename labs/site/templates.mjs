@@ -260,8 +260,6 @@ export function homePage({ rel, site, catalog, labs, totals, latest }) {
     ['qs-sub', '<span class="qs-ok">Ready</span> in 1 min 44 s'],
     ['qs-gap qs-hang', '<span class="qs-prompt">$</span> curl $AI_GATEWAY_URL/…/chat/completions -H "api-key: …"'],
     ['qs-reply', 'An AI gateway sits between applications and AI models to route requests while managing access, policies, and monitoring.'],
-    ['qs-gap qs-hang', '<span class="qs-prompt">$</span> curl $AI_GATEWAY_URL/…/chat/completions <span class="qs-dim"># no key</span>'],
-    ['', '<span class="qs-err">401</span>'],
   ].map(([c, h]) => `<span class="qs-line${c ? ` ${c}` : ''}">${h}</span>`).join('');
 
   const trackCards = [
@@ -327,7 +325,7 @@ ${quick ? `
       <div class="qs-copy">
         <p class="eyebrow"><span class="num-quick">${I.bolt}</span>Start here · ${quick.duration} minutes</p>
         <h2 id="qs-band-title">Your first model call in five minutes</h2>
-        <p>In the AI Gateway portal, with a few Azure CLI commands in Cloud Shell, or with one <code>azd up</code>, you create a gateway, publish a Microsoft Foundry model behind an alias, and create a runtime key. There's nothing to clone or install. Then you call the model the way an app does, and watch the gateway turn away a call without a key.</p>
+        <p>In the AI Gateway portal, with a few Azure CLI commands in Cloud Shell, or with one <code>azd up</code>, you create a gateway, publish a Microsoft Foundry model behind an alias, and create a runtime key. There's nothing to clone or install. Then you make your first call through the gateway, the way an app does: with the alias and the key.</p>
         <ol class="qs-steps">
           <li><span class="qs-step-num">1</span><span><strong>Understand</strong> the five building blocks</span><span class="qs-step-time">1 min</span></li>
           <li><span class="qs-step-num">2</span><span><strong>Create</strong> a gateway in the portal, Azure CLI, or azd</span><span class="qs-step-time">3 min</span></li>
