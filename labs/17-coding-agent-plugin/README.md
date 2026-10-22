@@ -536,5 +536,5 @@ gemini extensions uninstall ai-gateway
 | :-- | :-: | --: |
 | [16 · Foundry hosted agent](../16-foundry-hosted-agent/README.md) | [All labs](../README.md) | [18 · Private networking](../18-private-networking/README.md) |
 
-<sub>Learning paths: [App & agent developer](../README.md#learning-paths) (7 of 7)</sub>
+<sub>Learning paths: [App & agent developer](../README.md#learning-paths) (8 of 8)</sub>
 <!-- gh:end -->

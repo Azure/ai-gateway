@@ -23,6 +23,11 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
 
 #### Labs changes
 
+- **October 22.** New lab [23 · Stream responses and count every token](23-streaming-responses/README.md), which
+  covers usage for streamed Chat Completions responses from the [September 24](#september-24-2026) release. It
+  streams with curl, PowerShell, Python, and TypeScript, shows each chunk and where usage arrives, proves that a
+  token limit counts streams with or without `include_usage`, and has a notebook and an interactive streaming
+  usage simulator on the site.
 - **October 22.** New lab [22 · Route an alias across models by priority and weight](22-model-routing/README.md),
   with portal, Azure CLI, and Bicep tracks, a script that counts which model served each request, and an
   interactive priority and weight simulator on the site.
@@ -89,7 +94,7 @@ complete usage for streamed Chat Completions responses.
 | Grant model and MCP access to Microsoft Entra users, groups, apps, and managed identities | [11 · Go keyless with Microsoft Entra ID and RBAC](11-entra-rbac/README.md) | ✅ Covered |
 | Export selected JWT claims to OTLP logs, traces, and metrics | [14 · Choose the claims to export](14-otel-chargeback/README.md#choose-the-claims-to-export) | ✅ Covered |
 | Apply one policy to every current and future asset, including a gateway-wide cost limit | [09 · Set gateway-wide policy baselines](09-gateway-baselines/README.md) | ✅ Covered |
-| Usage for streamed Chat Completions responses without `include_usage` | Not in the labs yet. See the product release notes. | ➖ |
+| Usage for streamed Chat Completions responses without `include_usage` | [23 · Stream a burst without asking for usage](23-streaming-responses/README.md#stream-a-burst-without-asking-for-usage) | 🆕 New lab |
 
 ## September 10, 2026
 

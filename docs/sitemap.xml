@@ -8,6 +8,7 @@
   <url><loc>https://azure.github.io/ai-gateway/labs/02-first-model-call/</loc></url>
   <url><loc>https://azure.github.io/ai-gateway/labs/03-multi-provider-aliases/</loc></url>
   <url><loc>https://azure.github.io/ai-gateway/labs/22-model-routing/</loc></url>
+  <url><loc>https://azure.github.io/ai-gateway/labs/23-streaming-responses/</loc></url>
   <url><loc>https://azure.github.io/ai-gateway/labs/04-federate-mcp-tools/</loc></url>
   <url><loc>https://azure.github.io/ai-gateway/labs/05-mcp-tool-controls/</loc></url>
   <url><loc>https://azure.github.io/ai-gateway/labs/06-token-limits/</loc></url>

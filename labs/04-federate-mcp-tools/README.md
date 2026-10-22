@@ -996,7 +996,7 @@ Delete the `ai-gateway-learn` entry from `.vscode/mcp.json` and the `.venv` fold
 
 | ⬅️ Previous | 🏠 | Next ➡️ |
 | :-- | :-: | --: |
-| [22 · Priority & weighted routing](../22-model-routing/README.md) | [All labs](../README.md) | [05 · Tool allow & block lists](../05-mcp-tool-controls/README.md) |
+| [23 · Streaming responses](../23-streaming-responses/README.md) | [All labs](../README.md) | [05 · Tool allow & block lists](../05-mcp-tool-controls/README.md) |
 
-<sub>Learning paths: [30-minute quickstart](../README.md#learning-paths) (4 of 4) · [Platform engineer](../README.md#learning-paths) (5 of 9) · [App & agent developer](../README.md#learning-paths) (4 of 7)</sub>
+<sub>Learning paths: [30-minute quickstart](../README.md#learning-paths) (4 of 4) · [Platform engineer](../README.md#learning-paths) (5 of 9) · [App & agent developer](../README.md#learning-paths) (5 of 8)</sub>
 <!-- gh:end -->

@@ -712,5 +712,5 @@ Keep the gateway, model, and key. The next labs reuse them.
 | :-- | :-: | --: |
 | [12 · Backend identities](../12-backend-identity/README.md) | [All labs](../README.md) | [14 · OpenTelemetry chargeback](../14-otel-chargeback/README.md) |
 
-<sub>Learning paths: [FinOps & operations](../README.md#learning-paths) (3 of 4)</sub>
+<sub>Learning paths: [FinOps & operations](../README.md#learning-paths) (4 of 5)</sub>
 <!-- gh:end -->

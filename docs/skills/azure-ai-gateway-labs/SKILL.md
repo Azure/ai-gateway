@@ -93,6 +93,11 @@ Before you create, change, or delete Azure resources, confirm the subscription a
   (models and tools), **AI Gateway Models User**, and **AI Gateway Tools User**.
 - Policy changes take 20 to 60 seconds to apply. A token or request rate limit answers `429` with `Retry-After`, a
   cost budget answers `403` `LlmCostQuotaExceeded`, and content safety blocks with `400`.
+- Streaming (`"stream": true`) returns `text/event-stream` chunks and ends with `data: [DONE]`. Chat Completions
+  sends a usage chunk with empty `choices` only when the client sets `stream_options.include_usage`, and
+  `stream_options` without `stream` answers `400`. The gateway counts the tokens of every stream for limits,
+  budgets, and Monitoring either way. A limited caller gets a JSON `429` before the stream starts, and a stream that
+  already started finishes.
 
 ## Lab catalog
 
@@ -108,6 +113,7 @@ Each entry shows the level, time, tracks, and the labs it needs.
 
 - **03** [Publish models from any provider behind stable aliases](https://azure.github.io/ai-gateway/labs/03-multi-provider-aliases/index.md) `03-multi-provider-aliases` (Intermediate, 30 min · Portal, REST · needs 02): Connect Anthropic or another non-Azure provider with a credential that stays in the gateway, publish its models behind callable aliases, call Claude with the native Messages API, and retarget an alias to a different backend model without changing a single client.
 - **22** [Route an alias across models by priority and weight](https://azure.github.io/ai-gateway/labs/22-model-routing/index.md) `22-model-routing` (Intermediate, 25 min · Portal, CLI, Bicep · needs 02): Put two Foundry models behind one alias, canary a new model version with an 80/20 weighted split, then prefer one model by priority, all without changing the model name that clients send.
+- **23** [Stream responses and count every token](https://azure.github.io/ai-gateway/labs/23-streaming-responses/index.md) `23-streaming-responses` (Intermediate, 20 min · CLI, Code, Portal, Bicep, Notebook · needs 02): Stream Chat Completions and Responses API replies through the gateway, read the server-sent events that your client receives, and prove that a token limit counts streamed tokens even when the client never asks for usage.
 
 ### MCP & tools
 
@@ -151,9 +157,9 @@ Each entry shows the level, time, tracks, and the labs it needs.
 | :-- | :-- | :-- |
 | 30-minute quickstart | Everyone | 00 → 01 → 02 → 04 |
 | Platform engineer | Build the shared AI platform | 01 → 02 → 03 → 22 → 04 → 09 → 12 → 18 → 21 |
-| App & agent developer | Ship apps and agents on governed endpoints | 02 → 03 → 22 → 04 → 15 → 16 → 17 |
+| App & agent developer | Ship apps and agents on governed endpoints | 02 → 03 → 22 → 23 → 04 → 15 → 16 → 17 |
 | Security & compliance | Protect data, identities, and tools | 10 → 11 → 08 → 05 → 09 → 19 → 20 |
-| FinOps & operations | Control spend and run the gateway | 06 → 07 → 13 → 14 |
+| FinOps & operations | Control spend and run the gateway | 06 → 23 → 07 → 13 → 14 |
 
 ## Use-case map
 
@@ -173,6 +179,7 @@ Each entry shows the level, time, tracks, and the labs it needs.
 | Tool threat protection: Defender and Purview evaluate tool calls for injection and data risk | 19 Tool threat protection |
 | Agent 365 governance: Inventory and block MCP servers and tools from the Microsoft 365 admin center | 20 Agent 365 governance |
 | Coding-agent plugin: Let Copilot, Claude Code, Cursor, or Gemini build on your gateway | 17 Coding-agent plugin |
+| Streaming with accurate usage: Stream replies token by token while limits, budgets, and monitoring count every token | 23 Streaming responses |
 
 ## Notebooks
 

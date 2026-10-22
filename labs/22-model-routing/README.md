@@ -758,7 +758,7 @@ If an alias that the portal import created still points to `gpt-6.1-sol`, delete
 
 | ⬅️ Previous | 🏠 | Next ➡️ |
 | :-- | :-: | --: |
-| [03 · Multi-provider aliases](../03-multi-provider-aliases/README.md) | [All labs](../README.md) | [04 · Federate MCP tools](../04-federate-mcp-tools/README.md) |
+| [03 · Multi-provider aliases](../03-multi-provider-aliases/README.md) | [All labs](../README.md) | [23 · Streaming responses](../23-streaming-responses/README.md) |
 
-<sub>Learning paths: [Platform engineer](../README.md#learning-paths) (4 of 9) · [App & agent developer](../README.md#learning-paths) (3 of 7)</sub>
+<sub>Learning paths: [Platform engineer](../README.md#learning-paths) (4 of 9) · [App & agent developer](../README.md#learning-paths) (3 of 8)</sub>
 <!-- gh:end -->

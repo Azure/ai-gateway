@@ -101,6 +101,7 @@
         "02-first-model-call",
         "03-multi-provider-aliases",
         "22-model-routing",
+        "23-streaming-responses",
         "04-federate-mcp-tools",
         "15-agent-frameworks",
         "16-foundry-hosted-agent",
@@ -131,6 +132,7 @@
       "description": "Throttle tokens, enforce budgets, observe usage, and attribute cost to teams with OpenTelemetry.",
       "labs": [
         "06-token-limits",
+        "23-streaming-responses",
         "07-cost-budgets",
         "13-monitoring",
         "14-otel-chargeback"
@@ -224,6 +226,12 @@
         "lab": "17-coding-agent-plugin",
         "icon": "sparkle",
         "text": "Let Copilot, Claude Code, Cursor, or Gemini build on your gateway."
+      },
+      {
+        "title": "Streaming with accurate usage",
+        "lab": "23-streaming-responses",
+        "icon": "stream",
+        "text": "Stream replies token by token while limits, budgets, and monitoring count every token."
       }
     ]
   },
@@ -250,6 +258,7 @@
     "19-tool-threat-protection": "Tool threat protection",
     "20-agent-365-governance": "Agent 365 governance",
     "21-enterprise-reference": "Enterprise reference",
-    "22-model-routing": "Priority & weighted routing"
+    "22-model-routing": "Priority & weighted routing",
+    "23-streaming-responses": "Streaming responses"
   }
 }

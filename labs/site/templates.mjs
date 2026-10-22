@@ -10,6 +10,7 @@ export const I = {
   clock: P('<circle cx="10" cy="10" r="7.5"/><path d="M10 5.5V10l3 2"/>'),
   notebook: P('<rect x="4.5" y="2.5" width="12" height="15" rx="2"/><path d="M3 6h3M3 10h3M3 14h3M9 7h4.5M9 10.5h4.5"/>'),
   level: P('<path d="M4 16v-3M10 16V9M16 16V4"/>'),
+  stream: P('<path d="M2.5 6c2-1.5 3.5-1.5 5 0s3 1.5 5 0 3.5-1.5 5 0M2.5 10c2-1.5 3.5-1.5 5 0s3 1.5 5 0 3.5-1.5 5 0M2.5 14c2-1.5 3.5-1.5 5 0s3 1.5 5 0 3.5-1.5 5 0"/>'),
   arrowR: P('<path d="M4 10h12M11.5 5.5 16 10l-4.5 4.5"/>'),
   arrowL: P('<path d="M16 10H4M8.5 5.5 4 10l4.5 4.5"/>'),
   chevR: P('<path d="m8 5 5 5-5 5"/>'),

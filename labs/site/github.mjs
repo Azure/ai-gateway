@@ -37,6 +37,7 @@ const WIDGET_TITLES = {
   'token-limit': 'token limit simulator',
   'request-rate': 'request rate simulator',
   budget: 'cost budget simulator',
+  'stream-usage': 'streaming usage simulator',
 };
 
 // <!-- video: media/name.mp4 | Title --> plays on the site; media/name.jpg is the poster and media/name.vtt the captions.

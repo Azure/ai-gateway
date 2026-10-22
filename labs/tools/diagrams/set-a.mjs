@@ -166,6 +166,42 @@ export const aliasRouting = () => svgDoc('alias-routing', {
   },
 });
 
+export const streamingUsage = () => svgDoc('streaming-usage', {
+  title: 'Streamed responses through Azure AI Gateway',
+  desc: 'A client sends stream: true. The gateway checks token, cost and request limits before the stream starts and returns a JSON 429 when a limit is full. It then relays server-sent event chunks from the model as they arrive and captures token usage for counters, cost limits and Monitoring, whether or not the client set include_usage. A Chat Completions stream carries a prompt filter chunk, a role chunk, content deltas, a finish chunk, a usage chunk when include_usage is set, and [DONE].',
+  h: 440,
+  body: () => {
+    let o = zone(16, 20, 200, 290, 'Clients', { ic: 'users', tone: 'azure' });
+    o += box(28, 70, 176, 60, { t: 'Your app', s: 'stream: true', icon: 'app', tone: 'azure', mono: true });
+    o += box(28, 190, 176, 60, { t: 'Agent', s: 'Responses API', icon: 'agent', tone: 'azure' });
+    o += list(28, 280, ['Reads data: lines', 'Stops at [DONE]'], { tone: 'azure' });
+    o += zone(252, 20, 400, 290, 'AI Gateway', { gw: true, ic: 'sparkle' });
+    o += box(268, 54, 368, 62, { t: 'Check limits before the stream', s: 'Token limit, cost limit, request rate', s2: 'Full: a JSON 429, no stream starts', icon: 'gauge', accent: true });
+    o += box(268, 126, 368, 62, { t: 'Relay chunks as they arrive', s: 'text/event-stream, no buffering', icon: 'bolt', tone: 'azure' });
+    o += box(268, 198, 368, 62, { t: 'Capture usage from every stream', s: 'Prompt and completion tokens,', s2: 'with or without include_usage', icon: 'chart', tone: 'green', accent: true });
+    o += pills(268, 274, ['Token counters', 'Cost limits', 'Monitoring'], { tone: 'green' });
+    o += zone(688, 20, 256, 290, 'Model', { ic: 'models', tone: 'azure' });
+    o += box(700, 120, 232, 76, { t: 'Foundry model', s: 'gpt-6-luna', s2: 'Streams tokens as made', icon: 'models', tone: 'violet' });
+    o += list(700, 232, ['Tokens as data: chunks', 'Usage in the final chunk', 'Responses: response.completed'], { tone: 'violet' });
+    o += arrow('M206 96 C236 96 236 80 264 80', { tone: 'azure' });
+    o += arrow('M206 216 C240 216 236 90 264 90', { tone: 'azure' });
+    o += arrow('M638 85 C668 85 668 140 696 140', { tone: 'violet' });
+    o += arrow('M698 176 C668 176 668 157 640 157', { tone: 'green' });
+    o += arrow('M266 152 C238 152 236 112 208 112', { tone: 'green' });
+    o += arrow('M266 162 C238 162 236 232 208 232', { tone: 'green' });
+    o += text(32, 340, 'WHAT A CHAT COMPLETIONS STREAM CARRIES, IN ORDER', 'dg-cap');
+    let x = 32;
+    [['prompt filter', 'amber', 'empty choices'], ['role', 'azure'], ['delta', 'violet'], ['delta', 'violet'], ['…', 'violet'], ['finish_reason: stop', 'violet'], ['usage', 'green', 'empty choices, only with include_usage'], ['[DONE]', 'azure']].forEach(([l, tone, note]) => {
+      const w = pillW(l, true);
+      o += pill(x, 352, l, { tone, w, mono: true });
+      if (note) o += text(x + w / 2, 394, note, 'dg-s', 'middle');
+      x += w + 10;
+    });
+    o += text(32, 428, 'The gateway counts every stream. Limits apply to the next request: a stream that started finishes.', 'dg-s');
+    return o;
+  },
+});
+
 export const mcpFederation = () => svgDoc('mcp-federation', {
   title: 'MCP tool federation through Azure AI Gateway',
   desc: 'MCP clients connect to one MCP server endpoint on the gateway. The server federates tools from remote MCP servers, OpenAPI specifications, built-in connectors and Foundry Toolbox. Tool names are namespaced per backend, tool availability rules decide which tools clients see, and policies apply to every call.',

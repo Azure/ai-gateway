@@ -40,6 +40,7 @@ const IC = {
   tools: SV('<path d="M12.5 3a4 4 0 0 0-3.8 5.3L3.5 13.5a1.5 1.5 0 0 0 0 2.1l.9.9a1.5 1.5 0 0 0 2.1 0l5.2-5.2A4 4 0 0 0 17 7.5l-2.3 2.3-2.3-.4-.4-2.3L14.3 4.8A4 4 0 0 0 12.5 3Z"/>'),
   sparkle: SV('<path d="M10 2.5 11.6 8.4 17.5 10l-5.9 1.6L10 17.5l-1.6-5.9L2.5 10l5.9-1.6Z"/>'),
   flag: SV('<path d="M5 17.5V3M5 3.5h9.5l-2 3.5 2 3.5H5"/>'),
+  stream: SV('<path d="M2.5 6c2-1.5 3.5-1.5 5 0s3 1.5 5 0 3.5-1.5 5 0M2.5 10c2-1.5 3.5-1.5 5 0s3 1.5 5 0 3.5-1.5 5 0M2.5 14c2-1.5 3.5-1.5 5 0s3 1.5 5 0 3.5-1.5 5 0"/>'),
   arrowR: SV('<path d="M4 10h12M11.5 5.5 16 10l-4.5 4.5"/>'),
   arrowL: SV('<path d="M16 10H4M8.5 5.5 4 10l4.5 4.5"/>'),
   lock: SV('<rect x="4" y="9" width="12" height="8.5" rx="2"/><path d="M7 9V6.5a3 3 0 0 1 6 0V9"/>'),
@@ -1238,6 +1239,105 @@ WIDGETS['policy-layers'] = (el) => {
   }
   wdBindSeg(el, (seg, v) => { cur = v[0]; paint(); });
   paint();
+};
+
+// Streaming usage: what a streaming client receives versus what the gateway counts.
+WIDGETS['stream-usage'] = (el, cfg) => {
+  const LIMIT = cfg.limit || 1000, WIN = cfg.window || 30, alias = cfg.alias || 'gpt-6-luna-stream';
+  const REPLY = cfg.reply || 'Streaming sends the reply in small chunks as the model writes it, so people see words right away instead of waiting for the full answer.';
+  const words = REPLY.match(/\S+\s*/g);
+  const fmt = (n) => n.toLocaleString('en-US');
+  const controls = wdGroup('Client sets <code>stream_options.include_usage</code>', wdSeg('usage', [['off', 'Not set'], ['on', 'true']], 'off'));
+  const body = `<div class="wd-body"><div class="wd-pane"><p class="wd-pane-title"><span>Client receives</span><span class="ws-status" data-r="status"></span></p>
+    <code class="ws-req" data-r="req"></code><pre class="ws-sse" data-r="sse" tabindex="0" aria-label="Server-sent events the client receives"></pre>
+    <div class="ws-reply"><span class="ws-label">Reply so far</span><p data-r="reply"></p></div><p class="ws-usage" data-r="usage" aria-live="polite"></p></div>
+    <div class="wd-pane"><p class="wd-pane-title"><span>Gateway counts</span><button class="link-btn" type="button" data-burst>Send until throttled</button></p>
+    <div class="ws-limit"><div class="ws-limit-head"><code>${escHtml(alias)}</code><span>Token limit: ${fmt(LIMIT)} per minute</span></div>
+    <div class="wd-meter"><span class="wd-meter-bar"><span></span></span><b data-r="used"></b></div>
+    <div class="wd-window"><span>Window</span><span class="wd-window-bar"><span></span></span><b data-r="left"></b></div></div>
+    <div class="wd-log" aria-live="polite"></div></div></div>`;
+  const foot = `<span>${IC.info}Simulated: one minute runs in ${WIN} seconds. Token counts are illustrative.</span><span class="ws-actions"><button class="btn btn-ghost btn-sm" type="button" data-reset>${IC.reset}Reset</button><button class="btn btn-primary btn-sm" type="button" data-send>${IC.play}Send a streaming request</button></span>`;
+  el.innerHTML = wdShell({ icon: 'stream', title: 'Stream a reply and watch the gateway count it', desc: 'The client sees chunks as they arrive, and a usage chunk only when it asks for one. The gateway counts every stream either way, and a full token limit returns a JSON 429 before any stream starts.', controls, body, foot });
+  const r = (k) => $(`[data-r="${k}"]`, el);
+  const sse = r('sse'), logEl = $('.wd-log', el);
+  let usage = false, used = 0, start = wdNow(), n = 0, busy = false, log = [];
+  const left = () => Math.max(0, WIN - (wdNow() - start) / 1000);
+  function roll() { if (left() <= 0) { used = 0; start = wdNow(); } }
+  function paint() {
+    roll();
+    const p = Math.min(1, used / LIMIT), m = $('.wd-meter', el);
+    $('.wd-meter-bar span', m).style.setProperty('--p', p);
+    m.classList.toggle('warn', p >= 0.7 && p < 1); m.classList.toggle('full', p >= 1);
+    r('used').textContent = `${fmt(used)} / ${fmt(LIMIT)}`;
+    $('.wd-window-bar span', el).style.setProperty('--p', 1 - left() / WIN);
+    r('left').textContent = `${Math.ceil(left())}s left`;
+  }
+  function paintLog() {
+    logEl.innerHTML = log.length ? log.map((x) => `<div class="wd-log-row"><span class="wd-code s${x.code}">${x.code}</span><span class="wd-log-msg">${x.msg}</span><span class="wd-log-hdr">${escHtml(x.hdr)}</span></div>`).join('')
+      : '<p class="wd-log-empty">Send a streaming request to see what the gateway counts.</p>';
+  }
+  function paintReq() {
+    r('req').textContent = JSON.stringify({ model: alias, stream: true, ...(usage ? { stream_options: { include_usage: true } } : {}) });
+  }
+  function idle() {
+    r('status').innerHTML = '';
+    sse.innerHTML = '<span class="ws-l ws-k-hint">Press Send a streaming request.</span>';
+    r('reply').textContent = ''; r('usage').className = 'ws-usage'; r('usage').textContent = '';
+  }
+  const line = (txt, kind) => { sse.insertAdjacentHTML('beforeend', `<span class="ws-l ws-k-${kind}">${escHtml(txt)}</span>`); sse.scrollTop = sse.scrollHeight; };
+  const wait = (ms) => new Promise((res) => setTimeout(res, reduceMotion ? 0 : ms));
+  async function send(fast = false) {
+    if (busy) return false;
+    paint(); n++;
+    sse.innerHTML = ''; r('reply').textContent = '';
+    const u = r('usage');
+    if (used >= LIMIT) {
+      const after = Math.max(1, Math.ceil(left()));
+      r('status').innerHTML = '<span class="wd-code s429">429</span>application/json';
+      ['HTTP/2 429', 'content-type: application/json', `retry-after: ${after}`, ''].forEach((t) => line(t, 'hdr'));
+      line(`{ "statusCode": 429, "message": "Token limit is exceeded. Try again in ${after} seconds." }`, 'err');
+      r('reply').innerHTML = '<span class="ws-none">No reply. The gateway rejected the request before streaming.</span>';
+      u.className = 'ws-usage err'; u.textContent = `No stream started. Wait ${after} seconds (Retry-After), then try again.`;
+      log.unshift({ code: 429, msg: `Request ${n} · <b>throttled</b> <small>before the stream</small>`, hdr: `JSON body, retry-after: ${after}` });
+      paintLog();
+      return false;
+    }
+    busy = true; el.classList.add('ws-busy');
+    $$('[data-send], [data-burst]', el).forEach((b) => { b.disabled = true; });
+    const withUsage = usage, prompt = 14 + Math.round(wdRand(0, 6)), completion = Math.round(wdRand(170, 240));
+    const reasoning = completion - words.length - 2;
+    r('status').innerHTML = '<span class="wd-code s200">200</span>text/event-stream';
+    u.className = 'ws-usage'; u.textContent = 'Streaming…';
+    $('.ws-reply', el).classList.add('live');
+    const step = fast ? 8 : 70;
+    line('data: {"choices":[],"prompt_filter_results":[…]}', 'filter'); await wait(step * 2);
+    line('data: {"choices":[{"delta":{"role":"assistant","content":""}}]}', 'role'); await wait(step * 2);
+    for (const w of words) {
+      line(`data: {"choices":[{"delta":{"content":${JSON.stringify(w)}}}]}`, 'delta');
+      r('reply').textContent += w;
+      await wait(step);
+    }
+    line('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}', 'role'); await wait(step * 2);
+    if (withUsage) { line(`data: {"choices":[],"usage":{"prompt_tokens":${prompt},"completion_tokens":${completion},"total_tokens":${prompt + completion}}}`, 'usage'); await wait(step * 2); }
+    line('data: [DONE]', 'done');
+    $('.ws-reply', el).classList.remove('live');
+    roll(); used += prompt + completion;
+    u.className = `ws-usage ${withUsage ? 'yes' : 'no'}`;
+    u.innerHTML = withUsage
+      ? `${IC.ok}<span>The client saw usage: <b>${prompt}</b> prompt + <b>${completion}</b> completion (${reasoning} reasoning) = <b>${prompt + completion}</b> tokens.</span>`
+      : `${IC.minus}<span>No usage chunk reached the client. The gateway counted <b>${prompt + completion}</b> tokens anyway.</span>`;
+    log.unshift({ code: 200, msg: `Request ${n} · <b>${prompt + completion}</b> tokens counted`, hdr: `stream finished, usage chunk to client: ${withUsage ? 'yes' : 'no'}` });
+    paintLog(); paint();
+    busy = false; el.classList.remove('ws-busy');
+    $$('[data-send], [data-burst]', el).forEach((b) => { b.disabled = false; });
+    return true;
+  }
+  wdBindSeg(el, (seg, v) => { usage = v[0] === 'on'; paintReq(); });
+  $('[data-send]', el).addEventListener('click', () => send());
+  $('[data-burst]', el).addEventListener('click', async () => { for (let i = 0; i < 12 && await send(true); i++); });
+  $('[data-reset]', el).addEventListener('click', () => { if (busy) return; used = 0; start = wdNow(); n = 0; log = []; idle(); paintLog(); paint(); });
+  paintReq(); idle(); paintLog(); paint();
+  wdTicker(el, paint, 500);
 };
 
 /* 99-init.js */

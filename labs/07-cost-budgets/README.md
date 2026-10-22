@@ -467,5 +467,5 @@ Keep the gateway, model, and keys. The next labs reuse them.
 | :-- | :-: | --: |
 | [06 · Token limits](../06-token-limits/README.md) | [All labs](../README.md) | [08 · Content safety](../08-content-safety/README.md) |
 
-<sub>Learning paths: [FinOps & operations](../README.md#learning-paths) (2 of 4)</sub>
+<sub>Learning paths: [FinOps & operations](../README.md#learning-paths) (3 of 5)</sub>
 <!-- gh:end -->

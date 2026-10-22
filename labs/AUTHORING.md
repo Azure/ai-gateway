@@ -160,7 +160,7 @@ Kinds: `NOTE`, `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`. A blockquote starting w
 - Diagrams in `assets/diagrams/`: `architecture.svg`, `request-lifecycle.svg`, `aliases.svg`,
   `mcp-federation.svg`, `policy-scopes.svg`, `identity-boundaries.svg`, `observability.svg`,
   `private-networking.svg`, `hosted-agent.svg`, `agent-365.svg`, `threat-protection.svg`, `token-limits.svg`,
-  `alias-routing.svg`.
+  `alias-routing.svg`, `streaming-usage.svg`.
 - Provider logos in `assets/providers/`: `microsoft-foundry.png`, `azure-openai.png`, `openai.png`,
   `anthropic.png`, `aws-bedrock.png`, `google-vertex.png`, `custom-models.png`.
 
@@ -178,6 +178,7 @@ never put essential instructions in a widget).
 | `budget` | Cost-limit simulator with per-key overrides | `{"amount":5,"period":"day"}` |
 | `alias-retarget` | Retarget an alias between backend models without client changes | none |
 | `alias-routing` | Priority and weight routing across an alias's backend models, with presets and a 20-request run | `{"alias":"chat"}` optional |
+| `stream-usage` | A streamed reply chunk by chunk, with and without `include_usage`, against a token limit that counts every stream | `{"limit":1000,"alias":"gpt-6-luna-stream"}` optional |
 | `policy-layers` | Which gateway and asset policies apply to a request | none |
 
 ### Videos

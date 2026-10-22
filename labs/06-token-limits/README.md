@@ -624,5 +624,5 @@ Keep the gateway, model, and key. The next labs reuse them.
 | :-- | :-: | --: |
 | [05 · Tool allow & block lists](../05-mcp-tool-controls/README.md) | [All labs](../README.md) | [07 · Cost budgets](../07-cost-budgets/README.md) |
 
-<sub>Learning paths: [FinOps & operations](../README.md#learning-paths) (1 of 4)</sub>
+<sub>Learning paths: [FinOps & operations](../README.md#learning-paths) (1 of 5)</sub>
 <!-- gh:end -->

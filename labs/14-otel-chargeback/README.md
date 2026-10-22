@@ -629,5 +629,5 @@ clean-up steps in [Monitor usage, cost, and traces](../13-monitoring/README.md).
 | :-- | :-: | --: |
 | [13 · Monitoring](../13-monitoring/README.md) | [All labs](../README.md) | [15 · Agent frameworks](../15-agent-frameworks/README.md) |
 
-<sub>Learning paths: [FinOps & operations](../README.md#learning-paths) (4 of 4)</sub>
+<sub>Learning paths: [FinOps & operations](../README.md#learning-paths) (5 of 5)</sub>
 <!-- gh:end -->
