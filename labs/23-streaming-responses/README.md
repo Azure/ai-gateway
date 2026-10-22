@@ -834,5 +834,5 @@ Keep the gateway, model, and key. The next labs reuse them.
 | :-- | :-: | --: |
 | [22 · Priority & weighted routing](../22-model-routing/README.md) | [All labs](../README.md) | [04 · Federate MCP tools](../04-federate-mcp-tools/README.md) |
 
-<sub>Learning paths: [App & agent developer](../README.md#learning-paths) (4 of 8) · [FinOps & operations](../README.md#learning-paths) (2 of 5)</sub>
+<sub>Learning paths: [App & agent developer](../README.md#learning-paths) (4 of 9) · [FinOps & operations](../README.md#learning-paths) (2 of 5)</sub>
 <!-- gh:end -->

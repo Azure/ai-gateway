@@ -26,6 +26,9 @@ param aliasName string = deploymentName
 @description('Name of the runtime API key to create for the first app.')
 param apiKeyName string = 'app-first-call'
 
+@description('Display name of the runtime API key.')
+param apiKeyDisplayName string = 'First call app key'
+
 @description('Tokens per minute that each caller identity can use on this model.')
 @minValue(1)
 param tokensPerMinute int = 10000
@@ -130,7 +133,7 @@ resource runtimeApiKey 'Microsoft.ApiManagement/aigateways/apiKeys@2025-09-01-pr
   parent: aiGateway
   name: apiKeyName
   properties: {
-    displayName: 'First call app key'
+    displayName: apiKeyDisplayName
   }
 }
 

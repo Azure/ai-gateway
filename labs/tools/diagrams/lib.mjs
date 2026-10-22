@@ -56,6 +56,7 @@ export const ICONS = {
   lock: 'M6 11h12v9H6z M8.5 11V8a3.5 3.5 0 0 1 7 0v3 M12 15v2',
   cloud: 'M7 18.5h10a4 4 0 0 0 .6-8A6 6 0 0 0 6.2 9.6 4.5 4.5 0 0 0 7 18.5z',
   doc: 'M6 3h8l4 4v14H6z M14 3v4h4 M9 12h6 M9 16h6',
+  code: 'M6 3h8l4 4v14H6z M14 3v4h4 M10 12l-2 2 2 2 M14 12l2 2-2 2',
   plug: 'M9 3v5 M15 3v5 M6 8h12v3a6 6 0 0 1-12 0z M12 17v4',
   grid: 'M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z',
   toolbox: 'M3 8h18v12H3z M8.5 8V5h7v3 M3 13h18 M10 13v2h4v-2',
