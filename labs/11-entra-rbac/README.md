@@ -503,7 +503,7 @@ If you already hold the role at the same scope from another track, the deploymen
 
 ### Open the playground with Entra ID
 
-Select **Discover** and pick your model. In the playground toolbar, the **Authentication** list has a
+Select **Catalog** and pick your model. In the playground toolbar, the **Authentication** list has a
 **Token** group with **Microsoft Entra ID** ("Use your signed-in identity.") and an **API key** group with
 your runtime keys. When your role allows invoking the model, the portal selects **Microsoft Entra ID** for you.
 It checks your permissions through the control plane, so you also need `Microsoft.Authorization/permissions/read`

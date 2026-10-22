@@ -25,6 +25,8 @@ never touch? The **AI Gateway tier** of Azure API Management answers them in one
 gateway, and the gateway decides who gets in, which model or tool answers, what each call may cost, and what gets
 recorded.
 
+<!-- video: media/walkthrough.mp4 | Narrated walkthrough: how Azure AI Gateway works (3 min) -->
+
 ![Azure AI Gateway architecture: clients call one gateway that routes to model providers and tool sources](../assets/diagrams/architecture.svg "Apps, agents, and coding agents call one gateway. The gateway authenticates them, applies policies, routes model calls through aliases, federates tools, and emits OpenTelemetry.")
 
 > [!NOTE]
@@ -152,7 +154,7 @@ If you have a gateway, walk through the portal now. Otherwise, use the screensho
 ### Open your gateway
 
 Go to [ai.gateway.azure.com](https://ai.gateway.azure.com) and sign in. Use the gateway switcher in the top bar to
-pick a gateway. The left rail lists **Home**, **Discover**, **Access**, **Models**, **MCP servers**, **Policies**,
+pick a gateway. The left rail lists **Home**, **Catalog**, **Models**, **MCP servers**, **Access**, **Policies**,
 **Monitoring**, **Networking**, and **Managed identities**. Press <kbd>Ctrl</kbd>+<kbd>K</kbd> to open the
 command palette from anywhere.
 
@@ -225,7 +227,7 @@ Nothing to clean up. This lab doesn't create resources.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| A model call says the model can't be found | The `model` field doesn't match an alias | Copy the alias from **Models**, or from the code sample in **Discover** |
+| A model call says the model can't be found | The `model` field doesn't match an alias | Copy the alias from **Models**, or from the code sample in **Catalog** |
 | An Anthropic call fails on the OpenAI endpoint | The gateway doesn't translate between protocols | Call `/default/models/anthropic/v1/messages` with `anthropic-version: 2023-06-01` |
 | You can't create a gateway in your region | The preview runs in two regions | Use East US 2 or Sweden Central |
 | Monitoring is empty | No telemetry destination | Connect Application Insights in **Monitoring** › **Settings** |
@@ -588,7 +590,7 @@ Use the left navigation to get familiar with each area. You visit most of them i
 | Area | What you do there | Where you learn it |
 |---|---|---|
 | **Home** | Follow the setup guide for models, MCP servers, and runtime access | This lab |
-| **Discover** | Browse published models and MCP servers, try them in the playground, and copy endpoints and code samples | [Lab 02](../02-first-model-call/README.md) |
+| **Catalog** | Browse published models and MCP servers, try them in the playground, and copy endpoints and code samples | [Lab 02](../02-first-model-call/README.md) |
 | **Access** | Create runtime API keys on the **Keys** tab and grant Microsoft Entra roles on the **Entra ID** tab | [Lab 10](../10-api-keys/README.md), [Lab 11](../11-entra-rbac/README.md) |
 | **Models** | Import Foundry deployments, add custom models from other providers, and manage aliases | [Lab 02](../02-first-model-call/README.md), [Lab 03](../03-multi-provider-aliases/README.md) |
 | **MCP servers** | Publish MCP servers and control which tools are available | [Lab 04](../04-federate-mcp-tools/README.md), [Lab 05](../05-mcp-tool-controls/README.md) |
@@ -678,7 +680,7 @@ az resource delete -g $RG -n $GATEWAY --resource-type Microsoft.Web/connectorGat
 <!-- https://azure.github.io/ai-gateway/labs/02-first-model-call/ -->
 ---
 title: Publish a Foundry model and make your first call
-summary: Publish a Microsoft Foundry model deployment through your gateway with its managed identity, create a runtime API key, try the model in the Discover playground, and call it from curl, PowerShell, Python, TypeScript, and C#.
+summary: Publish a Microsoft Foundry model deployment through your gateway with its managed identity, create a runtime API key, try the model in the Catalog playground, and call it from curl, PowerShell, Python, TypeScript, and C#.
 category: foundations
 level: Beginner
 duration: 25
@@ -1072,9 +1074,9 @@ Use the same alias and key everywhere. The gateway exposes the OpenAI-compatible
 
 <!-- track: portal | Playground -->
 
-### Try the model in Discover
+### Try the model in Catalog
 
-1. Select **Discover** and pick your model.
+1. Select **Catalog** and pick your model.
 2. Send a prompt in the built-in playground, for example `Write a one-sentence status update.`
 3. Copy the endpoint and the code samples (cURL, PowerShell 7+, Python, TypeScript, and .NET) for your app.
 
@@ -1276,7 +1278,7 @@ az rest --url "$WS/models?$API" --query "value[].{name:name, provider:properties
 az rest --url "$WS/models?$API" --query "value[].{name:name, provider:properties.providerKind}" -o table
 ```
 
-The list includes your deployment. In the portal, **Discover** lists the model too.
+The list includes your deployment. In the portal, **Catalog** lists the model too.
 
 ### Get a 200 with the key
 
@@ -1372,7 +1374,7 @@ If you created the Foundry account with `infra/foundry.bicep`, delete its resour
 | `401` from the gateway | The key is missing, misspelled, or deleted | Send an active runtime key in the `api-key` header or as the SDK API key. Create a new key if you lost the value. |
 | `400` with `Specify either an API key or an Authorization header, not both` | The client sends an `api-key` header and an `Authorization` header, such as an SDK placeholder key | Pass the runtime key as the SDK API key and remove the `api-key` default header. |
 | `403` mentioning permissions on the Foundry account | The gateway's identity lacks **Foundry User**, or the assignment hasn't propagated yet | Wait a few minutes. If it persists, assign the role as shown in the portal track. |
-| `404` with `model_not_found` | `model` doesn't match an alias exactly | Copy the alias from the model's **Aliases** tab or from **Discover**. |
+| `404` with `model_not_found` | `model` doesn't match an alias exactly | Copy the alias from the model's **Aliases** tab or from **Catalog**. |
 | `400` `unsupported_parameter` for `max_tokens` or `temperature` | `gpt-6-luna` is a reasoning model | Send `max_completion_tokens` instead of `max_tokens`. Set `temperature` only together with `reasoning_effort: "none"`. |
 | `200` with empty `content` and `finish_reason` `length` | Reasoning used the whole `max_completion_tokens` budget | Raise the budget, or send `reasoning_effort: "none"` for short, direct replies. |
 | The Responses API call fails while Chat Completions works | The model doesn't advertise the Responses interface | Check the supported interfaces on the model details page and call only those. |
@@ -5600,7 +5602,7 @@ If you already hold the role at the same scope from another track, the deploymen
 
 ### Open the playground with Entra ID
 
-Select **Discover** and pick your model. In the playground toolbar, the **Authentication** list has a
+Select **Catalog** and pick your model. In the playground toolbar, the **Authentication** list has a
 **Token** group with **Microsoft Entra ID** ("Use your signed-in identity.") and an **API key** group with
 your runtime keys. When your role allows invoking the model, the portal selects **Microsoft Entra ID** for you.
 It checks your permissions through the control plane, so you also need `Microsoft.Authorization/permissions/read`

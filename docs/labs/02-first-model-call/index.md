@@ -1,6 +1,6 @@
 ---
 title: Publish a Foundry model and make your first call
-summary: Publish a Microsoft Foundry model deployment through your gateway with its managed identity, create a runtime API key, try the model in the Discover playground, and call it from curl, PowerShell, Python, TypeScript, and C#.
+summary: Publish a Microsoft Foundry model deployment through your gateway with its managed identity, create a runtime API key, try the model in the Catalog playground, and call it from curl, PowerShell, Python, TypeScript, and C#.
 category: foundations
 level: Beginner
 duration: 25
@@ -394,9 +394,9 @@ Use the same alias and key everywhere. The gateway exposes the OpenAI-compatible
 
 <!-- track: portal | Playground -->
 
-### Try the model in Discover
+### Try the model in Catalog
 
-1. Select **Discover** and pick your model.
+1. Select **Catalog** and pick your model.
 2. Send a prompt in the built-in playground, for example `Write a one-sentence status update.`
 3. Copy the endpoint and the code samples (cURL, PowerShell 7+, Python, TypeScript, and .NET) for your app.
 
@@ -598,7 +598,7 @@ az rest --url "$WS/models?$API" --query "value[].{name:name, provider:properties
 az rest --url "$WS/models?$API" --query "value[].{name:name, provider:properties.providerKind}" -o table
 ```
 
-The list includes your deployment. In the portal, **Discover** lists the model too.
+The list includes your deployment. In the portal, **Catalog** lists the model too.
 
 ### Get a 200 with the key
 
@@ -694,7 +694,7 @@ If you created the Foundry account with `infra/foundry.bicep`, delete its resour
 | `401` from the gateway | The key is missing, misspelled, or deleted | Send an active runtime key in the `api-key` header or as the SDK API key. Create a new key if you lost the value. |
 | `400` with `Specify either an API key or an Authorization header, not both` | The client sends an `api-key` header and an `Authorization` header, such as an SDK placeholder key | Pass the runtime key as the SDK API key and remove the `api-key` default header. |
 | `403` mentioning permissions on the Foundry account | The gateway's identity lacks **Foundry User**, or the assignment hasn't propagated yet | Wait a few minutes. If it persists, assign the role as shown in the portal track. |
-| `404` with `model_not_found` | `model` doesn't match an alias exactly | Copy the alias from the model's **Aliases** tab or from **Discover**. |
+| `404` with `model_not_found` | `model` doesn't match an alias exactly | Copy the alias from the model's **Aliases** tab or from **Catalog**. |
 | `400` `unsupported_parameter` for `max_tokens` or `temperature` | `gpt-6-luna` is a reasoning model | Send `max_completion_tokens` instead of `max_tokens`. Set `temperature` only together with `reasoning_effort: "none"`. |
 | `200` with empty `content` and `finish_reason` `length` | Reasoning used the whole `max_completion_tokens` budget | Raise the budget, or send `reasoning_effort: "none"` for short, direct replies. |
 | The Responses API call fails while Chat Completions works | The model doesn't advertise the Responses interface | Check the supported interfaces on the model details page and call only those. |

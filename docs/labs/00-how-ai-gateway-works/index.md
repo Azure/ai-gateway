@@ -24,6 +24,8 @@ never touch? The **AI Gateway tier** of Azure API Management answers them in one
 gateway, and the gateway decides who gets in, which model or tool answers, what each call may cost, and what gets
 recorded.
 
+<!-- video: media/walkthrough.mp4 | Narrated walkthrough: how Azure AI Gateway works (3 min) -->
+
 ![Azure AI Gateway architecture: clients call one gateway that routes to model providers and tool sources](../assets/diagrams/architecture.svg "Apps, agents, and coding agents call one gateway. The gateway authenticates them, applies policies, routes model calls through aliases, federates tools, and emits OpenTelemetry.")
 
 > [!NOTE]
@@ -151,7 +153,7 @@ If you have a gateway, walk through the portal now. Otherwise, use the screensho
 ### Open your gateway
 
 Go to [ai.gateway.azure.com](https://ai.gateway.azure.com) and sign in. Use the gateway switcher in the top bar to
-pick a gateway. The left rail lists **Home**, **Discover**, **Access**, **Models**, **MCP servers**, **Policies**,
+pick a gateway. The left rail lists **Home**, **Catalog**, **Models**, **MCP servers**, **Access**, **Policies**,
 **Monitoring**, **Networking**, and **Managed identities**. Press <kbd>Ctrl</kbd>+<kbd>K</kbd> to open the
 command palette from anywhere.
 
@@ -224,7 +226,7 @@ Nothing to clean up. This lab doesn't create resources.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| A model call says the model can't be found | The `model` field doesn't match an alias | Copy the alias from **Models**, or from the code sample in **Discover** |
+| A model call says the model can't be found | The `model` field doesn't match an alias | Copy the alias from **Models**, or from the code sample in **Catalog** |
 | An Anthropic call fails on the OpenAI endpoint | The gateway doesn't translate between protocols | Call `/default/models/anthropic/v1/messages` with `anthropic-version: 2023-06-01` |
 | You can't create a gateway in your region | The preview runs in two regions | Use East US 2 or Sweden Central |
 | Monitoring is empty | No telemetry destination | Connect Application Insights in **Monitoring** › **Settings** |
