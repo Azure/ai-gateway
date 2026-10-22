@@ -8,7 +8,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { initHighlighter, renderLab, escapeHtml } from './site/markdown.mjs';
 import { parseLab, stripGitHub, syncLab, syncIndex, syncSkill, findVideo } from './site/github.mjs';
@@ -53,47 +52,28 @@ function write(rel, content) {
   fs.writeFileSync(f, content);
 }
 
-// A lab folder with a root azure.yaml is an azd template. azd can't init from a repo subfolder, so the site
-// serves it as <name>.tar.gz (azure.yaml + infra/ under a <name>/ folder). The archive is byte-for-byte
-// reproducible: fixed order, owner, modes, and mtime, so rebuilding docs/ doesn't churn it.
-function bundleTemplate(lab) {
-  const yaml = path.join(lab.dir, 'azure.yaml');
-  if (!fs.existsSync(yaml)) return null;
-  const name = fs.readFileSync(yaml, 'utf8').match(/^name:\s*([a-z0-9-]+)\s*$/m)?.[1];
-  if (!name) { warn(`${lab.slug}: azure.yaml has no name`); return null; }
-  const entries = [{ rel: 'azure.yaml' }];
+// A lab folder with a root azure.yaml is an azd template. azd can't init from a repo subfolder, so the lab
+// downloads azure.yaml and infra/ file by file from the main branch on GitHub. Every download block must list
+// exactly the template's files, so a new Bicep file can't be left out.
+function checkTemplate(lab, site) {
+  if (!fs.existsSync(path.join(lab.dir, 'azure.yaml'))) return;
+  const files = ['azure.yaml'];
   const walk = (rel) => {
-    entries.push({ rel: `${rel}/`, dir: true });
-    for (const e of fs.readdirSync(path.join(lab.dir, rel), { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+    for (const e of fs.readdirSync(path.join(lab.dir, rel), { withFileTypes: true })) {
       if (e.name.startsWith('.')) continue;
       if (e.isDirectory()) walk(`${rel}/${e.name}`);
-      else entries.push({ rel: `${rel}/${e.name}` });
+      else files.push(`${rel}/${e.name}`);
     }
   };
   if (fs.existsSync(path.join(lab.dir, 'infra'))) walk('infra');
-  const octal = (n, len) => `${n.toString(8).padStart(len - 1, '0')}\0`;
-  const blocks = [];
-  for (const e of [{ rel: '', dir: true }, ...entries]) {
-    const data = e.dir ? Buffer.alloc(0) : fs.readFileSync(path.join(lab.dir, e.rel));
-    const h = Buffer.alloc(512);
-    h.write(`${name}/${e.rel}`, 0, 100, 'utf8');
-    h.write(octal(e.dir ? 0o755 : 0o644, 8), 100);
-    h.write(octal(0, 8), 108);
-    h.write(octal(0, 8), 116);
-    h.write(octal(data.length, 12), 124);
-    h.write(octal(1767225600, 12), 136);
-    h.write(' '.repeat(8), 148);
-    h.write(e.dir ? '5' : '0', 156);
-    h.write('ustar\0' + '00', 257);
-    let sum = 0;
-    for (const b of h) sum += b;
-    h.write(`${sum.toString(8).padStart(6, '0')}\0 `, 148);
-    blocks.push(h, data, Buffer.alloc((512 - (data.length % 512)) % 512));
+  const raw = `${site.repo.replace('https://github.com/', 'https://raw.githubusercontent.com/')}/${site.branch}/labs/${lab.slug}/`;
+  const blocks = [...lab.content.matchAll(/^```[^\n]*\n([\s\S]*?)^```/gm)].map((m) => m[1]).filter((b) => b.includes(raw));
+  if (!blocks.length) warn(`${lab.slug}: has an azd template, but no code block downloads it from ${raw}`);
+  for (const b of blocks) {
+    const listed = new Set(b.match(/\b(?:azure\.yaml|infra\/[\w./-]*\w)/g) || []);
+    for (const f of files) if (!listed.has(f)) warn(`${lab.slug}: a template download block doesn't fetch ${f}`);
+    for (const f of listed) if (!files.includes(f)) warn(`${lab.slug}: a template download block fetches ${f}, which isn't in the lab folder`);
   }
-  blocks.push(Buffer.alloc(1024));
-  const file = `${name}.tar.gz`;
-  write(`labs/${lab.slug}/${file}`, zlib.gzipSync(Buffer.concat(blocks), { level: 9 }));
-  return file;
 }
 
 function gitUpdated(dir) {
@@ -128,7 +108,7 @@ function loadLabs(catalog) {
   const labs = dirs.map((slug) => {
     const source = fs.readFileSync(path.join(LABS, slug, 'README.md'), 'utf8');
     const { data, matter: meta, body } = parseLab(source);
-    // A build for another host (LABS_SITE_URL) points site-relative downloads, like azd templates, at that host.
+    // A build for another host (LABS_SITE_URL) points links to the labs site at that host.
     const content = stripGitHub(body).replaceAll(catalog.site.pages, BASE_URL);
     const notebook = fs.readdirSync(path.join(LABS, slug)).filter((f) => f.endsWith('.ipynb')).sort()[0] || null;
     for (const k of REQUIRED) if (data[k] == null) warn(`${slug}: missing front matter "${k}"`);
@@ -352,10 +332,7 @@ export async function build({ strict = false } = {}) {
       fs.mkdirSync(path.dirname(dest), { recursive: true });
       fs.copyFileSync(path.join(lab.dir, m), dest);
     }
-    const bundle = bundleTemplate(lab);
-    for (const [, file] of lab.content.matchAll(new RegExp(`${BASE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}labs/${lab.slug}/([\\w.-]+\\.tar\\.gz)`, 'g'))) {
-      if (file !== bundle) warn(`${lab.slug}: links to ${file}, but the lab folder has no azure.yaml named ${file.replace(/\.tar\.gz$/, '')}`);
-    }
+    checkTemplate(lab, site);
     const headings = [...lab.html.matchAll(/<h([23]) id="([^"]+)"><a class="anchor"[^>]*>#<\/a>([\s\S]*?)<\/h\1>/g)]
       .map((m) => ({ id: m[2], text: htmlToText(m[3]), level: Number(m[1]) }));
     searchIndex.push({

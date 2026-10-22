@@ -492,29 +492,34 @@ If Cloud Shell timed out, set `RG`, `FOUNDRY`, and `LOCATION` again with the nam
 <details><summary><b>🏗️ Bicep + azd</b></summary> <!-- gh -->
 
 **What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell. It's already signed in and has
-the Azure Developer CLI (`azd`), the Azure CLI, `curl`, `tar`, and `jq`. Locally,
+the Azure Developer CLI (`azd`), the Azure CLI, `curl`, and `jq`. Locally,
 [install azd](https://aka.ms/azd-install) and the Azure CLI, and sign in with `azd auth login` and `az login`. The
 template creates the Foundry deployment for you.
 
 ### Download the template
 
-The template is a small azd project: an `azure.yaml` and a Bicep file for each scope. The labs site serves it as one
-archive, so you don't clone anything.
+The template is a small azd project in the
+[`labs/quickstart`](https://github.com/Azure/ai-gateway/tree/main/labs/quickstart) folder of the GitHub repo: an
+`azure.yaml` and a Bicep file for each scope. Download its four files from the `main` branch into a new
+`aigw-quickstart` folder, so you don't clone anything.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-curl -fsSL https://azure.github.io/ai-gateway/labs/quickstart/aigw-quickstart.tar.gz | tar -xz
-cd aigw-quickstart
+mkdir -p aigw-quickstart/infra && cd aigw-quickstart
+for f in azure.yaml infra/main.bicep infra/main.parameters.json infra/resources.bicep; do
+  curl -fsSL "https://raw.githubusercontent.com/Azure/ai-gateway/main/labs/quickstart/$f" -o "$f"
+done
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-Invoke-WebRequest https://azure.github.io/ai-gateway/labs/quickstart/aigw-quickstart.tar.gz -OutFile aigw-quickstart.tar.gz
-tar -xzf aigw-quickstart.tar.gz; Remove-Item aigw-quickstart.tar.gz
-Set-Location aigw-quickstart
+New-Item -ItemType Directory -Path aigw-quickstart/infra -Force | Out-Null; Set-Location aigw-quickstart
+foreach ($f in 'azure.yaml', 'infra/main.bicep', 'infra/main.parameters.json', 'infra/resources.bicep') {
+  Invoke-WebRequest "https://raw.githubusercontent.com/Azure/ai-gateway/main/labs/quickstart/$f" -OutFile $f
+}
 ```
 </details> <!-- gh -->
 

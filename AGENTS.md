@@ -102,9 +102,9 @@ Add a `## <Month D, YYYY>` section at the top of `labs/RELEASE-NOTES.md`, as des
 - The root `README.md`: the lab count and the use-case list.
 - `labs/quickstart/`: when provisioning, the portal flow, the default model, or the runtime URL changes, update its
   portal, Azure CLI, and Bicep + azd tracks (keep them paste-ready for Cloud Shell, with nothing to clone), its azd
-  template (`azure.yaml` and `infra/`, served as `aigw-quickstart.tar.gz`; test it with `azd up` and
-  `azd down --purge --force`), and the condensed output of a real CLI run that the home page shows (`homePage` in
-  `labs/site/templates.mjs`).
+  template (`azure.yaml` and `infra/`, which the track downloads file by file from `main` on GitHub; test it with
+  `azd up` and `azd down --purge --force`), and the condensed output of a real CLI run that the home page shows
+  (`homePage` in `labs/site/templates.mjs`).
 - `labs/AUTHORING.md`: the lists of screens, diagrams, and widgets.
 - `labs/skills/azure-ai-gateway-labs/SKILL.md`: the hand-written facts, when runtime behavior or lab conventions
   change. `npm run sync` regenerates its catalog.
