@@ -36,10 +36,10 @@ When the workspace is a clone of `Azure/ai-gateway`, read `labs/<slug>/README.md
 
 1. **Pick the lab.** Match the user's goal to the [use-case map](#use-case-map) or the [catalog](#lab-catalog). Check
    what the lab needs first: most labs reuse the gateway from lab 01 and the model from lab 02. For newcomers,
-   suggest the 5-minute quick start, `quickstart`: in the portal or with Azure CLI commands in Cloud Shell (no
-   clone), it creates a gateway, a Foundry model, an alias, and a runtime key with lab 02's names, so labs 03
-   onward work on it. Then suggest the 30-minute essentials
-   path.
+   suggest the 5-minute quick start, `quickstart`: in the portal, with Azure CLI commands in Cloud Shell, or with one
+   `azd up` of a Bicep template that the site serves as a download (no clone), it creates a gateway, a Foundry
+   model, an alias, and a runtime key with lab 02's names, so labs 03 onward work on it. Then suggest the 30-minute
+   essentials path.
 2. **Read the whole lab** before you run anything. **Before you begin** lists the tools, Azure roles, regions, and
    billable resources.
 3. **Choose one track.** A track starts at `<!-- track: <id> | <label> -->`, and the group of tracks ends at
@@ -108,7 +108,7 @@ Each entry shows the level, time, tracks, and the labs it needs.
 
 ### Foundations
 
-- **⚡** [Your first model call in 5 minutes](https://azure.github.io/ai-gateway/labs/quickstart/index.md) `quickstart` (Beginner, 5 min · Portal, CLI): Learn the five building blocks of Azure AI Gateway, create a gateway with a Microsoft Foundry model in the portal or the Azure CLI, and make your first model call, all in about five minutes with nothing to clone.
+- **⚡** [Your first model call in 5 minutes](https://azure.github.io/ai-gateway/labs/quickstart/index.md) `quickstart` (Beginner, 5 min · Portal, CLI, Bicep): Learn the five building blocks of Azure AI Gateway, create a gateway with a Microsoft Foundry model in the portal, the Azure CLI, or Bicep with azd, and make your first model call, all in about five minutes with nothing to clone.
 - **00** [How Azure AI Gateway works](https://azure.github.io/ai-gateway/labs/00-how-ai-gateway-works/index.md) `00-how-ai-gateway-works` (Beginner, 20 min · Portal): A 20-minute visual tour of the AI Gateway tier of Azure API Management. Follow one request through the gateway, meet models, aliases, MCP servers, policies, and identities, and pick the learning path that fits your role.
 - **01** [Provision your AI Gateway](https://azure.github.io/ai-gateway/labs/01-provision-gateway/index.md) `01-provision-gateway` (Beginner, 15 min · Portal, CLI, Bicep, Notebook): Create the shared AI Gateway that your apps and agents will call, from the AI Gateway portal, the Azure CLI, or Bicep, then take a guided tour of the portal.
 - **02** [Publish a Foundry model and make your first call](https://azure.github.io/ai-gateway/labs/02-first-model-call/index.md) `02-first-model-call` (Beginner, 25 min · Portal, CLI, Bicep, Code, Notebook · needs 01): Publish a Microsoft Foundry model deployment through your gateway with its managed identity, create a runtime API key, try the model in the Catalog playground, and call it from curl, PowerShell, Python, TypeScript, and C#.

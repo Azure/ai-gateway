@@ -25,7 +25,8 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
 
 - **October 22.** New [5-minute quick start](quickstart/README.md): learn the five building blocks, create a gateway
   with a Foundry `gpt-6-luna` model, an alias, and a runtime key, and make your first call. Follow it in the AI
-  Gateway portal or paste its Azure CLI commands (Bash or PowerShell) into Cloud Shell; there's nothing to clone. The
+  Gateway portal, with a screenshot for every step; paste its Azure CLI commands (Bash or PowerShell) into Cloud
+  Shell; or download its Bicep template and deploy it with one `azd up`. There's nothing to clone. The
   home page now starts with it, and the former 30-minute quickstart path is now **30-minute essentials**.
 - **October 22.** New lab [23 · Stream responses and count every token](23-streaming-responses/README.md), which
   covers usage for streamed Chat Completions responses from the [September 24](#september-24-2026) release. It

@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+# Azure AI Gateway quick start: "azd up" creates a gateway, a Foundry model behind an alias, and a runtime API key.
+# The labs site serves this file and infra/ as aigw-quickstart.tar.gz, so the quick start needs no clone.
+name: aigw-quickstart
+metadata:
+  template: aigw-quickstart@1.0.0
+infra:
+  provider: bicep
+  path: infra
