@@ -192,11 +192,13 @@ function az {
 
 $cases = [ordered]@{
     pass = @('PASS', 'runtime'); readonly = @('BLOCKED', 'runtime')
+    'omitted-preview-fields' = @('PASS', 'runtime')
     'wrong-tenant' = @('FAIL', 'context'); 'wrong-scope' = @('FAIL', 'context')
     'missing-output' = @('FAIL', 'context'); malformed = @('FAIL', 'context')
     'terraform-error' = @('FAIL', 'context'); dirty = @('FAIL', 'context')
     'extra-group' = @('FAIL', 'placement'); 'arm-error' = @('FAIL', 'resources')
     'failed-endpoint' = @('FAIL', 'private-network'); 'wrong-alias' = @('FAIL', 'resources')
+    'wrong-api-format' = @('FAIL', 'resources'); 'wrong-exporter-kind' = @('FAIL', 'monitoring')
     drift = @('FAIL', 'drift'); 'plan-error' = @('FAIL', 'drift')
     'runtime-error' = @('FAIL', 'runtime'); 'missing-telemetry' = @('FAIL', 'telemetry')
     'cleanup-error' = @('FAIL', 'vm-cleanup'); 'running-vm' = @('FAIL', 'runtime')
@@ -211,6 +213,12 @@ try {
             'missing-output' { $f.outputs.Remove('resource_group_name') }
             'failed-endpoint' { $f.resources[$f.outputs.private_endpoint_ids.value.gateway].properties.provisioningState = 'Failed' }
             'wrong-alias' { $f.resources["$gateway/workspaces/default/aliases/full"].properties.aliasName = 'other' }
+            'wrong-api-format' { $f.resources["$gateway/workspaces/default/modelProviders/foundry/models/full"].properties.apiFormat = 'Other' }
+            'wrong-exporter-kind' { $f.resources["$gateway/workspaces/default/telemetryExporters/appinsights"].properties.kind = 'Other' }
+            'omitted-preview-fields' {
+                foreach ($name in @('full', 'mini')) { $f.resources["$gateway/workspaces/default/modelProviders/foundry/models/$name"].properties.Remove('apiFormat') }
+                $f.resources["$gateway/workspaces/default/telemetryExporters/appinsights"].properties.Remove('kind')
+            }
             'running-vm' { $f.power = 'running' }
         }
         $destination = Join-Path $testDirectory $case
@@ -225,15 +233,15 @@ try {
         $text = Get-Content -LiteralPath $file.FullName -Raw
         $result = $text | ConvertFrom-Json -Depth 30
         if ($result.backendStatus -ne $cases[$case][0] -or $result.overallStatus -eq 'PASS' -or
-            ($case -eq 'pass' -and $caught) -or ($case -ne 'pass' -and -not $caught)) {
+            ($cases[$case][0] -eq 'PASS' -and $caught) -or ($cases[$case][0] -ne 'PASS' -and -not $caught)) {
             throw "Case $case returned $($result.backendStatus); error=$caught; checks=$($result.checks | ConvertTo-Json -Depth 5 -Compress)"
         }
         $expectedCheck = $cases[$case][1]
-        $expectedStatus = if ($case -eq 'pass') { 'PASS' } elseif ($case -eq 'readonly') { 'NOT RUN' } else { 'FAIL' }
+        $expectedStatus = if ($cases[$case][0] -eq 'PASS') { 'PASS' } elseif ($case -eq 'readonly') { 'NOT RUN' } else { 'FAIL' }
         if ($result.checks.$expectedCheck.status -ne $expectedStatus) { throw "Wrong failure boundary in $case." }
-        if ($case -notin @('pass', 'runtime-error', 'missing-telemetry', 'cleanup-error') -and
+        if ($case -notin @('pass', 'omitted-preview-fields', 'runtime-error', 'missing-telemetry', 'cleanup-error') -and
             @($f.calls | Where-Object { $_ -match '^vm (start|deallocate|run-command)' }).Count) { throw "Unexpected VM mutation in $case." }
-        if ($case -in @('pass', 'runtime-error', 'missing-telemetry') -and $f.power -ne 'deallocated') { throw "VM left running in $case." }
+        if ($case -in @('pass', 'omitted-preview-fields', 'runtime-error', 'missing-telemetry') -and $f.power -ne 'deallocated') { throw "VM left running in $case." }
         if ($f.scriptPath -and (Test-Path -LiteralPath $f.scriptPath)) { throw 'Probe transport file was not cleaned up.' }
         if ("$text`n$($console -join "`n")`n$caught" -match 'SECRET-DO-NOT-LOG') { throw "Secret leaked in $case." }
     }

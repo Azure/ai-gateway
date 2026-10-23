@@ -187,13 +187,16 @@ Invoke-Check 'resources' @('context') {
         $catalog = Read-Arm $catalogId '2025-09-01-preview'
         $alias = Read-Arm "$($context.gatewayId)/workspaces/default/aliases/$($deployment.Name)" '2025-09-01-preview'
         if ($catalog.properties.deployment.resourceId -ine $deployment.Value -or
-            $catalog.properties.apiFormat -ne $metadata.api_format -or
+            ('apiFormat' -in $catalog.properties.PSObject.Properties.Name -and $catalog.properties.apiFormat -ne $metadata.api_format) -or
             '/openai/v1/chat/completions' -notin $catalog.properties.supportedEndpoints -or
             $alias.properties.aliasName -ne $deployment.Name -or
             @($alias.properties.backendModels).Count -ne 1 -or
             $alias.properties.backendModels[0].resourceId -ine $catalogId) { Stop-Check 'Catalog model or alias route mismatch.' }
     }
-    @{ modelAliases = @($deployments.Name); gatewaySku = 'AIGateway' }
+    @{
+        modelAliases = @($deployments.Name); gatewaySku = 'AIGateway'
+        apiFormatVerification = 'Output contract and live supported endpoints; apiFormat checked when returned (preview GET can omit it).'
+    }
 }
 
 Invoke-Check 'roles' @('resources') {
@@ -255,11 +258,15 @@ Invoke-Check 'monitoring' @('context') {
     }
     if ($context.insightsAppId -notmatch '^[a-fA-F0-9-]{36}$') { Stop-Check 'Missing gateway Insights app ID.' }
     $exporter = Read-Arm "$($context.gatewayId)/workspaces/default/telemetryExporters/appinsights" '2025-09-01-preview'
-    if ($exporter.properties.kind -ne 'applicationInsights' -or $exporter.properties.payloadCapture -ne $false -or
+    if (('kind' -in $exporter.properties.PSObject.Properties.Name -and $exporter.properties.kind -ne 'applicationInsights') -or
+        $exporter.properties.payloadCapture -ne $false -or
         $exporter.properties.applicationInsights.resourceId -ine $context.outputs.application_insights_ids.value.gateway) {
         Stop-Check 'Telemetry exporter target or payload-capture mismatch.'
     }
-    @{ readyMonitoringStacks = 2; delivery = 'Requires telemetry check' }
+    @{
+        readyMonitoringStacks = 2; delivery = 'Requires telemetry check'
+        exporterVerification = 'Application Insights target and payloadCapture checked; kind checked when returned (preview GET can omit it).'
+    }
 }
 
 Invoke-Check 'private-network' @('resources') {

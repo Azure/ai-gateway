@@ -87,6 +87,13 @@ links and a full drift plan. It does not start the VM, retrieve keys or call
 models. Therefore runtime/telemetry remain NOT RUN/BLOCKED and it exits with an
 incomplete-acceptance error, even if all read-only checks pass.
 
+The legacy preview's catalog GET can omit `apiFormat`, and its exporter GET can
+omit `kind`, even though those fields were sent on creation. The runner records
+this verification boundary: it requires compatible output metadata and live
+supported endpoints/alias targets, plus the explicit live Application Insights
+target and `payloadCapture = false`. If the optional fields are returned they
+must match. Actual API behavior and telemetry delivery still need runtime proof.
+
 Every drift plan includes `profiles\private-connectivity.tfvars.json` last.
 For additional explicitly approved nonautomatic input files use
 `-AdditionalVarFile 'C:\protected-inputs\environment.tfvars'`. Existing automatic
