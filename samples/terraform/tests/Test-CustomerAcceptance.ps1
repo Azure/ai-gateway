@@ -192,7 +192,8 @@ function az {
 
 $cases = [ordered]@{
     pass = @('PASS', 'runtime'); readonly = @('BLOCKED', 'runtime')
-    'omitted-preview-fields' = @('PASS', 'runtime')
+    'omitted-api-format' = @('PASS', 'runtime'); 'pascal-exporter-kind' = @('PASS', 'runtime')
+    'missing-exporter-kind' = @('FAIL', 'monitoring'); 'null-exporter-kind' = @('FAIL', 'monitoring')
     'wrong-tenant' = @('FAIL', 'context'); 'wrong-scope' = @('FAIL', 'context')
     'missing-output' = @('FAIL', 'context'); malformed = @('FAIL', 'context')
     'terraform-error' = @('FAIL', 'context'); dirty = @('FAIL', 'context')
@@ -215,9 +216,11 @@ try {
             'wrong-alias' { $f.resources["$gateway/workspaces/default/aliases/full"].properties.aliasName = 'other' }
             'wrong-api-format' { $f.resources["$gateway/workspaces/default/modelProviders/foundry/models/full"].properties.apiFormat = 'Other' }
             'wrong-exporter-kind' { $f.resources["$gateway/workspaces/default/telemetryExporters/appinsights"].properties.kind = 'Other' }
-            'omitted-preview-fields' {
+            'pascal-exporter-kind' { $f.resources["$gateway/workspaces/default/telemetryExporters/appinsights"].properties.kind = 'ApplicationInsights' }
+            'missing-exporter-kind' { $f.resources["$gateway/workspaces/default/telemetryExporters/appinsights"].properties.Remove('kind') }
+            'null-exporter-kind' { $f.resources["$gateway/workspaces/default/telemetryExporters/appinsights"].properties.kind = $null }
+            'omitted-api-format' {
                 foreach ($name in @('full', 'mini')) { $f.resources["$gateway/workspaces/default/modelProviders/foundry/models/$name"].properties.Remove('apiFormat') }
-                $f.resources["$gateway/workspaces/default/telemetryExporters/appinsights"].properties.Remove('kind')
             }
             'running-vm' { $f.power = 'running' }
         }
@@ -239,9 +242,11 @@ try {
         $expectedCheck = $cases[$case][1]
         $expectedStatus = if ($cases[$case][0] -eq 'PASS') { 'PASS' } elseif ($case -eq 'readonly') { 'NOT RUN' } else { 'FAIL' }
         if ($result.checks.$expectedCheck.status -ne $expectedStatus) { throw "Wrong failure boundary in $case." }
-        if ($case -notin @('pass', 'omitted-preview-fields', 'runtime-error', 'missing-telemetry', 'cleanup-error') -and
+        if ($case -in @('missing-exporter-kind', 'null-exporter-kind') -and
+            $result.checks.monitoring.detail -notmatch 'portal cannot recognize') { throw "Missing portal diagnostic in $case." }
+        if ($case -notin @('pass', 'omitted-api-format', 'pascal-exporter-kind', 'runtime-error', 'missing-telemetry', 'cleanup-error') -and
             @($f.calls | Where-Object { $_ -match '^vm (start|deallocate|run-command)' }).Count) { throw "Unexpected VM mutation in $case." }
-        if ($case -in @('pass', 'omitted-preview-fields', 'runtime-error', 'missing-telemetry') -and $f.power -ne 'deallocated') { throw "VM left running in $case." }
+        if ($case -in @('pass', 'omitted-api-format', 'pascal-exporter-kind', 'runtime-error', 'missing-telemetry') -and $f.power -ne 'deallocated') { throw "VM left running in $case." }
         if ($f.scriptPath -and (Test-Path -LiteralPath $f.scriptPath)) { throw 'Probe transport file was not cleaned up.' }
         if ("$text`n$($console -join "`n")`n$caught" -match 'SECRET-DO-NOT-LOG') { throw "Secret leaked in $case." }
     }

@@ -258,14 +258,17 @@ Invoke-Check 'monitoring' @('context') {
     }
     if ($context.insightsAppId -notmatch '^[a-fA-F0-9-]{36}$') { Stop-Check 'Missing gateway Insights app ID.' }
     $exporter = Read-Arm "$($context.gatewayId)/workspaces/default/telemetryExporters/appinsights" '2025-09-01-preview'
-    if (('kind' -in $exporter.properties.PSObject.Properties.Name -and $exporter.properties.kind -ne 'applicationInsights') -or
+    if ([string]::IsNullOrWhiteSpace([string]$exporter.properties.kind)) {
+        Stop-Check 'Telemetry exporter kind is missing; the portal cannot recognize the Application Insights configuration.'
+    }
+    if ($exporter.properties.kind -ne 'applicationInsights' -or
         $exporter.properties.payloadCapture -ne $false -or
         $exporter.properties.applicationInsights.resourceId -ine $context.outputs.application_insights_ids.value.gateway) {
-        Stop-Check 'Telemetry exporter target or payload-capture mismatch.'
+        Stop-Check 'Telemetry exporter kind, target or payload-capture mismatch.'
     }
     @{
         readyMonitoringStacks = 2; delivery = 'Requires telemetry check'
-        exporterVerification = 'Application Insights target and payloadCapture checked; kind checked when returned (preview GET can omit it).'
+        exporterVerification = 'Returned Application Insights kind, target and payloadCapture checked; portal metrics still require functional review.'
     }
 }
 

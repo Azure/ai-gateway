@@ -87,12 +87,19 @@ links and a full drift plan. It does not start the VM, retrieve keys or call
 models. Therefore runtime/telemetry remain NOT RUN/BLOCKED and it exits with an
 incomplete-acceptance error, even if all read-only checks pass.
 
-The legacy preview's catalog GET can omit `apiFormat`, and its exporter GET can
-omit `kind`, even though those fields were sent on creation. The runner records
-this verification boundary: it requires compatible output metadata and live
-supported endpoints/alias targets, plus the explicit live Application Insights
-target and `payloadCapture = false`. If the optional fields are returned they
-must match. Actual API behavior and telemetry delivery still need runtime proof.
+The legacy preview's catalog GET can omit `apiFormat`. The runner records this
+verification boundary: it requires compatible output metadata and live supported
+endpoints/alias targets; when `apiFormat` is returned it must match.
+
+The exporter must return `kind = applicationInsights` (case-insensitive), the
+expected Application Insights resource ID and `payloadCapture = false`. A missing
+or empty `kind` is a **failure**, even if the target exists: the current portal
+uses this discriminator to recognize telemetry configuration. Live diagnosis
+observed a legacy exporter omitting it while Monitoring offered "Configure"
+instead of metrics. Do not create a second monitoring stack through that wizard
+or assume waiting for ingestion will fix this configuration-recognition problem.
+Resolve the API/portal compatibility issue before final acceptance. Actual API
+behavior, telemetry delivery and visible portal metrics still need runtime proof.
 
 Every drift plan includes `profiles\private-connectivity.tfvars.json` last.
 For additional explicitly approved nonautomatic input files use
@@ -145,6 +152,11 @@ corporate account, not a lab/admin account. Verify the actual tenant and selecte
 subscription/resource against the report. Use a client with VNet connectivity
 when exercising the private route. A portal playground might call the enabled
 public gateway endpoint; record its actual route and do not label it private proof.
+
+The Networking page can display an approved/succeeded gateway-side connection
+while the corresponding `Microsoft.Network/privateEndpoints` resource is failed.
+Check both resource states and private DNS/routing; the portal row alone is not
+proof of a working private endpoint.
 
 The runner creates `portal-evidence.json`. Only begin final functional acceptance
 after `backendStatus` is PASS. Earlier browsing is a **diagnostic baseline**, not
