@@ -107,6 +107,12 @@ Before you create, change, or delete Azure resources, confirm the subscription a
   as the model ID. The gateway doesn't serve `GET /models` (it answers `400`), so add models by hand. Name the alias
   after a well-known model, such as `gpt-6-astra`, so Copilot applies that model's prompts and token sizes. Agent
   requests carry 14,000 to 38,000 input tokens each, so give Copilot keys a generous token limit.
+- The same Copilot clients can use a gateway MCP server, such as `learn`, at `<runtime URL>/default/toolservers/<name>/mcp`
+  with the same runtime key in the `api-key` header (a bearer token answers `401`). Add it with
+  `copilot mcp add --transport http --header 'api-key: ${AI_GATEWAY_API_KEY}' <name> <url>` (the CLI and the GitHub
+  Copilot app share `~/.copilot/mcp-config.json`), a `.vscode/mcp.json` `http` server with a password input, or
+  `mcpServers` in an SDK session. Tool results add tokens: a Learn search returns 26 to 52 KB, so one question with
+  a search can send about 50,000 input tokens. Suspending the key returns `401` for both models and tools.
 
 ## Lab catalog
 
@@ -153,7 +159,7 @@ Each entry shows the level, time, tracks, and the labs it needs.
 - **15** [Connect agent frameworks to models and tools](https://azure.github.io/ai-gateway/labs/15-agent-frameworks/index.md) `15-agent-frameworks` (Intermediate, 30 min · Code · needs 02, 04): Point Microsoft Agent Framework, the OpenAI Agents SDK, and LangChain with LangGraph at the gateway's OpenAI-compatible model endpoint and its MCP endpoint, so every model and tool call an agent makes passes through gateway policies and shows up in Monitoring.
 - **16** [Deploy a Foundry hosted agent behind AI Gateway](https://azure.github.io/ai-gateway/labs/16-foundry-hosted-agent/index.md) `16-foundry-hosted-agent` (Intermediate, 40 min · Portal, CLI, Code · needs 02, 04): Deploy your own Microsoft Agent Framework agent to Foundry Hosted Agents with azd. The agent has no model deployment and no direct tool access, so its model calls and its Microsoft Learn MCP calls go through AI Gateway with a dedicated key. Run it locally, invoke it in Foundry, and cap its tokens without changing its code.
 - **17** [Build on your gateway with coding agents](https://azure.github.io/ai-gateway/labs/17-coding-agent-plugin/index.md) `17-coding-agent-plugin` (Beginner, 15 min · Code · needs 02): Install the AI Gateway plugin in GitHub Copilot CLI, Claude Code, Cursor, or Gemini CLI, then let your coding agent discover the gateway's models and MCP tools and generate working client code.
-- **24** [Use your gateway's models in GitHub Copilot](https://azure.github.io/ai-gateway/labs/24-github-copilot-byok/index.md) `24-github-copilot-byok` (Intermediate, 25 min · Portal, CLI, Bicep, Code · needs 02): Point GitHub Copilot in VS Code, the Copilot CLI, the Copilot SDK, and the GitHub Copilot app at gpt-6-astra published by your gateway, so every coding agent request uses your key, your token limits, and your monitoring.
+- **24** [Use your gateway's models and tools in GitHub Copilot](https://azure.github.io/ai-gateway/labs/24-github-copilot-byok/index.md) `24-github-copilot-byok` (Intermediate, 40 min · Portal, CLI, Bicep, Code · needs 02): Point GitHub Copilot in VS Code, the Copilot CLI, the Copilot SDK, and the GitHub Copilot app at gpt-6-astra published by your gateway, then give them Microsoft Learn tools from an MCP server on the same gateway, so every model and tool call uses your key, your limits, and your monitoring.
 
 ### Production & emerging
 
@@ -190,7 +196,7 @@ Each entry shows the level, time, tracks, and the labs it needs.
 | Tool threat protection: Defender and Purview evaluate tool calls for injection and data risk | 19 Tool threat protection |
 | Agent 365 governance: Inventory and block MCP servers and tools from the Microsoft 365 admin center | 20 Agent 365 governance |
 | Coding-agent plugin: Let Copilot, Claude Code, Cursor, or Gemini build on your gateway | 17 Coding-agent plugin |
-| GitHub Copilot on your models: Run Copilot in VS Code, the CLI, the SDK, and the app on a model your gateway governs | 24 GitHub Copilot BYOK |
+| GitHub Copilot on your models and tools: Run Copilot in VS Code, the CLI, the SDK, and the app on models and MCP tools your gateway governs | 24 GitHub Copilot BYOK |
 | Streaming with accurate usage: Stream replies token by token while limits, budgets, and monitoring count every token | 23 Streaming responses |
 
 ## Notebooks

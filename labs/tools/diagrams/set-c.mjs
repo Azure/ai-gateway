@@ -44,37 +44,45 @@ export const enterpriseReference = () => svgDoc('enterprise-reference', {
 });
 
 export const githubCopilotByok = () => svgDoc('github-copilot-byok', {
-  title: 'GitHub Copilot with a model from Azure AI Gateway',
-  desc: 'The GitHub Copilot app, Copilot CLI, Copilot SDK, and Copilot in VS Code each add the gateway as a bring-your-own-key model provider. They call the gpt-6-astra alias on the gateway OpenAI v1 endpoint with the Responses API and the github-copilot API key. The gateway applies a per-caller token limit, records usage for Monitoring, and calls the gpt-6-astra deployment in Microsoft Foundry with its managed identity.',
-  h: 430,
+  title: 'GitHub Copilot with models and tools from Azure AI Gateway',
+  desc: 'The GitHub Copilot app, Copilot CLI, Copilot SDK, and Copilot in VS Code each add the gateway as a bring-your-own-key model provider and the gateway learn MCP server as a tool server. They call the gpt-6-astra alias on the gateway OpenAI v1 endpoint with the Responses API, and the learn MCP endpoint, both with the github-copilot API key: as a bearer token for models and in the api-key header for MCP. The gateway applies a per-caller token limit, records usage for Monitoring, calls the gpt-6-astra deployment in Microsoft Foundry with its managed identity, and calls the public Microsoft Learn MCP server.',
+  h: 486,
   body: () => {
-    let o = zone(16, 20, 276, 340, 'GitHub Copilot', { ic: 'sparkle', tone: 'azure' });
+    let o = zone(16, 20, 276, 372, 'GitHub Copilot', { ic: 'sparkle', tone: 'azure' });
     const clients = [
-      ['Copilot app', 'Settings › Model providers', 'app'],
-      ['Copilot CLI', 'Environment variables', 'terminal'],
-      ['Copilot SDK', 'provider in createSession', 'doc'],
-      ['VS Code', 'Custom Endpoint model', 'layers'],
+      ['Copilot app', 'Model provider · MCP', 'app'],
+      ['Copilot CLI', 'Env variables · mcp add', 'terminal'],
+      ['Copilot SDK', 'provider · mcpServers', 'doc'],
+      ['VS Code', 'Custom Endpoint · mcp.json', 'layers'],
     ];
     clients.forEach(([t, s, ic], i) => {
-      const y = 52 + i * 76;
+      const y = 52 + i * 82;
       o += box(28, y, 252, 64, { t, s, icon: ic, tone: 'azure', accent: i === 1 });
     });
-    o += zone(330, 20, 330, 340, 'AI Gateway', { gw: true, ic: 'sparkle' });
+    o += zone(330, 20, 330, 372, 'AI Gateway', { gw: true, ic: 'sparkle' });
     o += box(346, 52, 298, 80, { t: 'Alias: gpt-6-astra', s: 'OpenAI v1 · Responses API', s2: '/default/models/openai/v1', icon: 'route', accent: true, mono: true });
-    o += box(346, 152, 298, 64, { t: 'API key: github-copilot', s: 'Bearer or api-key header', icon: 'key', tone: 'amber' });
-    o += text(350, 248, 'APPLIED ON EVERY CALL', 'dg-cap');
-    o += pills(346, 258, ['Token limit per caller', 'Usage by key', 'Monitoring'], { tone: 'magenta', maxW: 298 });
-    o += zone(698, 20, 246, 340, 'Microsoft Foundry', { ic: 'cloud', tone: 'cyan' });
+    o += box(346, 146, 298, 80, { t: 'MCP server: learn', s: '3 Microsoft Learn tools', s2: '/default/toolservers/learn/mcp', icon: 'tools', tone: 'green', accent: true, mono: true });
+    o += box(346, 240, 298, 64, { t: 'API key: github-copilot', s: 'One key for models and tools', icon: 'key', tone: 'amber' });
+    o += text(350, 326, 'APPLIED ON EVERY CALL', 'dg-cap');
+    o += pills(346, 336, ['Token limit per caller', 'Usage by key', 'Monitoring'], { tone: 'magenta', maxW: 298 });
+    o += zone(698, 20, 246, 184, 'Microsoft Foundry', { ic: 'cloud', tone: 'cyan' });
     o += box(712, 52, 218, 80, { t: 'gpt-6-astra', s: 'Model deployment', s2: 'GlobalStandard', icon: 'models', tone: 'cyan', accent: true });
-    o += text(716, 166, 'GATEWAY SIGNS IN WITH', 'dg-cap');
-    o += pill(712, 176, 'Managed identity', { tone: 'cyan' });
+    o += text(716, 160, 'GATEWAY SIGNS IN WITH', 'dg-cap');
+    o += pill(712, 170, 'Managed identity', { tone: 'cyan' });
+    o += zone(698, 220, 246, 172, 'Microsoft Learn', { ic: 'doc', tone: 'green' });
+    o += box(712, 252, 218, 80, { t: 'Learn MCP server', s: 'Public documentation', s2: 'learn.microsoft.com', icon: 'tools', tone: 'green', mono: true });
+    o += text(716, 356, 'BACKEND AUTHENTICATION', 'dg-cap');
+    o += pill(712, 364, 'None', { tone: 'green' });
     clients.forEach((_, i) => {
-      const c = 84 + i * 76;
+      const c = 84 + i * 82;
       o += arrow(`M282 ${c} C312 ${c} 312 92 342 92`, { tone: 'azure' });
+      o += arrow(`M282 ${c} C312 ${c} 312 186 342 186`, { tone: 'green', flow: false, dashed: true });
     });
     o += arrow('M646 92 H708', { tone: 'violet' });
-    o += text(16, 392, 'Base URL', 'dg-s') + text(84, 392, 'https://<gateway-host>/default/models/openai/v1', 'dg-m');
-    o += text(16, 414, 'Model', 'dg-s') + text(84, 414, 'gpt-6-astra', 'dg-m') + text(190, 414, 'Wire API', 'dg-s') + text(250, 414, 'responses', 'dg-m') + text(340, 414, 'Key', 'dg-s') + text(372, 414, 'github-copilot', 'dg-m');
+    o += arrow('M646 186 C678 186 678 292 708 292', { tone: 'green' });
+    o += text(16, 424, 'Models', 'dg-s') + text(84, 424, 'https://<gateway-host>/default/models/openai/v1', 'dg-m') + text(500, 424, 'Key as', 'dg-s') + text(552, 424, 'Authorization: Bearer', 'dg-m');
+    o += text(16, 446, 'Tools', 'dg-s') + text(84, 446, 'https://<gateway-host>/default/toolservers/learn/mcp', 'dg-m') + text(500, 446, 'Key as', 'dg-s') + text(552, 446, 'api-key header', 'dg-m');
+    o += text(16, 468, 'Model', 'dg-s') + text(84, 468, 'gpt-6-astra', 'dg-m') + text(190, 468, 'Wire API', 'dg-s') + text(250, 468, 'responses', 'dg-m') + text(340, 468, 'Key', 'dg-s') + text(372, 468, 'github-copilot', 'dg-m');
     return o;
   },
 });

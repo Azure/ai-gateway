@@ -229,10 +229,10 @@
         "text": "Let Copilot, Claude Code, Cursor, or Gemini build on your gateway."
       },
       {
-        "title": "GitHub Copilot on your models",
+        "title": "GitHub Copilot on your models and tools",
         "lab": "24-github-copilot-byok",
         "icon": "code",
-        "text": "Run Copilot in VS Code, the CLI, the SDK, and the app on a model your gateway governs."
+        "text": "Run Copilot in VS Code, the CLI, the SDK, and the app on models and MCP tools your gateway governs."
       },
       {
         "title": "Streaming with accurate usage",

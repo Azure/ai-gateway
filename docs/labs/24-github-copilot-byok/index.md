@@ -1,35 +1,38 @@
 ---
-title: Use your gateway's models in GitHub Copilot
-summary: Point GitHub Copilot in VS Code, the Copilot CLI, the Copilot SDK, and the GitHub Copilot app at gpt-6-astra published by your gateway, so every coding agent request uses your key, your token limits, and your monitoring.
+title: Use your gateway's models and tools in GitHub Copilot
+summary: Point GitHub Copilot in VS Code, the Copilot CLI, the Copilot SDK, and the GitHub Copilot app at gpt-6-astra published by your gateway, then give them Microsoft Learn tools from an MCP server on the same gateway, so every model and tool call uses your key, your limits, and your monitoring.
 category: agents
 level: Intermediate
-duration: 25
+duration: 40
 tracks: [portal, cli, iac, code]
 order: 17.5
 status: new
 illustration: diagrams/github-copilot-byok.svg
-tags: [GitHub Copilot, BYOK, bring your own key, VS Code, Copilot CLI, Copilot SDK, GitHub Copilot app, gpt-6-astra, Responses API, coding agents]
+tags: [GitHub Copilot, BYOK, bring your own key, VS Code, Copilot CLI, Copilot SDK, GitHub Copilot app, gpt-6-astra, Responses API, coding agents, MCP, MCP server, Microsoft Learn]
 objectives:
   - Publish gpt-6-astra through the gateway with a per-caller token limit and a runtime key for GitHub Copilot
   - Add the gateway as a custom endpoint in VS Code and run agent mode on gpt-6-astra
   - Run the Copilot CLI against the gateway with provider environment variables
   - Start a Copilot SDK session in Python or TypeScript that sends every model call to the gateway
   - Add the gateway as a model provider in the GitHub Copilot app
+  - Publish the Microsoft Learn MCP server through the gateway for Copilot's agents
+  - Give VS Code, the Copilot CLI, the Copilot SDK, and the GitHub Copilot app the gateway's Learn tools with the same key
   - Track Copilot usage by key in Monitoring and cut off access by suspending the key
 prereqs:
   - 02-first-model-call
 ---
 
-# Use your gateway's models in GitHub Copilot
+# Use your gateway's models and tools in GitHub Copilot
 
 GitHub Copilot can run on a model that you bring yourself: give it an OpenAI-compatible endpoint and a key, and it
 sends every chat and agent request there. Make that endpoint your gateway, and Copilot's traffic gets the same
 controls as your apps: a key that you can suspend, a token limit for each caller, and usage in Monitoring. Copilot
 never sees a Foundry credential, because the gateway calls Foundry with its managed identity. In this lab you publish
 `gpt-6-astra` for Copilot, then connect four Copilot surfaces to it: VS Code, the Copilot CLI, the Copilot SDK, and
-the GitHub Copilot app.
+the GitHub Copilot app. Then you publish the Microsoft Learn MCP server through the same gateway and give those
+surfaces its tools, with the same key, so Copilot's tool calls get the same controls as its model calls.
 
-![Four GitHub Copilot surfaces send requests with one runtime key to the gpt-6-astra alias on the gateway, which applies a token limit, records usage by key, and calls the Foundry deployment with its managed identity](../assets/diagrams/github-copilot-byok.svg "Every Copilot surface uses the same four settings: the gateway's base URL, the gpt-6-astra alias, the Responses API, and a runtime key. The gateway limits and records the traffic, then calls Foundry with its managed identity.")
+![Four GitHub Copilot surfaces send requests with one runtime key to the gpt-6-astra alias and the learn MCP server on the gateway, which applies a token limit, records usage by key, calls the Foundry deployment with its managed identity, and calls the public Microsoft Learn MCP server](../assets/diagrams/github-copilot-byok.svg "Every Copilot surface uses the same four model settings: the gateway's base URL, the gpt-6-astra alias, the Responses API, and a runtime key. The same key in the api-key header opens the learn MCP server. The gateway limits and records the traffic, then calls Foundry with its managed identity and Microsoft Learn without credentials.")
 
 ## Before you begin
 
@@ -156,6 +159,9 @@ Two things differ from an app that calls the gateway:
   conversation so far. In testing, a one-line question from the Copilot CLI used 14,000 to 38,000 input tokens.
   That's why this lab gives each caller 100,000 tokens per minute, and why one key per tool or per developer makes
   usage easy to read.
+
+Tools follow the same pattern. Later in this lab, the gateway also publishes the Microsoft Learn MCP server, and each
+surface calls its tools with the same key.
 
 ## Publish gpt-6-astra for Copilot
 
@@ -589,7 +595,8 @@ bring the Copilot runtime with them, so you don't need to install the CLI. No Gi
 ### Review the samples
 
 The samples read `AI_GATEWAY_URL`, `AI_GATEWAY_API_KEY`, and, optionally, `AI_GATEWAY_MODEL` from the environment,
-then ask the agent which model it is and to list the files in the current folder. `approveAll` lets the agent run
+then ask the agent which model it is and to list the files in the current folder. They also read
+`AI_GATEWAY_MCP_URL`, which you set later in [Add the Learn tools to the Copilot SDK](#add-the-learn-tools-to-the-copilot-sdk). `approveAll` lets the agent run
 tools without asking, which suits a sample. In an app, decide which tools to allow in `onPermissionRequest`.
 
 <!-- include: infra/copilot-sdk.ts -->
@@ -683,6 +690,450 @@ select **gpt-6-astra** from the **AI Gateway** provider, and ask a question, for
 > **Checkpoint**
 > The reply names `gpt-6-astra`, and the request shows up in the gateway's Monitoring under the `github-copilot` key.
 
+## Publish Microsoft Learn tools for Copilot
+
+Copilot's agents call tools as well as models. Publish an MCP server through the same gateway, and Copilot's tool
+calls get the same controls as its model calls: one key that you can suspend, one endpoint per tool server, and one
+place to decide which tools agents see. Here, the gateway publishes the public Microsoft Learn MCP server as `learn`,
+so Copilot can look up current Microsoft documentation while it codes on `gpt-6-astra`.
+
+Each Copilot surface then has two connections to the gateway:
+
+| | Model | MCP server |
+|---|---|---|
+| URL | `https://<gateway-host>/default/models/openai/v1` | `https://<gateway-host>/default/toolservers/learn/mcp` |
+| How the key is sent | `Authorization: Bearer <key>` | An `api-key: <key>` header. The MCP endpoint rejects a bearer key with `401`. |
+| Key | `github-copilot` | The same `github-copilot` key. It needs no extra setup. |
+
+> [!NOTE]
+> Learn results are large: one search returns 25 to 50 KB of text. Copilot keeps big results out of the prompt
+> where it can, but tasks that use the tools still send more tokens. In testing, a one-shot question that used one
+> search sent about 51,000 input tokens, and the agent task in the CLI section sent about 150,000 over seven minutes,
+> within the 100,000 tokens-per-minute limit.
+
+> [!TIP]
+> If you did [Federate MCP tools behind one endpoint](../04-federate-mcp-tools/README.md), your gateway already
+> has `learn`. Skip to [Test the MCP endpoint](#test-the-mcp-endpoint).
+
+Create the `learn` server with one backend, `https://learn.microsoft.com/api/mcp`, under the namespace `learn`. The
+Learn server is public, so the backend needs no credentials. Pick a track.
+
+<!-- track: portal | Portal -->
+
+### Register the Learn server
+
+1. Open the [AI Gateway portal](https://ai.gateway.azure.com), select your gateway, and select **MCP servers** ›
+   **Add MCP server**.
+2. On **Basic info**, set **Name** to `learn`, **Display name** to `Microsoft Learn`, and **Description** to
+   `Search and fetch official Microsoft documentation and code samples.` Select **Next**.
+3. On **Backends**, select **Add backend** › **MCP server**. Set **URL** to `https://learn.microsoft.com/api/mcp`,
+   **Namespace** to `learn`, and **Authentication** to **None**. Select **Next**.
+4. On **Tools**, keep **Allow all tools**, and select **Create**.
+
+[Register the Learn MCP server](../04-federate-mcp-tools/README.md#register-the-learn-mcp-server) in lab 04
+explains each field.
+
+### Copy the endpoint
+
+When the server is ready, copy the **Endpoint URL** from its details page. It ends in
+`/default/toolservers/learn/mcp`.
+
+> **Checkpoint**
+> **MCP servers** lists `learn` with one backend in the namespace `learn`.
+
+<!-- track: cli | Azure CLI -->
+
+### Register the Learn server
+
+MCP servers are `toolServers` resources in the gateway's `default` workspace.
+
+```bash title="Bash"
+az rest --method put --url "$WS/toolServers/learn?$API" --body '{
+  "properties": {
+    "type": "mcp",
+    "displayName": "Microsoft Learn",
+    "description": "Search and fetch official Microsoft documentation and code samples.",
+    "endpoints": [{"kind": "mcp", "namespace": "learn", "required": true,
+                   "mcp": {"transport": "streamableHttp", "url": "https://learn.microsoft.com/api/mcp"}}]
+  }}' \
+  --query "properties.gatewayEndpoints[0].url" -o tsv
+```
+
+```powershell title="PowerShell"
+@{ properties = @{
+    type        = 'mcp'
+    displayName = 'Microsoft Learn'
+    description = 'Search and fetch official Microsoft documentation and code samples.'
+    endpoints   = @(@{ kind = 'mcp'; namespace = 'learn'; required = $true
+                       mcp  = @{ transport = 'streamableHttp'; url = 'https://learn.microsoft.com/api/mcp' } })
+  } } | ConvertTo-Json -Depth 10 -Compress | Set-Content -Path body.json
+az rest --method put --url "$WS/toolServers/learn`?$API" --body '@body.json' `
+  --query "properties.gatewayEndpoints[0].url" -o tsv
+Remove-Item body.json
+```
+
+A `PUT` replaces a server with the same name, including its backends and tool rules. If `learn` already exists,
+skip this step.
+
+> **Checkpoint**
+> The command prints the endpoint, ending in `/default/toolservers/learn/mcp`.
+
+<!-- track: iac | Bicep -->
+
+### Deploy the Learn server
+
+Reuse the template from lab 04, [`main.bicep`](../04-federate-mcp-tools/infra/main.bicep). It references your
+gateway and declares one `toolServers` resource. Run it from the lab folder (`labs/24-github-copilot-byok`).
+
+```bash title="Bash"
+az deployment group create -g "$RG" \
+  --template-file ../04-federate-mcp-tools/infra/main.bicep \
+  --parameters gatewayName="$GATEWAY" serverName=learn namespace=learn \
+  --query properties.outputs.mcpEndpoint.value -o tsv
+```
+
+```powershell title="PowerShell"
+az deployment group create -g $RG `
+  --template-file ../04-federate-mcp-tools/infra/main.bicep `
+  --parameters gatewayName=$GATEWAY serverName=learn namespace=learn `
+  --query properties.outputs.mcpEndpoint.value -o tsv
+```
+
+> [!WARNING]
+> A Bicep deployment replaces the whole MCP server, including backends and tool rules that you added in the portal.
+
+> **Checkpoint**
+> The deployment prints the endpoint, ending in `/default/toolservers/learn/mcp`.
+
+<!-- /tracks -->
+
+### Test the MCP endpoint
+
+Save the endpoint, then list its tools the way Copilot does: a JSON-RPC `tools/list` request with the key in the
+`api-key` header.
+
+```bash title="Bash"
+export AI_GATEWAY_MCP_URL="${AI_GATEWAY_URL%/}/default/toolservers/learn/mcp"
+curl -sS "$AI_GATEWAY_MCP_URL" \
+  -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | jq -r '.result.tools[].name'
+```
+
+```powershell title="PowerShell"
+$env:AI_GATEWAY_MCP_URL = "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/toolservers/learn/mcp"
+$reply = Invoke-RestMethod -Method Post -Uri $env:AI_GATEWAY_MCP_URL `
+  -Headers @{ "api-key" = $env:AI_GATEWAY_API_KEY; Accept = "application/json, text/event-stream" } `
+  -ContentType "application/json" -Body '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+$reply.result.tools.name
+```
+
+Expected output:
+
+```text
+learn_microsoft_docs_search
+learn_microsoft_code_sample_search
+learn_microsoft_docs_fetch
+```
+
+Each name starts with the backend's namespace, `learn`. The Learn server can add tools over time, and **Allow all
+tools** publishes them too.
+
+## Add the Learn tools to VS Code
+
+VS Code reads MCP servers from `.vscode/mcp.json` in the workspace. An `inputs` entry makes VS Code ask for the key
+once and keep it in its secret storage, so the file holds no secret.
+
+<!-- steps -->
+
+### Add the server to the project
+
+Print the endpoint to paste:
+
+```bash
+echo "$AI_GATEWAY_MCP_URL"
+```
+
+In VS Code, create `.vscode/mcp.json` in `contoso-calc` with this content, and replace the URL with yours:
+
+```json title=".vscode/mcp.json"
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "aigw-key",
+      "description": "AI Gateway key (github-copilot)",
+      "password": true
+    }
+  ],
+  "servers": {
+    "ai-gateway-learn": {
+      "type": "http",
+      "url": "https://<gateway-host>/default/toolservers/learn/mcp",
+      "headers": {
+        "api-key": "${input:aigw-key}"
+      }
+    }
+  }
+}
+```
+
+### Start the server
+
+1. Select **Start** above `ai-gateway-learn` in `mcp.json`.
+2. Paste your `github-copilot` key into the **AI Gateway key (github-copilot)** prompt, and press <kbd>Enter</kbd>.
+
+   ![VS Code prompts for the AI Gateway key (github-copilot) with a masked value, over mcp.json](../assets/screens/copilot-mcp-01-vscode-key.webp "VS Code asks for the key the first time the server starts, masks it, and keeps it in its secret storage.")
+
+3. The line above the server changes to **Running** with **3 tools**.
+
+   ![mcp.json with Running, Stop, Restart, and 3 tools above the ai-gateway-learn server](../assets/screens/copilot-mcp-02-vscode-running.webp "The server is connected through the gateway and offers three tools. mcp.json shows the key only as a reference to the input.")
+
+### Check the tools
+
+Open the Chat view, select **Agent** and **GPT-6 Astra (AI Gateway)**, and select **Configure Tools** (the tools
+icon in the chat input). `ai-gateway-learn` lists the three Learn tools. VS Code shows the name that the gateway
+reports for itself, **Azure API Management**, next to the server name.
+
+![Configure Tools with Azure API Management ai-gateway-learn and its three Learn tools selected](../assets/screens/copilot-mcp-03-vscode-tools.webp "The three tools come from the gateway, not from learn.microsoft.com directly.")
+
+### Run a task with the tools
+
+Send this prompt:
+
+```text
+Use the Microsoft Learn tools to look up the Azure Functions Python v2 programming model, then add function_app.py that exposes add() from calc.py as an HTTP-triggered function. Cite the Learn page you used.
+```
+
+VS Code asks before each tool call and shows the tool's input. Select **Allow in this Session** to trust the Learn
+tools for the rest of this chat.
+
+![VS Code asks to run learn_microsoft_docs_search from ai-gateway-learn (MCP Server) with Allow in this Session and Skip](../assets/screens/copilot-mcp-04-vscode-approve.webp "Each tool call names the tool and its MCP server, and shows the input that Copilot sends through the gateway.")
+
+Copilot searches Learn, fetches the page it needs, writes `function_app.py` with the v2 decorators, and cites the
+page. Review the diff and select **Keep**.
+
+![function_app.py with an HTTP-triggered add function, and the chat summary citing the Microsoft Learn Python developer reference](../assets/screens/copilot-mcp-05-vscode-result.webp "Agent mode on gpt-6-astra used the gateway's Learn tools, then wrote the function and cited its source.")
+
+<!-- /steps -->
+
+> **Checkpoint**
+> `function_app.py` exposes `add` as an HTTP function, and the chat answer links to a Microsoft Learn page.
+
+## Add the Learn tools to the Copilot CLI
+
+The Copilot CLI keeps MCP servers in `~/.copilot/mcp-config.json`, and the GitHub Copilot app reads the same file.
+Header values can refer to environment variables, so the file doesn't need to hold the key.
+
+<!-- steps -->
+
+### Add the server
+
+Keep the single quotes around the header. They stop the shell from expanding `${AI_GATEWAY_API_KEY}`, so the file
+stores the reference, and the CLI reads the key from its environment each time it connects.
+
+```bash title="Bash"
+copilot mcp add --transport http --header 'api-key: ${AI_GATEWAY_API_KEY}' ai-gateway-learn "$AI_GATEWAY_MCP_URL"
+copilot mcp list
+```
+
+```powershell title="PowerShell"
+copilot mcp add --transport http --header 'api-key: ${AI_GATEWAY_API_KEY}' ai-gateway-learn $env:AI_GATEWAY_MCP_URL
+copilot mcp list
+```
+
+Expected output:
+
+```text
+Added server "ai-gateway-learn"
+
+ai-gateway-learn
+  Type: http
+  URL: https://<gateway-host>/default/toolservers/learn/mcp
+  Headers:
+    api-key: ***
+  Tools: * (all)
+  Source: User
+User servers:
+  ai-gateway-learn (http)
+```
+
+![copilot mcp add, list, and get show ai-gateway-learn with its URL and a masked api-key header](../assets/screens/copilot-mcp-06-cli-add.webp "The CLI masks header values. Run copilot mcp get ai-gateway-learn to see the server again.")
+
+The file now holds the reference, not the key:
+
+```json title="~/.copilot/mcp-config.json"
+{
+  "mcpServers": {
+    "ai-gateway-learn": {
+      "tools": ["*"],
+      "type": "http",
+      "url": "https://<gateway-host>/default/toolservers/learn/mcp",
+      "headers": {
+        "api-key": "${AI_GATEWAY_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+### Check the tools in a session
+
+The `copilot` session needs the BYOK variables from [Connect the Copilot CLI](#connect-the-copilot-cli) and
+`AI_GATEWAY_API_KEY`. If you did the VS Code section, remove its result first, so the CLI starts from the same
+files:
+
+```bash
+cd ~/contoso-calc && rm -f function_app.py host.json requirements.txt
+copilot
+```
+
+The CLI reports **MCP Servers reloaded: 1 server connected**. Run `/mcp show ai-gateway-learn` to list the tools,
+then press <kbd>Esc</kbd> twice to close the list.
+
+![The Copilot CLI shows ai-gateway-learn with its URL and three tools](../assets/screens/copilot-mcp-07-cli-tools.webp "/mcp show lists the server's tools with their descriptions.")
+
+### Run a task with the tools
+
+Send the same prompt as in VS Code:
+
+```text
+Use the Microsoft Learn tools to look up the Azure Functions Python v2 programming model, then add function_app.py that exposes add() from calc.py as an HTTP-triggered function. Cite the Learn page you used.
+```
+
+The CLI asks before it uses each tool. Select **Yes, and don't ask again** for the Learn tools that you trust. The
+tool lines show **(MCP: ai-gateway-learn)**.
+
+![The Copilot CLI asks whether to use learn_microsoft_docs_fetch with a Microsoft Learn URL, after two earlier Learn tool calls](../assets/screens/copilot-mcp-08-cli-approve.webp "Learn results are large, so the CLI saves them to a file and reads the parts it needs with shell commands, which it also asks you to approve.")
+
+Copilot writes `function_app.py`, and may add `requirements.txt` and `host.json`, then summarizes the change and
+cites the Learn page.
+
+![The finished CLI task: Learn tool calls, the new function_app.py, and a Microsoft Learn citation, with gpt-6-astra in the status bar](../assets/screens/copilot-mcp-09-cli-done.webp "The model and the tools both went through the gateway with the github-copilot key.")
+
+Type `/exit` to leave the session.
+
+### Use the tools in one-shot mode
+
+`copilot -p` can't ask for approval, so allow the server's tools up front with `--allow-tool`:
+
+```bash
+copilot -p "Search Microsoft Learn: how do I run a Python function app locally with Azure Functions Core Tools? Answer in two sentences with a link." --allow-tool='ai-gateway-learn'
+```
+
+Expected output (shortened, your text differs):
+
+```text
+● learn_microsoft_docs_search (MCP: ai-gateway-learn) · run Python Azure Functions app locally Core…
+  └ Output too large to read at once (52.0 KB). Saved to: /var/folders/…
+
+Install Azure Functions Core Tools v4 and a supported Python version, activate your project's virtual environment,
+and install dependencies with `pip install -r requirements.txt`. From the project root, run `func start`, then open
+the HTTP function URL printed in the terminal; see [Microsoft Learn](https://learn.microsoft.com/azure/azure-functions/functions-run-local#start-the-functions-runtime).
+
+Changes    +0 -0
+Duration   18s
+Tokens     ↑ 50.8k (30.4k cached, 20.4k written) • ↓ 204
+```
+
+Compare the **Tokens** line with the 14,400 tokens of the plain question in
+[Ask a quick question](#ask-a-quick-question): the search result made up most of the difference.
+
+<!-- /steps -->
+
+> **Checkpoint**
+> `/mcp show` lists three tools, the tool lines show `(MCP: ai-gateway-learn)`, and the answer cites a Learn page.
+
+> [!TIP]
+> `COPILOT_OFFLINE=true` turns off the built-in GitHub MCP server, but not the servers you add: the Learn tools keep
+> working.
+
+## Add the Learn tools to the Copilot SDK
+
+The samples already handle MCP. When `AI_GATEWAY_MCP_URL` is set, they add the server to the session as
+`ai-gateway-learn`, with the key in the `api-key` header and `tools: ["*"]` to offer every tool:
+
+```ts title="copilot-sdk.ts"
+const mcpServers: Record<string, MCPServerConfig> = mcpUrl
+  ? { "ai-gateway-learn": { type: "http", url: mcpUrl, headers: { "api-key": apiKey }, tools: ["*"] } }
+  : {};
+```
+
+The session gets them with `mcpServers` in TypeScript and `mcp_servers=` in Python. `approveAll` lets the agent call
+the tools without asking.
+
+<!-- steps -->
+
+### Run a sample with the tools
+
+Run the commands from `labs/24-github-copilot-byok/infra`, in the shell where you set `AI_GATEWAY_MCP_URL`.
+
+```bash title="TypeScript"
+npm start -- "Use the Microsoft Learn tools to answer: how do I run a Python function app locally with Azure Functions Core Tools? Answer in two sentences and cite the Learn page."
+```
+
+```bash title="Python"
+python copilot_sdk.py "Use the Microsoft Learn tools to answer: how do I run a Python function app locally with Azure Functions Core Tools? Answer in two sentences and cite the Learn page."
+```
+
+Expected output (your text differs):
+
+```text
+Install Azure Functions Core Tools, activate your Python virtual environment, install your app's dependencies, and
+run `func start` from the project root, as described in [Microsoft Learn](https://learn.microsoft.com/en-us/azure/azure-functions/functions-run-local?pivots=programming-language-python#start-the-functions-runtime).
+For an HTTP-triggered function, open the localhost URL printed in the terminal (usually on port 7071) or call it
+with an HTTP client.
+```
+
+<!-- /steps -->
+
+> **Checkpoint**
+> The answer cites a `learn.microsoft.com` page that the agent found through the gateway.
+
+## Add the Learn tools to the GitHub Copilot app
+
+The GitHub Copilot app loads the MCP servers that you configured for the Copilot CLI. If you did the CLI section,
+`ai-gateway-learn` is already there.
+
+<!-- steps -->
+
+### Give the app the key
+
+The server's header reads `${AI_GATEWAY_API_KEY}` from the app's environment, not from your terminal. Make the
+variable available to the app, then quit and reopen it. For example, export it in your shell profile on macOS or
+Linux, or set it as a user environment variable on Windows. Prefer a command that reads the key from a secret store
+over the key itself in plain text.
+
+If you'd rather not set a variable, replace `${AI_GATEWAY_API_KEY}` in `~/.copilot/mcp-config.json` with the key. The
+file then holds the key in plain text, so keep it private.
+
+### Check the server
+
+Select **Customize** in the app sidebar, then **MCP** › **Installed**. The list includes `ai-gateway-learn`. If you
+skipped the CLI section, run its `copilot mcp add` command, or add a custom server here with the endpoint URL and an
+`api-key` header.
+
+### Run a task with the tools
+
+Sessions load MCP servers when they start, so start a new session on the `contoso-calc` folder. Select
+**gpt-6-astra** from the **AI Gateway** provider, and send:
+
+```text
+Use the Microsoft Learn tools to find how to run calc.py as an Azure Functions app locally, and summarize the steps with a link.
+```
+
+The session's agent sees each tool with the server name in front, such as
+`ai-gateway-learn-learn_microsoft_docs_search`.
+
+<!-- /steps -->
+
+> **Checkpoint**
+> The reply cites a Microsoft Learn page, and the session shows calls to `ai-gateway-learn` tools.
+
+> [!NOTE]
+> The GitHub Copilot app is in public preview, and its screens change often. These steps follow
+> [Customizing the GitHub Copilot app](https://docs.github.com/en/copilot/how-tos/github-copilot-app/customize-github-copilot-app).
+
 ## Verify
 
 Every surface you connected sends its requests with the `github-copilot` key. Use it to see the traffic and to switch
@@ -727,6 +1178,10 @@ Authentication failed with provider at https://<gateway-host>/default/models/ope
 VS Code, the SDK, and the app get the same `401`. One key change cuts off every Copilot surface that uses the key, on
 every machine, without touching their settings.
 
+The key guards the tools too. While it's suspended, the MCP endpoint also answers `401 Unauthorized`: run the request
+from [Test the MCP endpoint](#test-the-mcp-endpoint) without `| jq …` to see it, and the Learn tools fail to connect
+in every surface.
+
 ### Turn Copilot back on
 
 ```bash title="Bash"
@@ -751,6 +1206,12 @@ copilot -p "Say hi in three words"
 
 ## Go further
 
+- **Choose which Learn tools Copilot sees.** Publish only `learn_microsoft_docs_search`, block a tool, or cap tool
+  calls per caller in [Control which tools agents can call](../05-mcp-tool-controls/README.md). Copilot picks up the
+  change the next time it lists tools, with no change on the clients.
+- **Give Copilot more tools from one endpoint.** Add more backends to the server, such as an OpenAPI spec or a
+  built-in connector, as in [Federate MCP tools behind one endpoint](../04-federate-mcp-tools/README.md). Each
+  backend's namespace keeps the tool names apart.
 - **Sign in with Microsoft Entra ID instead of a key.** If the gateway accepts Entra tokens, as in
   [Authorize callers with Microsoft Entra ID](../11-entra-rbac/README.md), set `COPILOT_PROVIDER_BEARER_TOKEN` for the
   CLI, or pass a bearer token in the SDK's `provider` settings. Tokens expire, so refresh them for long sessions.
@@ -772,10 +1233,13 @@ copilot -p "Say hi in three words"
 Remove the gateway from each Copilot surface you configured:
 
 - **VS Code:** delete the **AI Gateway** group from `chatLanguageModels.json`, or remove it in the
-  **Language Models** editor.
-- **Copilot CLI:** close the terminal, or run `unset COPILOT_PROVIDER_BASE_URL COPILOT_PROVIDER_WIRE_API COPILOT_PROVIDER_API_KEY COPILOT_MODEL`
+  **Language Models** editor. Delete `.vscode/mcp.json` from `contoso-calc`.
+- **Copilot CLI:** run `copilot mcp remove ai-gateway-learn`. Then close the terminal, or run
+  `unset COPILOT_PROVIDER_BASE_URL COPILOT_PROVIDER_WIRE_API COPILOT_PROVIDER_API_KEY COPILOT_MODEL`
   (Bash) or `Remove-Item Env:COPILOT_PROVIDER_*, Env:COPILOT_MODEL` (PowerShell).
-- **GitHub Copilot app:** remove the **AI Gateway** provider in **Model providers**.
+- **GitHub Copilot app:** remove the **AI Gateway** provider in **Model providers**. `copilot mcp remove` also
+  removes `ai-gateway-learn` from the app. Remove `AI_GATEWAY_API_KEY` from your profile or environment if you set
+  it for the app.
 
 Then delete the key. In the portal, delete `github-copilot` in **Access** › **Keys**. From a shell:
 
@@ -807,6 +1271,17 @@ az cognitiveservices account deployment delete -g $FOUNDRY_RG -n $FOUNDRY_ACCOUN
 If you imported the model in the portal, also delete its `<foundry-account-name>/gpt-6-astra` alias. Keep the gateway
 and the provider: the other labs reuse them.
 
+Keep the `learn` MCP server if you continue with [Control which tools agents can call](../05-mcp-tool-controls/README.md),
+which builds on it. Otherwise, delete it in **MCP servers** in the portal, or from a shell:
+
+```bash title="Bash"
+az rest --method delete --url "$WS/toolServers/learn?$API"
+```
+
+```powershell title="PowerShell"
+az rest --method delete --url "$WS/toolServers/learn`?$API"
+```
+
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
@@ -821,14 +1296,23 @@ and the provider: the other labs reuse them.
 | `429 Too Many Requests` | Copilot used the key's 100,000 tokens for this minute | Wait for the `Retry-After` interval, or raise the token limit. |
 | The CLI's first interactive prompt doesn't respond | A slow first connection | Press <kbd>Ctrl</kbd>+<kbd>C</kbd> and send the prompt again. |
 | Two **GPT-6 Astra** entries in VS Code's model picker | Copilot's built-in model and yours share a name | Give yours a distinct `name`, such as `GPT-6 Astra (AI Gateway)`. |
+| The MCP server doesn't start, or returns `401` | The key is sent as a bearer token, or `${AI_GATEWAY_API_KEY}` is empty where the CLI or the app runs | Send the key in the `api-key` header. Export `AI_GATEWAY_API_KEY` in the terminal, or make it available to the app and reopen it. |
+| `copilot -p` doesn't use the Learn tools, or says they were denied | One-shot mode can't ask for approval | Add `--allow-tool='ai-gateway-learn'`. |
+| A task with the Learn tools hits `429` or uses many tokens | Each Learn result is 25 to 50 KB | Ask for fewer lookups, publish fewer tools, or raise the token limit. |
+| VS Code lists MCP servers that you didn't add | VS Code discovers servers configured in other apps | Set `chat.mcp.discovery.enabled` to `false`. |
 
 ## Next steps
 
 - [Manage runtime API keys](../10-api-keys/README.md): rotate, suspend, and revoke the keys that tools use.
 - [Throttle tokens per caller with token limits](../06-token-limits/README.md): tune the limit for agent traffic.
 - [Monitor usage, cost, and traces](../13-monitoring/README.md): see Copilot's usage by key next to your apps.
+- [Federate MCP tools behind one endpoint](../04-federate-mcp-tools/README.md) and
+  [Control which tools agents can call](../05-mcp-tool-controls/README.md): grow and govern the tools that Copilot
+  calls.
 - [Build on your gateway with coding agents](../17-coding-agent-plugin/README.md): let a coding agent write the client
   code for your gateway.
 - [Use BYOK models in the GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/use-byok-models),
   [the Copilot SDK](https://github.com/github/copilot-sdk/blob/main/docs/auth/byok.md), and
   [VS Code](https://code.visualstudio.com/docs/copilot/customization/language-models).
+- [Add MCP servers to the Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers)
+  and [VS Code](https://code.visualstudio.com/docs/copilot/customization/mcp-servers).

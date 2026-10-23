@@ -27,7 +27,11 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
 
 #### Labs changes
 
-- **October 22.** New lab [24 · Use your gateway's models in GitHub Copilot](24-github-copilot-byok/README.md):
+- **October 23.** [Lab 24](24-github-copilot-byok/README.md#publish-microsoft-learn-tools-for-copilot) now
+  publishes the Microsoft Learn MCP server on the gateway, with portal, Azure CLI, and Bicep tracks, and adds its
+  tools to GitHub Copilot in VS Code, the Copilot CLI, the Copilot SDK, and the GitHub Copilot app with the same
+  runtime key. It shows the token cost of tool results and how one suspended key cuts off both models and tools.
+- **October 22.** New lab [24 · Use your gateway's models and tools in GitHub Copilot](24-github-copilot-byok/README.md):
   publish `gpt-6-astra` with a per-caller token limit and a key for Copilot, then connect GitHub Copilot in VS Code,
   the Copilot CLI, the Copilot SDK (Python and TypeScript), and the GitHub Copilot app with bring your own key
   (BYOK). It includes portal, Azure CLI, and Bicep tracks, and shows how one suspended key cuts off every Copilot

@@ -140,7 +140,7 @@ Route agent frameworks, hosted agents, and coding agents through the gateway.
 | 15 | [Connect agent frameworks to models and tools](15-agent-frameworks/README.md) | Intermediate | 30 min | Code |  |
 | 16 | [Deploy a Foundry hosted agent behind AI Gateway](16-foundry-hosted-agent/README.md) | Intermediate | 40 min | Portal · CLI · Code |  |
 | 17 | [Build on your gateway with coding agents](17-coding-agent-plugin/README.md) | Beginner | 15 min | Code |  |
-| 24 | [Use your gateway's models in GitHub Copilot](24-github-copilot-byok/README.md) | Intermediate | 25 min | Portal · CLI · Bicep · Code |  |
+| 24 | [Use your gateway's models and tools in GitHub Copilot](24-github-copilot-byok/README.md) | Intermediate | 40 min | Portal · CLI · Bicep · Code |  |
 
 ### Production & emerging
 
