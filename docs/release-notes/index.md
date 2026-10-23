@@ -23,6 +23,14 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
 
 #### Labs changes
 
+- **October 23.** The Azure CLI tracks, the **Verify** and **Clean up** steps, and the lab scripts now use the
+  `aigateway` CLI extension for gateways, model providers, aliases, API keys, and MCP servers.
+  [Lab 01](01-provision-gateway/README.md#before-you-begin) shows how to install it. The labs keep `az rest` only
+  for what the extension can't do yet, such as registering models and setting policies, and say why each time.
+- **October 23.** [Lab 18](18-private-networking/README.md#prepare-the-virtual-network) now delegates the integration
+  subnet to `Microsoft.App/environments`, which the service requires. A subnet delegated to
+  `Microsoft.Web/serverFarms` fails with `AIGatewaySubnetNotDelegated`. The portal's subnet check still expects
+  `Microsoft.Web/serverFarms` and shows a warning, which you can ignore.
 - **October 23.** [Lab 24](24-github-copilot-byok/README.md#publish-microsoft-learn-tools-for-copilot) now
   publishes the Microsoft Learn MCP server on the gateway, with portal, Azure CLI, and Bicep tracks, and adds its
   tools to GitHub Copilot in VS Code, the Copilot CLI, the Copilot SDK, and the GitHub Copilot app with the same

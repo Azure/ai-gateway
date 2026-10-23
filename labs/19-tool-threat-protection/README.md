@@ -66,8 +66,8 @@ allowed calls through.
 - Permission to manage policies on the gateway, for example **Contributor** on its resource group, and permission
   to create role assignments if your user doesn't have a data-plane role yet.
 - The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
-  `az login` as a **user** (not a service principal). The CLI snippets call the Azure Resource Manager REST API
-  with `az rest`, because the `az aigateway` extension doesn't manage the new `aigateways` resource type yet.
+  `az login` as a **user** (not a service principal), and the `aigateway` extension
+  ([install it](../01-provision-gateway/README.md#before-you-begin)).
 - For the test scripts and the Bash snippets: `curl` and `jq` (Bash) or PowerShell 7 or later.
 
 > [!NOTE]
@@ -85,11 +85,8 @@ export RG="<resource-group>"
 export GATEWAY="<gateway>"
 export MCP_SERVER="learn"                    # the MCP server you protect in this lab
 
-export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
-export GW="https://management.azure.com$GATEWAY_ID"
-export WS="$GW/workspaces/default"
-export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
+export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
+export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 # Paste the runtime key you created in Access › Keys. You use it once to see a key-only call fail closed.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
 ```
@@ -102,11 +99,8 @@ $RG         = "<resource-group>"
 $GATEWAY    = "<gateway>"
 $MCP_SERVER = "learn"                        # the MCP server you protect in this lab
 
-$API                = "api-version=2025-09-01-preview"
-$GATEWAY_ID         = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
-$GW                 = "https://management.azure.com$GATEWAY_ID"
-$WS                 = "$GW/workspaces/default"
-$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
+$GATEWAY_ID         = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
+$env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 # Paste the runtime key you created in Access › Keys. You use it once to see a key-only call fail closed.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 ```
@@ -368,14 +362,14 @@ You must select at least one stage. Then select **Create**.
 ### Confirm the policy
 
 The new policy appears in the **Policies** overview. The policy is stored on the MCP server, so you can also read
-it with a control-plane `GET`:
+it with `az aigateway mcp show`:
 
 ```bash
-az rest --method get --url "$WS/toolServers/$MCP_SERVER?$API" --query "properties.policies"
+az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n "$MCP_SERVER" --query properties.policies
 ```
 
 ```powershell
-az rest --method get --url "$WS/toolServers/${MCP_SERVER}?$API" --query "properties.policies"
+az aigateway mcp show -g $RG --gateway-name $GATEWAY -n $MCP_SERVER --query properties.policies
 ```
 
 The list includes an entry with `"type": "toolThreatProtection"`, `"preInvocation": true`, and
@@ -522,17 +516,18 @@ steps. Find your calls by time and compare the allowed call with the key-only ca
 - **Automate the policy.** The policy is the `toolThreatProtection` entry in the MCP server's
   `properties.policies`, as described in
   [Protect tool calls with Defender and Purview](https://learn.microsoft.com/azure/api-management/ai-gateway-policy-tool-threat).
-  A `PATCH` replaces the whole `policies` array, so read the current array first and keep any other policies,
-  such as the request rate limits from [Control which tools agents can call](../05-mcp-tool-controls/README.md):
+  `az aigateway mcp update --policies` replaces the whole `policies` array, so read the current array first and
+  keep any other policies, such as the request rate limits from
+  [Control which tools agents can call](../05-mcp-tool-controls/README.md):
 
   <details open><summary>Bash</summary> <!-- gh -->
 
   ```bash title="Bash"
-  TS_URL="$WS/toolServers/$MCP_SERVER"
-  az rest --url "$TS_URL?$API" --query properties -o json \
-    | jq -c '{properties:{policies:([(.policies // [])[] | select(.type != "toolThreatProtection") | del(.scope)]
-        + [{type:"toolThreatProtection",preInvocation:true,postInvocation:true}])}}' > policies.json
-  az rest --method patch --url "$TS_URL?$API" --body @policies.json --query properties.policies
+  az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n "$MCP_SERVER" --query properties -o json \
+    | jq -c '[(.policies // [])[] | select(.type != "toolThreatProtection") | del(.scope)]
+        + [{type:"toolThreatProtection",preInvocation:true,postInvocation:true}]' > policies.json
+  az aigateway mcp update -g "$RG" --gateway-name "$GATEWAY" -n "$MCP_SERVER" --policies @policies.json \
+    --query properties.policies
   rm policies.json
   ```
   </details> <!-- gh -->
@@ -540,12 +535,13 @@ steps. Find your calls by time and compare the allowed call with the key-only ca
   <details><summary>PowerShell</summary> <!-- gh -->
 
   ```powershell title="PowerShell"
-  $TS_URL = "$WS/toolServers/$MCP_SERVER"
-  $p = az rest --url "$TS_URL`?$API" --query properties.policies -o json | ConvertFrom-Json
+  $p = az aigateway mcp show -g $RG --gateway-name $GATEWAY -n $MCP_SERVER --query properties.policies -o json |
+       ConvertFrom-Json
   $p = @($p | Where-Object { $_ -and $_.type -ne 'toolThreatProtection' } | Select-Object * -ExcludeProperty scope) +
        @(@{ type = 'toolThreatProtection'; preInvocation = $true; postInvocation = $true })
-  @{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
-  az rest --method patch --url "$TS_URL`?$API" --body "@policies.json" --query properties.policies
+  ConvertTo-Json -Depth 10 -Compress -InputObject $p | Set-Content policies.json
+  az aigateway mcp update -g $RG --gateway-name $GATEWAY -n $MCP_SERVER --policies "@policies.json" `
+    --query properties.policies
   Remove-Item policies.json
   ```
   </details> <!-- gh -->

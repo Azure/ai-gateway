@@ -62,9 +62,8 @@ and keep tighter asset policies on top of it.
   **Clean up** sections. You need a gateway, an imported model, a callable alias, and a runtime API key from
   **Access** › **Keys**.
 - The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
-  `az login`, plus `jq` (Bash) or PowerShell 7 or later. The REST and Policy as code tracks and **Verify** call
-  the Azure Resource Manager REST API with `az rest`, because the `az aigateway` extension doesn't manage the new
-  `aigateways` resource type yet.
+  `az login`, the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)), and
+  `jq` (Bash) or PowerShell 7 or later.
 - For **Verify**: `curl` (Bash) or PowerShell 7 or later.
 - Permission to change the gateway, for example **Contributor** on the resource group.
 - The public IP addresses or CIDR ranges your callers use. Once the IP filter is on, calls from anywhere else get
@@ -81,13 +80,13 @@ export PROVIDER="<provider-name>"          # for example foundry-models
 export MODEL="<model-name>"                # the backend model name under that provider
 
 export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
-export GW="https://management.azure.com$GATEWAY_ID"
-export WS="$GW/workspaces/default"
+export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
+export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
 export MODEL_URL="$WS/modelProviders/$PROVIDER/models/$MODEL"
-export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
+export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 # For Foundry imports, the default alias matches the deployment's model name.
-export AI_GATEWAY_MODEL="$(az rest --url "$MODEL_URL?$API" --query properties.deployment.modelName -o tsv)"
+export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" \
+  -n "$MODEL" --query properties.deployment.modelName -o tsv)"
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
 
@@ -106,13 +105,13 @@ $PROVIDER   = "<provider-name>"           # for example foundry-models
 $MODEL      = "<model-name>"              # the backend model name under that provider
 
 $API        = "api-version=2025-09-01-preview"
-$GATEWAY_ID = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
-$GW         = "https://management.azure.com$GATEWAY_ID"
-$WS         = "$GW/workspaces/default"
+$GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
+$WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
 $MODEL_URL  = "$WS/modelProviders/$PROVIDER/models/$MODEL"
-$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
+$env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 # For Foundry imports, the default alias matches the deployment's model name.
-$env:AI_GATEWAY_MODEL = az rest --url "$MODEL_URL`?$API" --query properties.deployment.modelName -o tsv
+$env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER `
+  -n $MODEL --query properties.deployment.modelName -o tsv
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 
@@ -144,13 +143,14 @@ A Gateway scope **Cost limit** is one budget across all models; you can add it i
 protection can't be set at Gateway scope; it applies to individual MCP servers.
 
 > [!WARNING]
-> The IP filter applies to **runtime** calls. You keep managing the gateway in the portal and with `az rest`,
-> so you can always fix the list. But every caller outside it gets `403`: teammates, CI pipelines, hosted
+> The IP filter applies to **runtime** calls. You keep managing the gateway in the portal and with the Azure
+> CLI, so you can always fix the list. But every caller outside it gets `403`: teammates, CI pipelines, hosted
 > agents, and your own machine when you switch networks or VPN. Remove it in [Clean up](#clean-up).
 
 ## Apply the baseline
 
-Pick one track. Each track creates the same four policies at **Gateway** scope. Both scripted tracks use
+Pick one track. Each track creates the same four policies at **Gateway** scope. The `aigateway` extension
+doesn't set Gateway scope policies yet, so both scripted tracks call the Azure Resource Manager REST API with
 `az rest` against the gateway's `default` workspace.
 
 <!-- track: portal | Portal -->
@@ -391,7 +391,7 @@ The PowerShell script reads `$env:ALLOWED_CIDRS` unless you pass `-AllowedCidrs`
 <!-- gh:begin include: generated by "npm run sync" from the metadata, do not edit -->
 📄 [`infra/apply-baseline.sh`](infra/apply-baseline.sh)
 
-<details><summary>Show all 76 lines</summary>
+<details><summary>Show all 78 lines</summary>
 
 ```sh
 #!/usr/bin/env bash
@@ -406,7 +406,8 @@ The PowerShell script reads `$env:ALLOWED_CIDRS` unless you pass `-AllowedCidrs`
 #   ./apply-baseline.sh --dry-run    # print the merged policies without changing anything
 #   ./apply-baseline.sh --remove     # remove the baseline policy types from Gateway scope
 #
-# Set BASELINE_FILE to use a different policy file. Requires the Azure CLI (az login) and jq.
+# Set BASELINE_FILE to use a different policy file. Requires the Azure CLI (az login) with the
+# aigateway extension, and jq.
 set -euo pipefail
 
 MODE="apply"
@@ -442,8 +443,9 @@ if [ "$MODE" != "remove" ] && jq -e 'any(.[]; .type == "ipFilter")' >/dev/null <
   fi
 fi
 
-SUB="$(az account show --query id -o tsv)"
-URL="https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY/workspaces/default?api-version=2025-09-01-preview"
+# The aigateway extension doesn't set Gateway scope policies yet, so the script calls the REST API with az rest.
+GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
+URL="https://management.azure.com$GATEWAY_ID/workspaces/default?api-version=2025-09-01-preview"
 
 # A PATCH replaces the whole properties.policies array, so always merge with the current array.
 CURRENT="$(az rest --method get --url "$URL")"
@@ -539,7 +541,8 @@ filter, request rate limit, and content safety policies, and it still lists its 
 ### Layer a stricter model policy
 
 Add a deliberately low token limit to your model only, the same one you used in lab 06. A model `PATCH`
-replaces the model's whole `policies` array, so merge it with what's there:
+replaces the model's whole `policies` array, so merge it with what's there. The `aigateway` extension doesn't
+set model policies yet, so this step uses `az rest`:
 
 <details open><summary>Bash</summary> <!-- gh -->
 

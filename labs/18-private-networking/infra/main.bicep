@@ -1,7 +1,7 @@
 // Private routing for a new AI Gateway (Microsoft.ApiManagement/aigateways).
 // Outbound virtual network integration can only be set when the gateway is created, so this template creates:
 //   - an NSG that allows outbound TCP 443 to the Storage and AzureKeyVault service tags
-//   - a virtual network with an integration subnet (delegated to Microsoft.Web/serverFarms, dedicated to the
+//   - a virtual network with an integration subnet (delegated to Microsoft.App/environments, dedicated to the
 //     gateway) and a private-endpoint subnet
 //   - the gateway, joined to the integration subnet, by reusing the lab 01 template as a module
 //   - optionally, a private endpoint to a Foundry resource (group ID "account") with its private DNS zones
@@ -114,9 +114,9 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' = {
           }
           delegations: [
             {
-              name: 'Microsoft.Web.serverFarms'
+              name: 'Microsoft.App.environments'
               properties: {
-                serviceName: 'Microsoft.Web/serverFarms'
+                serviceName: 'Microsoft.App/environments'
               }
             }
           ]

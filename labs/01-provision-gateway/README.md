@@ -7,7 +7,7 @@ duration: 15
 tracks: [portal, cli, iac]
 order: 1
 illustration: diagrams/provisioning.svg
-tags: [provisioning, aigateways, az rest, Bicep, managed identity, regions]
+tags: [provisioning, aigateways, az aigateway, Bicep, managed identity, regions]
 objectives:
   - Create an AI Gateway in East US 2 or Sweden Central from the portal, the Azure CLI, or Bicep
   - Find the gateway's runtime URL and its system-assigned managed identity
@@ -62,11 +62,36 @@ way around the portal so you're ready for the rest of the labs.
   if you create a new resource group. Creating a gateway needs write access to both API Management and
   connector gateways.
 - For the portal track: a browser and your Azure account.
-- For the CLI and IaC tracks: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or
-  later, signed in with `az login`, plus `jq` for the Bash snippets. The CLI track calls the Azure Resource
-  Manager REST API with `az rest`, because the `az aigateway` extension doesn't manage the new `aigateways`
-  resource type yet.
+- For the CLI and IaC tracks and the **Verify** steps: the
+  [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
+  `az login`, the [`aigateway` extension](https://github.com/Azure/ai-gateway/tree/main/cli), and `jq` for the Bash snippets.
 - Recommended reading: [How AI Gateway works](../00-how-ai-gateway-works/README.md).
+
+Install or upgrade the `aigateway` extension, then check that the CLI loads it. The installer downloads the
+published release, verifies it, and needs no Azure sign-in. Every later lab uses the same extension.
+
+<details open><summary>Bash</summary> <!-- gh -->
+
+```bash title="Bash"
+curl -fsSL https://aka.ms/aigateway-cli-install | sh
+az aigateway version
+```
+</details> <!-- gh -->
+
+<details><summary>PowerShell</summary> <!-- gh -->
+
+```powershell title="PowerShell"
+irm https://aka.ms/aigateway-cli-install-ps | iex
+az aigateway version
+```
+</details> <!-- gh -->
+
+`az aigateway version` prints the extension version and the API version it calls, `2025-09-01-preview`.
+
+> [!NOTE]
+> The labs use `az aigateway` commands wherever the extension covers an operation. A few operations, such as
+> registering a model or setting policies, aren't in the extension yet. For those, the labs call the Azure
+> Resource Manager REST API with `az rest` and say why.
 
 Set these variables once. Every track and the **Verify** section reuse them.
 
@@ -79,7 +104,6 @@ export RG="<resource-group>"               # for example rg-ai-gateway-labs
 export GATEWAY="<gateway>"                 # globally unique, 24 characters or fewer, part of the runtime URL
 export LOCATION="<location>"               # eastus2 or swedencentral
 export SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
-export GATEWAY_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
 ```
 </details> <!-- gh -->
 
@@ -92,7 +116,6 @@ $RG              = "<resource-group>"      # for example rg-ai-gateway-labs
 $GATEWAY         = "<gateway>"             # globally unique, 24 characters or fewer, part of the runtime URL
 $LOCATION        = "<location>"            # eastus2 or swedencentral
 $SUBSCRIPTION_ID = az account show --query id -o tsv
-$GATEWAY_ID      = "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
 ```
 </details> <!-- gh -->
 
@@ -193,7 +216,8 @@ az group create --name "$RG" --location "$LOCATION"
 ### Create the connector gateway
 
 Every AI gateway has a companion `Microsoft.Web/connectorGateways` resource with the same name. The portal and
-the Bicep template create it first, so do the same.
+the Bicep template create it first, so do the same. The `aigateway` extension creates only the AI gateway, so
+create the connector gateway through the Azure Resource Manager REST API with `az rest`.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
@@ -211,63 +235,40 @@ az rest --method put \
 az rest --method put `
   --url "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Web/connectorGateways/${GATEWAY}?api-version=2026-05-01-preview" `
   --body "@body.json"
-```
-</details> <!-- gh -->
-
-### Start creating the gateway
-
-The request body only needs the region, a system-assigned managed identity, and public network access. There's
-no SKU, capacity, or publisher to set: the service picks them. Azure accepts the request and provisioning
-continues in the background.
-
-<details open><summary>Bash</summary> <!-- gh -->
-
-```bash title="Bash"
-az rest --method put --url "https://management.azure.com$GATEWAY_ID?api-version=2025-09-01-preview" \
-  --body "$(jq -cn --arg location "$LOCATION" \
-    '{location: $location, identity: {type: "SystemAssigned"}, properties: {publicNetworkAccess: "Enabled"}}')"
-```
-</details> <!-- gh -->
-
-<details><summary>PowerShell</summary> <!-- gh -->
-
-```powershell title="PowerShell"
-@{
-  location   = $LOCATION
-  identity   = @{ type = "SystemAssigned" }
-  properties = @{ publicNetworkAccess = "Enabled" }
-} | ConvertTo-Json -Depth 5 -Compress | Set-Content body.json
-az rest --method put --url "https://management.azure.com${GATEWAY_ID}?api-version=2025-09-01-preview" --body "@body.json"
 Remove-Item body.json
 ```
 </details> <!-- gh -->
 
-### Wait for provisioning
+### Create the AI gateway
+
+`az aigateway create` only needs the name, the region, and the managed identity. There's no SKU, capacity, or
+publisher to set: the service picks them, and public network access is enabled. The command waits until
+provisioning finishes, usually within a few minutes.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-az resource wait --ids "$GATEWAY_ID" --api-version 2025-09-01-preview \
-  --custom "properties.provisioningState=='Succeeded'"
+az aigateway create -g "$RG" -n "$GATEWAY" --location "$LOCATION" --system-assigned true -o none
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-az resource wait --ids $GATEWAY_ID --api-version 2025-09-01-preview `
-  --custom "properties.provisioningState=='Succeeded'"
+az aigateway create -g $RG -n $GATEWAY --location $LOCATION --system-assigned true -o none
 ```
 </details> <!-- gh -->
 
-The command returns when `provisioningState` reaches `Succeeded`, usually within a few minutes.
+> [!TIP]
+> Add `--no-wait` to return right away, then run `az aigateway wait -g "$RG" -n "$GATEWAY" --created` when you
+> need the gateway.
 
 ### Read the runtime URL and identity
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-az resource show --ids "$GATEWAY_ID" \
+az aigateway show -g "$RG" -n "$GATEWAY" \
   --query "{name:name, location:location, state:properties.provisioningState, host:properties.frontend.defaultHostname, principalId:identity.principalId}" \
   -o table
 ```
@@ -276,7 +277,7 @@ az resource show --ids "$GATEWAY_ID" \
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-az resource show --ids $GATEWAY_ID `
+az aigateway show -g $RG -n $GATEWAY `
   --query "{name:name, location:location, state:properties.provisioningState, host:properties.frontend.defaultHostname, principalId:identity.principalId}" `
   -o table
 ```
@@ -437,7 +438,7 @@ add a model and a key in the next lab, a call without a key gets `400` or `401`.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
+export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 echo "$AI_GATEWAY_URL"
 
 curl -sS -o /dev/null -w "HTTP %{http_code}\n" "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions"
@@ -447,7 +448,7 @@ curl -sS -o /dev/null -w "HTTP %{http_code}\n" "${AI_GATEWAY_URL%/}/default/mode
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
+$env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 $env:AI_GATEWAY_URL
 
 (Invoke-WebRequest -Uri "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/models/openai/v1/chat/completions" `
@@ -543,7 +544,7 @@ also deletes everything you published on it.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-az resource delete --ids "$GATEWAY_ID" --api-version 2025-09-01-preview
+az aigateway delete -g "$RG" -n "$GATEWAY" --yes
 az resource delete -g "$RG" -n "$GATEWAY" --resource-type Microsoft.Web/connectorGateways --api-version 2026-05-01-preview
 ```
 </details> <!-- gh -->
@@ -551,7 +552,7 @@ az resource delete -g "$RG" -n "$GATEWAY" --resource-type Microsoft.Web/connecto
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-az resource delete --ids $GATEWAY_ID --api-version 2025-09-01-preview
+az aigateway delete -g $RG -n $GATEWAY --yes
 az resource delete -g $RG -n $GATEWAY --resource-type Microsoft.Web/connectorGateways --api-version 2026-05-01-preview
 ```
 </details> <!-- gh -->
@@ -564,8 +565,8 @@ az resource delete -g $RG -n $GATEWAY --resource-type Microsoft.Web/connectorGat
 | The deployment fails because the region isn't supported | `$LOCATION` or the template's `location` is outside the preview regions | Use `eastus2` or `swedencentral`. The template accepts only these two values and defaults to `eastus2`. |
 | The name is rejected | Gateway names are globally unique and limited to 24 characters: letters, digits, and hyphens, starting with a letter | Pick another name that follows the rules. |
 | `MissingSubscriptionRegistration` | A resource provider isn't registered in the subscription | Run `az provider register -n Microsoft.ApiManagement --wait` and `az provider register -n Microsoft.Web --wait`, or ask your subscription administrator. |
-| `Could not resolve host` when you call the URL | Provisioning or DNS isn't finished | Run the `az resource wait` command from the CLI track and retry. |
-| `az aigateway` commands can't find your gateway | The `aigateway` CLI extension doesn't manage the new `aigateways` resource type yet | Use `az rest` and `az resource` as shown in this lab. |
+| `Could not resolve host` when you call the URL | Provisioning or DNS isn't finished | Run `az aigateway wait -g "$RG" -n "$GATEWAY" --created` and retry. |
+| `'aigateway' is misspelled or not recognized by the system` | The `aigateway` extension isn't installed | Run the installer from [Before you begin](#before-you-begin), then `az aigateway version`. |
 
 ## Next steps
 

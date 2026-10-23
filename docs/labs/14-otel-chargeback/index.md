@@ -37,8 +37,8 @@ Application Insights already collects.
 - Permission to change the gateway, for example **Contributor** on its resource group, and **Log Analytics Reader**
   on the workspace behind Application Insights.
 - The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with `az login`,
-  Python 3.10 or later, and `curl` and `jq` (Bash) or PowerShell 7. The REST track calls the Azure Resource Manager
-  REST API with `az rest`, because the `az aigateway` extension doesn't manage the new `aigateways` resource type yet.
+  the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)), Python 3.10 or
+  later, and `curl` and `jq` (Bash) or PowerShell 7.
 
 Set these variables once. If you named the Application Insights resource differently in lab 13, change
 `$GATEWAY-insights`.
@@ -49,10 +49,9 @@ export GATEWAY="<gateway>"
 export AI_GATEWAY_MODEL="<model-name>"     # a callable alias
 export API="api-version=2025-09-01-preview"
 
-export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
-export GW="https://management.azure.com$GATEWAY_ID"
-export WS="$GW/workspaces/default"
-export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
+export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
+export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
+export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
 
 APPI_ID="$(az resource show -g "$RG" -n "$GATEWAY-insights" --resource-type Microsoft.Insights/components --query id -o tsv)"
@@ -65,10 +64,9 @@ $GATEWAY = "<gateway>"
 $env:AI_GATEWAY_MODEL = "<model-name>"     # a callable alias
 $API     = "api-version=2025-09-01-preview"
 
-$GATEWAY_ID = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
-$GW         = "https://management.azure.com$GATEWAY_ID"
-$WS         = "$GW/workspaces/default"
-$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
+$GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
+$WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
+$env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 
 $APPI_ID = az resource show -g $RG -n "$GATEWAY-insights" --resource-type Microsoft.Insights/components --query id -o tsv
@@ -130,7 +128,8 @@ claim needs at least one signal.
 
 ### Read the current configuration
 
-The claim attributes live on the gateway's telemetry exporter. List the exporters and their claims:
+The claim attributes live on the gateway's telemetry exporter. The `aigateway` extension doesn't manage telemetry
+exporters yet, so call the Azure Resource Manager REST API with `az rest`. List the exporters and their claims:
 
 ```bash title="Bash"
 az rest --method get --url "$WS/telemetryExporters?$API" \

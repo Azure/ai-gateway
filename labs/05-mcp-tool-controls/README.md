@@ -4,7 +4,7 @@ summary: Publish only approved MCP tools with name patterns, block risky tools, 
 category: tools
 level: Intermediate
 duration: 20
-tracks: [portal, rest]
+tracks: [portal, cli]
 order: 5
 illustration: diagrams/mcp-federation.svg
 tags: [MCP, tools, allow list, blocked tools, glob patterns, requestRateLimit, "429", Retry-After]
@@ -12,7 +12,7 @@ objectives:
   - Choose between allowing all tools, exact tools, and name patterns for an MCP server
   - Block specific tools with patterns that take precedence over the allow list
   - Take a whole MCP server offline without deleting it
-  - Add a request rate limit to an MCP server in the portal or with the REST API, and trigger a 429
+  - Add a request rate limit to an MCP server in the portal or with the Azure CLI, and trigger a 429
 prereqs:
   - 04-federate-mcp-tools
 -->
@@ -27,14 +27,14 @@ prereqs:
 
 | ⏱️ Time | 📶 Level | 🧭 Tracks | ✅ Before you start |
 | :-- | :-- | :-- | :-- |
-| 20 min | Intermediate | Portal · REST API | [04 · Federate MCP tools](../04-federate-mcp-tools/README.md) |
+| 20 min | Intermediate | Portal · Azure CLI | [04 · Federate MCP tools](../04-federate-mcp-tools/README.md) |
 
 **You'll learn to**
 
 - Choose between allowing all tools, exact tools, and name patterns for an MCP server
 - Block specific tools with patterns that take precedence over the allow list
 - Take a whole MCP server offline without deleting it
-- Add a request rate limit to an MCP server in the portal or with the REST API, and trigger a 429
+- Add a request rate limit to an MCP server in the portal or with the Azure CLI, and trigger a 429
 
 **Follow along:** 🌐 [Interactive version](https://azure.github.io/ai-gateway/labs/05-mcp-tool-controls/) with your own values filled in · 📁 [Lab files](infra/)
 
@@ -58,8 +58,8 @@ this lab you publish only the approved tools, block one explicitly, and give eac
 - Complete [Federate MCP tools behind one endpoint](../04-federate-mcp-tools/README.md). You need the `learn`
   MCP server with its `learn` and `docs` backends, and a runtime API key from **Access** › **Keys**.
 - The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
-  `az login`, to set the variables below. The REST track calls the Azure Resource Manager REST API with
-  `az rest`, and its Bash snippets also need `jq`.
+  `az login`, and the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)),
+  to set the variables below. The Bash snippets of the Azure CLI track also need `jq`.
 - For the **Verify** scripts: `curl` and `jq` (Bash) or PowerShell 7 or later.
 - Permission to change the gateway, for example **Contributor** on the resource group.
 
@@ -71,11 +71,7 @@ Set these variables once. Every track and the **Verify** section reuse them.
 export RG="<resource-group>"
 export GATEWAY="<gateway>"
 
-export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
-export GW="https://management.azure.com$GATEWAY_ID"
-export WS="$GW/workspaces/default"
-export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
+export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
 ```
@@ -87,11 +83,7 @@ read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY
 $RG         = "<resource-group>"
 $GATEWAY    = "<gateway>"
 
-$API        = "api-version=2025-09-01-preview"
-$GATEWAY_ID = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
-$GW         = "https://management.azure.com$GATEWAY_ID"
-$WS         = "$GW/workspaces/default"
-$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
+$env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 ```
@@ -114,8 +106,8 @@ include the namespace prefix, such as `learn_`, so they cover every backend of t
 
 > [!NOTE]
 > Tool availability, blocked tools, and server access are configured in the portal. There's no documented CLI
-> or REST shape for them yet, so this lab doesn't show one. The request rate limit has both a portal and a REST
-> track.
+> or REST shape for them yet, so this lab doesn't show one. The request rate limit has both a portal and an Azure
+> CLI track.
 
 ## Publish only approved tools
 
@@ -257,41 +249,32 @@ counter. Select **Create**.
 > **Policies** lists a **Request rate limit** with the `learn` MCP server as its scope.
 
 </details> <!-- gh -->
-<!-- track: rest | REST API -->
-<details><summary><b>🔗 REST API</b></summary> <!-- gh -->
+<!-- track: cli | Azure CLI -->
+<details><summary><b>⌨️ Azure CLI</b></summary> <!-- gh -->
 
 ### Read the current policies
 
-Policies live inline in the MCP server's `properties.policies` array. A `PATCH` **replaces the whole array**,
-so always read it first and keep the policies you didn't mean to change.
+Policies live inline in the MCP server's `properties.policies` array. `az aigateway mcp update --policies`
+**replaces the whole array**, so always read it first and keep the policies you didn't mean to change.
 
-<details open><summary>Bash</summary> <!-- gh -->
+The command is the same in Bash and PowerShell.
 
-```bash title="Bash"
-URL="$WS/toolServers/learn"
-az rest --url "$URL?$API" --query properties.policies
+```bash
+az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn --query properties.policies
 ```
-</details> <!-- gh -->
 
-<details><summary>PowerShell</summary> <!-- gh -->
-
-```powershell title="PowerShell"
-$URL = "$WS/toolServers/learn"
-az rest --url "$URL`?$API" --query properties.policies
-```
-</details> <!-- gh -->
-
-The command prints nothing if the server has never had a policy.
+The command prints nothing if the server has never had a policy, and `[]` if you removed its last one.
 
 ### Replace the request rate limit and keep everything else
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-az rest --url "$URL?$API" -o json | jq -c '{properties: {policies: (
+az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn -o json | jq -c '
     [(.properties.policies // [])[] | select(.type != "requestRateLimit")]
-    + [{type: "requestRateLimit", callsPerPeriod: 5, periodSeconds: 30, counterKey: ["identity"]}])}}' > policies.json
-az rest --method patch --url "$URL?$API" --body @policies.json --query properties.policies
+    + [{type: "requestRateLimit", callsPerPeriod: 5, periodSeconds: 30, counterKey: ["identity"]}]' > policies.json
+az aigateway mcp update -g "$RG" --gateway-name "$GATEWAY" -n learn --policies @policies.json \
+  --query properties.policies
 rm policies.json
 ```
 </details> <!-- gh -->
@@ -299,27 +282,28 @@ rm policies.json
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-$current  = az rest --url "$URL`?$API" -o json | ConvertFrom-Json
+$current  = az aigateway mcp show -g $RG --gateway-name $GATEWAY -n learn -o json | ConvertFrom-Json
 $policies = @($current.properties.policies | Where-Object { $_ -and $_.type -ne 'requestRateLimit' })
 $policies += [pscustomobject]@{ type = 'requestRateLimit'; callsPerPeriod = 5; periodSeconds = 30; counterKey = @('identity') }
 
-@{ properties = @{ policies = $policies } } | ConvertTo-Json -Depth 10 -Compress | Set-Content -Path policies.json
-az rest --method patch --url "$URL`?$API" --body '@policies.json' --query properties.policies
+ConvertTo-Json -Depth 10 -Compress -InputObject $policies | Set-Content -Path policies.json
+az aigateway mcp update -g $RG --gateway-name $GATEWAY -n learn --policies "@policies.json" `
+  --query properties.policies
 Remove-Item policies.json
 ```
 </details> <!-- gh -->
 
 The commands read the whole MCP server, not just `properties.policies`, because the array is missing until the
-server has had a policy. `periodSeconds` is the renewal period in seconds. The portal offers `30`, `60`, `120`, and
+server has had a policy. `mcp update` changes only the properties you pass, so the backends and versions stay as
+they are. `periodSeconds` is the renewal period in seconds. The portal offers `30`, `60`, `120`, and
 `300`. `counterKey` is an array with `identity`, `ipAddress`, or both. An empty array gives all callers one
 shared counter.
 
 > [!TIP]
-> The same `GET`, merge, `PATCH` pattern sets policies on models, aliases, and the `default` workspace. Only the
-> URL changes.
+> The same read, merge, and replace pattern sets policies on models, aliases, and the `default` workspace.
 
 > **Checkpoint**
-> The `PATCH` returns your other policies unchanged plus one entry like this:
+> `mcp update` returns your other policies unchanged plus one entry like this:
 >
 > ```json
 > {
@@ -455,18 +439,18 @@ A 5-call limit will throttle real agents. Remove it, and open the tool catalog a
    `*code_sample*` blocked pattern, and select **Save**.
 
 </details> <!-- gh -->
-<!-- track: rest | REST API -->
-<details><summary><b>🔗 REST API</b></summary> <!-- gh -->
+<!-- track: cli | Azure CLI -->
+<details><summary><b>⌨️ Azure CLI</b></summary> <!-- gh -->
 
 ### Remove the policy
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-URL="$WS/toolServers/learn"
-az rest --url "$URL?$API" -o json \
-  | jq -c '{properties: {policies: [(.properties.policies // [])[] | select(.type != "requestRateLimit")]}}' > policies.json
-az rest --method patch --url "$URL?$API" --body @policies.json --query properties.policies
+az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn -o json \
+  | jq -c '[(.properties.policies // [])[] | select(.type != "requestRateLimit")]' > policies.json
+az aigateway mcp update -g "$RG" --gateway-name "$GATEWAY" -n learn --policies @policies.json \
+  --query properties.policies
 rm policies.json
 ```
 </details> <!-- gh -->
@@ -474,11 +458,11 @@ rm policies.json
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-$URL      = "$WS/toolServers/learn"
-$current  = az rest --url "$URL`?$API" -o json | ConvertFrom-Json
+$current  = az aigateway mcp show -g $RG --gateway-name $GATEWAY -n learn -o json | ConvertFrom-Json
 $policies = @($current.properties.policies | Where-Object { $_ -and $_.type -ne 'requestRateLimit' })
-@{ properties = @{ policies = $policies } } | ConvertTo-Json -Depth 10 -Compress | Set-Content -Path policies.json
-az rest --method patch --url "$URL`?$API" --body '@policies.json' --query properties.policies
+ConvertTo-Json -Depth 10 -Compress -InputObject $policies | Set-Content -Path policies.json
+az aigateway mcp update -g $RG --gateway-name $GATEWAY -n learn --policies "@policies.json" `
+  --query properties.policies
 Remove-Item policies.json
 ```
 </details> <!-- gh -->
@@ -500,7 +484,7 @@ Keep the gateway, the `learn` MCP server, and your key. The next labs reuse them
 | An allowed tool is blocked | A blocked pattern also matches it. Blocked patterns take precedence | Make the blocked pattern narrower, for example `*code_sample*` instead of `*sample*`. |
 | `429` on the first request of a run | The previous step used up the window, or a **Gateway** scope rate limit also applies | Wait for `Retry-After`, and review **Policies** for every limit that covers the MCP server. |
 | Never `429` | The policy is on another asset, it was saved moments ago, or the burst spans two windows | Check the policy's scope, wait a minute after you save it, and run a longer burst, for example `./infra/trigger-request-rate.sh learn 12`. |
-| Other policies vanished after the REST call | `PATCH` replaces the whole `policies` array | Always `GET`, merge, then `PATCH`, as shown in the REST track. |
+| Other policies vanished after `mcp update` | `--policies` replaces the whole `policies` array | Always read the current array, merge, then update, as shown in the Azure CLI track. |
 
 ## Next steps
 

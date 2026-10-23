@@ -36,10 +36,10 @@ Foundry credential.
 - Permission to grant the gateway access to the account: **Owner**, **User Access Administrator**, or **Role
   Based Access Control Administrator** on the Foundry account. You also need to change the gateway, for example
   **Contributor** on its resource group.
-- For the CLI and IaC tracks: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or
-  later, signed in with `az login`, plus `jq` for the Bash snippets. The CLI track calls the Azure Resource
-  Manager REST API with `az rest`, because the `az aigateway` extension doesn't manage the new `aigateways`
-  resource type yet.
+- For the CLI and IaC tracks and the **Verify** steps: the
+  [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
+  `az login`, the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)), and
+  `jq` for the Bash snippets.
 - For the code track: Python 3.9 or later, Node.js 22.18 or later, or the .NET 8 SDK.
 
 Set these variables once. Every track and the **Verify** section reuse them.
@@ -53,10 +53,9 @@ export DEPLOYMENT="gpt-6-luna"                    # the model deployment to publ
 export PROVIDER="foundry-models"                  # CLI and IaC tracks: the gateway provider to create
 
 export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
-export GW="https://management.azure.com$GATEWAY_ID"
-export WS="$GW/workspaces/default"
-export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
+export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
+export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
+export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 ```
 
 ```powershell title="PowerShell"
@@ -68,10 +67,9 @@ $DEPLOYMENT      = "gpt-6-luna"                   # the model deployment to publ
 $PROVIDER        = "foundry-models"               # CLI and IaC tracks: the gateway provider to create
 
 $API        = "api-version=2025-09-01-preview"
-$GATEWAY_ID = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
-$GW         = "https://management.azure.com$GATEWAY_ID"
-$WS         = "$GW/workspaces/default"
-$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
+$GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
+$WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
+$env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 ```
 
 <details>
@@ -134,7 +132,7 @@ Pick one track. Each track publishes the deployment, gives you a callable alias,
 > minutes for it to take effect:
 >
 > ```bash
-> PRINCIPAL_ID="$(az resource show --ids "$GATEWAY_ID" --query identity.principalId -o tsv)"
+> PRINCIPAL_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query identity.principalId -o tsv)"
 > FOUNDRY_ID="$(az cognitiveservices account show -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --query id -o tsv)"
 > az role assignment create --assignee-object-id "$PRINCIPAL_ID" --assignee-principal-type ServicePrincipal \
 >   --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope "$FOUNDRY_ID"
@@ -200,17 +198,17 @@ $FOUNDRY_ID
 ### Grant the gateway access to the account
 
 The portal import does three things for you: it grants the gateway's identity access to the account, creates the
-provider, and registers the deployments. With the REST API, you do each step yourself. First, give the gateway's
+provider, and registers the deployments. From the command line, you do each step yourself. First, give the gateway's
 system-assigned identity the **Foundry User** role on the account.
 
 ```bash title="Bash"
-PRINCIPAL_ID="$(az resource show --ids "$GATEWAY_ID" --query identity.principalId -o tsv)"
+PRINCIPAL_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query identity.principalId -o tsv)"
 az role assignment create --assignee-object-id "$PRINCIPAL_ID" --assignee-principal-type ServicePrincipal \
   --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope "$FOUNDRY_ID" --query id -o tsv    # Foundry User
 ```
 
 ```powershell title="PowerShell"
-$PRINCIPAL_ID = az resource show --ids $GATEWAY_ID --query identity.principalId -o tsv
+$PRINCIPAL_ID = az aigateway show -g $RG -n $GATEWAY --query identity.principalId -o tsv
 az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principal-type ServicePrincipal `
   --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope $FOUNDRY_ID --query id -o tsv    # Foundry User
 ```
@@ -220,32 +218,32 @@ az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principa
 The provider tells the gateway where the account is and to authenticate with its managed identity.
 
 ```bash title="Bash"
-az rest --method put --url "$WS/modelProviders/$PROVIDER?$API" \
-  --body "$(jq -cn --arg endpoint "$FOUNDRY_ENDPOINT" --arg id "$FOUNDRY_ID" '{properties: {
-      kind: "Foundry", displayName: "Foundry models",
-      foundry: {endpoint: $endpoint, resourceIds: [$id],
-                authentication: {kind: "ManagedIdentity",
-                                 managedIdentity: {resource: "https://cognitiveservices.azure.com/"}}}}}')" \
+az aigateway model-provider create -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" \
+  --kind Foundry --display-name "Foundry models" \
+  --foundry "$(jq -cn --arg endpoint "$FOUNDRY_ENDPOINT" --arg id "$FOUNDRY_ID" '{
+      endpoint: $endpoint, resourceIds: [$id],
+      authentication: {kind: "ManagedIdentity",
+                       managedIdentity: {resource: "https://cognitiveservices.azure.com/"}}}')" \
   --query "{name:name, kind:properties.kind, endpoint:properties.foundry.endpoint}"
 ```
 
 ```powershell title="PowerShell"
-@{ properties = @{
-    kind        = "Foundry"
-    displayName = "Foundry models"
-    foundry     = @{
-      endpoint       = $FOUNDRY_ENDPOINT
-      resourceIds    = @($FOUNDRY_ID)
-      authentication = @{ kind = "ManagedIdentity"; managedIdentity = @{ resource = "https://cognitiveservices.azure.com/" } }
-    }
-  } } | ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
-az rest --method put --url "$WS/modelProviders/$PROVIDER`?$API" --body "@body.json" `
+@{
+  endpoint       = $FOUNDRY_ENDPOINT
+  resourceIds    = @($FOUNDRY_ID)
+  authentication = @{ kind = "ManagedIdentity"; managedIdentity = @{ resource = "https://cognitiveservices.azure.com/" } }
+} | ConvertTo-Json -Depth 10 -Compress | Set-Content foundry.json
+az aigateway model-provider create -g $RG --gateway-name $GATEWAY -n $PROVIDER `
+  --kind Foundry --display-name "Foundry models" --foundry "@foundry.json" `
   --query "{name:name, kind:properties.kind, endpoint:properties.foundry.endpoint}"
+Remove-Item foundry.json
 ```
 
 ### Register the deployment
 
-A backend model registers one deployment under the provider. Name it after the deployment.
+A backend model registers one deployment under the provider. Name it after the deployment. The `aigateway`
+extension can't register models on this resource type yet, so call the Azure Resource Manager REST API with
+`az rest`.
 
 ```bash title="Bash"
 az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$DEPLOYMENT?$API" \
@@ -265,6 +263,7 @@ az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$DEPLOYMENT?$API
   } } | ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
 az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$DEPLOYMENT`?$API" --body "@body.json" `
   --query "{name:name, deployment:properties.deployment.modelName}"
+Remove-Item body.json
 ```
 
 To publish more deployments, repeat this step and the next one for each name that
@@ -279,49 +278,49 @@ deployment that points at the model you registered.
 ```bash title="Bash"
 export AI_GATEWAY_MODEL="$DEPLOYMENT"
 MODEL_ID="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT"
-az rest --method put --url "$WS/aliases/$AI_GATEWAY_MODEL?$API" \
-  --body "$(jq -cn --arg id "$MODEL_ID" '{properties: {backendModels: [{resourceId: $id}]}}')" \
+az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$AI_GATEWAY_MODEL" \
+  --backend-model resource-id="$MODEL_ID" \
   --query "{alias:properties.aliasName, target:properties.backendModels[0].resourceId}"
 ```
 
 ```powershell title="PowerShell"
 $env:AI_GATEWAY_MODEL = $DEPLOYMENT
 $MODEL_ID = "$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT"
-@{ properties = @{ backendModels = @(@{ resourceId = $MODEL_ID }) } } |
-  ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
-az rest --method put --url "$WS/aliases/$($env:AI_GATEWAY_MODEL)?$API" --body "@body.json" `
+az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $env:AI_GATEWAY_MODEL `
+  --backend-model resource-id="$MODEL_ID" `
   --query "{alias:properties.aliasName, target:properties.backendModels[0].resourceId}"
-Remove-Item body.json
 ```
+
+The command warns that the service doesn't enforce atomic alias creation. That's expected: it only matters when
+two people create the same alias at the same time. If the alias already exists, `create` fails; change it with
+`az aigateway model-alias update` and the same arguments instead.
 
 ### Create a runtime API key
 
-The PUT returns metadata only. Read the generated value with `listSecrets` straight into a variable so it never
-appears on screen.
+`api-key create` returns metadata only. Read the generated value with `list-secrets` straight into a variable so
+it never appears on screen. The service assigns the key's display name itself, so any `--display-name` works.
 
 ```bash title="Bash"
-az rest --method put --url "$GW/apiKeys/app-first-call?$API" --body '{"properties":{}}' \
+az aigateway api-key create -g "$RG" --gateway-name "$GATEWAY" -n app-first-call --display-name app-first-call \
   --query "{name:name, state:properties.state}"
 
-AI_GATEWAY_API_KEY="$(az rest --method post --url "$GW/apiKeys/app-first-call/listSecrets?$API" \
+AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n app-first-call \
   --query primaryKey -o tsv)" && export AI_GATEWAY_API_KEY
 ```
 
 ```powershell title="PowerShell"
-'{"properties":{}}' | Set-Content body.json
-az rest --method put --url "$GW/apiKeys/app-first-call?$API" --body "@body.json" `
+az aigateway api-key create -g $RG --gateway-name $GATEWAY -n app-first-call --display-name app-first-call `
   --query "{name:name, state:properties.state}"
-Remove-Item body.json
 
-$env:AI_GATEWAY_API_KEY = az rest --method post --url "$GW/apiKeys/app-first-call/listSecrets?$API" `
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n app-first-call `
   --query primaryKey -o tsv
 ```
 
 > **Checkpoint**
-> `az rest --url "$WS/models?$API" --query "value[].{name:name, provider:properties.providerKind}" -o table`
-> lists your deployment with the provider `Foundry`, the alias request returned your model's ID as `target`, and
-> `az rest --url "$GW/apiKeys?$API" --query "value[].{name:name, state:properties.state}" -o table` shows
-> `app-first-call` as `active`.
+> `az aigateway model list -g "$RG" --gateway-name "$GATEWAY" --query "[].{name:name, provider:properties.providerKind}" -o table`
+> lists your deployment with the provider `Foundry`, the alias command returned your model's ID as `target`, and
+> `az aigateway api-key list -g "$RG" --gateway-name "$GATEWAY" --query "[].{name:name, state:properties.state}" -o table`
+> shows `app-first-call` as `active`, next to the built-in `master` key.
 
 <!-- track: iac | Bicep -->
 
@@ -364,17 +363,18 @@ The outputs include `aliasName`, `apiKeyName`, and `modelEndpoint`.
 
 ### Read the alias and key
 
-Template outputs never contain the key value. Read it with the `listSecrets` action straight into a variable.
+Template outputs never contain the key value. Read it with `az aigateway api-key list-secrets` straight into a
+variable.
 
 ```bash title="Bash"
 export AI_GATEWAY_MODEL="$DEPLOYMENT"    # the aliasName output
-AI_GATEWAY_API_KEY="$(az rest --method post --url "$GW/apiKeys/app-first-call/listSecrets?$API" \
+AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n app-first-call \
   --query primaryKey -o tsv)" && export AI_GATEWAY_API_KEY
 ```
 
 ```powershell title="PowerShell"
 $env:AI_GATEWAY_MODEL = $DEPLOYMENT      # the aliasName output
-$env:AI_GATEWAY_API_KEY = az rest --method post --url "$GW/apiKeys/app-first-call/listSecrets?$API" `
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n app-first-call `
   --query primaryKey -o tsv
 ```
 
@@ -591,11 +591,11 @@ Chat Completions: An AI gateway is a governed entry point that routes, secures, 
 ### Confirm the model is published
 
 ```bash title="Bash"
-az rest --url "$WS/models?$API" --query "value[].{name:name, provider:properties.providerKind}" -o table
+az aigateway model list -g "$RG" --gateway-name "$GATEWAY" --query "[].{name:name, provider:properties.providerKind}" -o table
 ```
 
 ```powershell title="PowerShell"
-az rest --url "$WS/models?$API" --query "value[].{name:name, provider:properties.providerKind}" -o table
+az aigateway model list -g $RG --gateway-name $GATEWAY --query "[].{name:name, provider:properties.providerKind}" -o table
 ```
 
 The list includes your deployment. In the portal, **Catalog** lists the model too.
@@ -665,21 +665,21 @@ deployment. The commands use the names from the CLI and IaC tracks. If you impor
 provider and alias names shown on **Models**.
 
 ```bash title="Bash"
-az rest --method delete --url "$GW/apiKeys/app-first-call?$API"
-az rest --method delete --url "$WS/aliases/$DEPLOYMENT?$API"
-az rest --method delete --url "$WS/modelProviders/$PROVIDER?$API"
+az aigateway api-key delete -g "$RG" --gateway-name "$GATEWAY" -n app-first-call --yes
+az aigateway model-alias delete -g "$RG" --gateway-name "$GATEWAY" -n "$DEPLOYMENT" --yes
+az aigateway model-provider delete -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --yes
 
-PRINCIPAL_ID="$(az resource show --ids "$GATEWAY_ID" --query identity.principalId -o tsv)"
+PRINCIPAL_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query identity.principalId -o tsv)"
 FOUNDRY_ID="$(az cognitiveservices account show -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --query id -o tsv)"
 az role assignment delete --assignee "$PRINCIPAL_ID" --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope "$FOUNDRY_ID"
 ```
 
 ```powershell title="PowerShell"
-az rest --method delete --url "$GW/apiKeys/app-first-call?$API"
-az rest --method delete --url "$WS/aliases/$DEPLOYMENT`?$API"
-az rest --method delete --url "$WS/modelProviders/$PROVIDER`?$API"
+az aigateway api-key delete -g $RG --gateway-name $GATEWAY -n app-first-call --yes
+az aigateway model-alias delete -g $RG --gateway-name $GATEWAY -n $DEPLOYMENT --yes
+az aigateway model-provider delete -g $RG --gateway-name $GATEWAY -n $PROVIDER --yes
 
-$PRINCIPAL_ID = az resource show --ids $GATEWAY_ID --query identity.principalId -o tsv
+$PRINCIPAL_ID = az aigateway show -g $RG -n $GATEWAY --query identity.principalId -o tsv
 $FOUNDRY_ID = az cognitiveservices account show -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT --query id -o tsv
 az role assignment delete --assignee $PRINCIPAL_ID --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope $FOUNDRY_ID
 ```

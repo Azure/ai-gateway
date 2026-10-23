@@ -31,7 +31,7 @@ export const observability = () => svgDoc('observability', {
 
 export const privateNetworking = () => svgDoc('private-networking', {
   title: 'Private networking for Azure AI Gateway',
-  desc: 'Clients reach the gateway on its public endpoint, protected by API keys or Microsoft Entra ID and an IP filter policy. Inbound private endpoints and disabling public network access are not available for the aigateways resource yet. Outbound, private routing chosen when you create the gateway joins it to an integration subnet of at least /27 delegated to Microsoft.Web/serverFarms, so it reaches a Foundry account with public access disabled through a private endpoint and private DNS zones.',
+  desc: 'Clients reach the gateway on its public endpoint, protected by API keys or Microsoft Entra ID and an IP filter policy. Inbound private endpoints and disabling public network access are not available for the aigateways resource yet. Outbound, private routing chosen when you create the gateway joins it to an integration subnet of at least /27 delegated to Microsoft.App/environments, so it reaches a Foundry account with public access disabled through a private endpoint and private DNS zones.',
   h: 430,
   body: () => {
     let o = zone(16, 20, 230, 330, 'Clients', { ic: 'users', tone: 'azure' });
@@ -45,7 +45,7 @@ export const privateNetworking = () => svgDoc('private-networking', {
     o += box(292, 252, 298, 72, { t: 'Outbound', s: 'Private routing, set at creation', s2: 'backend.subnet.id', icon: 'network', tone: 'green', accent: true, mono: true });
     o += arrow('M236 92 H288', { tone: 'azure' });
     o += zone(636, 20, 308, 330, 'Your virtual network', { ic: 'network', tone: 'green' });
-    o += text(652, 60, 'Integration subnet: /27 or larger,', 'dg-s') + text(652, 78, 'delegated to Microsoft.Web/serverFarms', 'dg-m');
+    o += text(652, 60, 'Integration subnet: /27 or larger,', 'dg-s') + text(652, 78, 'delegated to Microsoft.App/environments', 'dg-m');
     o += box(648, 96, 284, 64, { t: 'Private DNS zones', s: 'privatelink.*.azure.com', icon: 'dns', tone: 'green', mono: true });
     o += `<path class="dg-ghost" d="M790 162 V180"/>`;
     o += box(648, 182, 284, 64, { t: 'Private endpoint', s: 'groupId: account', icon: 'plug', tone: 'green', accent: true, mono: true });

@@ -39,8 +39,10 @@ baseline, prove it works with a smoke test, and wire it all into GitHub Actions.
   [Call backends with managed identities](../12-backend-identity/README.md). This lab builds on what you learned
   there, not on the resources you created: it deploys a new, separate environment.
 - The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
-  `az login` to the subscription you deploy to. The CLI installs Bicep the first time you deploy. You also need
-  `curl` and `jq` (Bash) or PowerShell 7 or later. You don't need a CLI extension: the scripts call the
+  `az login` to the subscription you deploy to, and the `aigateway` extension
+  ([install it](../01-provision-gateway/README.md#before-you-begin)). The CLI installs Bicep the first time you
+  deploy. You also need `curl` and `jq` (Bash) or PowerShell 7 or later. The smoke test reads the gateway and a
+  key with the extension. The extension can't set gateway-scope policies yet, so the baseline script calls the
   management API with `az rest`.
 - **Owner**, or **Contributor** plus **Role Based Access Control Administrator**, on the subscription. The
   template creates two resource groups and several role assignments.
@@ -110,7 +112,7 @@ Each trust boundary uses its own mechanism, and none of them needs a stored secr
 
 Roles are granted at the narrowest scope that works: the alias instead of the whole gateway, and one MCP server
 instead of every tool. Templates output key **names** only, never key values. The smoke test reads a key with
-the `listSecrets` action when it needs one.
+`az aigateway api-key list-secrets` when it needs one.
 
 ### Policies: a gateway floor plus model limits
 
@@ -178,12 +180,12 @@ deployments leave that connection alone. The sample's exporter is still availabl
 
 ### Delivery: GitHub Actions with OpenID Connect
 
-The workflow previews every change with `what-if`, deploys, applies the baseline, and runs the smoke test. A
-`prod` GitHub environment with required reviewers gates production, and a concurrency group per environment
-stops two runs from deploying to the same environment at once. The deployment identity needs **Contributor**
-and **Role Based Access Control Administrator** on the subscription, because the template creates role
-assignments. To narrow that, you can add a condition that only lets it assign the roles the template needs, as
-described in
+The workflow installs the `aigateway` extension, previews every change with `what-if`, deploys, applies the
+baseline, and runs the smoke test. A `prod` GitHub environment with required reviewers gates production, and a
+concurrency group per environment stops two runs from deploying to the same environment at once. The deployment
+identity needs **Contributor** and **Role Based Access Control Administrator** on the subscription, because the
+template creates role assignments. To narrow that, you can add a condition that only lets it assign the roles the
+template needs, as described in
 [Delegate Azure access management to others](https://learn.microsoft.com/azure/role-based-access-control/delegate-role-assignments-overview).
 
 ## Review the templates

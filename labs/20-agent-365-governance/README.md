@@ -68,8 +68,7 @@ enforce each decision on live traffic.
   group, and a runtime API key from **Access** › **Keys**.
 - For the test script: `curl` and `jq` (Bash) or PowerShell 7 or later. Get the gateway URL from the portal or
   with the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
-  `az login`. The CLI reads the new `aigateways` resource type with `az resource`, because the `az aigateway`
-  extension doesn't manage it yet.
+  `az login`, and the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)).
 
 > [!NOTE]
 > The Agent 365 integration is an emerging preview capability. Labels and behavior can change; see the
@@ -85,8 +84,7 @@ export RG="<resource-group>"
 export GATEWAY="<gateway>"
 export MCP_SERVER="learn"
 
-export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
-export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
+export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
 ```
@@ -99,8 +97,7 @@ $RG         = "<resource-group>"
 $GATEWAY    = "<gateway>"
 $MCP_SERVER = "learn"
 
-$GATEWAY_ID         = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
-$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
+$env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 ```

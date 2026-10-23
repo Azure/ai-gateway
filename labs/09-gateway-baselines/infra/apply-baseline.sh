@@ -10,7 +10,8 @@
 #   ./apply-baseline.sh --dry-run    # print the merged policies without changing anything
 #   ./apply-baseline.sh --remove     # remove the baseline policy types from Gateway scope
 #
-# Set BASELINE_FILE to use a different policy file. Requires the Azure CLI (az login) and jq.
+# Set BASELINE_FILE to use a different policy file. Requires the Azure CLI (az login) with the
+# aigateway extension, and jq.
 set -euo pipefail
 
 MODE="apply"
@@ -46,8 +47,9 @@ if [ "$MODE" != "remove" ] && jq -e 'any(.[]; .type == "ipFilter")' >/dev/null <
   fi
 fi
 
-SUB="$(az account show --query id -o tsv)"
-URL="https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY/workspaces/default?api-version=2025-09-01-preview"
+# The aigateway extension doesn't set Gateway scope policies yet, so the script calls the REST API with az rest.
+GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
+URL="https://management.azure.com$GATEWAY_ID/workspaces/default?api-version=2025-09-01-preview"
 
 # A PATCH replaces the whole properties.policies array, so always merge with the current array.
 CURRENT="$(az rest --method get --url "$URL")"

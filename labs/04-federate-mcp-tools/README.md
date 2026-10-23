@@ -55,13 +55,13 @@ Learn MCP server, so agents get tools through the same front door they already u
 - Complete [Provision your AI Gateway](../01-provision-gateway/README.md).
 - A runtime API key, for example `app-first-call` from [lab 02](../02-first-model-call/README.md). If you don't have
   one yet, create it in the portal under **Access** › **Keys**, or, after
-  you set the variables below, run `az rest --method put --url "$GW/apiKeys/app-first-call?$API" --body '{"properties":{}}'`
+  you set the variables below, run
+  `az aigateway api-key create -g "$RG" --gateway-name "$GATEWAY" -n app-first-call --display-name app-first-call`
   and read its value with
-  `az rest --method post --url "$GW/apiKeys/app-first-call/listSecrets?$API" --query primaryKey -o tsv`.
+  `az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n app-first-call --query primaryKey -o tsv`.
 - For the CLI and IaC tracks: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or
-  later, signed in with `az login`, plus `jq` for the Bash snippets. The CLI track calls the Azure Resource
-  Manager REST API with `az rest`, because the `az aigateway` extension doesn't manage the new `aigateways`
-  resource type yet.
+  later, signed in with `az login`, the `aigateway` extension
+  ([install it](../01-provision-gateway/README.md#before-you-begin)), and `jq` for the Bash snippets.
 - For the **Verify** scripts: `curl` and `jq` (Bash) or PowerShell 7 or later. The Code track also uses
   Python 3.10 or later and, optionally, VS Code.
 - Permission to change the gateway, for example **Contributor** on the resource group.
@@ -75,10 +75,9 @@ export RG="<resource-group>"
 export GATEWAY="<gateway>"
 
 export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
-export GW="https://management.azure.com$GATEWAY_ID"
-export WS="$GW/workspaces/default"
-export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
+export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
+export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
+export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
 ```
@@ -91,10 +90,9 @@ $RG         = "<resource-group>"
 $GATEWAY    = "<gateway>"
 
 $API        = "api-version=2025-09-01-preview"
-$GATEWAY_ID = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
-$GW         = "https://management.azure.com$GATEWAY_ID"
-$WS         = "$GW/workspaces/default"
-$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
+$GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
+$WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
+$env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 ```
@@ -186,19 +184,16 @@ The server's details page opens. When **Provisioning** shows that the server is 
 
 ### Create the registration
 
-MCP servers are `toolServers` child resources of the gateway's `default` workspace.
+`az aigateway mcp create` registers the MCP server. `--endpoints` takes the backends as a JSON array.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-az rest --method put --url "$WS/toolServers/learn?$API" --body '{
-  "properties": {
-    "type": "mcp",
-    "displayName": "Microsoft Learn",
-    "description": "Search and fetch official Microsoft documentation and code samples.",
-    "endpoints": [{"kind": "mcp", "namespace": "learn", "required": true,
-                   "mcp": {"transport": "streamableHttp", "url": "https://learn.microsoft.com/api/mcp"}}]
-  }}' \
+az aigateway mcp create -g "$RG" --gateway-name "$GATEWAY" -n learn \
+  --display-name "Microsoft Learn" \
+  --description "Search and fetch official Microsoft documentation and code samples." \
+  --endpoints '[{"kind": "mcp", "namespace": "learn", "required": true,
+                 "mcp": {"transport": "streamableHttp", "url": "https://learn.microsoft.com/api/mcp"}}]' \
   --query "{name:name,mcpEndpoint:properties.gatewayEndpoints[0].url}"
 ```
 </details> <!-- gh -->
@@ -206,35 +201,37 @@ az rest --method put --url "$WS/toolServers/learn?$API" --body '{
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-@{ properties = @{
-    type        = 'mcp'
-    displayName = 'Microsoft Learn'
-    description = 'Search and fetch official Microsoft documentation and code samples.'
-    endpoints   = @(@{ kind = 'mcp'; namespace = 'learn'; required = $true
-                       mcp  = @{ transport = 'streamableHttp'; url = 'https://learn.microsoft.com/api/mcp' } })
-  } } | ConvertTo-Json -Depth 10 -Compress | Set-Content -Path body.json
-az rest --method put --url "$WS/toolServers/learn?$API" --body '@body.json' `
+ConvertTo-Json -Depth 10 -Compress -InputObject @(
+  @{ kind = 'mcp'; namespace = 'learn'; required = $true
+     mcp  = @{ transport = 'streamableHttp'; url = 'https://learn.microsoft.com/api/mcp' } }
+) | Set-Content -Path endpoints.json
+az aigateway mcp create -g $RG --gateway-name $GATEWAY -n learn `
+  --display-name "Microsoft Learn" `
+  --description "Search and fetch official Microsoft documentation and code samples." `
+  --endpoints "@endpoints.json" `
   --query "{name:name,mcpEndpoint:properties.gatewayEndpoints[0].url}"
-Remove-Item body.json
+Remove-Item endpoints.json
 ```
 </details> <!-- gh -->
 
-The last segment of the URL, `learn`, is the MCP server name. A `PUT` replaces an existing registration with
-the same name, including its backends and policies, so use `PATCH` to change a registration that already
-exists, as in the next section.
+`-n learn` is the MCP server name. `mcp create` fails with `This MCP registration already exists; use mcp update.`
+if the name is taken, so change an existing registration with `az aigateway mcp update` or the `mcp source`
+commands, as in the next section.
 
 ### Confirm the registration
 
-The command is the same in Bash and PowerShell.
+The commands are the same in Bash and PowerShell.
 
 ```bash
-az rest --url "$WS/toolServers?$API" --query "value[].{name:name,sources:length(properties.endpoints)}" -o table
-az rest --url "$WS/toolServers/learn?$API" --query "properties.{endpoints:endpoints,url:gatewayEndpoints[0].url}"
+az aigateway mcp list -g "$RG" --gateway-name "$GATEWAY" -o table
+az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn \
+  --query "properties.{endpoints:endpoints,url:gatewayEndpoints[0].url}"
 ```
 
 > **Checkpoint**
-> The table shows `learn` with `1` in the **Sources** column. The second command returns one endpoint with
-> `"namespace": "learn"` and `"kind": "mcp"`, and a `url` that ends in `/default/toolservers/learn/mcp`.
+> The table shows `learn` with `Microsoft Learn` in the **DisplayName** column and `1` in the **Sources** column.
+> The second command returns one endpoint with `"namespace": "learn"` and `"kind": "mcp"`, and a `url` that ends
+> in `/default/toolservers/learn/mcp`.
 
 </details> <!-- gh -->
 <!-- track: iac | Bicep -->
@@ -394,37 +391,34 @@ and set **URL** to `https://learn.microsoft.com/api/mcp`, **Namespace** to `docs
 
 ### Add the source
 
-A `PATCH` of `properties.endpoints` replaces the whole list of backends, so read the list, append the new
-backend, and send the result back. Other settings, such as the description and policies, stay as they are.
+`az aigateway mcp source add` appends one backend and changes only the list of backends. Other settings, such as
+the description and policies, stay as they are.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-az rest --url "$WS/toolServers/learn?$API" --query properties.endpoints -o json \
-  | jq -c '{properties: {endpoints: (map(select(.namespace != "docs")) + [{kind: "mcp", namespace: "docs",
-      required: false, mcp: {transport: "streamableHttp", url: "https://learn.microsoft.com/api/mcp"}}])}}' > endpoints.json
-az rest --method patch --url "$WS/toolServers/learn?$API" --body @endpoints.json \
-  --query "properties.endpoints[].{namespace:namespace,required:required,url:mcp.url}" -o table
-rm endpoints.json
+az aigateway mcp source add -g "$RG" --gateway-name "$GATEWAY" -n learn \
+  --namespace docs --kind mcp --required false \
+  --mcp '{"transport": "streamableHttp", "url": "https://learn.microsoft.com/api/mcp"}' \
+  --query "[].{namespace:namespace,required:required,url:mcp.url}" -o table
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-$endpoints = @(az rest --url "$WS/toolServers/learn?$API" --query properties.endpoints -o json | ConvertFrom-Json |
-  Where-Object namespace -ne 'docs')
-$endpoints += @{ kind = 'mcp'; namespace = 'docs'; required = $false
-                 mcp  = @{ transport = 'streamableHttp'; url = 'https://learn.microsoft.com/api/mcp' } }
-@{ properties = @{ endpoints = $endpoints } } | ConvertTo-Json -Depth 10 -Compress | Set-Content -Path endpoints.json
-az rest --method patch --url "$WS/toolServers/learn?$API" --body '@endpoints.json' `
-  --query "properties.endpoints[].{namespace:namespace,required:required,url:mcp.url}" -o table
-Remove-Item endpoints.json
+@{ transport = 'streamableHttp'; url = 'https://learn.microsoft.com/api/mcp' } |
+  ConvertTo-Json -Compress | Set-Content -Path mcp.json
+az aigateway mcp source add -g $RG --gateway-name $GATEWAY -n learn `
+  --namespace docs --kind mcp --required false --mcp "@mcp.json" `
+  --query "[].{namespace:namespace,required:required,url:mcp.url}" -o table
+Remove-Item mcp.json
 ```
 </details> <!-- gh -->
 
-The filter drops an existing `docs` backend first, so running the command twice doesn't add it twice. A `GET`
-doesn't return backend credentials. If a backend uses an API key, include its credential again in the body.
+The table lists every backend of the server. The command fails with "A source with namespace 'docs' already
+exists on this MCP server registration." if you run it twice. For a backend that needs a key, pass the key with
+`--credentials`.
 
 </details> <!-- gh -->
 <!-- track: iac | Bicep -->
@@ -497,7 +491,8 @@ list, or update the backend.
 
 ### Set the versions
 
-A `PATCH` that sends only `properties.versions` keeps the backends, tool rules, and policies as they are.
+The `aigateway` extension doesn't set MCP protocol versions yet, so call the Azure Resource Manager REST API with
+`az rest`. A `PATCH` that sends only `properties.versions` keeps the backends, tool rules, and policies as they are.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
@@ -912,13 +907,10 @@ and select **Save**. To remove the whole server, select **Delete** on the detail
 
 ```bash title="Bash"
 # Remove only the optional backend
-az rest --url "$WS/toolServers/learn?$API" --query properties.endpoints -o json \
-  | jq -c '{properties: {endpoints: map(select(.namespace != "docs"))}}' > endpoints.json
-az rest --method patch --url "$WS/toolServers/learn?$API" --body @endpoints.json --query "properties.endpoints[].namespace"
-rm endpoints.json
+az aigateway mcp source remove -g "$RG" --gateway-name "$GATEWAY" -n learn --namespace docs --query "[].namespace"
 
 # Or remove the whole MCP server
-az rest --method delete --url "$WS/toolServers/learn?$API"
+az aigateway mcp delete -g "$RG" --gateway-name "$GATEWAY" -n learn --yes
 ```
 </details> <!-- gh -->
 
@@ -926,19 +918,15 @@ az rest --method delete --url "$WS/toolServers/learn?$API"
 
 ```powershell title="PowerShell"
 # Remove only the optional backend
-$endpoints = @(az rest --url "$WS/toolServers/learn?$API" --query properties.endpoints -o json | ConvertFrom-Json |
-  Where-Object namespace -ne 'docs')
-@{ properties = @{ endpoints = $endpoints } } | ConvertTo-Json -Depth 10 -Compress | Set-Content -Path endpoints.json
-az rest --method patch --url "$WS/toolServers/learn?$API" --body '@endpoints.json' --query "properties.endpoints[].namespace"
-Remove-Item endpoints.json
+az aigateway mcp source remove -g $RG --gateway-name $GATEWAY -n learn --namespace docs --query "[].namespace"
 
 # Or remove the whole MCP server
-az rest --method delete --url "$WS/toolServers/learn?$API"
+az aigateway mcp delete -g $RG --gateway-name $GATEWAY -n learn --yes
 ```
 </details> <!-- gh -->
 
-An MCP server needs at least one backend, so the service rejects a `PATCH` that removes the last one. Delete
-the server instead.
+`mcp source remove` prints the backends that remain. An MCP server needs at least one backend, so the command
+refuses to remove the last one with "Cannot remove the last source." Delete the server instead.
 
 </details> <!-- gh -->
 <!-- track: iac | Bicep -->
@@ -949,7 +937,7 @@ the server instead.
 Redeploy without `secondNamespace` to go back to one backend, or delete the server:
 
 ```bash
-az rest --method delete --url "$WS/toolServers/learn?$API"
+az aigateway mcp delete -g "$RG" --gateway-name "$GATEWAY" -n learn --yes
 ```
 
 </details> <!-- gh -->
@@ -968,12 +956,13 @@ Delete the `ai-gateway-learn` entry from `.vscode/mcp.json` and the `.venv` fold
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `401` from the MCP endpoint | The key is missing, revoked, or sent in the wrong header | Send a runtime key from **Access** › **Keys** in the `api-key` header. |
-| `404` from the MCP endpoint | Wrong server name in the URL, or the server is still provisioning | List the servers with `az rest --url "$WS/toolServers?$API" --query "value[].name"` and use the exact name in `/default/toolservers/<server-name>/mcp`. |
+| `404` from the MCP endpoint | Wrong server name in the URL, or the server is still provisioning | List the servers with `az aigateway mcp list -g "$RG" --gateway-name "$GATEWAY" -o table` and use the exact name in `/default/toolservers/<server-name>/mcp`. |
 | `406` or an error about the `Accept` header | The client doesn't accept both JSON and SSE | Send `Accept: application/json, text/event-stream`, or use an MCP SDK. |
-| `tools/list` returns an empty `tools` array | The registration is reachable but no backend returned tools | Check each backend's URL and authentication with `az rest --url "$WS/toolServers/<server-name>?$API" --query properties.endpoints`. |
+| `tools/list` returns an empty `tools` array | The registration is reachable but no backend returned tools | Check each backend's URL with `az aigateway mcp source list -g "$RG" --gateway-name "$GATEWAY" -n <server-name> -o table`, and check its authentication. |
 | The whole server fails when one backend is down | That backend is **Required** | Turn **Required** off for backends that are nice-to-have, or fix the backend. |
-| Backends or policies disappeared after a `PUT` or a Bicep deployment | A `PUT` replaces an existing registration with the same name | Change existing servers with `GET`, edit, `PATCH`, as in the CLI track, or `PUT` to a new name. |
-| `PATCH` fails with "Tool server endpoints are required" | The request removes the last backend | Keep at least one backend, or delete the server. |
+| Backends or policies disappeared after a Bicep deployment | A Bicep deployment sends a `PUT`, which replaces an existing registration with the same name | Change existing servers with `az aigateway mcp update` or `az aigateway mcp source add` and `remove`, as in the CLI track, or deploy to a new name. |
+| `mcp create` fails with "This MCP registration already exists; use mcp update." | A server with that name already exists | Change it with `az aigateway mcp update` or the `mcp source` commands, or choose another name. |
+| `mcp source remove` fails with "Cannot remove the last source." | An MCP server needs at least one backend | Keep at least one backend, or delete the server with `az aigateway mcp delete`. |
 | `400` with `Unsupported MCP-Protocol-Version` | The client sent an `MCP-Protocol-Version` header that isn't in **Supported MCP versions** | Add the version to the list if every backend supports it, or let the client negotiate a listed version. |
 | `404` with "Federation tools/list failed: required endpoint '…' returned error: Backend selected protocol version '…' instead of '…'" | **Supported MCP versions** includes a version that this backend doesn't support, and the client negotiated it | Keep only versions that every backend supports. In the portal, edit and save each backend to recheck it. |
 | `400` with JSON-RPC error `-32603`, "The request cannot be completed using the requested protocol version." | A `2026-07-28` request reached a backend that doesn't support `2026-07-28` | Remove `2026-07-28` from **Supported MCP versions** until every backend supports it. |

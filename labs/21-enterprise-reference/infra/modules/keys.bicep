@@ -1,6 +1,6 @@
 // Creates one runtime API key per app, so every app has its own policy counters, its own row in Monitoring, and a key
 // you can rotate or revoke without touching the others. Templates never output key values: read a key with
-// the listSecrets action (az rest --method post .../apiKeys/<name>/listSecrets) when an app needs it.
+// az aigateway api-key list-secrets when an app needs it.
 targetScope = 'resourceGroup'
 
 @description('Name of the existing gateway in this resource group.')

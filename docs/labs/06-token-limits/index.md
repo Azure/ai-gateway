@@ -33,9 +33,8 @@ you give each caller its own token allowance at the gateway, so a noisy neighbor
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need a gateway, an imported
   model, a callable alias, and a runtime API key from **Access** › **Keys**.
 - For the CLI, REST, and IaC tracks: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)
-  2.75 or later, signed in with `az login`, plus `jq` for the Bash snippets. The CLI track calls the Azure
-  Resource Manager REST API with `az rest`, because the `az aigateway` extension doesn't manage the new
-  `aigateways` resource type yet.
+  2.75 or later, signed in with `az login`, the `aigateway` extension
+  ([install it](../01-provision-gateway/README.md#before-you-begin)), and `jq` for the Bash snippets.
 - Permission to change the gateway, for example **Contributor** on the resource group.
 
 Set these variables once. Every track and the **Verify** section reuse them.
@@ -47,13 +46,13 @@ export PROVIDER="<provider-name>"          # for example foundry-models
 export MODEL="<model-name>"                # the backend model name under that provider
 
 export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
-export GW="https://management.azure.com$GATEWAY_ID"
-export WS="$GW/workspaces/default"
+export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
+export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
 export MODEL_URL="$WS/modelProviders/$PROVIDER/models/$MODEL"
-export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
+export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 # A starting guess for the alias. Confirm it on the model's Aliases tab (lab 02) and replace it if it differs.
-export AI_GATEWAY_MODEL="$(az rest --url "$MODEL_URL?$API" --query properties.deployment.modelName -o tsv)"
+export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" \
+  -n "$MODEL" --query properties.deployment.modelName -o tsv)"
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
 ```
@@ -65,13 +64,13 @@ $PROVIDER   = "<provider-name>"           # for example foundry-models
 $MODEL      = "<model-name>"              # the backend model name under that provider
 
 $API        = "api-version=2025-09-01-preview"
-$GATEWAY_ID = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
-$GW         = "https://management.azure.com$GATEWAY_ID"
-$WS         = "$GW/workspaces/default"
+$GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
+$WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
 $MODEL_URL  = "$WS/modelProviders/$PROVIDER/models/$MODEL"
-$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
+$env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 # A starting guess for the alias. Confirm it on the model's Aliases tab (lab 02) and replace it if it differs.
-$env:AI_GATEWAY_MODEL = az rest --url "$MODEL_URL`?$API" --query properties.deployment.modelName -o tsv
+$env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER `
+  -n $MODEL --query properties.deployment.modelName -o tsv
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 ```
@@ -150,7 +149,8 @@ Select **Create**. The policy appears in the **Policies** list with your model a
 ### Set the token limit
 
 Policies live in the model's `properties.policies` array, and a `PATCH` replaces the whole array. So read the
-array, swap in the token limit, keep every other policy, and write it back.
+array, swap in the token limit, keep every other policy, and write it back. The `aigateway` extension doesn't set
+model policies yet, so this step calls the Azure Resource Manager REST API with `az rest`.
 
 ```bash title="Bash"
 az rest --url "$MODEL_URL?$API" \
@@ -174,11 +174,11 @@ Remove-Item policies.json
 ### Confirm the policy
 
 ```bash title="Bash"
-az rest --url "$MODEL_URL?$API" --query properties.policies -o json
+az aigateway model policy list -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" -o json
 ```
 
 ```powershell title="PowerShell"
-az rest --url "$MODEL_URL`?$API" --query properties.policies -o json
+az aigateway model policy list -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL -o json
 ```
 
 > **Checkpoint**
@@ -384,6 +384,9 @@ key for testing, revoke it in **Access** › **Keys**.
 
 ### Remove the policy
 
+Like **Set the token limit**, this step uses `az rest`, because the `aigateway` extension doesn't change model
+policies yet.
+
 ```bash title="Bash"
 az rest --url "$MODEL_URL?$API" \
   | jq -c '{properties:{policies:[(.properties.policies // [])[] | select(.type != "tokenLimit")]}}' > policies.json
@@ -416,11 +419,11 @@ az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLIC
 ### Delete the limited alias
 
 ```bash title="Bash"
-az rest --method delete --url "$WS/aliases/$MODEL-limited?$API"
+az aigateway model-alias delete -g "$RG" --gateway-name "$GATEWAY" -n "$MODEL-limited" --yes
 ```
 
 ```powershell title="PowerShell"
-az rest --method delete --url "$WS/aliases/$MODEL-limited?$API"
+az aigateway model-alias delete -g $RG --gateway-name $GATEWAY -n "$MODEL-limited" --yes
 ```
 
 Or select the alias in **Models** and delete it in the portal. The backend model and its original alias stay.

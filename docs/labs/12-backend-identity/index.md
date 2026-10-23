@@ -34,10 +34,9 @@ provider to it without changing a single client.
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need a
   gateway with a Foundry model provider that uses a managed identity, a model alias, and a runtime API key.
 - The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
-  `az login`. Every track uses it at least once: the portal can't change the identity of a model provider that
-  already exists. The commands call the Azure Resource Manager REST API with `az rest`, because the
-  `az aigateway` extension doesn't manage the new `aigateways` resource type yet.
-- For the Bash commands: [jq](https://jqlang.org/download/), which builds the request bodies.
+  `az login`, and the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)).
+  Every track uses it at least once: the portal can't change the identity of a model provider that already exists.
+- For the Bash commands: [jq](https://jqlang.org/download/), which edits the provider's settings.
 - Permissions:
   - Create a managed identity in the resource group, for example **Contributor** or
     **Managed Identity Contributor**.
@@ -58,12 +57,8 @@ export FOUNDRY_RG="<foundry-resource-group>"      # resource group of the Foundr
 export FOUNDRY_ACCOUNT="<foundry-account-name>"   # the account name, not a project or deployment name
 export IDENTITY="id-aigateway-backends"           # the user-assigned identity to create
 
-export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
-export GW="https://management.azure.com$GATEWAY_ID"
-export WS="$GW/workspaces/default"
 export FOUNDRY_ID="$(az cognitiveservices account show -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --query id -o tsv)"
-export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
+export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 export AI_GATEWAY_MODEL="<model-name>"            # the alias you called in lab 02
 # Paste the runtime key from lab 02. Don't commit it or write it to a file.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
@@ -77,19 +72,15 @@ $FOUNDRY_RG      = "<foundry-resource-group>"     # resource group of the Foundr
 $FOUNDRY_ACCOUNT = "<foundry-account-name>"       # the account name, not a project or deployment name
 $IDENTITY        = "id-aigateway-backends"        # the user-assigned identity to create
 
-$API        = "api-version=2025-09-01-preview"
-$GATEWAY_ID = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
-$GW         = "https://management.azure.com$GATEWAY_ID"
-$WS         = "$GW/workspaces/default"
 $FOUNDRY_ID = az cognitiveservices account show -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT --query id -o tsv
-$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
+$env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 $env:AI_GATEWAY_MODEL = "<model-name>"            # the alias you called in lab 02
 # Paste the runtime key from lab 02. Don't commit it or write it to a file.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 ```
 
 Don't remember the provider name? List the Foundry providers:
-`az rest --url "$WS/modelProviders?$API" --query "value[?properties.kind=='Foundry'].name" -o tsv`.
+`az aigateway model-provider list -g "$RG" --gateway-name "$GATEWAY" --query "[?properties.kind=='Foundry'].name" -o tsv`.
 
 ## How it works
 
@@ -132,31 +123,28 @@ Lab 02's provider calls Foundry with the gateway's system-assigned identity. See
 ### Check it with the CLI
 
 ```bash title="Bash"
-az rest --url "$GW?$API" --query identity -o json
+az aigateway identity show -g "$RG" -n "$GATEWAY" -o json
 ```
 
 ```powershell title="PowerShell"
-az rest --url "$GW`?$API" --query identity -o json
+az aigateway identity show -g $RG -n $GATEWAY -o json
 ```
 
 The output shows `type`, which includes `SystemAssigned`, and the system-assigned `principalId` and `tenantId`.
-If the output is empty or `type` is `None`, enable the identity, wait for the gateway to finish updating, and
-grant the new principal **Foundry User** on the Foundry account:
+If the command reports that no identity is assigned to the gateway, enable the system-assigned identity and grant
+the new principal **Foundry User** on the Foundry account. `identity assign` returns when the gateway is ready
+again:
 
 ```bash title="Bash"
-az rest --method patch --url "$GW?$API" --body '{"identity":{"type":"SystemAssigned"}}' -o none
-az resource wait --ids "$GATEWAY_ID" --api-version 2025-09-01-preview --custom "properties.provisioningState=='Succeeded'"
-PRINCIPAL_ID="$(az resource show --ids "$GATEWAY_ID" --query identity.principalId -o tsv)"
+az aigateway identity assign -g "$RG" -n "$GATEWAY" --system-assigned true -o none
+PRINCIPAL_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query identity.principalId -o tsv)"
 az role assignment create --assignee-object-id "$PRINCIPAL_ID" --assignee-principal-type ServicePrincipal \
   --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope "$FOUNDRY_ID"
 ```
 
 ```powershell title="PowerShell"
-'{"identity":{"type":"SystemAssigned"}}' | Set-Content identity.json
-az rest --method patch --url "$GW`?$API" --body "@identity.json" -o none
-az resource wait --ids $GATEWAY_ID --api-version 2025-09-01-preview --custom "properties.provisioningState=='Succeeded'"
-Remove-Item identity.json
-$PRINCIPAL_ID = az resource show --ids $GATEWAY_ID --query identity.principalId -o tsv
+az aigateway identity assign -g $RG -n $GATEWAY --system-assigned true -o none
+$PRINCIPAL_ID = az aigateway show -g $RG -n $GATEWAY --query identity.principalId -o tsv
 az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principal-type ServicePrincipal `
   --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope $FOUNDRY_ID
 ```
@@ -249,23 +237,15 @@ the gateway's tenant.
 
 ### Attach it to the gateway
 
-The request lists both identity types, so the system-assigned identity stays enabled. Changing the gateway's
-identity runs in the background; `az resource wait` returns when the gateway is ready again.
+`identity assign` adds your identity and keeps the identities the gateway already has, including the
+system-assigned one. It returns when the gateway is ready again.
 
 ```bash title="Bash"
-jq -cn --arg id "$IDENTITY_ID" \
-  '{identity:{type:"SystemAssigned, UserAssigned",userAssignedIdentities:{($id):{}}}}' > identity.json
-az rest --method patch --url "$GW?$API" --body @identity.json -o none
-az resource wait --ids "$GATEWAY_ID" --api-version 2025-09-01-preview --custom "properties.provisioningState=='Succeeded'"
-rm identity.json
+az aigateway identity assign -g "$RG" -n "$GATEWAY" --user-assigned "$IDENTITY_ID" -o none
 ```
 
 ```powershell title="PowerShell"
-@{ identity = @{ type = "SystemAssigned, UserAssigned"; userAssignedIdentities = @{ $IDENTITY_ID = @{} } } } |
-  ConvertTo-Json -Depth 10 -Compress | Set-Content identity.json
-az rest --method patch --url "$GW`?$API" --body "@identity.json" -o none
-az resource wait --ids $GATEWAY_ID --api-version 2025-09-01-preview --custom "properties.provisioningState=='Succeeded'"
-Remove-Item identity.json
+az aigateway identity assign -g $RG -n $GATEWAY --user-assigned $IDENTITY_ID -o none
 ```
 
 ### Grant Foundry User on the Foundry account
@@ -283,8 +263,8 @@ az role assignment create --assignee-object-id $IDENTITY_PRINCIPAL_ID --assignee
 Grant the role on the Foundry account itself, the resource that the provider calls.
 
 > **Checkpoint**
-> `az rest --url "$GW?$API" --query identity.userAssignedIdentities -o json` lists your identity, with its
-> `clientId` and `principalId`, and
+> `az aigateway identity show -g "$RG" -n "$GATEWAY" --query userAssignedIdentities -o json` lists your identity,
+> with its `clientId` and `principalId`, and
 > `az role assignment list --assignee "$IDENTITY_PRINCIPAL_ID" --scope "$FOUNDRY_ID" --query "[].roleDefinitionName" -o tsv`
 > prints `Foundry User`.
 
@@ -329,28 +309,20 @@ The outputs show `identityId`, `clientId`, `principalId`, and the role assignmen
 ### Attach the identity to the gateway
 
 The template doesn't declare the gateway: an identity block in Bicep redeploys the whole gateway resource. Attach
-the identity with the CLI instead. The request lists both identity types, so the system-assigned identity stays
-enabled.
+the identity with the CLI instead. `identity assign` keeps the identities the gateway already has, including the
+system-assigned one, and returns when the gateway is ready again.
 
 ```bash title="Bash"
-jq -cn --arg id "$IDENTITY_ID" \
-  '{identity:{type:"SystemAssigned, UserAssigned",userAssignedIdentities:{($id):{}}}}' > identity.json
-az rest --method patch --url "$GW?$API" --body @identity.json -o none
-az resource wait --ids "$GATEWAY_ID" --api-version 2025-09-01-preview --custom "properties.provisioningState=='Succeeded'"
-rm identity.json
+az aigateway identity assign -g "$RG" -n "$GATEWAY" --user-assigned "$IDENTITY_ID" -o none
 ```
 
 ```powershell title="PowerShell"
-@{ identity = @{ type = "SystemAssigned, UserAssigned"; userAssignedIdentities = @{ $IDENTITY_ID = @{} } } } |
-  ConvertTo-Json -Depth 10 -Compress | Set-Content identity.json
-az rest --method patch --url "$GW`?$API" --body "@identity.json" -o none
-az resource wait --ids $GATEWAY_ID --api-version 2025-09-01-preview --custom "properties.provisioningState=='Succeeded'"
-Remove-Item identity.json
+az aigateway identity assign -g $RG -n $GATEWAY --user-assigned $IDENTITY_ID -o none
 ```
 
 > **Checkpoint**
-> The deployment succeeds, and `az rest --url "$GW?$API" --query identity.userAssignedIdentities -o json` lists
-> your identity.
+> The deployment succeeds, and
+> `az aigateway identity show -g "$RG" -n "$GATEWAY" --query userAssignedIdentities -o json` lists your identity.
 
 <!-- /tracks -->
 
@@ -374,49 +346,49 @@ commands, for example in [Azure Cloud Shell](https://shell.azure.com). They read
 settings, set `clientId`, and write the settings back:
 
 ```bash title="Bash"
-az rest --url "$WS/modelProviders/$PROVIDER?$API" --query properties.foundry -o json \
-  | jq -c --arg c "$IDENTITY_CLIENT_ID" '{properties:{foundry:(.authentication.managedIdentity.clientId=$c)}}' \
-  > provider.json
-az rest --method patch --url "$WS/modelProviders/$PROVIDER?$API" --body @provider.json \
+az aigateway model-provider show -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --query properties.foundry -o json \
+  | jq -c --arg c "$IDENTITY_CLIENT_ID" '.authentication.managedIdentity.clientId=$c' > foundry.json
+az aigateway model-provider update -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --foundry @foundry.json \
   --query properties.foundry.authentication
-rm provider.json
+rm foundry.json
 ```
 
 ```powershell title="PowerShell"
-$foundry = az rest --url "$WS/modelProviders/${PROVIDER}?$API" --query properties.foundry -o json | ConvertFrom-Json
+$foundry = az aigateway model-provider show -g $RG --gateway-name $GATEWAY -n $PROVIDER --query properties.foundry `
+  -o json | ConvertFrom-Json
 $foundry.authentication.managedIdentity |
   Add-Member -NotePropertyName clientId -NotePropertyValue $IDENTITY_CLIENT_ID -Force
-@{ properties = @{ foundry = $foundry } } | ConvertTo-Json -Depth 10 -Compress | Set-Content provider.json
-az rest --method patch --url "$WS/modelProviders/${PROVIDER}?$API" --body "@provider.json" `
+$foundry | ConvertTo-Json -Depth 10 -Compress | Set-Content foundry.json
+az aigateway model-provider update -g $RG --gateway-name $GATEWAY -n $PROVIDER --foundry "@foundry.json" `
   --query properties.foundry.authentication
-Remove-Item provider.json
+Remove-Item foundry.json
 ```
 
 <!-- track: cli | Azure CLI -->
 
 ### Update the provider's authentication
 
-A `PATCH` of `properties.foundry` replaces the whole `foundry` object, so a body with only `authentication`
-fails. Read the current settings, set `clientId`, and send the whole object back. The endpoint and accounts stay
+`--foundry` replaces the whole `foundry` object, so a value with only `authentication` fails. Read the current
+settings, set `clientId`, and send the whole object back. The endpoint and accounts stay
 as they are, and models are separate resources.
 
 ```bash title="Bash"
-az rest --url "$WS/modelProviders/$PROVIDER?$API" --query properties.foundry -o json \
-  | jq -c --arg c "$IDENTITY_CLIENT_ID" '{properties:{foundry:(.authentication.managedIdentity.clientId=$c)}}' \
-  > provider.json
-az rest --method patch --url "$WS/modelProviders/$PROVIDER?$API" --body @provider.json \
+az aigateway model-provider show -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --query properties.foundry -o json \
+  | jq -c --arg c "$IDENTITY_CLIENT_ID" '.authentication.managedIdentity.clientId=$c' > foundry.json
+az aigateway model-provider update -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --foundry @foundry.json \
   --query properties.foundry.authentication
-rm provider.json
+rm foundry.json
 ```
 
 ```powershell title="PowerShell"
-$foundry = az rest --url "$WS/modelProviders/${PROVIDER}?$API" --query properties.foundry -o json | ConvertFrom-Json
+$foundry = az aigateway model-provider show -g $RG --gateway-name $GATEWAY -n $PROVIDER --query properties.foundry `
+  -o json | ConvertFrom-Json
 $foundry.authentication.managedIdentity |
   Add-Member -NotePropertyName clientId -NotePropertyValue $IDENTITY_CLIENT_ID -Force
-@{ properties = @{ foundry = $foundry } } | ConvertTo-Json -Depth 10 -Compress | Set-Content provider.json
-az rest --method patch --url "$WS/modelProviders/${PROVIDER}?$API" --body "@provider.json" `
+$foundry | ConvertTo-Json -Depth 10 -Compress | Set-Content foundry.json
+az aigateway model-provider update -g $RG --gateway-name $GATEWAY -n $PROVIDER --foundry "@foundry.json" `
   --query properties.foundry.authentication
-Remove-Item provider.json
+Remove-Item foundry.json
 ```
 
 <!-- track: iac | Bicep -->
@@ -470,13 +442,13 @@ az deployment group create -g $RG `
 ### Confirm which identity the provider uses
 
 ```bash title="Bash"
-az rest --url "$WS/modelProviders/$PROVIDER?$API" \
+az aigateway model-provider show -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" \
   --query properties.foundry.authentication.managedIdentity.clientId -o tsv
 echo "$IDENTITY_CLIENT_ID"
 ```
 
 ```powershell title="PowerShell"
-az rest --url "$WS/modelProviders/${PROVIDER}?$API" `
+az aigateway model-provider show -g $RG --gateway-name $GATEWAY -n $PROVIDER `
   --query properties.foundry.authentication.managedIdentity.clientId -o tsv
 $IDENTITY_CLIENT_ID
 ```
@@ -549,20 +521,21 @@ Removing `clientId` selects the system-assigned identity again. As before, read 
 them, and write them back:
 
 ```bash title="Bash"
-az rest --url "$WS/modelProviders/$PROVIDER?$API" --query properties.foundry -o json \
-  | jq -c '{properties:{foundry:(del(.authentication.managedIdentity.clientId))}}' > provider.json
-az rest --method patch --url "$WS/modelProviders/$PROVIDER?$API" --body @provider.json \
+az aigateway model-provider show -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --query properties.foundry -o json \
+  | jq -c 'del(.authentication.managedIdentity.clientId)' > foundry.json
+az aigateway model-provider update -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --foundry @foundry.json \
   --query properties.foundry.authentication
-rm provider.json
+rm foundry.json
 ```
 
 ```powershell title="PowerShell"
-$foundry = az rest --url "$WS/modelProviders/${PROVIDER}?$API" --query properties.foundry -o json | ConvertFrom-Json
+$foundry = az aigateway model-provider show -g $RG --gateway-name $GATEWAY -n $PROVIDER --query properties.foundry `
+  -o json | ConvertFrom-Json
 $foundry.authentication.managedIdentity.PSObject.Properties.Remove('clientId')
-@{ properties = @{ foundry = $foundry } } | ConvertTo-Json -Depth 10 -Compress | Set-Content provider.json
-az rest --method patch --url "$WS/modelProviders/${PROVIDER}?$API" --body "@provider.json" `
+$foundry | ConvertTo-Json -Depth 10 -Compress | Set-Content foundry.json
+az aigateway model-provider update -g $RG --gateway-name $GATEWAY -n $PROVIDER --foundry "@foundry.json" `
   --query properties.foundry.authentication
-Remove-Item provider.json
+Remove-Item foundry.json
 ```
 
 The output no longer shows `clientId`.
@@ -571,22 +544,18 @@ If you used the Bicep track, redeploy `infra/provider.bicep` without `identityCl
 
 ### Detach the identity from the gateway
 
-Set the gateway's identity back to the system-assigned identity only:
+Remove your identity from the gateway. `identity remove` returns when the gateway is ready again:
 
 ```bash title="Bash"
-az rest --method patch --url "$GW?$API" --body '{"identity":{"type":"SystemAssigned"}}' -o none
-az resource wait --ids "$GATEWAY_ID" --api-version 2025-09-01-preview --custom "properties.provisioningState=='Succeeded'"
+az aigateway identity remove -g "$RG" -n "$GATEWAY" --user-assigned "$IDENTITY_ID" -o none
 ```
 
 ```powershell title="PowerShell"
-'{"identity":{"type":"SystemAssigned"}}' | Set-Content identity.json
-az rest --method patch --url "$GW`?$API" --body "@identity.json" -o none
-az resource wait --ids $GATEWAY_ID --api-version 2025-09-01-preview --custom "properties.provisioningState=='Succeeded'"
-Remove-Item identity.json
+az aigateway identity remove -g $RG -n $GATEWAY --user-assigned $IDENTITY_ID -o none
 ```
 
-This detaches every user-assigned identity from the gateway and keeps the system-assigned one. If other assets
-use another user-assigned identity on this gateway, detach yours in the portal instead.
+This detaches only your identity. The system-assigned identity and any other user-assigned identities stay
+attached.
 
 In the portal, select the identity in **User-assigned identities**, select the delete button in the toolbar, then
 **Detach**. Detaching removes the identity from this gateway only.
@@ -616,9 +585,9 @@ Delete the role assignment first. Deleting the identity alone leaves an orphaned
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `403` mentioning permissions on the Foundry account right after the switch | The role assignment hasn't propagated, or it's at a different scope than the Foundry account | Wait a few minutes. Check `az role assignment list --assignee "$IDENTITY_PRINCIPAL_ID" --scope "$FOUNDRY_ID" -o table`. |
-| Calls fail after the switch and the role is in place | `clientId` holds the principal (object) ID, or the identity isn't attached to the gateway | Use the identity's **Client ID**, and check that `az rest --url "$GW?$API" --query identity.userAssignedIdentities` lists the identity. |
-| The `PATCH` that attaches the identity fails with an authorization error | You can't assign that identity to resources | Ask for **Managed Identity Operator** on the identity. |
-| `az rest --url "$GW?$API" --query identity` prints nothing, or `type` is `None` | The gateway has no managed identity | Enable it with the `PATCH` in [Check the system-assigned identity](#check-the-system-assigned-identity), then grant it **Foundry User**. |
+| Calls fail after the switch and the role is in place | `clientId` holds the principal (object) ID, or the identity isn't attached to the gateway | Use the identity's **Client ID**, and check that `az aigateway identity show -g "$RG" -n "$GATEWAY" --query userAssignedIdentities` lists the identity. |
+| `az aigateway identity assign` fails with an authorization error | You can't assign that identity to resources | Ask for **Managed Identity Operator** on the identity. |
+| `az aigateway identity show` reports that no identity is assigned to the gateway | The gateway has no managed identity | Enable it with `az aigateway identity assign` in [Check the system-assigned identity](#check-the-system-assigned-identity), then grant it **Foundry User**. |
 | Calls fail after you detach an identity or disable the system identity | An asset still uses that identity | Check **View access** › **Backend access** before you remove an identity, and switch those assets first. |
 | `AuthorizationFailed` on `roleAssignments` | You can't create role assignments on the Foundry account | Ask for **Role Based Access Control Administrator** on the account, or have an owner grant the role. |
 

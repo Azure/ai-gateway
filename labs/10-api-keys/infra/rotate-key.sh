@@ -12,28 +12,29 @@
 #   export RG="<resource-group>" GATEWAY="<gateway>"
 #   export KEY_VAULT="<key-vault-name>"     # optional: store the new value as secret <key-name>-api-key
 #   ./rotate-key.sh <key-name> <primary|secondary>
-# Requires the Azure CLI 2.75 or later. It calls the Azure Resource Manager REST API with az rest, because the
-# az aigateway extension doesn't manage the Microsoft.ApiManagement/aigateways resource type yet.
+# Requires the Azure CLI 2.75 or later with the aigateway extension. The extension can't regenerate the secondary
+# value yet, so for that value the script calls the Azure Resource Manager REST API with az rest.
 set -euo pipefail
 
 NAME="${1:?Usage: rotate-key.sh <key-name> <primary|secondary>}"
 TYPE="${2:?Usage: rotate-key.sh <key-name> <primary|secondary>}"
 case "$TYPE" in
-  primary)   ACTION="regeneratePrimaryKey" ;;
-  secondary) ACTION="regenerateSecondaryKey" ;;
+  primary|secondary) ;;
   *) echo "error: the second argument must be primary or secondary" >&2; exit 2 ;;
 esac
 : "${RG:?Set RG to the gateway resource group}"
 : "${GATEWAY:?Set GATEWAY to the gateway name}"
 
-API="api-version=2025-09-01-preview"
-GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways \
-  --query id -o tsv)"
-KEY_URL="https://management.azure.com$GATEWAY_ID/apiKeys/$NAME"
+if [[ "$TYPE" == "primary" ]]; then
+  az aigateway api-key regenerate -g "$RG" --gateway-name "$GATEWAY" -n "$NAME" --key-type primary -o none
+else
+  API="api-version=2025-09-01-preview"
+  GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
+  az rest --method post --url "https://management.azure.com$GATEWAY_ID/apiKeys/$NAME/regenerateSecondaryKey?$API" \
+    -o none
+fi
 
-az rest --method post --url "$KEY_URL/$ACTION?$API" -o none
-
-VALUE="$(az rest --method post --url "$KEY_URL/listSecrets?$API" --query "${TYPE}Key" -o tsv)"
+VALUE="$(az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n "$NAME" --query "${TYPE}Key" -o tsv)"
 if [[ -z "$VALUE" ]]; then
   echo "error: couldn't read the new $TYPE value. You need the apiKeys/listSecrets/action permission." >&2
   exit 1
@@ -46,5 +47,5 @@ if [[ -n "${KEY_VAULT:-}" ]]; then
     --tags "aigateway-key=$NAME" "key-type=$TYPE" -o none
   echo "Stored it in Key Vault '$KEY_VAULT' as secret '$SECRET'."
 else
-  echo "Read it with: az rest --method post --url \"$KEY_URL/listSecrets?$API\" --query ${TYPE}Key -o tsv"
+  echo "Read it with: az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n $NAME --query ${TYPE}Key -o tsv"
 fi

@@ -1,8 +1,8 @@
 // Creates a user-assigned managed identity for AI Gateway to call its backends with, and grants that identity
 // the Foundry User role on an existing Foundry (Azure AI Services) or Azure OpenAI account.
-// Attaching the identity to the gateway is a separate step (an az rest PATCH of the gateway's identity): declaring
-// the gateway here would redeploy the whole gateway resource. Point a model provider at the identity afterwards
-// with provider.bicep or an az rest PATCH of the provider.
+// Attaching the identity to the gateway is a separate step (az aigateway identity assign): declaring the gateway
+// here would redeploy the whole gateway resource. Point a model provider at the identity afterwards with
+// provider.bicep or az aigateway model-provider update.
 targetScope = 'resourceGroup'
 
 @description('Name of the user-assigned managed identity to create.')

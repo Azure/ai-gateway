@@ -35,7 +35,8 @@ then prove that a token limit still counts every streamed token.
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need a gateway, an imported
   model, a callable alias, and a runtime API key from **Access** › **Keys**.
 - For the shell steps: `curl` and `jq` for Bash, or PowerShell 7.4 or later. For the CLI and IaC tracks: the
-  [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with `az login`.
+  [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with `az login`,
+  and the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)).
 - For the Code track: Python 3.10 or later, or Node.js 22.18 or later.
 - Permission to change the gateway, for example **Contributor** on the resource group, for the token limit steps.
 
@@ -49,14 +50,11 @@ export PROVIDER="<provider-name>"          # for example foundry-models
 export MODEL="<model-name>"                # the backend model name under that provider
 export STREAM_ALIAS="$MODEL-stream"        # the token-limited alias that this lab creates
 
-export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
-export GW="https://management.azure.com$GATEWAY_ID"
-export WS="$GW/workspaces/default"
-export MODEL_URL="$WS/modelProviders/$PROVIDER/models/$MODEL"
-export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
+export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
+export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 # A starting guess for the alias. Confirm it on the model's Aliases tab (lab 02) and replace it if it differs.
-export AI_GATEWAY_MODEL="$(az rest --url "$MODEL_URL?$API" --query properties.deployment.modelName -o tsv)"
+export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --query properties.deployment.modelName -o tsv)"
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
 ```
@@ -68,14 +66,11 @@ $PROVIDER     = "<provider-name>"           # for example foundry-models
 $MODEL        = "<model-name>"              # the backend model name under that provider
 $STREAM_ALIAS = "$MODEL-stream"             # the token-limited alias that this lab creates
 
-$API        = "api-version=2025-09-01-preview"
-$GATEWAY_ID = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
-$GW         = "https://management.azure.com$GATEWAY_ID"
-$WS         = "$GW/workspaces/default"
-$MODEL_URL  = "$WS/modelProviders/$PROVIDER/models/$MODEL"
-$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
+$GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
+$env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 # A starting guess for the alias. Confirm it on the model's Aliases tab (lab 02) and replace it if it differs.
-$env:AI_GATEWAY_MODEL = az rest --url "$MODEL_URL`?$API" --query properties.deployment.modelName -o tsv
+$env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
+  --query properties.deployment.modelName -o tsv
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 ```
@@ -404,27 +399,30 @@ lab 02, so clients that call that alias aren't affected.
 
 ### Create the alias with its token limit
 
-An alias carries its own `policies` array, so one `PUT` creates the alias and its limit together.
+An alias carries its own `policies` array, so one command creates the alias and its limit together.
 
 ```bash title="Bash"
-az rest --method put --url "$WS/aliases/$STREAM_ALIAS?$API" \
-  --body "$(jq -cn --arg m "$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" '{properties: {
-      description: "Streaming lab: 1,000 tokens per minute for each caller",
-      backendModels: [{resourceId: $m}],
-      policies: [{type: "tokenLimit", count: 1000, period: "minute", counterKey: ["identity"]}]}}')" \
-  --query "{alias:name, policies:properties.policies}" -o json
+az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$STREAM_ALIAS" \
+  --description "Streaming lab: 1,000 tokens per minute for each caller" \
+  --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" \
+  --policies '[{"type": "tokenLimit", "count": 1000, "period": "minute", "counterKey": ["identity"]}]' \
+  --only-show-errors --query "{alias:name, policies:properties.policies}" -o json
 ```
 
 ```powershell title="PowerShell"
-@{ properties = @{
-    description   = "Streaming lab: 1,000 tokens per minute for each caller"
-    backendModels = @(@{ resourceId = "$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" })
-    policies      = @(@{ type = "tokenLimit"; count = 1000; period = "minute"; counterKey = @("identity") })
-  } } | ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
-az rest --method put --url "$WS/aliases/$STREAM_ALIAS`?$API" --body "@body.json" `
-  --query "{alias:name, policies:properties.policies}" -o json
-Remove-Item body.json
+ConvertTo-Json -Depth 10 -Compress -InputObject @(
+  @{ type = "tokenLimit"; count = 1000; period = "minute"; counterKey = @("identity") }
+) | Set-Content policies.json
+az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $STREAM_ALIAS `
+  --description "Streaming lab: 1,000 tokens per minute for each caller" `
+  --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" `
+  --policies "@policies.json" `
+  --only-show-errors --query "{alias:name, policies:properties.policies}" -o json
+Remove-Item policies.json
 ```
+
+If the alias already exists, `create` fails. Change it with `az aigateway model-alias update` and the same
+arguments instead.
 
 > **Checkpoint**
 > The output shows your alias and one policy with `"type": "tokenLimit"`, `"count": 1000`, `"period": "minute"`,
@@ -587,11 +585,11 @@ Delete the streaming alias. Its token limit goes with it, and the backend model 
 In the portal, open `<model-name>-stream` in **Models** › **Aliases** and select **Delete**. From a shell:
 
 ```bash title="Bash"
-az rest --method delete --url "$WS/aliases/$STREAM_ALIAS?$API"
+az aigateway model-alias delete -g "$RG" --gateway-name "$GATEWAY" -n "$STREAM_ALIAS" --yes
 ```
 
 ```powershell title="PowerShell"
-az rest --method delete --url "$WS/aliases/$STREAM_ALIAS`?$API"
+az aigateway model-alias delete -g $RG --gateway-name $GATEWAY -n $STREAM_ALIAS --yes
 ```
 
 Keep the gateway, model, and key. The next labs reuse them.

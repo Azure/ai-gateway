@@ -248,9 +248,14 @@ Keep the video optional: every step it shows must also be written in the lab.
   Gateway names have 24 characters or fewer, and the runtime URL is `https://` plus
   `properties.frontend.defaultHostname` (`<name>.<region>-01.ai.gateway.azure.com`).
 - Policy `counterKey` values are arrays: `counterKey: [ 'identity' ]` or `[ 'ipAddress' ]`.
-- CLI tracks call ARM with `az rest`, because the `az aigateway` extension doesn't manage `aigateways` yet.
-  Set `GATEWAY_ID`, `GW`, `WS` (`$GW/workspaces/default`), and `API` (`api-version=2025-09-01-preview`) once at the
-  top of the track. `PATCH` replaces whole arrays such as `properties.policies`, so read, edit, then write.
+- CLI tracks use the `az aigateway` extension, which [lab 01](01-provision-gateway/README.md#before-you-begin)
+  installs, for gateways, providers, aliases, API keys, and MCP servers. Call ARM with `az rest` only for what the
+  extension can't do yet: register models, set policies and telemetry exporters, manage MCP versions and tool rules,
+  change network settings, rotate secondary keys, and create the connector gateway. Say why in one sentence. Set
+  `GATEWAY_ID` with `az aigateway show` once at the top of the track, plus `WS`
+  (`https://management.azure.com$GATEWAY_ID/workspaces/default`) and `API` (`api-version=2025-09-01-preview`) when
+  the track still calls `az rest`. `PATCH` replaces whole arrays such as `properties.policies`, so read, edit, then
+  write.
 - Parameterize names and locations; default `location` to `resourceGroup().location`.
 - Mirror the structure of the existing labs: lab 01 for a single template, lab 21 for modules, and lab 16 for an
   azd project.

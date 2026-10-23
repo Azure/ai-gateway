@@ -64,9 +64,8 @@ send the gateway's OpenTelemetry signals to Application Insights and answer all 
   gateway's managed identity a role on the telemetry destination. To reuse an existing Application Insights
   resource, you also need **Application Insights Contributor** on it.
 - To generate traffic: `curl` (Bash) or PowerShell 7. For the variable block below and the IaC track: the
-  [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with `az login`.
-  The commands read the gateway with `az resource` and `az rest`, because the `az aigateway` extension doesn't
-  manage the new `aigateways` resource type yet.
+  [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with `az login`,
+  and the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)).
 
 Set these variables once. The tracks and the traffic script reuse them.
 
@@ -78,9 +77,9 @@ export GATEWAY="<gateway>"
 export AI_GATEWAY_MODEL="<model-name>"     # a callable alias, for example the one you used in lab 02
 
 export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
+export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
 export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
-export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
+export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
 ```
@@ -94,9 +93,9 @@ $GATEWAY = "<gateway>"
 $env:AI_GATEWAY_MODEL = "<model-name>"     # a callable alias, for example the one you used in lab 02
 
 $API        = "api-version=2025-09-01-preview"
-$GATEWAY_ID = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
+$GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
 $WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
-$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
+$env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 ```
@@ -610,7 +609,8 @@ with **1H** selected. **Model calls** grows by at least five.
 Open **Settings**. All three signals point at your Application Insights resource, and the dashboard doesn't show
 "Enable all telemetry signals".
 
-To check the exporter from the CLI, list the gateway's telemetry exporters:
+To check the exporter from the CLI, list the gateway's telemetry exporters. The `aigateway` extension doesn't
+manage telemetry exporters yet, so call the Azure Resource Manager REST API with `az rest`:
 
 <details open><summary>Bash</summary> <!-- gh -->
 

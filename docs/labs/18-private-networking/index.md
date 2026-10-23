@@ -45,8 +45,8 @@ while the internet can't.
 - Private routing can only be chosen when a gateway is created, so this lab creates a **new** gateway. The
   gateway from the earlier labs stays as it is.
 - The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
-  `az login`, plus `jq` for the Bash snippets. Every track uses the CLI for the checks. The CLI track calls the
-  Azure Resource Manager REST API with `az rest`, so you don't need a CLI extension.
+  `az login`, the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)), and
+  `jq` for the Bash snippets. Every track uses the CLI for the checks.
 - Permission to create a resource group, network resources, and a gateway, to change the Foundry resource, and
   to assign roles on it, for example **Owner**, or **Contributor** plus **Role Based Access Control
   Administrator**.
@@ -72,8 +72,7 @@ export GATEWAY="<private-gateway>"           # a NEW, globally unique name, 24 c
 export API="api-version=2025-09-01-preview"
 export SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
 export GATEWAY_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
-export GW="https://management.azure.com$GATEWAY_ID"
-export WS="$GW/workspaces/default"
+export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
 
 export VNET="vnet-aigw"
 export INTEGRATION_SUBNET="snet-aigw-integration"
@@ -103,8 +102,7 @@ $GATEWAY         = "<private-gateway>"       # a NEW, globally unique name, 24 c
 $API             = "api-version=2025-09-01-preview"
 $SUBSCRIPTION_ID = az account show --query id -o tsv
 $GATEWAY_ID      = "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
-$GW              = "https://management.azure.com$GATEWAY_ID"
-$WS              = "$GW/workspaces/default"
+$WS              = "https://management.azure.com$GATEWAY_ID/workspaces/default"
 
 $VNET               = "vnet-aigw"
 $INTEGRATION_SUBNET = "snet-aigw-integration"
@@ -146,7 +144,7 @@ after that are DNS: the gateway must resolve each backend to its private IP.
 
 | Piece | Direction | Available today | Where you set it | Key values |
 |---|---|---|---|---|
-| Integration subnet | Outbound | Yes | Your virtual network | At least `/27` (`/24` recommended), same subscription and region as the gateway, dedicated to one gateway, delegated to `Microsoft.Web/serverFarms`, NSG allows outbound TCP 443 to `Storage` and `AzureKeyVault` |
+| Integration subnet | Outbound | Yes | Your virtual network | At least `/27` (`/24` recommended), same subscription and region as the gateway, dedicated to one gateway, delegated to `Microsoft.App/environments`, NSG allows outbound TCP 443 to `Storage` and `AzureKeyVault` |
 | Private routing | Outbound | Yes, at creation only | **Create AI gateway** › **Advanced** › **Private routing** | `properties.backend.subnet.id` set to the integration subnet |
 | Backend private endpoints | Outbound | Yes | Each backend, plus its private DNS zones linked to the virtual network | Foundry uses the `account` group ID |
 | Gateway private endpoint | Inbound | Not yet | — | The gateway has no private link resources |
@@ -160,7 +158,7 @@ backend private endpoints get their own subnet.
 
 | Subnet | Prefix | Used for | Settings |
 |---|---|---|---|
-| `snet-aigw-integration` | `10.20.0.0/24` | Gateway private routing (outbound) | NSG `nsg-aigw-integration`, delegated to `Microsoft.Web/serverFarms`, nothing else deployed in it |
+| `snet-aigw-integration` | `10.20.0.0/24` | Gateway private routing (outbound) | NSG `nsg-aigw-integration`, delegated to `Microsoft.App/environments`, nothing else deployed in it |
 | `snet-private-endpoints` | `10.20.1.0/24` | Private endpoints to backends such as Foundry | None |
 
 Pick one track. The IaC track declares the network, the gateway, and the Foundry private endpoint in one
@@ -182,11 +180,11 @@ in the lab's resource group and region. Add two **outbound** security rules:
 
 Create a virtual network named `vnet-aigw` in the **same subscription and region as the new gateway**, with the
 address space `10.20.0.0/16`. Add the two subnets from the table above. On `snet-aigw-integration`, select the
-`nsg-aigw-integration` network security group and delegate the subnet to `Microsoft.Web/serverFarms`.
+`nsg-aigw-integration` network security group and delegate the subnet to `Microsoft.App/environments`.
 
 > **Checkpoint**
 > The virtual network shows two subnets, and `snet-aigw-integration` lists the delegation
-> `Microsoft.Web/serverFarms` and the NSG `nsg-aigw-integration`.
+> `Microsoft.App/environments` and the NSG `nsg-aigw-integration`.
 
 <!-- track: cli | Azure CLI -->
 
@@ -213,13 +211,13 @@ az network vnet create -g "$RG" -n "$VNET" -l "$LOCATION" --address-prefixes 10.
 
 az network vnet subnet create -g "$RG" --vnet-name "$VNET" -n "$INTEGRATION_SUBNET" \
   --address-prefixes 10.20.0.0/24 \
-  --delegations Microsoft.Web/serverFarms --network-security-group "$NSG"
+  --delegations Microsoft.App/environments --network-security-group "$NSG"
 
 az network vnet subnet create -g "$RG" --vnet-name "$VNET" -n "$PE_SUBNET" --address-prefixes 10.20.1.0/24
 ```
 
 > **Checkpoint**
-> This command shows the `/24` prefix, the `Microsoft.Web/serverFarms` delegation, and the NSG:
+> This command shows the `/24` prefix, the `Microsoft.App/environments` delegation, and the NSG:
 >
 > ```bash
 > az network vnet subnet show -g "$RG" --vnet-name "$VNET" -n "$INTEGRATION_SUBNET" \
@@ -271,9 +269,15 @@ add it later is to create another gateway.
 1. Select **Private routing** ("Allow access to private backends through secure outbound connections").
 2. In **Virtual network**, select `vnet-aigw`. In **Subnet**, select `snet-aigw-integration`.
 3. The portal checks the subnet: same subscription and region as the gateway, at least `/27` (`/24` leaves room to
-   scale), delegated to `Microsoft.Web/serverFarms`, dedicated to one gateway, and an NSG that allows outbound
-   TCP 443 to the `Storage` and `AzureKeyVault` service tags. Fix anything it flags before you continue.
+   scale), the subnet delegation, dedicated to one gateway, and an NSG that allows outbound TCP 443 to the
+   `Storage` and `AzureKeyVault` service tags. Fix anything it flags before you continue, except the delegation
+   warning described in the note after these steps.
 4. Select **Create gateway** and wait for provisioning to finish.
+
+> [!NOTE]
+> The portal's check **Subnet delegated to Microsoft.Web/serverFarms** still expects the old delegation, so it
+> shows a warning: `Subnet "snet-aigw-integration" is delegated to Microsoft.App/environments instead.` The
+> service requires `Microsoft.App/environments`, so continue. The warning doesn't block the create.
 
 > **Checkpoint**
 > The gateway switcher shows the new gateway, and **Home** opens with the setup guide.
@@ -290,6 +294,8 @@ az provider register -n Microsoft.Web --wait
 ### Create the connector gateway
 
 Every AI gateway has a companion `Microsoft.Web/connectorGateways` resource with the same name, created first.
+The `aigateway` extension creates only the AI gateway, so create the connector gateway through the Azure Resource
+Manager REST API with `az rest`.
 
 ```bash title="Bash"
 az rest --method put \
@@ -302,41 +308,30 @@ az rest --method put \
 az rest --method put `
   --url "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Web/connectorGateways/${GATEWAY}?api-version=2026-05-01-preview" `
   --body "@body.json" -o none
+Remove-Item body.json
 ```
 
 ### Create the gateway in the integration subnet
 
-The request is the same as in lab 01, plus `properties.backend.subnet.id`.
+The command is the same as in lab 01, plus `--subnet`, which sets `properties.backend.subnet.id`. It waits until
+provisioning finishes, usually within a few minutes.
 
 ```bash title="Bash"
 SUBNET_ID="$(az network vnet subnet show -g "$RG" --vnet-name "$VNET" -n "$INTEGRATION_SUBNET" --query id -o tsv)"
 
-az rest --method put --url "$GW?$API" \
-  --body "$(jq -cn --arg location "$LOCATION" --arg subnet "$SUBNET_ID" \
-    '{location: $location, identity: {type: "SystemAssigned"},
-      properties: {publicNetworkAccess: "Enabled", backend: {subnet: {id: $subnet}}}}')" -o none
-
-az resource wait --ids "$GATEWAY_ID" --api-version 2025-09-01-preview \
-  --custom "properties.provisioningState=='Succeeded'"
+az aigateway create -g "$RG" -n "$GATEWAY" --location "$LOCATION" --system-assigned true \
+  --subnet "$SUBNET_ID" -o none
 ```
 
 ```powershell title="PowerShell"
 $SUBNET_ID = az network vnet subnet show -g $RG --vnet-name $VNET -n $INTEGRATION_SUBNET --query id -o tsv
 
-@{
-  location   = $LOCATION
-  identity   = @{ type = "SystemAssigned" }
-  properties = @{ publicNetworkAccess = "Enabled"; backend = @{ subnet = @{ id = $SUBNET_ID } } }
-} | ConvertTo-Json -Depth 5 -Compress | Set-Content body.json
-az rest --method put --url "${GW}?$API" --body "@body.json" -o none
-Remove-Item body.json
-
-az resource wait --ids $GATEWAY_ID --api-version 2025-09-01-preview `
-  --custom "properties.provisioningState=='Succeeded'"
+az aigateway create -g $RG -n $GATEWAY --location $LOCATION --system-assigned true `
+  --subnet $SUBNET_ID -o none
 ```
 
 > **Checkpoint**
-> `az resource wait` returns without an error, usually within a few minutes.
+> `az aigateway create` returns without an error, usually within a few minutes.
 
 <!-- track: iac | Bicep -->
 
@@ -376,16 +371,16 @@ Bicep has no type definitions for these preview types yet.
 Whichever track you used, load the runtime URL and confirm that the gateway uses the integration subnet:
 
 ```bash title="Bash"
-export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
+export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 
-az rest --url "$GW?$API" \
+az aigateway show -g "$RG" -n "$GATEWAY" \
   --query "{state:properties.provisioningState, backendSubnet:properties.backend.subnet.id, host:properties.frontend.defaultHostname}"
 ```
 
 ```powershell title="PowerShell"
-$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
+$env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 
-az rest --url "${GW}?$API" `
+az aigateway show -g $RG -n $GATEWAY `
   --query "{state:properties.provisioningState, backendSubnet:properties.backend.subnet.id, host:properties.frontend.defaultHostname}"
 ```
 
@@ -512,13 +507,13 @@ $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 ### Grant the gateway access to Foundry
 
 ```bash title="Bash"
-PRINCIPAL_ID="$(az resource show --ids "$GATEWAY_ID" --query identity.principalId -o tsv)"
+PRINCIPAL_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query identity.principalId -o tsv)"
 az role assignment create --assignee-object-id "$PRINCIPAL_ID" --assignee-principal-type ServicePrincipal \
   --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope "$FOUNDRY_ID" -o none
 ```
 
 ```powershell title="PowerShell"
-$PRINCIPAL_ID = az resource show --ids $GATEWAY_ID --query identity.principalId -o tsv
+$PRINCIPAL_ID = az aigateway show -g $RG -n $GATEWAY --query identity.principalId -o tsv
 az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principal-type ServicePrincipal `
   --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope $FOUNDRY_ID -o none
 ```
@@ -527,11 +522,16 @@ az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principa
 
 ### Publish the deployment and an alias
 
+The `aigateway` extension can't register models on this resource type yet, so the model registration calls the
+Azure Resource Manager REST API with `az rest`. The provider and the alias use the extension.
+
 ```bash title="Bash"
-az rest --method put --url "$WS/modelProviders/$PROVIDER?$API" -o none \
-  --body "$(jq -cn --arg endpoint "$FOUNDRY_ENDPOINT" --arg id "$FOUNDRY_ID" \
-    '{properties: {kind: "Foundry", displayName: "Foundry (private)", foundry: {endpoint: $endpoint, resourceIds: [$id],
-      authentication: {kind: "ManagedIdentity", managedIdentity: {resource: "https://cognitiveservices.azure.com/"}}}}}')"
+az aigateway model-provider create -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" \
+  --kind Foundry --display-name "Foundry (private)" \
+  --foundry "$(jq -cn --arg endpoint "$FOUNDRY_ENDPOINT" --arg id "$FOUNDRY_ID" '{
+      endpoint: $endpoint, resourceIds: [$id],
+      authentication: {kind: "ManagedIdentity",
+                       managedIdentity: {resource: "https://cognitiveservices.azure.com/"}}}')" -o none
 
 az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$DEPLOYMENT?$API" -o none \
   --body "$(jq -cn --arg d "$DEPLOYMENT" --arg id "$FOUNDRY_ID/deployments/$DEPLOYMENT" \
@@ -540,18 +540,19 @@ az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$DEPLOYMENT?$API
       deployment: {resourceId: $id, modelName: $d}}}')"
 
 MODEL_ID="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT"
-az rest --method put --url "$WS/aliases/$ALIAS?$API" -o none \
-  --body "$(jq -cn --arg m "$MODEL_ID" '{properties: {backendModels: [{resourceId: $m}]}}')"
+az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" \
+  --backend-model resource-id="$MODEL_ID" --only-show-errors -o none
 ```
 
 ```powershell title="PowerShell"
-@{ properties = @{
-    kind = "Foundry"; displayName = "Foundry (private)"
-    foundry = @{
-      endpoint = $FOUNDRY_ENDPOINT; resourceIds = @($FOUNDRY_ID)
-      authentication = @{ kind = "ManagedIdentity"; managedIdentity = @{ resource = "https://cognitiveservices.azure.com/" } }
-    } } } | ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
-az rest --method put --url "$WS/modelProviders/${PROVIDER}?$API" --body "@body.json" -o none
+@{
+  endpoint       = $FOUNDRY_ENDPOINT
+  resourceIds    = @($FOUNDRY_ID)
+  authentication = @{ kind = "ManagedIdentity"; managedIdentity = @{ resource = "https://cognitiveservices.azure.com/" } }
+} | ConvertTo-Json -Depth 10 -Compress | Set-Content foundry.json
+az aigateway model-provider create -g $RG --gateway-name $GATEWAY -n $PROVIDER `
+  --kind Foundry --display-name "Foundry (private)" --foundry "@foundry.json" -o none
+Remove-Item foundry.json
 
 @{ properties = @{
     displayName = $DEPLOYMENT; apiFormat = "OpenAIChatCompletions"
@@ -559,30 +560,32 @@ az rest --method put --url "$WS/modelProviders/${PROVIDER}?$API" --body "@body.j
     deployment = @{ resourceId = "$FOUNDRY_ID/deployments/$DEPLOYMENT"; modelName = $DEPLOYMENT }
   } } | ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
 az rest --method put --url "$WS/modelProviders/$PROVIDER/models/${DEPLOYMENT}?$API" --body "@body.json" -o none
+Remove-Item body.json
 
 $MODEL_ID = "$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT"
-@{ properties = @{ backendModels = @(@{ resourceId = $MODEL_ID }) } } |
-  ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
-az rest --method put --url "$WS/aliases/${ALIAS}?$API" --body "@body.json" -o none
-Remove-Item body.json
+az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $ALIAS `
+  --backend-model resource-id="$MODEL_ID" --only-show-errors -o none
 ```
+
+If the alias already exists, `create` fails; change it with `az aigateway model-alias update` and the same
+arguments instead.
 
 ### Create a runtime API key
 
-Read the generated value straight into a variable, so it never appears on screen.
+`api-key create` returns metadata only. Read the generated value with `list-secrets` straight into a variable, so
+it never appears on screen.
 
 ```bash title="Bash"
-az rest --method put --url "$GW/apiKeys/$KEY_NAME?$API" --body '{"properties":{}}' -o none
-AI_GATEWAY_API_KEY="$(az rest --method post --url "$GW/apiKeys/$KEY_NAME/listSecrets?$API" --query primaryKey -o tsv)" \
-  && export AI_GATEWAY_API_KEY
+az aigateway api-key create -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" --display-name "$KEY_NAME" -o none
+AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" \
+  --query primaryKey -o tsv)" && export AI_GATEWAY_API_KEY
 export AI_GATEWAY_MODEL="$ALIAS"
 ```
 
 ```powershell title="PowerShell"
-@{ properties = @{} } | ConvertTo-Json -Compress | Set-Content body.json
-az rest --method put --url "$GW/apiKeys/${KEY_NAME}?$API" --body "@body.json" -o none
-Remove-Item body.json
-$env:AI_GATEWAY_API_KEY = az rest --method post --url "$GW/apiKeys/$KEY_NAME/listSecrets?$API" --query primaryKey -o tsv
+az aigateway api-key create -g $RG --gateway-name $GATEWAY -n $KEY_NAME --display-name $KEY_NAME -o none
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n $KEY_NAME `
+  --query primaryKey -o tsv
 $env:AI_GATEWAY_MODEL   = $ALIAS
 ```
 
@@ -612,17 +615,19 @@ az deployment group create -g $RG `
 
 ### Read the alias and key
 
-Template outputs never contain the key value. Read it straight into a variable.
+Template outputs never contain the key value. Read it with `az aigateway api-key list-secrets` straight into a
+variable.
 
 ```bash title="Bash"
 export AI_GATEWAY_MODEL="$ALIAS"
-AI_GATEWAY_API_KEY="$(az rest --method post --url "$GW/apiKeys/$KEY_NAME/listSecrets?$API" --query primaryKey -o tsv)" \
-  && export AI_GATEWAY_API_KEY
+AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" \
+  --query primaryKey -o tsv)" && export AI_GATEWAY_API_KEY
 ```
 
 ```powershell title="PowerShell"
 $env:AI_GATEWAY_MODEL   = $ALIAS
-$env:AI_GATEWAY_API_KEY = az rest --method post --url "$GW/apiKeys/$KEY_NAME/listSecrets?$API" --query primaryKey -o tsv
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n $KEY_NAME `
+  --query primaryKey -o tsv
 ```
 
 <!-- /tracks -->
@@ -694,12 +699,8 @@ The change can take a few minutes to apply.
 
 ### Check the gateway's private routing
 
-```bash title="Bash"
-az rest --url "$GW?$API" --query "properties.backend.subnet.id" -o tsv
-```
-
-```powershell title="PowerShell"
-az rest --url "${GW}?$API" --query "properties.backend.subnet.id" -o tsv
+```bash
+az aigateway show -g "$RG" -n "$GATEWAY" --query "properties.backend.subnet.id" -o tsv
 ```
 
 The output ends with `/virtualNetworks/vnet-aigw/subnets/snet-aigw-integration`.
@@ -783,7 +784,7 @@ and the NSG.
 az resource update --ids "$FOUNDRY_ID" --set properties.publicNetworkAccess=Enabled \
   --query properties.publicNetworkAccess -o tsv
 
-PRINCIPAL_ID="$(az resource show --ids "$GATEWAY_ID" --query identity.principalId -o tsv)"
+PRINCIPAL_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query identity.principalId -o tsv)"
 az role assignment delete --assignee "$PRINCIPAL_ID" --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope "$FOUNDRY_ID"
 
 az group delete -n "$RG" --yes
@@ -793,7 +794,7 @@ az group delete -n "$RG" --yes
 az resource update --ids $FOUNDRY_ID --set properties.publicNetworkAccess=Enabled `
   --query properties.publicNetworkAccess -o tsv
 
-$PRINCIPAL_ID = az resource show --ids $GATEWAY_ID --query identity.principalId -o tsv
+$PRINCIPAL_ID = az aigateway show -g $RG -n $GATEWAY --query identity.principalId -o tsv
 az role assignment delete --assignee $PRINCIPAL_ID --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope $FOUNDRY_ID
 
 az group delete -n $RG --yes
@@ -807,12 +808,12 @@ gateway and its connector gateway, then the private endpoint, the private DNS zo
 network, and the NSG.
 
 ```bash title="Bash"
-az resource delete --ids "$GATEWAY_ID" --api-version 2025-09-01-preview
+az aigateway delete -g "$RG" -n "$GATEWAY" --yes
 az resource delete -g "$RG" -n "$GATEWAY" --resource-type Microsoft.Web/connectorGateways --api-version 2026-05-01-preview
 ```
 
 ```powershell title="PowerShell"
-az resource delete --ids $GATEWAY_ID --api-version 2025-09-01-preview
+az aigateway delete -g $RG -n $GATEWAY --yes
 az resource delete -g $RG -n $GATEWAY --resource-type Microsoft.Web/connectorGateways --api-version 2026-05-01-preview
 ```
 
@@ -822,7 +823,9 @@ Keep the gateway, model, and key from the earlier labs. The next labs reuse them
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| The create dialog flags the subnet, or the create request fails with a subnet error | The subnet is in another subscription or region, smaller than `/27`, not delegated to `Microsoft.Web/serverFarms`, used by another gateway or resource, or its NSG lacks the 443 rules | Fix each item. The NSG needs outbound TCP 443 allow rules to the `Storage` and `AzureKeyVault` service tags. |
+| The create dialog flags the subnet, or the create request fails with a subnet error | The subnet is in another subscription or region, smaller than `/27`, not delegated to `Microsoft.App/environments`, used by another gateway or resource, or its NSG lacks the 443 rules | Fix each item. The NSG needs outbound TCP 443 allow rules to the `Storage` and `AzureKeyVault` service tags. |
+| The create request fails with `AIGatewaySubnetNotDelegated`: "Virtual network integration with subnet ID '…' requires the subnet to be delegated to 'Microsoft.App/environments'." | The subnet isn't delegated, or it's delegated to another service, such as `Microsoft.Web/serverFarms` | Delegate the subnet to `Microsoft.App/environments`, then create the gateway again. |
+| The portal's subnet check shows a warning: "Subnet delegated to Microsoft.Web/serverFarms" | The portal check still expects the old delegation | Expected. Keep `Microsoft.App/environments` and continue. |
 | "Virtual network integration for Azure AI Gateway can only be configured during creation." | You tried to add, change, or remove private routing on an existing gateway | Create a new gateway with private routing. |
 | Model calls through the new gateway fail after you turn off Foundry public access | The gateway resolves Foundry to its public IP: the zones aren't linked to the integrated virtual network, the private endpoint has no DNS zone group, or the gateway was created without private routing | Check the `A` records and zone links, and confirm that `properties.backend.subnet.id` points to the integration subnet. |
 | The gateway from the earlier labs, or another app, now gets `403` from Foundry | It reaches Foundry over the internet, and Foundry's public access is disabled | Expected. Use a dedicated Foundry resource for this lab, or re-enable public access when you finish. |

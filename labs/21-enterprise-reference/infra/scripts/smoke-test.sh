@@ -2,34 +2,31 @@
 # Post-deployment smoke test for the enterprise reference gateway. It proves the two runtime paths work end to end:
 #   1. Model: a chat completion through the alias with an app's runtime API key (gateway -> managed identity -> Foundry).
 #   2. Tools: the MCP handshake and tools/list on the federated Microsoft Learn MCP server.
-# It reads the gateway host name and the key with az rest, so it needs no CLI extension, and it never
-# prints the key. In GitHub Actions the key is also masked in the log.
+# It reads the gateway host name and the key with the aigateway CLI extension, and it never prints the key.
+# In GitHub Actions the key is also masked in the log.
 #
 # Usage:
 #   export RG="<gateway-resource-group>" GATEWAY="<gateway-name>"
 #   ./smoke-test.sh [alias] [api-key-name] [mcp-server]
 #   ./smoke-test.sh chat web-chat learn
 #
-# Exits 0 when both checks pass, 1 otherwise. Requires Azure CLI, curl, and jq.
+# Exits 0 when both checks pass, 1 otherwise. Requires Azure CLI with the aigateway extension, curl, and jq.
 set -euo pipefail
 
 ALIAS="${1:-chat}"
 KEY_NAME="${2:-web-chat}"
 SERVER="${3:-learn}"
-API_VERSION="2025-09-01-preview"
 : "${RG:?Set RG to the gateway resource group}"
 : "${GATEWAY:?Set GATEWAY to the gateway name}"
 command -v jq >/dev/null || { echo "This script needs jq." >&2; exit 1; }
+az extension show --name aigateway -o none 2>/dev/null \
+  || { echo "This script needs the aigateway CLI extension: curl -fsSL https://aka.ms/aigateway-cli-install | sh" >&2; exit 1; }
 
-SUB="$(az account show --query id -o tsv)"
-GATEWAY_ID="/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
-GATEWAY_HOST="$(az rest --method get --url "https://management.azure.com${GATEWAY_ID}?api-version=$API_VERSION" \
-  --query properties.frontend.defaultHostname -o tsv)"
+GATEWAY_HOST="$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 if [ -z "$GATEWAY_HOST" ]; then echo "Couldn't read the host name of gateway '$GATEWAY'." >&2; exit 1; fi
 GATEWAY_URL="https://$GATEWAY_HOST"
-API_KEY="$(az rest --method post \
-  --url "https://management.azure.com${GATEWAY_ID}/apiKeys/${KEY_NAME}/listSecrets?api-version=$API_VERSION" \
-  --body '{}' --query "primaryKey || properties.primaryKey" -o tsv)"
+API_KEY="$(az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" \
+  --query primaryKey -o tsv)"
 if [ -z "$API_KEY" ]; then echo "Couldn't read the secret of API key '$KEY_NAME'." >&2; exit 1; fi
 if [ "${GITHUB_ACTIONS:-}" = "true" ]; then echo "::add-mask::$API_KEY"; fi
 

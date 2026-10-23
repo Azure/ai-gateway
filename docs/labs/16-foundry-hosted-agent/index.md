@@ -41,9 +41,8 @@ model and its tools only through AI Gateway, with a key of its own.
     to create the agent's virtual environment.
   - Git
 - For the Azure CLI track: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later,
-  signed in with `az login` to the same tenant, plus `jq` for the Bash snippets. The CLI track calls the Azure
-  Resource Manager REST API with `az rest`, because the `az aigateway` extension doesn't manage the new
-  `aigateways` resource type yet.
+  signed in with `az login` to the same tenant, the `aigateway` extension
+  ([install it](../01-provision-gateway/README.md#before-you-begin)), and `jq` for the Bash snippets.
 
 > [!WARNING]
 > `azd up` creates a Foundry resource, and the hosted agent and its model calls are billable. Run
@@ -123,11 +122,7 @@ export RG="<resource-group>"
 export GATEWAY="<gateway>"
 export AI_GATEWAY_MODEL="<model-alias>"    # the alias from lab 02
 
-export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
-export GW="https://management.azure.com$GATEWAY_ID"
-export WS="$GW/workspaces/default"
-export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
+export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 ```
 
 ```powershell title="PowerShell"
@@ -135,26 +130,23 @@ $RG                   = "<resource-group>"
 $GATEWAY              = "<gateway>"
 $env:AI_GATEWAY_MODEL = "<model-alias>"    # the alias from lab 02
 
-$API        = "api-version=2025-09-01-preview"
-$GATEWAY_ID = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
-$GW         = "https://management.azure.com$GATEWAY_ID"
-$WS         = "$GW/workspaces/default"
-$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
+$env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 ```
 
 ### Create the key and load its value
 
+`api-key create` returns metadata only. `list-secrets` reads the value straight into a variable, so it never
+appears on screen.
+
 ```bash title="Bash"
-az rest --method put --url "$GW/apiKeys/hosted-agent?$API" --body '{"properties":{}}' -o none
-export AI_GATEWAY_API_KEY="$(az rest --method post --url "$GW/apiKeys/hosted-agent/listSecrets?$API" \
+az aigateway api-key create -g "$RG" --gateway-name "$GATEWAY" -n hosted-agent --display-name hosted-agent -o none
+export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n hosted-agent \
   --query primaryKey -o tsv)"
 ```
 
 ```powershell title="PowerShell"
-'{"properties":{}}' | Set-Content apikey.json
-az rest --method put --url "$GW/apiKeys/hosted-agent?$API" --body "@apikey.json" -o none
-Remove-Item apikey.json
-$env:AI_GATEWAY_API_KEY = az rest --method post --url "$GW/apiKeys/hosted-agent/listSecrets?$API" `
+az aigateway api-key create -g $RG --gateway-name $GATEWAY -n hosted-agent --display-name hosted-agent -o none
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n hosted-agent `
   --query primaryKey -o tsv
 ```
 
@@ -373,28 +365,29 @@ any change to the agent. Pick one track.
 
 ### Add the token limit
 
-Find the alias resource by its alias name, which works even when a portal-created alias contains `/`. A `PATCH` of
-`properties.policies` replaces the whole array, so these commands keep the alias's other policies:
+Find the alias by the name that apps send, which works even when a portal-created alias contains `/`.
+`az aigateway model-alias update --policies` replaces the alias's whole policy array, so these commands keep its
+other policies:
 
 ```bash title="Bash"
-ALIAS_ID="$(az rest --url "$WS/aliases?$API" \
-  --query "value[?properties.aliasName=='$AI_GATEWAY_MODEL'].id | [0]" -o tsv)"
-ALIAS_URL="https://management.azure.com$ALIAS_ID"
-az rest --url "$ALIAS_URL?$API" -o json \
-  | jq -c '{properties:{policies:([(.properties.policies // [])[] | select(.type != "tokenLimit") | del(.scope)] + [{type:"tokenLimit",period:"minute",count:1000,counterKey:["identity"]}])}}' > policies.json
-az rest --method patch --url "$ALIAS_URL?$API" --body @policies.json --query properties.policies
+ALIAS_NAME="$(az aigateway model-alias list -g "$RG" --gateway-name "$GATEWAY" \
+  --query "[?properties.aliasName=='$AI_GATEWAY_MODEL'].name | [0]" -o tsv)"
+az aigateway model-alias show -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS_NAME" -o json \
+  | jq -c '[(.properties.policies // [])[] | select(.type != "tokenLimit") | del(.scope)] + [{type:"tokenLimit",period:"minute",count:1000,counterKey:["identity"]}]' > policies.json
+az aigateway model-alias update -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS_NAME" --policies @policies.json \
+  --query properties.policies
 ```
 
 ```powershell title="PowerShell"
-$ALIAS_ID = az rest --url "$WS/aliases?$API" `
-  --query "value[?properties.aliasName=='$($env:AI_GATEWAY_MODEL)'].id | [0]" -o tsv
-$ALIAS_URL = "https://management.azure.com$ALIAS_ID"
-$alias = az rest --url "$ALIAS_URL`?$API" -o json | ConvertFrom-Json
+$ALIAS_NAME = az aigateway model-alias list -g $RG --gateway-name $GATEWAY `
+  --query "[?properties.aliasName=='$($env:AI_GATEWAY_MODEL)'].name | [0]" -o tsv
+$alias = az aigateway model-alias show -g $RG --gateway-name $GATEWAY -n $ALIAS_NAME -o json | ConvertFrom-Json
 $p = @($alias.properties.policies | Where-Object { $_ -and $_.type -ne 'tokenLimit' } |
   Select-Object * -ExcludeProperty scope) +
   @(@{ type = 'tokenLimit'; period = 'minute'; count = 1000; counterKey = @('identity') })
-@{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
-az rest --method patch --url "$ALIAS_URL`?$API" --body "@policies.json" --query properties.policies
+ConvertTo-Json -InputObject $p -Depth 10 -Compress | Set-Content policies.json
+az aigateway model-alias update -g $RG --gateway-name $GATEWAY -n $ALIAS_NAME --policies "@policies.json" `
+  --query properties.policies
 ```
 
 <!-- /tracks -->
@@ -427,23 +420,25 @@ In the portal, select **Policies**, open the **Token rate limit** you created fo
 the CLI, remove the `tokenLimit` policy the same way you added it:
 
 ```bash title="Bash"
-az rest --url "$ALIAS_URL?$API" -o json \
-  | jq -c '{properties:{policies:[(.properties.policies // [])[] | select(.type != "tokenLimit") | del(.scope)]}}' > policies.json
-az rest --method patch --url "$ALIAS_URL?$API" --body @policies.json --query properties.policies
+az aigateway model-alias show -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS_NAME" -o json \
+  | jq -c '[(.properties.policies // [])[] | select(.type != "tokenLimit") | del(.scope)]' > policies.json
+az aigateway model-alias update -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS_NAME" --policies @policies.json \
+  --query properties.policies
 rm policies.json
 ```
 
 ```powershell title="PowerShell"
-$alias = az rest --url "$ALIAS_URL`?$API" -o json | ConvertFrom-Json
+$alias = az aigateway model-alias show -g $RG --gateway-name $GATEWAY -n $ALIAS_NAME -o json | ConvertFrom-Json
 $p = @($alias.properties.policies | Where-Object { $_ -and $_.type -ne 'tokenLimit' } |
   Select-Object * -ExcludeProperty scope)
-@{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
-az rest --method patch --url "$ALIAS_URL`?$API" --body "@policies.json" --query properties.policies
+ConvertTo-Json -InputObject $p -Depth 10 -Compress | Set-Content policies.json
+az aigateway model-alias update -g $RG --gateway-name $GATEWAY -n $ALIAS_NAME --policies "@policies.json" `
+  --query properties.policies
 Remove-Item policies.json
 ```
 
 If your alias had its own token limit before this lab, the CLI commands remove it too: add it back with the count
-it had.
+it had. When the alias has no policies left, the update prints nothing.
 
 <!-- /steps -->
 
@@ -482,8 +477,8 @@ azd down --purge
 ```
 
 Then delete the `hosted-agent` key: in **Access** › **Keys**, select **…** (**More actions**) on its row and delete
-it, or run `az rest --method delete --url "$GW/apiKeys/hosted-agent?$API"`. Delete the `.azure` folder in `infra` if
-you no longer need the environment, because it holds the key value.
+it, or run `az aigateway api-key delete -g "$RG" --gateway-name "$GATEWAY" -n hosted-agent --yes`. Delete the
+`.azure` folder in `infra` if you no longer need the environment, because it holds the key value.
 
 Your gateway, its alias, and the `learn` MCP server aren't affected.
 

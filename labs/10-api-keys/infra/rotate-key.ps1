@@ -9,8 +9,8 @@
     2. Move every client to the secondary value.
     3. ./rotate-key.ps1 -ResourceGroup $RG -Gateway $GATEWAY -KeyName support-bot -KeyType primary
   Next time, swap the roles: regenerate primary first, move clients, then regenerate secondary.
-  Requires the Azure CLI 2.75 or later. It calls the Azure Resource Manager REST API with az rest, because the
-  az aigateway extension doesn't manage the Microsoft.ApiManagement/aigateways resource type yet.
+  Requires the Azure CLI 2.75 or later with the aigateway extension. The extension can't regenerate the secondary
+  value yet, so for that value the script calls the Azure Resource Manager REST API with az rest.
 
 .EXAMPLE
   ./rotate-key.ps1 -ResourceGroup $RG -Gateway $GATEWAY -KeyName support-bot -KeyType secondary -KeyVault $KEY_VAULT
@@ -25,17 +25,20 @@ param(
 )
 $ErrorActionPreference = "Stop"
 
-$api = "api-version=2025-09-01-preview"
-$gatewayId = az resource show -g $ResourceGroup -n $Gateway --resource-type Microsoft.ApiManagement/aigateways `
-  --query id -o tsv
-if ($LASTEXITCODE -ne 0 -or -not $gatewayId) { throw "Couldn't find AI Gateway '$Gateway' in '$ResourceGroup'." }
-$keyUrl = "https://management.azure.com$gatewayId/apiKeys/$KeyName"
-$action = if ($KeyType -eq "primary") { "regeneratePrimaryKey" } else { "regenerateSecondaryKey" }
+if ($KeyType -eq "primary") {
+  az aigateway api-key regenerate -g $ResourceGroup --gateway-name $Gateway -n $KeyName --key-type primary -o none
+  if ($LASTEXITCODE -ne 0) { throw "az aigateway api-key regenerate failed." }
+} else {
+  $api = "api-version=2025-09-01-preview"
+  $gatewayId = az aigateway show -g $ResourceGroup -n $Gateway --query id -o tsv
+  if ($LASTEXITCODE -ne 0 -or -not $gatewayId) { throw "Couldn't find AI Gateway '$Gateway' in '$ResourceGroup'." }
+  az rest --method post --url "https://management.azure.com$gatewayId/apiKeys/$KeyName/regenerateSecondaryKey?$api" `
+    -o none
+  if ($LASTEXITCODE -ne 0) { throw "regenerateSecondaryKey failed." }
+}
 
-az rest --method post --url "$keyUrl/${action}?$api" -o none
-if ($LASTEXITCODE -ne 0) { throw "$action failed." }
-
-$value = az rest --method post --url "$keyUrl/listSecrets?$api" --query "${KeyType}Key" -o tsv
+$value = az aigateway api-key list-secrets -g $ResourceGroup --gateway-name $Gateway -n $KeyName `
+  --query "${KeyType}Key" -o tsv
 if ($LASTEXITCODE -ne 0 -or -not $value) {
   throw "Couldn't read the new $KeyType value. You need the apiKeys/listSecrets/action permission."
 }
@@ -48,5 +51,5 @@ if ($KeyVault) {
   if ($LASTEXITCODE -ne 0) { throw "az keyvault secret set failed." }
   Write-Host "Stored it in Key Vault '$KeyVault' as secret '$secret'."
 } else {
-  Write-Host "Read it with: az rest --method post --url '$keyUrl/listSecrets?$api' --query ${KeyType}Key -o tsv"
+  Write-Host "Read it with: az aigateway api-key list-secrets -g $ResourceGroup --gateway-name $Gateway -n $KeyName --query ${KeyType}Key -o tsv"
 }

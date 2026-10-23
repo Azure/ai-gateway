@@ -45,7 +45,7 @@ a **Verify** section, **Go further** ideas, clean-up, and troubleshooting. Most 
 | Track | What you use |
 |---|---|
 | 🖥️ **Portal** | Click-by-click steps in the [AI Gateway portal](https://ai.gateway.azure.com) |
-| ⌨️ **CLI** | Azure CLI (`az rest`, `az resource`, `az deployment`) commands for Bash and PowerShell against the `Microsoft.ApiManagement/aigateways` resource |
+| ⌨️ **CLI** | Azure CLI commands (`az aigateway`, plus `az rest` where the extension can't do the job yet) for Bash and PowerShell against the `Microsoft.ApiManagement/aigateways` resource |
 | 🔗 **REST** | Direct calls to the Azure Resource Manager REST API, for when you script against the API yourself |
 | 🏗️ **Bicep** | Infrastructure as code in each lab's `infra/` folder, deployed with `az deployment` or `azd` |
 | 🧑‍💻 **Code** | Python, TypeScript, and .NET clients, agent frameworks, and runtime calls |
@@ -88,7 +88,7 @@ Publish Foundry and third-party models behind stable aliases.
 
 | # | Lab | Level | Time | Tracks | Notebook |
 | :-: | :-- | :-- | --: | :-- | :-: |
-| 03 | [Publish models from any provider behind stable aliases](03-multi-provider-aliases/README.md) | Intermediate | 30 min | Portal · REST |  |
+| 03 | [Publish models from any provider behind stable aliases](03-multi-provider-aliases/README.md) | Intermediate | 30 min | Portal · CLI |  |
 | 22 | [Route an alias across models by priority and weight](22-model-routing/README.md) | Intermediate | 25 min | Portal · CLI · Bicep |  |
 | 23 | [Stream responses and count every token](23-streaming-responses/README.md) | Intermediate | 20 min | CLI · Code · Portal · Bicep | [📓](23-streaming-responses/23-streaming-responses.ipynb) |
 
@@ -99,7 +99,7 @@ Federate MCP servers, APIs, and connectors behind one endpoint.
 | # | Lab | Level | Time | Tracks | Notebook |
 | :-: | :-- | :-- | --: | :-- | :-: |
 | 04 | [Federate MCP tools behind one endpoint](04-federate-mcp-tools/README.md) | Beginner | 30 min | Portal · CLI · Bicep · Code | [📓](04-federate-mcp-tools/04-federate-mcp-tools.ipynb) |
-| 05 | [Control which tools agents can call](05-mcp-tool-controls/README.md) | Intermediate | 20 min | Portal · REST |  |
+| 05 | [Control which tools agents can call](05-mcp-tool-controls/README.md) | Intermediate | 20 min | Portal · CLI |  |
 
 ### Governance & cost
 
@@ -221,9 +221,9 @@ through the token limits lab with the Azure CLI." Agents without skill support c
 - An Azure subscription where you can create resources. AI Gateway is in public preview in **East US 2**
   (`eastus2`) and **Sweden Central** (`swedencentral`); each lab lists what it needs under **Before you begin**.
 - For the CLI and Bicep tracks: Azure CLI 2.75.0 or later, Bicep, and `jq` for the Bash snippets. Every lab
-  creates the dedicated `Microsoft.ApiManagement/aigateways` resource type. The CLI track calls the Azure Resource
-  Manager REST API with `az rest`, because the `az aigateway` extension doesn't manage the new `aigateways`
-  resource type yet.
+  creates the dedicated `Microsoft.ApiManagement/aigateways` resource type. The CLI track uses the `aigateway`
+  extension, which [lab 01](01-provision-gateway/README.md#before-you-begin) installs, and calls the Azure Resource
+  Manager REST API with `az rest` only for what the extension can't do yet.
 - For the Code track: Python, Node.js, or the .NET 8 SDK, depending on the sample. Each lab lists the exact
   versions under **Before you begin**.
 

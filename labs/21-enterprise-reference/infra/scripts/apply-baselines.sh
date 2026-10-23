@@ -7,7 +7,8 @@
 #     fields you set in the portal. Updating a costLimit this way keeps its accumulated spend.
 #   - A baseline whose type doesn't exist is appended. A new costLimit gets a fresh, stable id.
 #   - Policies of other types (for example ones you added in the portal) are left untouched.
-# Running it twice gives the same result.
+# Running it twice gives the same result. The aigateway CLI extension can't set gateway-scope policies yet, so the
+# script calls the management API with az rest.
 #
 # Usage:
 #   export RG="<gateway-resource-group>" GATEWAY="<gateway-name>"

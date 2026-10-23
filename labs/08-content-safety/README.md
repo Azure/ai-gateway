@@ -58,9 +58,8 @@ gateway, tune it per category, and see what a blocked call looks like to a clien
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need a
   gateway, an imported model, a callable alias, and a runtime API key from **Access** › **Keys**.
 - For the CLI and REST tracks: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75
-  or later, signed in with `az login`, plus `jq` for the Bash snippets. The CLI track calls the Azure Resource
-  Manager REST API with `az rest`, because the `az aigateway` extension doesn't manage the new `aigateways`
-  resource type yet.
+  or later, signed in with `az login`, the `aigateway` extension
+  ([install it](../01-provision-gateway/README.md#before-you-begin)), and `jq` for the Bash snippets.
 - For the **Verify** script: `curl` and `jq` (Bash) or PowerShell 7 or later.
 - Permission to change the gateway, for example **Contributor** on the resource group.
 
@@ -75,13 +74,13 @@ export PROVIDER="<provider-name>"          # for example foundry-models
 export MODEL="<model-name>"                # the backend model name under that provider
 
 export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
-export GW="https://management.azure.com$GATEWAY_ID"
-export WS="$GW/workspaces/default"
+export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
+export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
 export MODEL_URL="$WS/modelProviders/$PROVIDER/models/$MODEL"
-export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
+export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 # For Foundry imports, the default alias matches the deployment's model name.
-export AI_GATEWAY_MODEL="$(az rest --url "$MODEL_URL?$API" --query properties.deployment.modelName -o tsv)"
+export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" \
+  -n "$MODEL" --query properties.deployment.modelName -o tsv)"
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
 ```
@@ -96,13 +95,13 @@ $PROVIDER   = "<provider-name>"           # for example foundry-models
 $MODEL      = "<model-name>"              # the backend model name under that provider
 
 $API        = "api-version=2025-09-01-preview"
-$GATEWAY_ID = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
-$GW         = "https://management.azure.com$GATEWAY_ID"
-$WS         = "$GW/workspaces/default"
+$GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
+$WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
 $MODEL_URL  = "$WS/modelProviders/$PROVIDER/models/$MODEL"
-$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
+$env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 # For Foundry imports, the default alias matches the deployment's model name.
-$env:AI_GATEWAY_MODEL = az rest --url "$MODEL_URL`?$API" --query properties.deployment.modelName -o tsv
+$env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER `
+  -n $MODEL --query properties.deployment.modelName -o tsv
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 ```
@@ -180,7 +179,8 @@ Select **Create**. The policy appears in the **Policies** list with your model a
 ### Set the policy
 
 Policies live in the model's `properties.policies` array, and a `PATCH` replaces the whole array. So read the
-array, swap in the content safety policy, keep every other policy, and write it back.
+array, swap in the content safety policy, keep every other policy, and write it back. The `aigateway` extension
+doesn't set model policies yet, so this step calls the Azure Resource Manager REST API with `az rest`.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
@@ -213,14 +213,14 @@ Each of `hateSeverity`, `selfHarmSeverity`, `sexualSeverity`, and `violenceSever
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-az rest --url "$MODEL_URL?$API" --query properties.policies -o json
+az aigateway model policy list -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" -o json
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-az rest --url "$MODEL_URL`?$API" --query properties.policies -o json
+az aigateway model policy list -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL -o json
 ```
 </details> <!-- gh -->
 
@@ -334,7 +334,8 @@ Violence threshold. If it returns `400`, the gateway blocked it and the error me
 ### Relax one category
 
 Set **Violence** back to **Balanced** (`Medium`) with the track you used, then run the script again. For
-example, with the CLI, change only `violenceSeverity` and keep everything else:
+example, from the command line, change only `violenceSeverity` and keep everything else. Like the CLI track, this
+uses `az rest`, because the `aigateway` extension doesn't change model policies yet:
 
 <details open><summary>Bash</summary> <!-- gh -->
 
@@ -405,6 +406,9 @@ Select **Policies**, open the **Content safety** policy that's scoped to your mo
 <details><summary><b>⌨️ Azure CLI</b></summary> <!-- gh -->
 
 ### Remove the policy
+
+Like **Set the policy**, this step uses `az rest`, because the `aigateway` extension doesn't change model policies
+yet.
 
 <details open><summary>Bash</summary> <!-- gh -->
 

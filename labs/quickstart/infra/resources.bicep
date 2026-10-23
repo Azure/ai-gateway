@@ -148,7 +148,8 @@ resource alias 'Microsoft.ApiManagement/aigateways/workspaces/aliases@2025-09-01
   }
 }
 
-// 5. A runtime API key for your first app. Read its value with listSecrets; it's never a deployment output.
+// 5. A runtime API key for your first app. Read its value with az aigateway api-key list-secrets; it's never a
+//    deployment output.
 resource apiKey 'Microsoft.ApiManagement/aigateways/apiKeys@2025-09-01-preview' = {
   parent: gateway
   name: apiKeyName

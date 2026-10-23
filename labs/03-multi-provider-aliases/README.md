@@ -4,7 +4,7 @@ summary: Connect Anthropic or another non-Azure provider with a credential that 
 category: models
 level: Intermediate
 duration: 30
-tracks: [portal, rest]
+tracks: [portal, cli]
 order: 3
 illustration: diagrams/aliases.svg
 tags: [model alias, custom provider, Anthropic, OpenAI, AWS Bedrock, Google Vertex AI, Anthropic Messages, retarget]
@@ -28,7 +28,7 @@ prereqs:
 
 | ⏱️ Time | 📶 Level | 🧭 Tracks | ✅ Before you start |
 | :-- | :-- | :-- | :-- |
-| 30 min | Intermediate | Portal · REST API | [02 · First model call](../02-first-model-call/README.md) |
+| 30 min | Intermediate | Portal · Azure CLI | [02 · First model call](../02-first-model-call/README.md) |
 
 **You'll learn to**
 
@@ -64,9 +64,10 @@ the same name.
   `claude-haiku-5-5` and `claude-sonnet-5-5`. To use another provider instead, see the values in
   [Add Anthropic as a custom provider](#add-anthropic-as-a-custom-provider).
 - Permission to change the gateway, for example **Contributor** on its resource group.
-- For the REST track and the **Verify** scripts: the
-  [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with `az login`.
-  The Bash scripts also use `jq`; the PowerShell scripts need PowerShell 7 or later.
+- For the CLI track and the **Verify** scripts: the
+  [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
+  `az login`, the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)), and
+  `jq` for the Bash snippets and scripts. The PowerShell scripts need PowerShell 7 or later.
 
 Set these variables once. Every track and the **Verify** section reuse them.
 
@@ -80,10 +81,9 @@ export FAST_MODEL="claude-haiku-5-5"      # two models that your Anthropic key c
 export SMART_MODEL="claude-sonnet-5-5"
 
 export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
-export GW="https://management.azure.com$GATEWAY_ID"
-export WS="$GW/workspaces/default"
-export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
+export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
+export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
+export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 # Paste the gateway runtime key from lab 02, not the Anthropic key. Don't commit it or write it to a file.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
 ```
@@ -99,10 +99,9 @@ $FAST_MODEL  = "claude-haiku-5-5"         # two models that your Anthropic key c
 $SMART_MODEL = "claude-sonnet-5-5"
 
 $API         = "api-version=2025-09-01-preview"
-$GATEWAY_ID  = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
-$GW          = "https://management.azure.com$GATEWAY_ID"
-$WS          = "$GW/workspaces/default"
-$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
+$GATEWAY_ID  = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
+$WS          = "https://management.azure.com$GATEWAY_ID/workspaces/default"
+$env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 # Paste the gateway runtime key from lab 02, not the Anthropic key. Don't commit it or write it to a file.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 ```
@@ -214,34 +213,35 @@ If discovery fails or times out, you can still add the models by hand. Select **
 > `https://<gateway>.eastus2-01.ai.gateway.azure.com/default/models/anthropic/v1/messages`.
 
 </details> <!-- gh -->
-<!-- track: rest | REST API -->
-<details><summary><b>🔗 REST API</b></summary> <!-- gh -->
+<!-- track: cli | Azure CLI -->
+<details><summary><b>⌨️ Azure CLI</b></summary> <!-- gh -->
 
-### Set the REST variables
+### Check the variables
 
 The provider, its models, and the aliases are child resources of the gateway's `default` workspace. You set
-`WS` (the workspace URL) and `API` in [Before you begin](#before-you-begin). Check that they point at your
-gateway by listing its model providers. The command is the same in Bash and PowerShell.
+`RG`, `GATEWAY`, `WS` (the workspace URL), and `API` in [Before you begin](#before-you-begin). Check that they
+point at your gateway by listing its model providers. The command is the same in Bash and PowerShell.
 
 ```bash
-az rest --url "$WS/modelProviders?$API" --query "value[].{name:name,kind:properties.kind}" -o table
+az aigateway model-provider list -g "$RG" --gateway-name "$GATEWAY" -o table
 ```
 
 The table lists the provider from lab 02, of kind `Foundry`. If the command fails, set the variables again.
 
 ### Create the provider
 
-The request reads the Anthropic key from a hidden prompt, so it never lands in your shell history.
+The command reads the Anthropic key from a hidden prompt, so it never lands in your shell history. The command
+output, like `az aigateway model-provider show`, never includes the key.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
 read -rsp "Anthropic API key: " ANTHROPIC_API_KEY && echo
-az rest --method put --url "$WS/modelProviders/$PROVIDER?$API" \
-  --body "$(jq -cn --arg key "$ANTHROPIC_API_KEY" '{properties: {
-      kind: "Custom", displayName: "Anthropic",
-      custom: {endpoint: "https://api.anthropic.com",
-               authentication: {kind: "ApiKey", apiKey: {headerName: "x-api-key", value: $key}}}}}')" \
+az aigateway model-provider create -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" \
+  --kind Custom --display-name "Anthropic" \
+  --custom "$(jq -cn --arg key "$ANTHROPIC_API_KEY" '{
+      endpoint: "https://api.anthropic.com",
+      authentication: {kind: "ApiKey", apiKey: {headerName: "x-api-key", value: $key}}}')" \
   --query "{name:name,kind:properties.kind,endpoint:properties.custom.endpoint}"
 unset ANTHROPIC_API_KEY
 ```
@@ -251,17 +251,14 @@ unset ANTHROPIC_API_KEY
 
 ```powershell title="PowerShell"
 $key = Read-Host "Anthropic API key" -MaskInput
-@{ properties = @{
-    kind        = 'Custom'
-    displayName = 'Anthropic'
-    custom      = @{
-      endpoint       = 'https://api.anthropic.com'
-      authentication = @{ kind = 'ApiKey'; apiKey = @{ headerName = 'x-api-key'; value = $key } }
-    }
-  } } | ConvertTo-Json -Depth 10 -Compress | Set-Content -Path provider.json
-az rest --method put --url "$WS/modelProviders/$PROVIDER`?$API" --body '@provider.json' `
+@{
+  endpoint       = 'https://api.anthropic.com'
+  authentication = @{ kind = 'ApiKey'; apiKey = @{ headerName = 'x-api-key'; value = $key } }
+} | ConvertTo-Json -Depth 10 -Compress | Set-Content -Path custom.json
+az aigateway model-provider create -g $RG --gateway-name $GATEWAY -n $PROVIDER `
+  --kind Custom --display-name "Anthropic" --custom '@custom.json' `
   --query "{name:name,kind:properties.kind,endpoint:properties.custom.endpoint}"
-Remove-Item provider.json; Remove-Variable key   # the file held the key, so delete it right away
+Remove-Item custom.json; Remove-Variable key   # the file held the key, so delete it right away
 ```
 </details> <!-- gh -->
 
@@ -269,9 +266,10 @@ For OpenAI, use `https://api.openai.com`, the header `Authorization`, and the va
 
 ### Register the backend models
 
-The resource name of a backend model in the URL may only contain lowercase letters, digits, and hyphens. If the
-provider's model ID contains other characters, replace them with `-` in the URL and keep the real ID in
-`deployment.modelName`.
+The `aigateway` extension can't register models on this resource type yet, so call the Azure Resource Manager
+REST API with `az rest`. The resource name of a backend model in the URL may only contain lowercase letters,
+digits, and hyphens. If the provider's model ID contains other characters, replace them with `-` in the URL and
+keep the real ID in `deployment.modelName`.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
@@ -299,17 +297,17 @@ Remove-Item model.json
 </details> <!-- gh -->
 
 > [!NOTE]
-> The provider and model bodies mirror what the portal sends during the preview. For custom providers, `supportedEndpoints`
-> holds the provider path: `/v1/messages` for Anthropic, `/v1/chat/completions` or `/v1/responses` for
-> OpenAI-compatible endpoints. The model has no `apiFormat`. If the service rejects either request, create the
-> provider and models with the **Portal** tab, then continue here with the aliases.
+> The provider settings and model bodies mirror what the portal sends during the preview. For custom providers,
+> `supportedEndpoints` holds the provider path: `/v1/messages` for Anthropic, `/v1/chat/completions` or
+> `/v1/responses` for OpenAI-compatible endpoints. The model has no `apiFormat`. If the service rejects either
+> command, create the provider and models with the **Portal** tab, then continue here with the aliases.
 
 ### Create the aliases
 
 An alias lists its backend models by resource ID in `properties.backendModels`. Here each alias has one. The
-callable name goes in `properties.aliasName`. Callable
-names may contain `/`, but resource names can't, so the script derives the resource name the same way the
-portal does: `anthropic/claude-sonnet-5-5` is stored as `anthropic-claude-sonnet-5-5`.
+callable name goes in `properties.aliasName`, which `--routing-name` sets, and `-n` sets the resource name.
+Callable names may contain `/`, but resource names can't, so the script derives the resource name the same way
+the portal does: `anthropic/claude-sonnet-5-5` is stored as `anthropic-claude-sonnet-5-5`.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
@@ -327,17 +325,15 @@ portal does: `anthropic/claude-sonnet-5-5` is stored as `anthropic-claude-sonnet
 ```
 </details> <!-- gh -->
 
-On GitHub, open [alias.sh](infra/alias.sh) or [alias.ps1](infra/alias.ps1). Each `put` sends a request like this:
+On GitHub, open [alias.sh](infra/alias.sh) or [alias.ps1](infra/alias.ps1). For a new alias, each `put` runs a
+command like this. For an alias that already exists, it runs `az aigateway model-alias update` with the same
+arguments.
 
 ```text
-PUT .../workspaces/default/aliases/support-chat?api-version=2025-09-01-preview
-{
-  "properties": {
-    "aliasName": "support-chat",
-    "backendModels": [ { "resourceId": ".../workspaces/default/modelProviders/anthropic/models/claude-haiku-5-5" } ],
-    "policies": []
-  }
-}
+az aigateway model-alias create -g <resource-group> --gateway-name <gateway> -n support-chat \
+  --routing-name support-chat \
+  --backend-model resource-id=.../workspaces/default/modelProviders/anthropic/models/claude-haiku-5-5 \
+  --policies '[]' --only-show-errors -o none
 ```
 
 > **Checkpoint**
@@ -428,8 +424,8 @@ Repeat for the `support-chat` alias with `20000` **Allowed tokens**.
 > `support-chat`.
 
 </details> <!-- gh -->
-<!-- track: rest | REST API -->
-<details><summary><b>🔗 REST API</b></summary> <!-- gh -->
+<!-- track: cli | Azure CLI -->
+<details><summary><b>⌨️ Azure CLI</b></summary> <!-- gh -->
 
 ### Put both aliases with their limits
 
@@ -452,14 +448,14 @@ object that models use.
 ```
 </details> <!-- gh -->
 
-The body now carries a policy:
+The command now passes a policy in `--policies`:
 
 ```json
-"policies": [ { "type": "tokenLimit", "count": 2000, "period": "minute", "counterKey": ["identity"] } ]
+[ { "type": "tokenLimit", "count": 2000, "period": "minute", "counterKey": ["identity"] } ]
 ```
 
-A `PUT` replaces the whole alias, including its policies. To change only the target, use `retarget` in the
-next section.
+`put` replaces the alias's whole `policies` list, so a `put` without a limit removes it. To change only the
+target, use `retarget` in the next section.
 
 > **Checkpoint**
 > Each command prints the alias with `tokenLimit 2000/minute` or `tokenLimit 20000/minute`.
@@ -493,13 +489,13 @@ On the `support-chat` alias page, select the **Policies** tab.
 > 20,000-token **Token rate limit**.
 
 </details> <!-- gh -->
-<!-- track: rest | REST API -->
-<details><summary><b>🔗 REST API</b></summary> <!-- gh -->
+<!-- track: cli | Azure CLI -->
+<details><summary><b>⌨️ Azure CLI</b></summary> <!-- gh -->
 
-### Patch only the backend model
+### Update only the backend model
 
-`retarget` sends a `PATCH` that contains only `backendModels`, so the alias name, description, and policies stay
-as they are.
+`retarget` runs `az aigateway model-alias update` with only `--backend-model`. The command changes only the
+properties you pass, so the alias name, description, and policies stay as they are.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
@@ -516,8 +512,8 @@ as they are.
 </details> <!-- gh -->
 
 ```text
-PATCH .../workspaces/default/aliases/support-chat?api-version=2025-09-01-preview
-{ "properties": { "backendModels": [ { "resourceId": ".../modelProviders/anthropic/models/claude-sonnet-5-5" } ] } }
+az aigateway model-alias update -g <resource-group> --gateway-name <gateway> -n support-chat \
+  --backend-model resource-id=.../modelProviders/anthropic/models/claude-sonnet-5-5 --only-show-errors -o none
 ```
 
 > **Checkpoint**
@@ -667,9 +663,9 @@ From a shell:
 ```bash title="Bash"
 for ALIAS in support-chat batch-chat "$PROVIDER/$SMART_MODEL"; do ./infra/alias.sh delete "$ALIAS"; done
 for MODEL in "$FAST_MODEL" "$SMART_MODEL"; do
-  az rest --method delete --url "$WS/modelProviders/$PROVIDER/models/$MODEL?$API"
+  az aigateway model delete -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" --yes
 done
-az rest --method delete --url "$WS/modelProviders/$PROVIDER?$API"
+az aigateway model-provider delete -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --yes
 ```
 </details> <!-- gh -->
 
@@ -680,9 +676,9 @@ foreach ($alias in 'support-chat', 'batch-chat', "$PROVIDER/$SMART_MODEL") {
   ./infra/alias.ps1 -ResourceGroup $RG -Gateway $GATEWAY delete $alias
 }
 foreach ($model in $FAST_MODEL, $SMART_MODEL) {
-  az rest --method delete --url "$WS/modelProviders/$PROVIDER/models/$model`?$API"
+  az aigateway model delete -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $model --yes
 }
-az rest --method delete --url "$WS/modelProviders/$PROVIDER`?$API"
+az aigateway model-provider delete -g $RG --gateway-name $GATEWAY -n $PROVIDER --yes
 ```
 </details> <!-- gh -->
 

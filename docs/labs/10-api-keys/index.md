@@ -44,10 +44,9 @@ leaked notebook key. Because every key is a separate caller identity, you can al
 - Optional, for usage and cost per key: monitoring configured in
   [Monitor usage, cost, and traces](../13-monitoring/README.md).
 - For the CLI track and the **Verify** scripts: the
-  [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with `az login`.
-  The CLI track calls the Azure Resource Manager REST API with `az rest`, because the `az aigateway` extension
-  doesn't manage the new `aigateways` resource type yet. The Bash scripts use `curl`; the PowerShell scripts need
-  PowerShell 7 or later.
+  [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with `az login`,
+  and the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)). The Bash
+  scripts use `curl`; the PowerShell scripts need PowerShell 7 or later.
 
 Set these variables once. Every track and the **Verify** section reuse them.
 
@@ -58,9 +57,9 @@ export AI_GATEWAY_MODEL="<model-alias>"      # an alias you can call, for exampl
 # export KEY_VAULT="<key-vault>"             # optional: uncomment to keep key values in Key Vault
 
 export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
+export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
 export GW="https://management.azure.com$GATEWAY_ID"
-export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
+export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 ```
 
 ```powershell title="PowerShell"
@@ -70,9 +69,9 @@ $env:AI_GATEWAY_MODEL = "<model-alias>"      # an alias you can call, for exampl
 # $KEY_VAULT          = "<key-vault>"        # optional: uncomment to keep key values in Key Vault
 
 $API        = "api-version=2025-09-01-preview"
-$GATEWAY_ID = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
+$GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
 $GW         = "https://management.azure.com$GATEWAY_ID"
-$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
+$env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 ```
 
 <details>
@@ -113,13 +112,13 @@ A key is gateway-scoped: it grants access to every published model and MCP serve
 also a separate caller identity, which token limits, cost limits, and Monitoring use to tell callers apart.
 That's why every app, agent, or user should get its own key.
 
-| Task | Portal (**Access** › **Keys**) | Azure CLI (`az rest` on `$GW/apiKeys/<name>`) |
+| Task | Portal (**Access** › **Keys**) | Azure CLI (`az aigateway api-key`) |
 |---|---|---|
-| Create a key | **Create API key** | `PUT` |
-| Read a value | **View keys** (primary value) | `POST .../listSecrets` (primary and secondary values) |
-| Rotate | **Rotate key** (primary value) | `POST .../regeneratePrimaryKey` or `.../regenerateSecondaryKey` |
-| Block temporarily | — | `PATCH` with `state` set to `suspended`, then back to `active` |
-| Revoke | **Delete** | `DELETE` |
+| Create a key | **Create API key** | `create` |
+| Read a value | **View keys** (primary value) | `list-secrets` (primary and secondary values) |
+| Rotate | **Rotate key** (primary value) | `regenerate --key-type primary`, or `az rest` `POST` to `$GW/apiKeys/<name>/regenerateSecondaryKey` |
+| Block temporarily | — | `az rest` `PATCH` with `state` set to `suspended`, then back to `active` |
+| Revoke | **Delete** | `delete` |
 
 The gateway also has a built-in key named `master`. Don't hand it out; create named keys instead.
 
@@ -163,40 +162,37 @@ $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 
 ### Create the keys
 
-The key's name is the last segment of its URL, and the body can be empty. The service sets the key's display
-name itself, so identify keys by `name`.
+`create` needs a display name, but the service replaces it with its own, so identify keys by `name`.
 
 ```bash title="Bash"
 for KEY in app-dev support-bot old-notebook; do
-  az rest --method put --url "$GW/apiKeys/$KEY?$API" --body '{"properties":{}}' -o none
+  az aigateway api-key create -g "$RG" --gateway-name "$GATEWAY" -n "$KEY" --display-name "$KEY" -o none
 done
-az rest --url "$GW/apiKeys?$API" --query "value[].{name:name, state:properties.state}" -o table
+az aigateway api-key list -g "$RG" --gateway-name "$GATEWAY" --query "[].{name:name, state:properties.state}" -o table
 ```
 
 ```powershell title="PowerShell"
-'{"properties":{}}' | Set-Content apikey.json
 foreach ($key in "app-dev", "support-bot", "old-notebook") {
-  az rest --method put --url "$GW/apiKeys/$key`?$API" --body "@apikey.json" -o none
+  az aigateway api-key create -g $RG --gateway-name $GATEWAY -n $key --display-name $key -o none
 }
-Remove-Item apikey.json
-az rest --url "$GW/apiKeys?$API" --query "value[].{name:name, state:properties.state}" -o table
+az aigateway api-key list -g $RG --gateway-name $GATEWAY --query "[].{name:name, state:properties.state}" -o table
 ```
 
-The list also shows the built-in `master` key, and every key is `active`. `PUT` and `GET` never return key
-values.
+The list also shows the built-in `master` key, and every key is `active`. `create`, `list`, and `show` never
+return key values.
 
 ### Load a value in your shell
 
-The `listSecrets` action returns `primaryKey` and `secondaryKey`. Capture the value in a variable instead of
-printing it:
+`az aigateway api-key list-secrets` returns `primaryKey` and `secondaryKey`. Capture the value in a variable
+instead of printing it:
 
 ```bash title="Bash"
-export AI_GATEWAY_API_KEY="$(az rest --method post --url "$GW/apiKeys/app-dev/listSecrets?$API" \
+export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n app-dev \
   --query primaryKey -o tsv)"
 ```
 
 ```powershell title="PowerShell"
-$env:AI_GATEWAY_API_KEY = az rest --method post --url "$GW/apiKeys/app-dev/listSecrets?$API" `
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n app-dev `
   --query primaryKey -o tsv
 ```
 
@@ -241,14 +237,14 @@ IDs. Each secret is named `<key>-api-key`, which is the name the rotation script
 ```bash title="Bash"
 for KEY in app-dev support-bot; do
   az keyvault secret set --vault-name "$KEY_VAULT" -n "$KEY-api-key" \
-    --value "$(az rest --method post --url "$GW/apiKeys/$KEY/listSecrets?$API" --query primaryKey -o tsv)" \
+    --value "$(az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n "$KEY" --query primaryKey -o tsv)" \
     --tags aigateway-key="$KEY" key-type=primary --query id -o tsv
 done
 ```
 
 ```powershell title="PowerShell"
 foreach ($key in "app-dev", "support-bot") {
-  $value = az rest --method post --url "$GW/apiKeys/$key/listSecrets?$API" --query primaryKey -o tsv
+  $value = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n $key --query primaryKey -o tsv
   az keyvault secret set --vault-name $KEY_VAULT -n "$key-api-key" --value $value `
     --tags aigateway-key=$key key-type=primary --query id -o tsv
 }
@@ -311,12 +307,12 @@ $OLD_SUPPORT_BOT = Read-Host "Current support-bot value" -MaskInput
 Clients use the primary value today. Keep it so you can prove later that it stopped working:
 
 ```bash title="Bash"
-OLD_SUPPORT_BOT="$(az rest --method post --url "$GW/apiKeys/support-bot/listSecrets?$API" \
+OLD_SUPPORT_BOT="$(az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n support-bot \
   --query primaryKey -o tsv)"
 ```
 
 ```powershell title="PowerShell"
-$OLD_SUPPORT_BOT = az rest --method post --url "$GW/apiKeys/support-bot/listSecrets?$API" `
+$OLD_SUPPORT_BOT = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n support-bot `
   --query primaryKey -o tsv
 ```
 
@@ -332,10 +328,12 @@ No client uses the secondary value, so regenerating it breaks nothing:
 ./infra/rotate-key.ps1 -ResourceGroup $RG -Gateway $GATEWAY -KeyName support-bot -KeyType secondary # -KeyVault $KEY_VAULT
 ```
 
-The script calls the key's `regenerateSecondaryKey` action with `az rest`, reads the new value with
-`listSecrets`, and prints only its last four characters. If `KEY_VAULT` is set in Bash, or you pass `-KeyVault` in PowerShell,
-it also writes the new value to the `support-bot-api-key` secret. On GitHub, open
-[rotate-key.sh](infra/rotate-key.sh) or [rotate-key.ps1](infra/rotate-key.ps1).
+The script regenerates the value and reads the new one with `az aigateway api-key list-secrets`. For the
+primary value it runs `az aigateway api-key regenerate`. The extension can't regenerate the secondary value yet,
+so for that one it calls the key's `regenerateSecondaryKey` action with `az rest`. It prints only the last four
+characters of the new value. If `KEY_VAULT` is set in Bash, or you pass `-KeyVault` in PowerShell, it also
+writes the new value to the `support-bot-api-key` secret. On GitHub, open [rotate-key.sh](infra/rotate-key.sh) or
+[rotate-key.ps1](infra/rotate-key.ps1).
 
 <!-- include: infra/rotate-key.sh -->
 
@@ -406,22 +404,23 @@ can't be undone. Select **Delete**.
 ### Save the leaked value and delete the key
 
 ```bash title="Bash"
-LEAKED_KEY="$(az rest --method post --url "$GW/apiKeys/old-notebook/listSecrets?$API" \
+LEAKED_KEY="$(az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n old-notebook \
   --query primaryKey -o tsv)"
-az rest --method delete --url "$GW/apiKeys/old-notebook?$API"
+az aigateway api-key delete -g "$RG" --gateway-name "$GATEWAY" -n old-notebook --yes
 ```
 
 ```powershell title="PowerShell"
-$LEAKED_KEY = az rest --method post --url "$GW/apiKeys/old-notebook/listSecrets?$API" `
+$LEAKED_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n old-notebook `
   --query primaryKey -o tsv
-az rest --method delete --url "$GW/apiKeys/old-notebook?$API"
+az aigateway api-key delete -g $RG --gateway-name $GATEWAY -n old-notebook --yes
 ```
 
 ### Suspend a key instead
 
 To block a key while you investigate, without deleting it, set its `state` to `suspended`. Calls with the key
 get `401` until you set it back to `active`. The **Verify** section expects `support-bot` to work, so set it
-back to `active` before you continue:
+back to `active` before you continue. The `aigateway` extension can't change a key's state yet, so call the Azure
+Resource Manager REST API with `az rest`:
 
 ```bash title="Bash"
 az rest --method patch --url "$GW/apiKeys/support-bot?$API" \
@@ -497,7 +496,7 @@ and a request without a key should all get `401`.
 ### Load the app-dev key
 
 If `AI_GATEWAY_API_KEY` no longer holds the `app-dev` value, load it again from Key Vault, with
-`listSecrets`, or by pasting it, as in [Create a key for each app](#create-a-key-for-each-app).
+`az aigateway api-key list-secrets`, or by pasting it, as in [Create a key for each app](#create-a-key-for-each-app).
 
 ### Run the checks
 
@@ -526,8 +525,9 @@ no key         -        HTTP 401  rejected: the key is missing, invalid, rotated
 
 ### Check that the rotated key still works
 
-Load a current `support-bot` value from **View keys**, Key Vault, or `listSecrets`, and run the check again.
-After the CLI flow, both the new primary and the new secondary value work. The check prints `HTTP 200`:
+Load a current `support-bot` value from **View keys**, Key Vault, or `az aigateway api-key list-secrets`, and run
+the check again. After the CLI flow, both the new primary and the new secondary value work. The check prints
+`HTTP 200`:
 
 ```bash title="Bash"
 read -rsp "Current support-bot value: " SUPPORT_BOT && echo
@@ -560,7 +560,7 @@ Delete any other keys you created for testing, such as `support-bot-v2`, in **Ac
 then **Delete**), or with the CLI:
 
 ```bash
-az rest --method delete --url "$GW/apiKeys/support-bot-v2?$API"
+az aigateway api-key delete -g "$RG" --gateway-name "$GATEWAY" -n support-bot-v2 --yes
 ```
 
 If you created a Key Vault only for this lab, delete it. Key Vault keeps deleted vaults for a retention period

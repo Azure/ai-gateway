@@ -41,8 +41,10 @@ called.
   and send a few requests first, so **Monitoring** can show estimated spend before you choose a budget.
 - Optional, for the Entra override: a user or service principal that can call the gateway with Microsoft
   Entra ID. [Go keyless with Microsoft Entra ID and RBAC](../11-entra-rbac/README.md) shows how.
-- For the REST track: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later,
-  signed in with `az login`, plus `jq` for the Bash snippets.
+- For the variables below and the REST track: the
+  [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
+  `az login`, the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)), and
+  `jq` for the Bash snippets.
 - Permission to change the gateway, for example **Contributor** on the resource group.
 
 Set these variables once. Both tracks and the **Verify** section reuse them. Use the `app-dev` key here.
@@ -54,13 +56,12 @@ export PROVIDER="<provider-name>"          # for example foundry-models
 export MODEL="<model-name>"                # the backend model name under that provider
 
 export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
-export GW="https://management.azure.com$GATEWAY_ID"
-export WS="$GW/workspaces/default"
-export MODEL_URL="$WS/modelProviders/$PROVIDER/models/$MODEL"
-export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
+export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
+export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
+export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 # For Foundry imports, the default alias matches the deployment's model name.
-export AI_GATEWAY_MODEL="$(az rest --url "$MODEL_URL?$API" --query properties.deployment.modelName -o tsv)"
+export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" \
+  -n "$MODEL" --query properties.deployment.modelName -o tsv)"
 # Paste the app-dev runtime key from Access › Keys. Don't commit it or write it to a file.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
 ```
@@ -72,13 +73,12 @@ $PROVIDER   = "<provider-name>"           # for example foundry-models
 $MODEL      = "<model-name>"              # the backend model name under that provider
 
 $API        = "api-version=2025-09-01-preview"
-$GATEWAY_ID = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
-$GW         = "https://management.azure.com$GATEWAY_ID"
-$WS         = "$GW/workspaces/default"
-$MODEL_URL  = "$WS/modelProviders/$PROVIDER/models/$MODEL"
-$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
+$GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
+$WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
+$env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 # For Foundry imports, the default alias matches the deployment's model name.
-$env:AI_GATEWAY_MODEL = az rest --url "$MODEL_URL`?$API" --query properties.deployment.modelName -o tsv
+$env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER `
+  -n $MODEL --query properties.deployment.modelName -o tsv
 # Paste the app-dev runtime key from Access › Keys. Don't commit it or write it to a file.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 ```
@@ -187,10 +187,9 @@ Select **Create**. Back in **Policies**, open the new **Cost limit** to review i
 
 ### Read the current policies
 
-This track calls the Azure Resource Manager REST API with `az rest`, because the `az aigateway` extension
-doesn't manage the new `aigateways` resource type yet. Policies live inline in the model's
-`properties.policies` array. A `PATCH` **replaces the whole array**, so always read it first and keep the
-policies you didn't mean to change.
+This track calls the Azure Resource Manager REST API with `az rest`, because the `aigateway` extension doesn't
+set cost limits. Policies live inline in the model's `properties.policies` array. A `PATCH` **replaces the
+whole array**, so always read it first and keep the policies you didn't mean to change.
 
 ```bash
 SUB="$(az account show --query id -o tsv)"

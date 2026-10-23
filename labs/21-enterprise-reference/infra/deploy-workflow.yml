@@ -3,8 +3,9 @@
 # Copy this file to .github/workflows/deploy-ai-gateway.yml in your own repository, with the lab's infra folder at the
 # repository root (infra/main.bicep, infra/main.bicepparam, infra/prod.bicepparam, infra/scripts/...).
 #
-# It signs in to Azure with OpenID Connect (no client secret is stored in GitHub), previews the change with what-if,
-# deploys the subscription-scope template, applies the gateway-wide baseline policies, and runs the smoke test.
+# It signs in to Azure with OpenID Connect (no client secret is stored in GitHub), installs the aigateway CLI extension
+# that the smoke test uses, previews the change with what-if, deploys the subscription-scope template, applies the
+# gateway-wide baseline policies, and runs the smoke test.
 #
 # One-time setup (see the lab for the commands):
 #   - A Microsoft Entra app registration (or user-assigned managed identity) with a federated credential for each
@@ -57,6 +58,9 @@ jobs:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Install the aigateway CLI extension
+        run: curl -fsSL https://aka.ms/aigateway-cli-install | sh
 
       - name: Preview changes
         run: |

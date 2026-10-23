@@ -62,7 +62,8 @@ apps never change the model name they send.
 - Permission to change the gateway, for example **Contributor** on its resource group, and to create deployments
   in the Foundry account.
 - The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
-  `az login`. The Bash commands also use `jq`; the PowerShell commands need PowerShell 7 or later.
+  `az login`, the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)), and
+  `jq` for the Bash snippets. The PowerShell commands need PowerShell 7 or later.
 - Optional: [Publish models from any provider behind stable aliases](../03-multi-provider-aliases/README.md)
   explains aliases in more depth.
 
@@ -82,11 +83,10 @@ export CANDIDATE_VERSION="2026-09-29"
 export ALIAS="chat"                              # the name that clients send in "model"
 
 export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
-export GW="https://management.azure.com$GATEWAY_ID"
-export WS="$GW/workspaces/default"
+export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
+export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
 export FOUNDRY_ID="$(az cognitiveservices account show -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --query id -o tsv)"
-export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
+export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 # Paste the gateway runtime key from lab 02. Don't commit it or write it to a file.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
 ```
@@ -106,34 +106,29 @@ $CANDIDATE_VERSION = "2026-09-29"
 $ALIAS             = "chat"                        # the name that clients send in "model"
 
 $API        = "api-version=2025-09-01-preview"
-$GATEWAY_ID = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
-$GW         = "https://management.azure.com$GATEWAY_ID"
-$WS         = "$GW/workspaces/default"
+$GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
+$WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
 $FOUNDRY_ID = az cognitiveservices account show -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT --query id -o tsv
-$env:AI_GATEWAY_URL = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
+$env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 # Paste the gateway runtime key from lab 02. Don't commit it or write it to a file.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 ```
 </details> <!-- gh -->
 
 The CLI and Bicep tracks of lab 02 name the provider `foundry-models`. A portal import names it after your
-Foundry account. To check, list the providers and the models of each one:
+Foundry account. To check, list the backend models. The **Provider** column shows the provider of each one.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-for p in $(az rest --url "$WS/modelProviders?$API" --query "value[].name" -o tsv); do
-  echo "$p: $(az rest --url "$WS/modelProviders/$p/models?$API" --query "join(', ', value[].name)" -o tsv)"
-done
+az aigateway model list -g "$RG" --gateway-name "$GATEWAY" -o table
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-foreach ($p in az rest --url "$WS/modelProviders`?$API" --query "value[].name" -o tsv) {
-  "${p}: $(az rest --url "$WS/modelProviders/$p/models`?$API" --query "join(', ', value[].name)" -o tsv)"
-}
+az aigateway model list -g $RG --gateway-name $GATEWAY -o table
 ```
 </details> <!-- gh -->
 
@@ -236,7 +231,8 @@ weights `80` and `20`.
 ### Register the candidate model
 
 A backend model registers one deployment under the provider. This is the same call as in lab 02, with the
-model version.
+model version. The `aigateway` extension can't register models on this resource type yet, so call the Azure
+Resource Manager REST API with `az rest`.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
@@ -267,19 +263,18 @@ Remove-Item body.json
 
 ### Create the chat alias
 
-Each entry in `backendModels` has a `resourceId`, a `priority`, and a `weight`.
+Each `--backend-model` adds an entry to the alias's `backendModels` list, with a `resource-id`, a `priority`, and
+a `weight`. With more than one backend model, each entry needs both a priority and a weight.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
 export MODELS="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models"
-az rest --method put --url "$WS/aliases/$ALIAS?$API" \
-  --body "$(jq -cn --arg p "$MODELS/$PRIMARY" --arg c "$MODELS/$CANDIDATE" '{properties: {
-      description: "Canary: 80/20 between the current and the new model",
-      backendModels: [
-        {resourceId: $p, priority: 0, weight: 80},
-        {resourceId: $c, priority: 0, weight: 20}]}}')" \
-  --query properties.backendModels -o json |
+az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" \
+  --description "Canary: 80/20 between the current and the new model" \
+  --backend-model resource-id="$MODELS/$PRIMARY" priority=0 weight=80 \
+  --backend-model resource-id="$MODELS/$CANDIDATE" priority=0 weight=20 \
+  --only-show-errors --query properties.backendModels -o json |
   jq -r '.[] | "\(.resourceId | split("/") | last)  priority \(.priority)  weight \(.weight)"'
 ```
 </details> <!-- gh -->
@@ -288,17 +283,17 @@ az rest --method put --url "$WS/aliases/$ALIAS?$API" \
 
 ```powershell title="PowerShell"
 $MODELS = "$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models"
-@{ properties = @{
-    description   = "Canary: 80/20 between the current and the new model"
-    backendModels = @(
-      @{ resourceId = "$MODELS/$PRIMARY";   priority = 0; weight = 80 }
-      @{ resourceId = "$MODELS/$CANDIDATE"; priority = 0; weight = 20 }
-    ) } } | ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
-az rest --method put --url "$WS/aliases/$ALIAS`?$API" --body "@body.json" --query properties.backendModels -o json |
+az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $ALIAS `
+  --description "Canary: 80/20 between the current and the new model" `
+  --backend-model resource-id="$MODELS/$PRIMARY" priority=0 weight=80 `
+  --backend-model resource-id="$MODELS/$CANDIDATE" priority=0 weight=20 `
+  --only-show-errors --query properties.backendModels -o json |
   ConvertFrom-Json | ForEach-Object { '{0}  priority {1}  weight {2}' -f ($_.resourceId -split '/')[-1], $_.priority, $_.weight }
-Remove-Item body.json
 ```
 </details> <!-- gh -->
+
+If the alias already exists, `create` fails. Change it with `az aigateway model-alias update` and the same
+arguments instead.
 
 > **Checkpoint**
 > The output shows `gpt-6-luna  priority 0  weight 80` and `gpt-6.1-sol  priority 0  weight 20`.
@@ -565,20 +560,18 @@ Give `gpt-6.1-sol` priority `1`. It stays in the alias, ready to promote, but re
 <!-- track: cli | Azure CLI -->
 <details><summary><b>⌨️ Azure CLI</b></summary> <!-- gh -->
 
-### Put the new priorities
+### Update the priorities
 
-A `PUT` replaces the whole list, so send both backend models.
+`model-alias update` replaces the whole `backendModels` list, so pass both backend models.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-az rest --method put --url "$WS/aliases/$ALIAS?$API" \
-  --body "$(jq -cn --arg p "$MODELS/$PRIMARY" --arg c "$MODELS/$CANDIDATE" '{properties: {
-      description: "Prefer the current model",
-      backendModels: [
-        {resourceId: $p, priority: 0, weight: 1},
-        {resourceId: $c, priority: 1, weight: 1}]}}')" \
-  --query properties.backendModels -o json |
+az aigateway model-alias update -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" \
+  --description "Prefer the current model" \
+  --backend-model resource-id="$MODELS/$PRIMARY" priority=0 weight=1 \
+  --backend-model resource-id="$MODELS/$CANDIDATE" priority=1 weight=1 \
+  --only-show-errors --query properties.backendModels -o json |
   jq -r '.[] | "\(.resourceId | split("/") | last)  priority \(.priority)  weight \(.weight)"'
 ```
 </details> <!-- gh -->
@@ -586,15 +579,12 @@ az rest --method put --url "$WS/aliases/$ALIAS?$API" \
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-@{ properties = @{
-    description   = "Prefer the current model"
-    backendModels = @(
-      @{ resourceId = "$MODELS/$PRIMARY";   priority = 0; weight = 1 }
-      @{ resourceId = "$MODELS/$CANDIDATE"; priority = 1; weight = 1 }
-    ) } } | ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
-az rest --method put --url "$WS/aliases/$ALIAS`?$API" --body "@body.json" --query properties.backendModels -o json |
+az aigateway model-alias update -g $RG --gateway-name $GATEWAY -n $ALIAS `
+  --description "Prefer the current model" `
+  --backend-model resource-id="$MODELS/$PRIMARY" priority=0 weight=1 `
+  --backend-model resource-id="$MODELS/$CANDIDATE" priority=1 weight=1 `
+  --only-show-errors --query properties.backendModels -o json |
   ConvertFrom-Json | ForEach-Object { '{0}  priority {1}  weight {2}' -f ($_.resourceId -split '/')[-1], $_.priority, $_.weight }
-Remove-Item body.json
 ```
 </details> <!-- gh -->
 
@@ -648,7 +638,7 @@ az deployment group create -g $RG --template-file infra/main.bicep `
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-az rest --url "$WS/aliases/$ALIAS?$API" --query properties.backendModels -o json |
+az aigateway model-alias show -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" --query properties.backendModels -o json |
   jq -r '.[] | "\(.resourceId | split("/") | last)  priority \(.priority)  weight \(.weight)"'
 ```
 </details> <!-- gh -->
@@ -656,7 +646,7 @@ az rest --url "$WS/aliases/$ALIAS?$API" --query properties.backendModels -o json
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-az rest --url "$WS/aliases/$ALIAS`?$API" --query properties.backendModels -o json |
+az aigateway model-alias show -g $RG --gateway-name $GATEWAY -n $ALIAS --query properties.backendModels -o json |
   ConvertFrom-Json | ForEach-Object { '{0}  priority {1}  weight {2}' -f ($_.resourceId -split '/')[-1], $_.priority, $_.weight }
 ```
 </details> <!-- gh -->
@@ -683,8 +673,9 @@ az rest --url "$WS/aliases/$ALIAS`?$API" --query properties.backendModels -o jso
 ### Promote the new model
 
 To finish the rollout, swap the priorities: `gpt-6.1-sol` at `0`, `gpt-6-luna` at `1`. Use the portal, or run
-the CLI command from the previous section with `$PRIMARY` and `$CANDIDATE` swapped. Run the count again: every
-request now shows `gpt-6.1-sol-…`. To roll back, swap them again. Clients never change.
+the `az aigateway model-alias update` command from the previous section with `$PRIMARY` and `$CANDIDATE`
+swapped. Run the count again: every request now shows `gpt-6.1-sol-…`. To roll back, swap them again. Clients
+never change.
 
 <!-- /steps -->
 
@@ -716,8 +707,8 @@ From a shell:
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-az rest --method delete --url "$WS/aliases/$ALIAS?$API"
-az rest --method delete --url "$WS/modelProviders/$PROVIDER/models/$CANDIDATE?$API"
+az aigateway model-alias delete -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" --yes
+az aigateway model delete -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$CANDIDATE" --yes
 az cognitiveservices account deployment delete -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --deployment-name "$CANDIDATE"
 ```
 </details> <!-- gh -->
@@ -725,8 +716,8 @@ az cognitiveservices account deployment delete -g "$FOUNDRY_RG" -n "$FOUNDRY_ACC
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-az rest --method delete --url "$WS/aliases/$ALIAS`?$API"
-az rest --method delete --url "$WS/modelProviders/$PROVIDER/models/$CANDIDATE`?$API"
+az aigateway model-alias delete -g $RG --gateway-name $GATEWAY -n $ALIAS --yes
+az aigateway model delete -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $CANDIDATE --yes
 az cognitiveservices account deployment delete -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT --deployment-name $CANDIDATE
 ```
 </details> <!-- gh -->
@@ -738,9 +729,10 @@ If an alias that the portal import created still points to `gpt-6.1-sol`, delete
 | Symptom | Cause | Fix |
 |---|---|---|
 | "Select models with at least one common API format." | The selected backend models don't share an interface, for example an Anthropic Messages model and an OpenAI Chat Completions model | Put models that share an interface in the same alias. |
-| "Weight must be a whole number from 1 to 100." or `weight must be between 1 and 100.` | A weight is `0`, negative, or above `100` | To stop traffic to a model, raise its priority number or remove it. |
-| "Priority must be a whole number from 0 to 100." or `priority must be between 0 and 100.` | A priority is outside `0` to `100` | Use `0` for the preferred tier and higher numbers for the others. |
+| "Weight must be a whole number from 1 to 100.", `Each target's weight must be a whole number from 1 to 100.`, or `weight must be between 1 and 100.` | A weight is `0`, negative, or above `100` | To stop traffic to a model, raise its priority number or remove it. |
+| "Priority must be a whole number from 0 to 100.", `Each target's priority must be a whole number from 0 to 100.`, or `priority must be between 0 and 100.` | A priority is outside `0` to `100` | Use `0` for the preferred tier and higher numbers for the others. |
 | "Each backend model can appear only once." or `backendModels must not contain duplicate model identities.` | The same backend model is listed twice | Combine the entries and adjust the weight. |
+| `This model alias already exists; use model-alias update.` | You ran `az aigateway model-alias create` for an alias that exists | Run `az aigateway model-alias update` with the same arguments. |
 | All requests go to one model | The models have different priorities, so only the lowest number receives traffic | Give the models the same priority to split by weight. |
 | `404` with `DeploymentNotFound` | The candidate backend model points to a Foundry deployment that doesn't exist | Create the deployment, or fix `deployment.resourceId` on the backend model. |
 | `429` from the preferred model | The preferred deployment is out of capacity, and the gateway returns the error | Retry in the client, add capacity, or spread traffic with weights at the same priority. |

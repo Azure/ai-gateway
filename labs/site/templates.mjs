@@ -264,7 +264,7 @@ export function homePage({ rel, site, catalog, labs, totals, latest }) {
 
   const trackCards = [
     { id: 'portal', title: 'Portal', text: 'Click-by-click guides in the AI Gateway portal, with exact labels and screenshots.' },
-    { id: 'cli', title: 'Azure CLI', text: 'Repeatable az rest and az deployment commands you can paste into Bash or PowerShell.' },
+    { id: 'cli', title: 'Azure CLI', text: 'Repeatable az aigateway and az deployment commands you can paste into Bash or PowerShell.' },
     { id: 'iac', title: 'Bicep & azd', text: 'Infrastructure as code that compiles, deploys, and cleans up in one command.' },
     { id: 'code', title: 'Code & REST', text: 'Python, TypeScript, and .NET clients, agent frameworks, and REST calls.' },
   ];

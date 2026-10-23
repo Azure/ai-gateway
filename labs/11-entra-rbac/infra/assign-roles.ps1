@@ -7,8 +7,9 @@
 #   tools  = AI Gateway Tools User  (tools only)
 # PrincipalId defaults to the signed-in user.
 #
-# Requires $RG and $GATEWAY (or -ResourceGroup and -GatewayName), and permission to create role assignments
-# (Owner, User Access Administrator, or Role Based Access Control Administrator). Contributor isn't enough.
+# Requires $RG and $GATEWAY (or -ResourceGroup and -GatewayName), the Azure CLI with the aigateway extension, and
+# permission to create role assignments (Owner, User Access Administrator, or Role Based Access Control
+# Administrator). Contributor isn't enough.
 param(
   [Parameter(Mandatory)][ValidateSet('user', 'models', 'tools')][string]$Role,
   [string]$Scope = 'gateway',
@@ -27,7 +28,7 @@ $roles = @{
 }
 $roleId = $roles[$Role].Id
 
-$gatewayId = az resource show -g $ResourceGroup -n $GatewayName --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
+$gatewayId = az aigateway show -g $ResourceGroup -n $GatewayName --query id -o tsv
 if ($LASTEXITCODE -ne 0) { throw "Couldn't read gateway $GatewayName." }
 
 switch -Regex ($Scope) {

@@ -48,8 +48,8 @@ The gateway sits on the path of every model call and every tool call. It has two
 
 - **Data plane**: the runtime endpoints your code calls, at `https://<gateway>.eastus2-01.ai.gateway.azure.com`.
 - **Control plane**: the product portal at [ai.gateway.azure.com](https://ai.gateway.azure.com) and the Azure
-  Resource Manager API for the `Microsoft.ApiManagement/aigateways` resource type, which you call with
-  `az rest`, Bicep, or any REST client.
+  Resource Manager API for the `Microsoft.ApiManagement/aigateways` resource type, which you call with the
+  `az aigateway` Azure CLI extension, Bicep, or any REST client.
 
 | Building block | What it is | Example |
 |---|---|---|

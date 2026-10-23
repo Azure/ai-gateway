@@ -4,7 +4,8 @@ Applies the policy baseline in baseline-policies.json at Gateway scope (the gate
 
 .DESCRIPTION
 Reads the current Gateway scope policies, replaces the entries whose type is in the baseline, keeps every
-other policy, and patches the workspace. Requires the Azure CLI (az login) and PowerShell 7 or later.
+other policy, and patches the workspace. Requires the Azure CLI (az login) with the aigateway extension, and
+PowerShell 7 or later.
 
 .EXAMPLE
 ./apply-baseline.ps1 -ResourceGroup $RG -Gateway $GATEWAY -AllowedCidrs $env:ALLOWED_CIDRS
@@ -45,9 +46,12 @@ if (-not $Remove -and $ipFilters.Count -gt 0) {
   foreach ($filter in $ipFilters) { $filter.cidrRanges = $cidrs }
 }
 
-$sub = az account show --query id -o tsv
-if ($LASTEXITCODE -ne 0) { throw 'Sign in with az login first.' }
-$url = "https://management.azure.com/subscriptions/$sub/resourceGroups/$ResourceGroup/providers/Microsoft.ApiManagement/aigateways/$Gateway/workspaces/default?api-version=2025-09-01-preview"
+# The aigateway extension doesn't set Gateway scope policies yet, so the script calls the REST API with az rest.
+$gatewayId = az aigateway show -g $ResourceGroup -n $Gateway --query id -o tsv
+if ($LASTEXITCODE -ne 0 -or -not $gatewayId) {
+  throw "Couldn't find gateway $Gateway. Sign in with az login and install the aigateway extension first."
+}
+$url = "https://management.azure.com$gatewayId/workspaces/default?api-version=2025-09-01-preview"
 
 # A PATCH replaces the whole properties.policies array, so always merge with the current array.
 $current = az rest --method get --url $url | ConvertFrom-Json

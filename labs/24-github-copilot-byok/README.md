@@ -67,7 +67,8 @@ surfaces its tools, with the same key, so Copilot's tool calls get the same cont
 - Quota for `gpt-6-astra` (version `2026-09-03`) in the Foundry account behind your gateway. This lab deploys it
   with 100,000 tokens per minute (TPM), because coding agents send large prompts. Model inference is billed per use.
 - For the CLI and IaC tracks: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later,
-  signed in with `az login`, plus `jq` for the Bash snippets.
+  signed in with `az login`, the `aigateway` extension
+  ([install it](../01-provision-gateway/README.md#before-you-begin)), and `jq` for the Bash snippets.
 - At least one Copilot surface. You don't need all four:
 
   | Surface | Version tested | Needs |
@@ -96,10 +97,10 @@ export MODEL="gpt-6-astra"                        # the deployment, the backend 
 export KEY_NAME="github-copilot"                  # the runtime key that Copilot uses
 
 export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
+export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
 export GW="https://management.azure.com$GATEWAY_ID"
 export WS="$GW/workspaces/default"
-export AI_GATEWAY_URL="https://$(az resource show --ids "$GATEWAY_ID" --query properties.frontend.defaultHostname -o tsv)"
+export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 export AI_GATEWAY_MODEL="$MODEL"
 ```
 </details> <!-- gh -->
@@ -116,18 +117,18 @@ $MODEL           = "gpt-6-astra"                  # the deployment, the backend 
 $KEY_NAME        = "github-copilot"               # the runtime key that Copilot uses
 
 $API        = "api-version=2025-09-01-preview"
-$GATEWAY_ID = az resource show -g $RG -n $GATEWAY --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv
+$GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
 $GW         = "https://management.azure.com$GATEWAY_ID"
 $WS         = "$GW/workspaces/default"
-$env:AI_GATEWAY_URL   = "https://$(az resource show --ids $GATEWAY_ID --query properties.frontend.defaultHostname -o tsv)"
+$env:AI_GATEWAY_URL   = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 $env:AI_GATEWAY_MODEL = $MODEL
 ```
 </details> <!-- gh -->
 
 > [!TIP]
 > If you imported models in the portal in lab 02, your provider has another name. List the providers with
-> `az rest --url "$WS/modelProviders?$API" --query "value[].name" -o tsv` and set `PROVIDER` to the one for your
-> Foundry account.
+> `az aigateway model-provider list -g "$RG" --gateway-name "$GATEWAY" --query "[].name" -o tsv` and set `PROVIDER`
+> to the one for your Foundry account.
 
 Then create a small practice project with two deliberate problems: `add` subtracts, and `divide` doesn't guard against
 zero. The VS Code and CLI sections ask Copilot to work on it. Create it outside any repository:
@@ -298,7 +299,9 @@ az cognitiveservices account deployment create -g $FOUNDRY_RG -n $FOUNDRY_ACCOUN
 
 ### Register the model with its token limit
 
-A backend model carries its own `policies` array, so one `PUT` registers the deployment and its limit.
+A backend model carries its own `policies` array, so one `PUT` registers the deployment and its limit. The
+`aigateway` extension can't register models on this resource type yet, so call the Azure Resource Manager REST API
+with `az rest`.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
@@ -325,6 +328,7 @@ az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$MODEL?$API" \
   } } | ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
 az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$MODEL`?$API" --body "@body.json" `
   --query "{name:name, policies:properties.policies}"
+Remove-Item body.json
 ```
 </details> <!-- gh -->
 
@@ -333,9 +337,8 @@ az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$MODEL`?$API" --
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-az rest --method put --url "$WS/aliases/$MODEL?$API" \
-  --body "$(jq -cn --arg id "$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" \
-      '{properties: {backendModels: [{resourceId: $id}]}}')" \
+az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$MODEL" \
+  --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" \
   --query "{alias:properties.aliasName, target:properties.backendModels[0].resourceId}"
 ```
 </details> <!-- gh -->
@@ -343,26 +346,28 @@ az rest --method put --url "$WS/aliases/$MODEL?$API" \
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-@{ properties = @{ backendModels = @(@{ resourceId = "$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" }) } } |
-  ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
-az rest --method put --url "$WS/aliases/$MODEL`?$API" --body "@body.json" `
+az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $MODEL `
+  --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" `
   --query "{alias:properties.aliasName, target:properties.backendModels[0].resourceId}"
-Remove-Item body.json
 ```
 </details> <!-- gh -->
 
+The command warns that the service doesn't enforce atomic alias creation. That's expected: it only matters when
+two people create the same alias at the same time. If the alias already exists, `create` fails; change it with
+`az aigateway model-alias update` and the same arguments instead.
+
 ### Create the key for Copilot
 
-The `PUT` returns metadata only. Read the value with `listSecrets` straight into a variable, so it never appears on
-screen.
+`api-key create` returns metadata only. Read the value with `list-secrets` straight into a variable, so it never
+appears on screen. The service assigns the key's display name itself, so any `--display-name` works.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-az rest --method put --url "$GW/apiKeys/$KEY_NAME?$API" \
-  --body '{"properties":{"displayName":"GitHub Copilot"}}' --query "{name:name, state:properties.state}"
+az aigateway api-key create -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" --display-name "GitHub Copilot" \
+  --query "{name:name, state:properties.state}"
 
-AI_GATEWAY_API_KEY="$(az rest --method post --url "$GW/apiKeys/$KEY_NAME/listSecrets?$API" \
+AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" \
   --query primaryKey -o tsv)" && export AI_GATEWAY_API_KEY
 ```
 </details> <!-- gh -->
@@ -370,12 +375,10 @@ AI_GATEWAY_API_KEY="$(az rest --method post --url "$GW/apiKeys/$KEY_NAME/listSec
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-'{"properties":{"displayName":"GitHub Copilot"}}' | Set-Content body.json
-az rest --method put --url "$GW/apiKeys/$KEY_NAME`?$API" --body "@body.json" `
+az aigateway api-key create -g $RG --gateway-name $GATEWAY -n $KEY_NAME --display-name "GitHub Copilot" `
   --query "{name:name, state:properties.state}"
-Remove-Item body.json
 
-$env:AI_GATEWAY_API_KEY = az rest --method post --url "$GW/apiKeys/$KEY_NAME/listSecrets?$API" `
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n $KEY_NAME `
   --query primaryKey -o tsv
 ```
 </details> <!-- gh -->
@@ -513,12 +516,12 @@ that Copilot needs.
 
 ### Read the key
 
-Template outputs never contain the key value. Read it with `listSecrets` straight into a variable.
+Template outputs never contain the key value. Read it with `list-secrets` straight into a variable.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-AI_GATEWAY_API_KEY="$(az rest --method post --url "$GW/apiKeys/$KEY_NAME/listSecrets?$API" \
+AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" \
   --query primaryKey -o tsv)" && export AI_GATEWAY_API_KEY
 ```
 </details> <!-- gh -->
@@ -526,7 +529,7 @@ AI_GATEWAY_API_KEY="$(az rest --method post --url "$GW/apiKeys/$KEY_NAME/listSec
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-$env:AI_GATEWAY_API_KEY = az rest --method post --url "$GW/apiKeys/$KEY_NAME/listSecrets?$API" `
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n $KEY_NAME `
   --query primaryKey -o tsv
 ```
 </details> <!-- gh -->
@@ -1043,19 +1046,16 @@ When the server is ready, copy the **Endpoint URL** from its details page. It en
 
 ### Register the Learn server
 
-MCP servers are `toolServers` resources in the gateway's `default` workspace.
+`az aigateway mcp create` registers the MCP server. `--endpoints` takes the backends as a JSON array.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-az rest --method put --url "$WS/toolServers/learn?$API" --body '{
-  "properties": {
-    "type": "mcp",
-    "displayName": "Microsoft Learn",
-    "description": "Search and fetch official Microsoft documentation and code samples.",
-    "endpoints": [{"kind": "mcp", "namespace": "learn", "required": true,
-                   "mcp": {"transport": "streamableHttp", "url": "https://learn.microsoft.com/api/mcp"}}]
-  }}' \
+az aigateway mcp create -g "$RG" --gateway-name "$GATEWAY" -n learn \
+  --display-name "Microsoft Learn" \
+  --description "Search and fetch official Microsoft documentation and code samples." \
+  --endpoints '[{"kind": "mcp", "namespace": "learn", "required": true,
+                 "mcp": {"transport": "streamableHttp", "url": "https://learn.microsoft.com/api/mcp"}}]' \
   --query "properties.gatewayEndpoints[0].url" -o tsv
 ```
 </details> <!-- gh -->
@@ -1063,21 +1063,22 @@ az rest --method put --url "$WS/toolServers/learn?$API" --body '{
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-@{ properties = @{
-    type        = 'mcp'
-    displayName = 'Microsoft Learn'
-    description = 'Search and fetch official Microsoft documentation and code samples.'
-    endpoints   = @(@{ kind = 'mcp'; namespace = 'learn'; required = $true
-                       mcp  = @{ transport = 'streamableHttp'; url = 'https://learn.microsoft.com/api/mcp' } })
-  } } | ConvertTo-Json -Depth 10 -Compress | Set-Content -Path body.json
-az rest --method put --url "$WS/toolServers/learn`?$API" --body '@body.json' `
+ConvertTo-Json -Depth 10 -Compress -InputObject @(
+  @{ kind = 'mcp'; namespace = 'learn'; required = $true
+     mcp  = @{ transport = 'streamableHttp'; url = 'https://learn.microsoft.com/api/mcp' } }
+) | Set-Content -Path endpoints.json
+az aigateway mcp create -g $RG --gateway-name $GATEWAY -n learn `
+  --display-name "Microsoft Learn" `
+  --description "Search and fetch official Microsoft documentation and code samples." `
+  --endpoints "@endpoints.json" `
   --query "properties.gatewayEndpoints[0].url" -o tsv
-Remove-Item body.json
+Remove-Item endpoints.json
 ```
 </details> <!-- gh -->
 
-A `PUT` replaces a server with the same name, including its backends and tool rules. If `learn` already exists,
-skip this step.
+If `learn` already exists, for example from lab 04, `mcp create` fails with the error
+`This MCP registration already exists; use mcp update.` In that case, skip this step and print the existing endpoint
+with `az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn --query "properties.gatewayEndpoints[0].url" -o tsv`.
 
 > **Checkpoint**
 > The command prints the endpoint, ending in `/default/toolservers/learn/mcp`.
@@ -1481,7 +1482,8 @@ higher than the output tokens: that's the context that the agent sends with ever
 
 ### Cut Copilot off by suspending the key
 
-Suspend the key, then run the CLI again. The settings are unchanged, but the gateway now rejects the key:
+Suspend the key, then run the CLI again. The settings are unchanged, but the gateway now rejects the key. The
+`aigateway` extension doesn't change a key's state yet, so call the Azure Resource Manager REST API with `az rest`:
 
 <details open><summary>Bash</summary> <!-- gh -->
 
@@ -1589,7 +1591,7 @@ Then delete the key. In the portal, delete `github-copilot` in **Access** › **
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-az rest --method delete --url "$GW/apiKeys/$KEY_NAME?$API"
+az aigateway api-key delete -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" --yes
 rm -rf ~/contoso-calc
 ```
 </details> <!-- gh -->
@@ -1597,7 +1599,7 @@ rm -rf ~/contoso-calc
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-az rest --method delete --url "$GW/apiKeys/$KEY_NAME`?$API"
+az aigateway api-key delete -g $RG --gateway-name $GATEWAY -n $KEY_NAME --yes
 Remove-Item -Recurse -Force ~/contoso-calc
 ```
 </details> <!-- gh -->
@@ -1608,8 +1610,8 @@ the portal, delete them in **Models** and in Foundry. From a shell:
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-az rest --method delete --url "$WS/aliases/$MODEL?$API"
-az rest --method delete --url "$WS/modelProviders/$PROVIDER/models/$MODEL?$API"
+az aigateway model-alias delete -g "$RG" --gateway-name "$GATEWAY" -n "$MODEL" --yes
+az aigateway model delete -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" --yes
 az cognitiveservices account deployment delete -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --deployment-name "$MODEL"
 ```
 </details> <!-- gh -->
@@ -1617,8 +1619,8 @@ az cognitiveservices account deployment delete -g "$FOUNDRY_RG" -n "$FOUNDRY_ACC
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-az rest --method delete --url "$WS/aliases/$MODEL`?$API"
-az rest --method delete --url "$WS/modelProviders/$PROVIDER/models/$MODEL`?$API"
+az aigateway model-alias delete -g $RG --gateway-name $GATEWAY -n $MODEL --yes
+az aigateway model delete -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL --yes
 az cognitiveservices account deployment delete -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT --deployment-name $MODEL
 ```
 </details> <!-- gh -->
@@ -1632,14 +1634,14 @@ which builds on it. Otherwise, delete it in **MCP servers** in the portal, or fr
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-az rest --method delete --url "$WS/toolServers/learn?$API"
+az aigateway mcp delete -g "$RG" --gateway-name "$GATEWAY" -n learn --yes
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-az rest --method delete --url "$WS/toolServers/learn`?$API"
+az aigateway mcp delete -g $RG --gateway-name $GATEWAY -n learn --yes
 ```
 </details> <!-- gh -->
 

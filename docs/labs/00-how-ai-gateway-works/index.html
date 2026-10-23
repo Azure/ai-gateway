@@ -69,7 +69,7 @@
         <span class="meta-pill"><span class="level-dots" aria-hidden="true"><i class="on"></i><i></i><i></i></span>Beginner</span>
         <span class="meta-pill"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M10 5.5V10l3 2"/></svg>20 min</span>
         <span class="meta-pill meta-tracks"><span class="track-chips"><span class="track-chip" title="Portal"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="11" rx="2"/><path d="M7 17.5h6M10 14.5v3"/><path d="m9 7 4 2-1.7.7-.7 1.8Z"/></svg><span>Portal</span></span></span></span>
-        <span class="meta-updated">Updated <time datetime="2026-10-22">Oct 22, 2026</time></span>
+        <span class="meta-updated">Updated <time datetime="2026-10-23">Oct 23, 2026</time></span>
       </div>
       <div class="lab-actions">
         <button class="btn btn-secondary btn-sm" type="button" data-values-open><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h7M14 6h3M3 14h3M10 14h7"/><circle cx="12" cy="6" r="2"/><circle cx="8" cy="14" r="2"/></svg>Your values</button>
@@ -149,8 +149,8 @@ follow the portal tour at the end.</li>
 <ul>
 <li><strong>Data plane</strong>: the runtime endpoints your code calls, at <code>https://&lt;gateway&gt;.eastus2-01.ai.gateway.azure.com</code>.</li>
 <li><strong>Control plane</strong>: the product portal at <a href="https://ai.gateway.azure.com" target="_blank" rel="noopener">ai.gateway.azure.com<span class="ext" aria-hidden="true">↗</span></a> and the Azure
-Resource Manager API for the <code>Microsoft.ApiManagement/aigateways</code> resource type, which you call with
-<code>az rest</code>, Bicep, or any REST client.</li>
+Resource Manager API for the <code>Microsoft.ApiManagement/aigateways</code> resource type, which you call with the
+<code>az aigateway</code> Azure CLI extension, Bicep, or any REST client.</li>
 </ul>
 <div class="table-wrap"><table><thead><tr><th>Building block</th><th>What it is</th><th>Example</th></tr></thead><tbody><tr><td><strong>Gateway</strong></td><td>An AI Gateway resource (<code>Microsoft.ApiManagement/aigateways</code>) in your subscription</td><td><code>https://&lt;gateway&gt;.eastus2-01.ai.gateway.azure.com</code></td></tr><tr><td><strong>Backend model</strong></td><td>A model at a provider, such as a Foundry deployment or an Anthropic model</td><td><code>gpt-6-luna</code> at Microsoft Foundry</td></tr><tr><td><strong>Alias</strong></td><td>The stable, gateway-wide name clients send in the <code>model</code> field</td><td><code>chat</code></td></tr><tr><td><strong>MCP server</strong></td><td>One governed MCP endpoint that federates tools from one or more sources</td><td><code>/default/toolservers/&lt;server-name&gt;/mcp</code></td></tr><tr><td><strong>Policy</strong></td><td>A rule on the gateway or on one asset: limits, budgets, safety, filters</td><td>Token rate limit, Cost limit</td></tr><tr><td><strong>Access</strong></td><td>How callers authenticate: API keys or Microsoft Entra ID roles</td><td><code>api-key</code> header or Entra token</td></tr><tr><td><strong>Managed identity</strong></td><td>How the gateway authenticates to backends</td><td>Foundry User role on the Foundry account</td></tr><tr><td><strong>Monitoring</strong></td><td>OpenTelemetry metrics, logs, and traces for every call</td><td>Application Insights or any OTLP endpoint</td></tr></tbody></table></div>
 <p>Model calls use protocols developers already know. The OpenAI-compatible base URL is

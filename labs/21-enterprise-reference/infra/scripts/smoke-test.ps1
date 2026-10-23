@@ -1,8 +1,9 @@
 # Post-deployment smoke test for the enterprise reference gateway. It proves the two runtime paths work end to end:
 #   1. Model: a chat completion through the alias with an app's runtime API key (gateway -> managed identity -> Foundry).
 #   2. Tools: the MCP handshake and tools/list on the federated Microsoft Learn MCP server.
-# It reads the gateway host name and the key with az rest, so it needs no CLI extension, and it never
-# prints the key. In GitHub Actions the key is also masked in the log. Requires PowerShell 7 or later and Azure CLI.
+# It reads the gateway host name and the key with the aigateway CLI extension, and it never prints the key.
+# In GitHub Actions the key is also masked in the log. Requires PowerShell 7 or later and Azure CLI with the
+# aigateway extension.
 #
 # Usage:
 #   $env:RG = "<gateway-resource-group>"; $env:GATEWAY = "<gateway-name>"
@@ -17,17 +18,16 @@ param(
 $ErrorActionPreference = 'Stop'
 if (-not $env:RG) { throw 'Set $env:RG to the gateway resource group' }
 if (-not $env:GATEWAY) { throw 'Set $env:GATEWAY to the gateway name' }
+az extension show --name aigateway -o none 2>$null
+if ($LASTEXITCODE -ne 0) {
+  Write-Error 'This script needs the aigateway CLI extension: irm https://aka.ms/aigateway-cli-install-ps | iex'; exit 1
+}
 
-$apiVersion = '2025-09-01-preview'
-$sub = az account show --query id -o tsv
-$gatewayId = "/subscriptions/$sub/resourceGroups/$($env:RG)/providers/Microsoft.ApiManagement/aigateways/$($env:GATEWAY)"
-$gatewayHost = az rest --method get --url "https://management.azure.com$gatewayId`?api-version=$apiVersion" `
-  --query properties.frontend.defaultHostname -o tsv
+$gatewayHost = az aigateway show -g $env:RG -n $env:GATEWAY --query properties.frontend.defaultHostname -o tsv
 if (-not $gatewayHost) { Write-Error "Couldn't read the host name of gateway '$($env:GATEWAY)'."; exit 1 }
 $runtimeUrl = "https://$gatewayHost"
-$apiKey = az rest --method post `
-  --url "https://management.azure.com$gatewayId/apiKeys/$KeyName/listSecrets?api-version=$apiVersion" `
-  --body '{}' --query 'primaryKey || properties.primaryKey' -o tsv
+$apiKey = az aigateway api-key list-secrets -g $env:RG --gateway-name $env:GATEWAY -n $KeyName `
+  --query primaryKey -o tsv
 if (-not $apiKey) { Write-Error "Couldn't read the secret of API key '$KeyName'."; exit 1 }
 if ($env:GITHUB_ACTIONS -eq 'true') { Write-Host "::add-mask::$apiKey" }
 

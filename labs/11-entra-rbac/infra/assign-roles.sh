@@ -10,8 +10,8 @@
 #   principal-object-id  defaults to the signed-in user
 #   principal-type       User (default) | Group | ServicePrincipal
 #
-# Requires RG and GATEWAY, and permission to create role assignments (Owner, User Access Administrator,
-# or Role Based Access Control Administrator). Contributor isn't enough.
+# Requires RG and GATEWAY, the Azure CLI with the aigateway extension, and permission to create role assignments
+# (Owner, User Access Administrator, or Role Based Access Control Administrator). Contributor isn't enough.
 set -euo pipefail
 
 : "${RG:?Set RG to the resource group of the gateway}"
@@ -29,7 +29,7 @@ case "$ROLE" in
   *) echo "Unknown role '$ROLE'. Use user, models, or tools." >&2; exit 2 ;;
 esac
 
-GATEWAY_ID="$(az resource show -g "$RG" -n "$GATEWAY" --resource-type Microsoft.ApiManagement/aigateways --query id -o tsv)"
+GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
 
 case "$TARGET" in
   gateway) SCOPE="$GATEWAY_ID" ;;

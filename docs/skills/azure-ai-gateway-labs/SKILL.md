@@ -63,7 +63,7 @@ Before you create, change, or delete Azure resources, confirm the subscription a
 | Track | Marker id | How to use it |
 | :-- | :-- | :-- |
 | Portal | `portal` | Click-by-click steps in the AI Gateway portal. You can't run them from a shell, so guide the user through them one screen at a time. |
-| Azure CLI | `cli` | `az rest` calls to Azure Resource Manager, in Bash and PowerShell variants. This is the easiest track for an agent to run. |
+| Azure CLI | `cli` | `az aigateway` commands, plus `az rest` calls to Azure Resource Manager for what the extension can't do yet, in Bash and PowerShell variants. This is the easiest track for an agent to run. |
 | REST API | `rest` | Raw Azure Resource Manager requests, for users who script against the API themselves. |
 | Bicep | `iac` | Templates in `infra/`, deployed with `az deployment group create`, or with `azd` in lab 16. |
 | Code | `code` | Python, TypeScript, and .NET clients, and agent frameworks, calling the gateway at runtime. |
@@ -76,9 +76,14 @@ Before you create, change, or delete Azure resources, confirm the subscription a
   (API version `2026-05-01-preview`). Don't set `sku` or publisher properties. Gateway names are at most 24
   characters.
 - The public preview runs in East US 2 (`eastus2`) and Sweden Central (`swedencentral`).
-- The `az aigateway` extension doesn't manage `aigateways` yet, so the CLI track uses `az rest`. It sets
-  `GATEWAY_ID`, `GW`, `WS` (`$GW/workspaces/default`), and `API` (`api-version=2025-09-01-preview`) once. A `PATCH`
-  replaces whole arrays such as `properties.policies`, so read, edit, then write.
+- The CLI track uses the `az aigateway` extension (lab 01 installs it) for gateways, providers, aliases, API keys,
+  and MCP servers. `az aigateway api-key create` needs `--display-name`, secrets come from `api-key list-secrets`,
+  and `model-alias create` fails when the alias exists, so use `model-alias update`. The track keeps `az rest` for
+  what the extension can't do yet: registering models, policies, telemetry exporters, MCP versions and tool rules,
+  network settings, secondary key rotation, and the connector gateway. It sets `GATEWAY_ID` (from
+  `az aigateway show`), `WS` (`https://management.azure.com$GATEWAY_ID/workspaces/default`), and `API`
+  (`api-version=2025-09-01-preview`) once. A `PATCH` replaces whole arrays such as `properties.policies`, so read,
+  edit, then write.
 - The runtime URL is `https://` plus `properties.frontend.defaultHostname`, which looks like
   `https://<gateway>.<region>-01.ai.gateway.azure.com`. A new gateway with no models answers `404`.
 - Models: `<runtime URL>/default/models/openai/v1` serves OpenAI Chat Completions and Responses.
@@ -127,14 +132,14 @@ Each entry shows the level, time, tracks, and the labs it needs.
 
 ### Models & routing
 
-- **03** [Publish models from any provider behind stable aliases](https://azure.github.io/ai-gateway/labs/03-multi-provider-aliases/index.md) `03-multi-provider-aliases` (Intermediate, 30 min · Portal, REST · needs 02): Connect Anthropic or another non-Azure provider with a credential that stays in the gateway, publish its models behind callable aliases, call Claude with the native Messages API, and retarget an alias to a different backend model without changing a single client.
+- **03** [Publish models from any provider behind stable aliases](https://azure.github.io/ai-gateway/labs/03-multi-provider-aliases/index.md) `03-multi-provider-aliases` (Intermediate, 30 min · Portal, CLI · needs 02): Connect Anthropic or another non-Azure provider with a credential that stays in the gateway, publish its models behind callable aliases, call Claude with the native Messages API, and retarget an alias to a different backend model without changing a single client.
 - **22** [Route an alias across models by priority and weight](https://azure.github.io/ai-gateway/labs/22-model-routing/index.md) `22-model-routing` (Intermediate, 25 min · Portal, CLI, Bicep · needs 02): Put two Foundry models behind one alias, canary a new model version with an 80/20 weighted split, then prefer one model by priority, all without changing the model name that clients send.
 - **23** [Stream responses and count every token](https://azure.github.io/ai-gateway/labs/23-streaming-responses/index.md) `23-streaming-responses` (Intermediate, 20 min · CLI, Code, Portal, Bicep, Notebook · needs 02): Stream Chat Completions and Responses API replies through the gateway, read the server-sent events that your client receives, and prove that a token limit counts streamed tokens even when the client never asks for usage.
 
 ### MCP & tools
 
 - **04** [Federate MCP tools behind one endpoint](https://azure.github.io/ai-gateway/labs/04-federate-mcp-tools/index.md) `04-federate-mcp-tools` (Beginner, 30 min · Portal, CLI, Bicep, Code, Notebook · needs 01): Register a remote MCP server in AI Gateway, add a second backend under its own namespace, and connect curl, VS Code, and Python to one governed MCP endpoint.
-- **05** [Control which tools agents can call](https://azure.github.io/ai-gateway/labs/05-mcp-tool-controls/index.md) `05-mcp-tool-controls` (Intermediate, 20 min · Portal, REST · needs 04): Publish only approved MCP tools with name patterns, block risky tools, take a whole MCP server offline, and cap tool traffic per caller with a request rate limit.
+- **05** [Control which tools agents can call](https://azure.github.io/ai-gateway/labs/05-mcp-tool-controls/index.md) `05-mcp-tool-controls` (Intermediate, 20 min · Portal, CLI · needs 04): Publish only approved MCP tools with name patterns, block risky tools, take a whole MCP server offline, and cap tool traffic per caller with a request rate limit.
 
 ### Governance & cost
 
