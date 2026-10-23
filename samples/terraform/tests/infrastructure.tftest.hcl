@@ -1,5 +1,13 @@
 mock_provider "azapi" {}
 
+override_resource {
+  target          = azapi_resource.resource_group["gateway"]
+  override_during = plan
+  values = {
+    id = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/shared-gateway"
+  }
+}
+
 variables {
   subscription_id               = "00000000-0000-0000-0000-000000000001"
   location                      = "eastus2"
@@ -23,6 +31,30 @@ variables {
 run "models_and_access_without_developer" {
   command = plan
 
+  assert {
+    condition = (
+      length(azapi_resource.resource_group) == 1 &&
+      azapi_resource.resource_group["gateway"].name == "rg-${var.environment_name}-${local.resource_token}-gateway" &&
+      output.resource_group_name == azapi_resource.resource_group["gateway"].name &&
+      jsonencode(keys(output.resource_groups)) == jsonencode(["agents", "gateway", "models"]) &&
+      alltrue([for name in values(output.resource_groups) : name == output.resource_group_name]) &&
+      alltrue([for parent in concat([
+        azapi_resource.gateway.parent_id,
+        azapi_resource.connector_gateway.parent_id,
+        azapi_resource.models.parent_id,
+        azapi_resource.agents.parent_id,
+        azapi_resource.storage.parent_id,
+        azapi_resource.registry.parent_id
+        ], [for workspace in azapi_resource.logs : workspace.parent_id],
+        [for insights in azapi_resource.insights : insights.parent_id]
+      ) : parent == azapi_resource.resource_group["gateway"].id]) &&
+      length(azapi_resource.logs) == 2 &&
+      length(azapi_resource.insights) == 2 &&
+      azapi_resource.gateway.body.sku.name == "AIGateway"
+    )
+    error_message = "All building blocks must share the retained gateway group without changing its name/address, AIGateway SKU, monitoring stacks or compatibility output keys."
+  }
+
   override_resource {
     target          = azapi_resource.catalog_model["test-model"]
     override_during = plan
@@ -42,6 +74,14 @@ run "models_and_access_without_developer" {
       azapi_resource.catalog_model["test-model"].body.properties.supportedEndpoints[0] == "/openai/v1/responses"
     )
     error_message = "Deployment inputs must propagate to both Foundry and the gateway catalog without conflating quota and token limits."
+  }
+
+  assert {
+    condition = (
+      output.model_api_configuration["test-model"].api_format == "OpenAIChatCompletions" &&
+      jsonencode(output.model_api_configuration["test-model"].endpoints) == jsonencode(["/openai/v1/responses"])
+    )
+    error_message = "Probe metadata must preserve the configured API, including Responses-only models that the chat probes cannot test."
   }
 
   assert {
@@ -127,6 +167,46 @@ run "reject_invalid_capacity" {
   expect_failures = [var.model_deployments]
 }
 
+run "backend_rebuild_retains_gateway" {
+  command = plan
+  variables {
+    backend_revision              = "single-group-20261023"
+    retain_legacy_resource_groups = true
+  }
+
+  assert {
+    condition = (
+      local.backend_token != local.resource_token &&
+      local.names.gateway == "aigw-${local.resource_token}" &&
+      azapi_resource.resource_group["gateway"].name == "rg-${var.environment_name}-${local.resource_token}-gateway" &&
+      length(azapi_resource.resource_group) == 3 &&
+      local.names.models == "aimodels-${local.backend_token}" &&
+      local.names.agents == "aiagents-${local.backend_token}" &&
+      local.names.project == "proj-${local.backend_token}" &&
+      local.names.storage == "st${local.backend_token}" &&
+      local.names.registry == "acr${local.backend_token}" &&
+      alltrue([for parent in [
+        azapi_resource.models.parent_id,
+        azapi_resource.agents.parent_id,
+        azapi_resource.storage.parent_id,
+        azapi_resource.registry.parent_id,
+        azapi_resource.logs["agents"].parent_id,
+        azapi_resource.insights["agents"].parent_id
+      ] : parent == azapi_resource.resource_group["gateway"].id]) &&
+      alltrue([for name in values(output.resource_groups) : name == output.resource_group_name])
+    )
+    error_message = "A backend revision must change only backend names, keep gateway identity and place new resources in the shared group while old groups are retained for staged cleanup."
+  }
+}
+
+run "reject_invalid_backend_revision" {
+  command = plan
+  variables {
+    backend_revision = "Invalid_Revision"
+  }
+  expect_failures = [var.backend_revision]
+}
+
 run "reject_empty_models" {
   command = plan
   variables {
@@ -151,6 +231,23 @@ run "private_gateway_and_model_paths" {
     values = {
       id = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/test/providers/Microsoft.Network/virtualNetworks/test/subnets/gateway"
     }
+  }
+
+  assert {
+    condition = (
+      length(azapi_resource.resource_group) == 1 &&
+      alltrue([for parent in concat([
+        azapi_resource.private_vnet[0].parent_id,
+        azapi_resource.private_test_nic[0].parent_id,
+        azapi_resource.private_test_vm[0].parent_id
+        ], [for endpoint in azapi_resource.private_endpoint : endpoint.parent_id],
+        [for zone in azapi_resource.private_dns_zone : zone.parent_id],
+        [for nsg in azapi_resource.private_nsg : nsg.parent_id]
+      ) : parent == azapi_resource.resource_group["gateway"].id]) &&
+      jsonencode(azapi_resource.private_test_key_role[0].body.properties.assignableScopes) == jsonencode([azapi_resource.resource_group["gateway"].id]) &&
+      alltrue([for endpoint in azapi_resource.private_endpoint : jsonencode(endpoint.replace_triggers_refs) == jsonencode(["properties.privateLinkServiceConnections"])])
+    )
+    error_message = "Private networking, DNS and the test client must remain in the shared gateway group, replace endpoints when service targets change and preserve the custom role's assignable scope."
   }
 
   assert {

@@ -18,6 +18,9 @@ resource "azapi_resource" "gateway" {
     }
   }
   response_export_values = ["properties.gatewayUrl"]
+  lifecycle {
+    prevent_destroy = true
+  }
   timeouts {
     create = "60m"
     update = "60m"

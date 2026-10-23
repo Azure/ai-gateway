@@ -1,7 +1,7 @@
 resource "azapi_resource" "agents" {
   type      = "Microsoft.CognitiveServices/accounts@2025-04-01-preview"
   name      = local.names.agents
-  parent_id = azapi_resource.resource_group["agents"].id
+  parent_id = azapi_resource.resource_group["gateway"].id
   location  = var.location
   tags      = local.tags
   identity { type = "SystemAssigned" }
@@ -25,7 +25,7 @@ resource "azapi_resource" "agents" {
 resource "azapi_resource" "storage" {
   type      = "Microsoft.Storage/storageAccounts@2024-01-01"
   name      = local.names.storage
-  parent_id = azapi_resource.resource_group["agents"].id
+  parent_id = azapi_resource.resource_group["gateway"].id
   location  = var.location
   tags      = local.tags
   body = {
@@ -49,7 +49,7 @@ resource "azapi_resource" "storage" {
 resource "azapi_resource" "registry" {
   type      = "Microsoft.ContainerRegistry/registries@2023-07-01"
   name      = local.names.registry
-  parent_id = azapi_resource.resource_group["agents"].id
+  parent_id = azapi_resource.resource_group["gateway"].id
   location  = var.location
   tags      = local.tags
   identity { type = "SystemAssigned" }

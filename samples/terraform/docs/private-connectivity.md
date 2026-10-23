@@ -21,8 +21,12 @@ Private client -> gateway private endpoint -> private model endpoint
 Always pass the profile on every plan, including drift checks:
 `-var-file=profiles\private-connectivity.tfvars.json`. It overrides `terraform.tfvars`.
 
-> The profile does **not** make the gateway private-only, and it does not secure
-> hosted-agent networking or prove agent execution.
+> **Pending: private-only gateway ingress.** The observed public-disable failure
+> is under investigation with the product group. Until a fix is verified, the
+> profile keeps gateway public access enabled and is **not private-only**. See the
+> [status and observed behavior](reference.md#known-blocker-private-only-gateway-ingress).
+>
+> Hosted-agent networking and proof of agent execution remain outside this profile.
 
 **Already have a working private deployment?** Go to
 [existing private deployments](#existing-private-deployments); do not repeat
@@ -36,6 +40,32 @@ state/backend. Do not run the public-path plan/apply. Additional requirements:
 
 - `Microsoft.Network` registered
 - For the test VM: `Microsoft.Compute`, regional VM quota, and permission to use VM Run Command
+
+### Test-client permissions
+
+The Terraform deployment identity and the VM's managed identity have different
+jobs. Creating role assignments alone does **not** authorize creating a custom
+role definition.
+
+| Identity | Required permission and scope |
+| --- | --- |
+| Terraform deployment identity | `Microsoft.Authorization/roleDefinitions/read`, `write`, and `delete` to manage the custom role through its lifecycle. The definition is addressed under the subscription, but its only `assignableScopes` entry is the gateway resource group. The identity must be authorized to manage definitions for that assignable scope. |
+| Terraform deployment identity | `Microsoft.Authorization/roleAssignments/read`, `write`, and `delete` at the gateway resource for the VM's binding, in addition to the six service bindings at their original resource scopes. |
+| Test operator | Read the VM and its instance view; `Microsoft.Compute/virtualMachines/runCommand/action` to run the probe, `start/action` and `deallocate/action` for its power lifecycle, scoped to the test VM. |
+| Test VM managed identity | Only `Microsoft.ApiManagement/service/apiKeys/listSecrets/action`, assigned **on the gateway resource**, not the subscription. Terraform creates this role/binding. |
+
+Ask your subscription administrator to verify effective permissions, assignment
+conditions and deny assignments **before enabling the VM**. Contributor alone
+cannot manage RBAC, and Role Based Access Control Administrator does not by itself
+grant custom role-definition management. Do not solve this by granting Owner to
+the VM or broadening its key-reader role. See Microsoft's
+[custom-role permissions](https://learn.microsoft.com/azure/role-based-access-control/custom-roles#who-can-create-delete-update-or-view-a-custom-role).
+Deletion rights are needed for cleanup too; do not remove a role definition while
+assignments still reference it.
+
+If these permissions cannot be granted, keep `enable_private_test_client = false`
+and use an approved existing private client with its own approved authentication.
+This avoids the custom test-VM role, not the six core service role assignments.
 
 ## Step 1: Choose your test client
 
@@ -78,6 +108,13 @@ that the gateway and model hostnames resolve to the private endpoint subnet and
 that every alias answers `OK`. The VM gets the gateway key through managed
 identity. No key is printed or passed as an argument.
 
+**Model prerequisite:** all aliases must support the probe's OpenAI Chat
+Completions request, including `max_tokens` and `temperature`. The sample's
+`gpt-4.1` and `gpt-4.1-mini` configuration is the reference. Responses-only,
+embeddings, image, or other API formats need their own test. The probe rejects
+incompatible API metadata before DNS/key retrieval; it does not interpret that
+rejection as a networking failure. See [probe compatibility](reference.md#probe-compatibility).
+
 **Stop if this fails.** Check endpoint approval, private DNS, permissions and outbound integration. A pass here is only an initial check, because model public access is still on.
 
 ## Step 4: Disable model public access
@@ -103,9 +140,13 @@ terraform plan "-var-file=profiles\private-connectivity.tfvars.json" -detailed-e
 
 **Done when:** the probe reports `"passed": true` with `OK` for every alias, and the plan exits `0`.
 
-The probe does not test invalid keys or telemetry. Follow the
-[additional runtime checks](../README.md#additional-runtime-checks), not the
-public-path plan/apply.
+The probe also rejects missing/invalid keys on the same route after positive
+controls and emits per-call trace IDs. It does not itself verify all role
+bindings, connections or telemetry ingestion.
+Complete the [customer acceptance guide](acceptance.md) before handing over the
+deployment, not the public-path plan/apply. A DNS/inference pass is only the
+private-route part of acceptance. The [end-to-end runner](end-to-end.md) adds
+VM lifecycle handling, backend checks, correlated telemetry and portal evidence.
 
 ## Step 6: Stop the VM when you are done
 

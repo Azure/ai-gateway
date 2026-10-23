@@ -1,5 +1,5 @@
 variable "subscription_id" {
-  description = "Azure subscription in which to provision the three resource groups."
+  description = "Azure subscription containing the shared resource group."
   type        = string
   validation {
     condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.subscription_id))
@@ -8,13 +8,29 @@ variable "subscription_id" {
 }
 
 variable "environment_name" {
-  description = "Short environment label used in resource group names and tags."
+  description = "Short environment label used in the shared resource group name and tags."
   type        = string
   default     = "aigateway"
   validation {
     condition     = can(regex("^[a-z][a-z0-9-]{0,31}$", var.environment_name))
     error_message = "Use 1-32 lowercase letters, numbers, or hyphens, starting with a letter."
   }
+}
+
+variable "backend_revision" {
+  description = "Optional stable revision for deliberate backend recreation with fresh names. Does not rename the gateway or shared group. Changing it replaces backend resources."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.backend_revision == "" || can(regex("^[a-z0-9][a-z0-9-]{0,31}$", var.backend_revision))
+    error_message = "backend_revision must be empty or 1-32 lowercase letters, digits or hyphens, starting with a letter or digit."
+  }
+}
+
+variable "retain_legacy_resource_groups" {
+  description = "Migration-only safety switch: retain the old empty Models/Agents groups during backend rebuild. Set false after acceptance and inventory review; new resources always use the gateway group."
+  type        = bool
+  default     = false
 }
 
 variable "location" {

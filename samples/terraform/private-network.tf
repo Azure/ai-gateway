@@ -130,6 +130,8 @@ resource "azapi_resource" "private_endpoint" {
   parent_id = azapi_resource.resource_group["gateway"].id
   location  = var.gateway_location
   tags      = local.tags
+  # Body-relative paths cover known targets; unknown IDs also need -replace (see reference).
+  replace_triggers_refs = ["properties.privateLinkServiceConnections"]
   body = {
     properties = {
       subnet = { id = azapi_resource.private_subnet["endpoints"].id }

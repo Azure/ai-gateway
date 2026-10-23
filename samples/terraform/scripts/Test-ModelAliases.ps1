@@ -5,12 +5,26 @@
 
 $ErrorActionPreference = "Stop"
 
-$outputs = terraform output -json | ConvertFrom-Json
+$root = Split-Path $PSScriptRoot -Parent
+$outputsJson = & terraform "-chdir=$root" output -json
+if ($LASTEXITCODE -ne 0) { throw "Cannot read Terraform outputs." }
+$outputs = $outputsJson | ConvertFrom-Json
 $gatewayUrl = ([string]$outputs.gateway_endpoint.value).TrimEnd('/')
 $keyId = $outputs.gateway_api_key_id.value
 $modelNames = @($outputs.model_deployment_ids.value.PSObject.Properties.Name)
 if (!$gatewayUrl -or !$keyId -or $modelNames.Count -eq 0) {
     throw "Gateway endpoint, API key resource ID, or model aliases are missing."
+}
+$modelApis = $outputs.model_api_configuration.value
+if (-not $modelApis) {
+    throw "Missing model_api_configuration output. Review and apply the output update with your existing inputs/profile before testing."
+}
+foreach ($model in $modelNames) {
+    $api = $modelApis.PSObject.Properties[$model].Value
+    if ($api.api_format -cne 'OpenAIChatCompletions' -or
+        @($api.endpoints) -cnotcontains '/openai/v1/chat/completions') {
+        throw "Unsupported probe API for ${model}: requires OpenAIChatCompletions and /openai/v1/chat/completions. Use a model-specific test; this is not a network failure."
+    }
 }
 
 $apiKey = $null
@@ -18,7 +32,7 @@ try {
     $apiKey = az rest --method post `
         --url "https://management.azure.com${keyId}/listSecrets?api-version=2025-09-01-preview" `
         --query primaryKey --output tsv --only-show-errors
-    if ([string]::IsNullOrWhiteSpace($apiKey)) {
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($apiKey)) {
         throw "Unable to retrieve the gateway key. Check your Azure identity and permissions."
     }
     $headers = @{ "Api-Key" = $apiKey }

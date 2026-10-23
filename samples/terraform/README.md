@@ -23,9 +23,13 @@ the Terraform default; the private profile adds private endpoints and routing.
 | [Private connectivity](#private-connectivity-path) | Gateway and model account | **Enabled** | **Disabled** after staging |
 | [Public endpoints](#public-endpoint-path) | None | Enabled | Enabled |
 
-**Private connectivity is not private-only gateway access.** The private profile
-provides a private route to the gateway and models, but the gateway's public
-endpoint remains enabled because of the [observed public-disable blocker](docs/reference.md#known-blocker-private-only-gateway-ingress).
+**Pending: private-only gateway ingress (product-group investigation).** The
+observed failure when disabling public access is being investigated with the
+product group. No fix has been verified for this public-preview sample yet.
+The private profile is intended to provide a private route while the gateway's
+public endpoint remains **Enabled**. Verify both endpoints, DNS and inference
+after every deployment; applying this profile alone is not proof that the route
+works. Do not treat it as private-only. See the [status and observed behavior](docs/reference.md#known-blocker-private-only-gateway-ingress).
 
 **Already using the private profile?** Follow [existing private deployments](docs/private-connectivity.md#existing-private-deployments).
 Keep the profile on every plan, including drift checks. Do not follow the public
@@ -38,6 +42,7 @@ path or repeat the temporary-public staging step for an already-private backend.
 - [ ] Terraform 1.11+ (below 2.0) and Azure CLI installed
 - [ ] Existing legacy AIGateway deployment and subscription access to Foundry hosted agents in your regions
 - [ ] Permission to create resources and role assignments (for example, Contributor plus Role Based Access Control Administrator)
+- [ ] If enabling the test VM: permission to manage its **custom role definition**, not just role assignments; see [test-client permissions](docs/private-connectivity.md#test-client-permissions)
 - [ ] Providers registered: `Microsoft.ApiManagement`, `Microsoft.Web`, `Microsoft.CognitiveServices`, `Microsoft.Storage`, `Microsoft.ContainerRegistry`, `Microsoft.OperationalInsights`, `Microsoft.Insights` (this sample does not register them for you)
 - [ ] Quota for the model and SKU in your region
 
@@ -45,7 +50,7 @@ path or repeat the temporary-public staging step for an already-private backend.
 
 - **Public endpoints OK?** If your policy prohibits public gateway or model endpoints, even temporarily, do not run this sample unchanged.
 - **Need private hosted-agent execution?** Set it when the Foundry account is created. This sample does not configure it, and you cannot add it to an existing account later.
-- **Need private-only gateway ingress?** Not achievable with this sample. See the [known blocker](docs/reference.md#known-blocker-private-only-gateway-ingress).
+- **Need private-only gateway ingress?** Pending product-group investigation; the current profile does not meet this requirement. See the [status and observed behavior](docs/reference.md#known-blocker-private-only-gateway-ingress).
 
 ## What gets deployed
 
@@ -59,6 +64,16 @@ path or repeat the temporary-public staging step for an already-private backend.
 
 Both paths manage all three core components. Hosted-agent infrastructure is
 included even if you only test model calls.
+
+All resource-group-scoped resources use **one shared resource group**:
+`rg-<environment_name>-<resource_token>-gateway`. The existing gateway group name
+and Terraform address are retained; the AIGateway SKU, private-network design and
+separate gateway/agent monitoring stacks are unchanged.
+
+**Upgrading from the former three-group layout is a migration, not a harmless
+refactor.** Terraform can propose backend replacements and deletion of the old
+groups. Do not apply until the exact migration/recreation and any data loss have
+been approved. See [single-group consolidation](docs/reference.md#single-group-consolidation).
 
 **Authentication in both paths** (independent of public or private routing):
 
@@ -152,18 +167,25 @@ terraform apply "deployment.tfplan"
 Each alias should print a short reply, for example `gpt-mini: Hello!`.
 This check uses your machine and public endpoints. It does **not** prove private routing.
 The example calls every configured alias and assumes chat-completions models,
-such as the two models in `terraform.tfvars.example`. For other model types,
-use their supported API and request body instead.
+such as the two models in `terraform.tfvars.example`. Both test scripts reject
+missing or incompatible API metadata before making model calls; they do not
+silently skip aliases. See [probe compatibility](docs/reference.md#probe-compatibility)
+for supported request parameters and updating older outputs. For other model
+types, use their supported API and request body instead.
 
 **Done when:** every alias returns a response and `terraform plan -detailed-exitcode` exits `0`.
 
 ## Additional runtime checks
 
-For either path, also verify:
+For a reproducible private-path rehearsal, use the
+[end-to-end runbook](docs/end-to-end.md): credential-free CI, a guarded backend
+verifier and a separate authenticated portal review including fresh metrics.
+The portal evidence validator checks completeness; it does not automate the UI.
 
-- Missing or invalid API keys get HTTP `401/403`. A successful call does not prove this.
-- The six default RBAC assignments and Foundry connections exist.
-- Requests appear in the gateway's Application Insights after ingestion delay.
+Complete the [customer acceptance guide](docs/acceptance.md) for either path.
+It includes commands, expected results, and failure boundaries for missing and
+invalid keys, the six scoped RBAC assignments, Foundry connections, telemetry,
+and the final drift check. A successful model call alone is not full acceptance.
 
 ## Going further
 

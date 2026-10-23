@@ -1,6 +1,11 @@
+output "resource_group_name" {
+  description = "Single shared resource group for gateway, Foundry, monitoring and optional networking."
+  value       = azapi_resource.resource_group["gateway"].name
+}
+
 output "resource_groups" {
-  description = "Resource group names for the three building blocks."
-  value       = { for key, group in azapi_resource.resource_group : key => group.name }
+  description = "Compatibility aliases: gateway, models and agents all refer to the same shared resource group."
+  value       = { for key in ["gateway", "models", "agents"] : key => azapi_resource.resource_group["gateway"].name }
 }
 
 output "gateway_id" {
@@ -21,6 +26,14 @@ output "gateway_api_key_id" {
 output "model_deployment_ids" {
   description = "Model deployment ARM IDs keyed by the names registered in the gateway."
   value       = { for key, deployment in azapi_resource.model_deployment : key => deployment.id }
+}
+
+output "model_api_configuration" {
+  description = "Non-secret API metadata used to check compatibility before running the sample's chat-completions probes."
+  value = { for key, model in var.model_deployments : key => {
+    api_format = model.api_format
+    endpoints  = model.endpoints
+  } }
 }
 
 output "foundry_models_id" {
