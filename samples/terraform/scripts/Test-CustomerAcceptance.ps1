@@ -60,17 +60,42 @@ function Read-Arm([string]$Id, [string]$Version) {
     Invoke-AzureJson @('rest', '--method', 'get', '--url', "https://management.azure.com${Id}?api-version=$Version")
 }
 
-function Read-ArmItems([string]$Id, [string]$Version) {
-    Assert-GroupId $Id
+function Read-ArmItems([string]$Id, [string]$Version, [switch]$LinkedDcr) {
+    if ($LinkedDcr) {
+        if (-not $context.monitoring -or $Id -ine "$($context.monitoring.dataCollectionRuleId)/providers/Microsoft.Authorization/roleAssignments") {
+            Stop-Check 'Only the verified linked DCR role assignments may be read outside the application group.'
+        }
+    }
+    else { Assert-GroupId $Id }
     $url = "https://management.azure.com${Id}?api-version=$Version"
     $seen = [Collections.Generic.HashSet[string]]::new()
     while ($url) {
-        if (-not $url.StartsWith("https://management.azure.com$groupId/", [StringComparison]::OrdinalIgnoreCase) -or
+        if (-not $url.StartsWith("https://management.azure.com${Id}?", [StringComparison]::OrdinalIgnoreCase) -or
             -not $seen.Add($url)) { Stop-Check 'Unexpected or repeated ARM pagination URL.' }
         $page = Invoke-AzureJson @('rest', '--method', 'get', '--url', $url)
         $page.value
         $url = $page.nextLink
     }
+}
+
+function Get-MonitoringTopology {
+    if (-not $context.monitoring) {
+        $context.monitoring = & (Join-Path $PSScriptRoot 'Get-GatewayMonitoring.ps1') `
+            -SubscriptionId $SubscriptionId -ApplicationInsightsId $context.outputs.application_insights_ids.value.gateway `
+            -ExpectedLogAnalyticsId $context.outputs.gateway_monitoring.value.log_analytics_id
+    }
+    $context.monitoring
+}
+
+function Assert-RoleBinding([string]$Name, [string]$Principal, [string]$Scope, [string]$Role, [switch]$LinkedDcr) {
+    $roleId = "/subscriptions/$subscription/providers/Microsoft.Authorization/roleDefinitions/$Role"
+    $assignments = @(Read-ArmItems "$Scope/providers/Microsoft.Authorization/roleAssignments" '2022-04-01' -LinkedDcr:$LinkedDcr)
+    $match = @($assignments | Where-Object {
+        $_.properties.scope -ieq $Scope -and $_.properties.principalId -eq $Principal -and
+        $_.properties.principalType -eq 'ServicePrincipal' -and
+        $_.properties.roleDefinitionId -ieq $roleId -and -not $_.properties.condition
+    })
+    if ($match.Count -ne 1) { Stop-Check "Incorrect exact role binding: $Name" }
 }
 
 function Assert-Ready($Resource) {
@@ -99,8 +124,8 @@ function Invoke-Check([string]$Name, [string[]]$Needs, [scriptblock]$Action) {
         catch {
             $checks[$Name].status = 'FAIL'
             $message = $_.Exception.Message
-            $checks[$Name].detail = if ($message.StartsWith('ACCEPTANCE: ')) {
-                $message.Substring(12)
+            $checks[$Name].detail = if ($message -match '^(?:ACCEPTANCE|MONITORING): (.*)$') {
+                $Matches[1]
             } else { 'Unexpected check error; raw error omitted to protect credentials.' }
         }
     }
@@ -128,7 +153,8 @@ Invoke-Check 'context' @() {
     $context.registryId = "$groupId/providers/Microsoft.ContainerRegistry/registries/$(([string]$o.container_registry_endpoint.value).Split('.')[0])"
     foreach ($id in @($context.gatewayId, $context.modelsId, $context.projectId, $context.agentsId,
         $context.storageId, $context.registryId, $o.private_test_vm_id.value,
-        $o.application_insights_ids.value.gateway, $o.application_insights_ids.value.agents)) {
+        $o.application_insights_ids.value.gateway, $o.application_insights_ids.value.agents,
+        $o.gateway_monitoring.value.log_analytics_id)) {
         Assert-GroupId ([string]$id)
     }
     $commit = & git -C $root rev-parse HEAD 2>$null
@@ -155,6 +181,21 @@ Invoke-Check 'placement' @('context') {
         if ($resource.values.type -like 'Microsoft.Authorization/roleDefinitions@*') {
             $scopes = @($resource.values.body.properties.assignableScopes)
             if ($scopes.Count -ne 1 -or $scopes[0] -ine $groupId) { Stop-Check 'Unexpected custom-role assignable scope.' }
+        }
+        elseif ($resource.address -eq 'azapi_resource.role_assignment["gateway-monitoring-publisher"]') {
+            $topology = Get-MonitoringTopology
+            $gateway = Read-Arm $context.gatewayId '2025-09-01-preview'
+            $properties = $resource.values.body.properties
+            $rolePrefix = "$($topology.dataCollectionRuleId)/providers/Microsoft.Authorization/roleAssignments/"
+            if ($resource.values.parent_id -ine $topology.dataCollectionRuleId -or
+                -not ([string]$resource.values.id).StartsWith($rolePrefix, [StringComparison]::OrdinalIgnoreCase) -or
+                ([string]$resource.values.id).Substring($rolePrefix.Length) -notmatch '^[a-fA-F0-9-]{36}$' -or
+                -not $gateway.identity.principalId -or $gateway.identity.tenantId -ne $tenant -or
+                $properties.principalId -ne $gateway.identity.principalId -or
+                $properties.principalType -ne 'ServicePrincipal' -or $properties.condition -or
+                $properties.roleDefinitionId -ine "/subscriptions/$subscription/providers/Microsoft.Authorization/roleDefinitions/3913510d-42f4-4e42-8a64-420c390055eb") {
+                Stop-Check 'External publishing assignment is not the exact Insights-linked DCR/gateway identity/role.'
+            }
         }
         else { Assert-GroupId ([string]$resource.values.id) }
     }
@@ -209,14 +250,7 @@ Invoke-Check 'roles' @('resources') {
         @('project-user', $context.project.identity.principalId, $context.agentsId, 'a97b65f3-24c7-4388-baec-2e87135dc908')
     )
     foreach ($binding in $bindings) {
-        $roleId = "/subscriptions/$subscription/providers/Microsoft.Authorization/roleDefinitions/$($binding[3])"
-        $assignments = @(Read-ArmItems "$($binding[2])/providers/Microsoft.Authorization/roleAssignments" '2022-04-01')
-        $match = @($assignments | Where-Object {
-            $_.properties.scope -ieq $binding[2] -and $_.properties.principalId -eq $binding[1] -and
-            $_.properties.principalType -eq 'ServicePrincipal' -and
-            $_.properties.roleDefinitionId -ieq $roleId -and -not $_.properties.condition
-        })
-        if ($match.Count -ne 1) { Stop-Check "Incorrect exact role binding: $($binding[0])" }
+        Assert-RoleBinding $binding[0] $binding[1] $binding[2] $binding[3]
     }
     @{ verifiedBindings = 6; additionalDeveloperRoles = 'Not certified by this check' }
 }
@@ -249,26 +283,37 @@ Invoke-Check 'connections' @('resources') {
     @{ verifiedConnections = 3; backendAuthentication = 'ManagedIdentity' }
 }
 
-Invoke-Check 'monitoring' @('context') {
+Invoke-Check 'monitoring' @('resources') {
     foreach ($name in @('gateway', 'agents')) {
         $insights = Read-Arm $context.outputs.application_insights_ids.value.$name '2020-02-02'
         Assert-Ready $insights
         Assert-Ready (Read-Arm $insights.properties.WorkspaceResourceId '2023-09-01')
-        if ($name -eq 'gateway') { $context.insightsAppId = $insights.properties.AppId }
     }
-    if ($context.insightsAppId -notmatch '^[a-fA-F0-9-]{36}$') { Stop-Check 'Missing gateway Insights app ID.' }
+    $topology = Get-MonitoringTopology
     $exporter = Read-Arm "$($context.gatewayId)/workspaces/default/telemetryExporters/appinsights" '2025-09-01-preview'
     if ([string]::IsNullOrWhiteSpace([string]$exporter.properties.kind)) {
-        Stop-Check 'Telemetry exporter kind is missing; the portal cannot recognize the Application Insights configuration.'
+        Stop-Check 'Telemetry exporter kind is missing; the portal cannot recognize the OpenTelemetry configuration.'
     }
-    if ($exporter.properties.kind -ne 'applicationInsights' -or
+    if ($exporter.properties.kind -ne 'OpenTelemetry' -or
         $exporter.properties.payloadCapture -ne $false -or
-        $exporter.properties.applicationInsights.resourceId -ine $context.outputs.application_insights_ids.value.gateway) {
+        $exporter.properties.applicationInsights.resourceId -ine $topology.insightsId -or
+        $exporter.properties.applicationInsights.connectionString -or
+        $exporter.properties.openTelemetry.credentials.managedIdentity.resource -cne 'https://monitor.azure.com' -or
+        $exporter.properties.openTelemetry.credentials.managedIdentity.clientId -or
+        $exporter.properties.openTelemetry.credentials.headers) {
         Stop-Check 'Telemetry exporter kind, target or payload-capture mismatch.'
     }
+    foreach ($name in @('metricsEndpoint', 'logsEndpoint', 'tracesEndpoint')) {
+        if ($exporter.properties.openTelemetry.$name -cne $topology.endpoints[$name]) {
+            Stop-Check "Exporter $name differs from the actual Insights OTLP endpoint."
+        }
+    }
+    Assert-RoleBinding 'gateway-monitoring-publisher' $context.gateway.identity.principalId `
+        $topology.dataCollectionRuleId '3913510d-42f4-4e42-8a64-420c390055eb' -LinkedDcr
     @{
         readyMonitoringStacks = 2; delivery = 'Requires telemetry check'
-        exporterVerification = 'Returned Application Insights kind, target and payloadCapture checked; portal metrics still require functional review.'
+        verifiedPublisherBindings = 1; destination = $topology
+        exporterVerification = 'OpenTelemetry, all endpoints, system identity audience, linked destination and exact DCR role checked; delivery/UI are separate gates.'
     }
 }
 
@@ -387,25 +432,67 @@ Invoke-Check 'telemetry' @('runtime', 'monitoring') {
     $traceFilter = ($traces | ForEach-Object { "'$_'" }) -join ','
     $start = $context.testStartUtc.AddMinutes(-1).UtcDateTime.ToString('o')
     $end = $context.testEndUtc.AddMinutes(1).UtcDateTime.ToString('o')
-    $query = "requests | where timestamp between (datetime($start) .. datetime($end)) | where operation_Id in ($traceFilter) | where success == true and resultCode == '200' | distinct operation_Id"
-    $url = "https://api.applicationinsights.io/v1/apps/$($context.insightsAppId)/query?query=$([uri]::EscapeDataString($query))"
+    $filter = "TimeGenerated between (datetime($start) .. datetime($end)) and TraceId in ($traceFilter)"
+    $query = @"
+union
+(OTelSpans | where $filter | where Kind =~ "Server"
+| extend Route=tostring(Attributes["http.route"])
+| extend Workspace=coalesce(tostring(Attributes["azure.ai_gateway.workspace"]), extract(@"/([^/]+)/models/", 1, Route))
+| where Workspace == "default" and Route contains "/models/"
+| where coalesce(toint(Attributes["http.response.status_code"]), toint(Attributes["http.status_code"]), toint(ResultCode)) == 200
+| project Signal="trace", TraceId),
+(OTelLogs | where $filter | project Signal="log", TraceId)
+| distinct Signal, TraceId
+"@
+    $url = "https://api.loganalytics.io/v1/workspaces/$($context.monitoring.logAnalyticsWorkspaceId)/query?query=$([uri]::EscapeDataString($query))"
+    $insightsLabel = $context.monitoring.insightsId.ToLowerInvariant() | ConvertTo-Json -Compress
+    $selector = '{__name__="azure.ai_gateway.client.token.usage","microsoft.appresourceid"=' + $insightsLabel + ',"azure.ai_gateway.workspace"="default"}'
+    $startUnix = ([DateTimeOffset]::Parse($start)).ToUnixTimeSeconds()
+    $endUnix = ([DateTimeOffset]::Parse($end)).ToUnixTimeSeconds()
+    # Exclude samples from before the test window that Prometheus lookback can carry forward.
+    $metricQuery = "($selector > 0) and (timestamp($selector) >= $startUnix)"
+    $metricUrl = "$($context.monitoring.prometheusQueryEndpoint)/api/v1/query_range?query=$([uri]::EscapeDataString($metricQuery))&start=$([uri]::EscapeDataString($start))&end=$([uri]::EscapeDataString($end))&step=15s"
     $deadline = [DateTimeOffset]::UtcNow.AddSeconds($TelemetryWaitSeconds)
     do {
-        $response = Invoke-AzureJson @('rest', '--method', 'get', '--resource', 'https://api.applicationinsights.io', '--url', $url)
+        $response = Invoke-AzureJson @('rest', '--method', 'get', '--resource', 'https://api.loganalytics.io', '--url', $url)
         if ($response.error -or @($response.tables).Count -ne 1) { Stop-Check 'Telemetry API returned an error or unexpected schema.' }
         $table = $response.tables[0]
-        if (@($table.columns).Count -ne 1 -or $table.columns[0].name -ne 'operation_Id') {
+        if (@($table.columns).Count -ne 2 -or $table.columns[0].name -ne 'Signal' -or $table.columns[1].name -ne 'TraceId') {
             Stop-Check 'Telemetry correlation schema unsupported; delivery not proven.'
         }
-        $found = @($table.rows | ForEach-Object { $_[0] })
-        if (@($traces | Where-Object { $_ -notin $found }).Count -eq 0) {
-            return @{ matchedTraceIds = $traces; query = $query; windowStartUtc = $start; windowEndUtc = $end }
+        $found = @($table.rows | Where-Object { $_[0] -eq 'trace' } | ForEach-Object { $_[1] })
+        $logs = @($table.rows | Where-Object { $_[0] -eq 'log' -and $_[1] -in $traces } | ForEach-Object { $_[1] })
+        $metrics = Invoke-AzureJson @('rest', '--method', 'get', '--resource', 'https://prometheus.monitor.azure.com', '--url', $metricUrl)
+        if ($metrics.status -ne 'success' -or $metrics.error -or $metrics.data.resultType -ne 'matrix' -or $metrics.warnings) {
+            Stop-Check 'Prometheus query failed or returned incomplete/unsupported results.'
+        }
+        $series = @($metrics.data.result | Where-Object {
+            $_.metric.__name__ -ceq 'azure.ai_gateway.client.token.usage' -and
+            $_.metric.'microsoft.appresourceid' -ceq $context.monitoring.insightsId.ToLowerInvariant() -and
+            $_.metric.'azure.ai_gateway.workspace' -ceq 'default'
+        })
+        $samples = @($series | ForEach-Object { $_.values } | Where-Object {
+            $value = 0.0
+            $timestamp = 0.0
+            @($_).Count -eq 2 -and [double]::TryParse([string]$_[0], [Globalization.NumberStyles]::Float,
+                [Globalization.CultureInfo]::InvariantCulture, [ref]$timestamp) -and
+            $timestamp -ge $startUnix -and $timestamp -le $endUnix -and
+            [double]::TryParse([string]$_[1], [Globalization.NumberStyles]::Float,
+                [Globalization.CultureInfo]::InvariantCulture, [ref]$value) -and [double]::IsFinite($value) -and $value -gt 0
+        })
+        if (@($traces | Where-Object { $_ -notin $found }).Count -eq 0 -and $logs.Count -gt 0 -and $samples.Count -gt 0) {
+            return @{
+                matchedTraceIds = $traces; loggedTraceIds = $logs; query = $query
+                metricQuery = $metricQuery; positiveMetricSamples = $samples.Count
+                metricAttribution = 'Insights/workspace/window scoped; not an exact per-trace token total.'
+                windowStartUtc = $start; windowEndUtc = $end
+            }
         }
         $remaining = ($deadline - [DateTimeOffset]::UtcNow).TotalSeconds
         if ($remaining -le 0) { break }
         Start-Sleep -Seconds ([Math]::Min(15, [Math]::Ceiling($remaining)))
     } while ($true)
-    Stop-Check 'No successful request telemetry for every probe trace ID within the ingestion window; not a delivery pass.'
+    Stop-Check 'OTLP delivery unproven: require successful server spans for every probe trace, at least one correlated log, and positive scoped token metric samples within the bounded wait.'
 }
 
 $statuses = @($checks.Values | ForEach-Object { $_.status })

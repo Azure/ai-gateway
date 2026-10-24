@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 $script = Join-Path (Split-Path $PSScriptRoot -Parent) 'scripts\Complete-PortalAcceptance.ps1'
 $directory = Join-Path ([IO.Path]::GetTempPath()) "gateway-portal-tests-$([guid]::NewGuid().ToString('N'))"
 $null = New-Item -ItemType Directory -Path $directory
-$cases = @('pass', 'backend-fail', 'missing-backend-check', 'context', 'not-run', 'duplicate', 'no-evidence', 'old-review', 'old-metrics', 'different-metrics', 'zero-metrics', 'boolean-metrics')
+$cases = @('pass', 'backend-fail', 'monitoring-fail', 'telemetry-fail', 'missing-backend-check', 'context', 'not-run', 'duplicate', 'no-evidence', 'old-review', 'old-metrics', 'different-metrics', 'zero-metrics', 'boolean-metrics')
 try {
     foreach ($case in $cases) {
         $path = Join-Path $directory $case
@@ -31,6 +31,8 @@ try {
         }
         switch ($case) {
             'backend-fail' { $backend.backendStatus = 'FAIL' }
+            'monitoring-fail' { $backend.checks.monitoring.status = 'FAIL' }
+            'telemetry-fail' { $backend.checks.telemetry.status = 'FAIL' }
             'missing-backend-check' { $backend.checks.Remove('private-network') }
             'context' { $portal.runId = 'wrong-run' }
             'not-run' { $portal.checks[0].status = 'NOT RUN' }

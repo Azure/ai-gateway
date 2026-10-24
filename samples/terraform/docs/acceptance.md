@@ -20,7 +20,7 @@ These checks do not grant permissions or repair resources. Inference is billable
 
 Replace both placeholders with the approved customer context. The operator needs
 resource/role-assignment read access and permission to query the gateway's
-Application Insights. Running the private probe also requires the
+Log Analytics workspace and linked AMW Prometheus endpoint. Running the private probe also requires the
 [test-client permissions](private-connectivity.md#test-client-permissions).
 
 ```powershell
@@ -257,31 +257,51 @@ reports or screenshots.
 
 ## 6. Verify telemetry delivery, not just exporter existence
 
+Complete [OTLP setup](monitoring.md) first. Keep the six service role checks above;
+the DCR publishing role below is an additional, narrowly scoped assignment.
+
 ```powershell
+$destination = .\scripts\Get-GatewayMonitoring.ps1 -SubscriptionId $subscription `
+    -ApplicationInsightsId $o.application_insights_ids.value.gateway `
+    -ExpectedLogAnalyticsId $o.gateway_monitoring.value.log_analytics_id
 $exporter = Get-Arm "$gatewayId/workspaces/default/telemetryExporters/appinsights" '2025-09-01-preview'
-if ($exporter.properties.kind -ne 'applicationInsights' -or
+if ($exporter.properties.kind -ne 'OpenTelemetry' -or
     $exporter.properties.payloadCapture -ne $false -or
-    $exporter.properties.applicationInsights.resourceId -ine $o.application_insights_ids.value.gateway) {
+    $exporter.properties.applicationInsights.resourceId -ine $destination.insightsId -or
+    $exporter.properties.openTelemetry.credentials.managedIdentity.resource -cne 'https://monitor.azure.com') {
     throw 'Incorrect telemetry exporter target or payload-capture setting.'
 }
-$o.application_insights_ids.value.gateway
+foreach ($name in @('metricsEndpoint', 'logsEndpoint', 'tracesEndpoint')) {
+    if ($exporter.properties.openTelemetry.$name -cne $destination.endpoints[$name]) { throw "Incorrect $name." }
+}
+$publishing = @(Get-ArmItems "$($destination.dataCollectionRuleId)/providers/Microsoft.Authorization/roleAssignments" '2022-04-01' |
+    Where-Object {
+        $_.properties.scope -ieq $destination.dataCollectionRuleId -and
+        $_.properties.principalId -eq $gateway.identity.principalId -and
+        $_.properties.principalType -eq 'ServicePrincipal' -and -not $_.properties.condition -and
+        $_.properties.roleDefinitionId -ieq "/subscriptions/$subscription/providers/Microsoft.Authorization/roleDefinitions/3913510d-42f4-4e42-8a64-420c390055eb"
+    })
+if ($publishing.Count -ne 1) { throw 'Exact DCR publishing role not verified.' }
+$destination.logAnalyticsId
 $testStartUtc.ToString('o')
 $testEndUtc.ToString('o')
 ```
 
-Open **that gateway Application Insights resource > Logs** (not agent insights).
-Allow several minutes for ingestion; use Application Insights table names and
-replace the time bounds below with your test window, widened by a few minutes:
+Open **that gateway Log Analytics workspace > Logs** (not agent insights).
+Allow several minutes for ingestion; replace the time bounds and trace IDs below
+with the recorded probe values. The automated runner additionally enforces
+successful gateway server-span status and scoped Prometheus metrics.
 
 ```kusto
-union withsource=TelemetryTable isfuzzy=true requests, dependencies, traces, customEvents
-| where timestamp between (datetime(2026-01-01T12:00:00Z) .. datetime(2026-01-01T12:15:00Z))
-| project timestamp, TelemetryTable, operation_Id, name, resultCode, success
-| order by timestamp asc
+union withsource=TelemetryTable OTelSpans, OTelLogs
+| where TimeGenerated between (datetime(2026-01-01T12:00:00Z) .. datetime(2026-01-01T12:15:00Z))
+| where TraceId in ("<first-probe-trace-id>", "<second-probe-trace-id>")
+| project TimeGenerated, TelemetryTable, TraceId
+| order by TimeGenerated asc
 ```
 
 **Expected:** new gateway request/related telemetry attributable to the test
-window and model requests, including successful calls. Inspect operation IDs and
+window and model requests, including successful calls. Inspect trace IDs and
 available alias/path dimensions locally to distinguish unrelated concurrent
 traffic. Do not export full `customDimensions`, request/response bodies or
 credentials. If the preview emits a different schema, use the resource's actual
@@ -289,6 +309,11 @@ tables and record that schema; a query error, empty result, or exporter existenc
 alone is **not** proof of delivery. Do not enable payload capture to troubleshoot
 this acceptance check. Retest after ingestion delay; unresolved delivery is an
 open acceptance item, not a silent pass.
+
+Also verify fresh `azure.ai_gateway.client.token.usage` through the destination's
+Prometheus endpoint, with the same Insights/workspace/time filters as the portal.
+Use the query and interpretation in the [automated runbook](end-to-end.md):
+positive metric samples are not an exact token total for just your calls.
 
 ## 7. Finish with a drift check and explicit acceptance record
 
@@ -309,7 +334,7 @@ argument, retaining all its usual approved inputs/backend. Never omit it for a
 private deployment. Keep plan output protected because it can contain secrets.
 
 Record subscription/tenant, resource IDs, timestamp, Git revision, selected
-profile, aliases tested, six binding results, connection metadata, authentication
+profile, aliases tested, six service bindings plus the DCR publishing role, connection metadata, authentication
 statuses, telemetry evidence, drift exit code and VM power state. Mark every item
 **passed**, **failed** or **not verified**; do not include keys or raw state.
 

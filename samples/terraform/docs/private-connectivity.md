@@ -38,6 +38,9 @@ Complete the [main prerequisites](../README.md#before-you-start) and
 [shared setup](../README.md#shared-setup), retaining the existing input file and
 state/backend. Do not run the public-path plan/apply. Additional requirements:
 
+- Complete the [two-stage OTLP destination setup](monitoring.md) before planning
+  the exporter. Keep the private profile on those plans too; readiness discovery
+  must not re-enable a private model backend or rebuild the gateway.
 - `Microsoft.Network` registered
 - For the test VM: `Microsoft.Compute`, regional VM quota, and permission to use VM Run Command
 
@@ -50,7 +53,7 @@ role definition.
 | Identity | Required permission and scope |
 | --- | --- |
 | Terraform deployment identity | `Microsoft.Authorization/roleDefinitions/read`, `write`, and `delete` to manage the custom role through its lifecycle. The definition is addressed under the subscription, but its only `assignableScopes` entry is the gateway resource group. The identity must be authorized to manage definitions for that assignable scope. |
-| Terraform deployment identity | `Microsoft.Authorization/roleAssignments/read`, `write`, and `delete` at the gateway resource for the VM's binding, in addition to the six service bindings at their original resource scopes. |
+| Terraform deployment identity | `Microsoft.Authorization/roleAssignments/read`, `write`, and `delete` at the gateway resource for the VM's binding, in addition to the six service bindings and the exact OTLP DCR publisher binding. Respect managed-group deny assignments. |
 | Test operator | Read the VM and its instance view; `Microsoft.Compute/virtualMachines/runCommand/action` to run the probe, `start/action` and `deallocate/action` for its power lifecycle, scoped to the test VM. |
 | Test VM managed identity | Only `Microsoft.ApiManagement/service/apiKeys/listSecrets/action`, assigned **on the gateway resource**, not the subscription. Terraform creates this role/binding. |
 
@@ -65,7 +68,7 @@ assignments still reference it.
 
 If these permissions cannot be granted, keep `enable_private_test_client = false`
 and use an approved existing private client with its own approved authentication.
-This avoids the custom test-VM role, not the six core service role assignments.
+This avoids the custom test-VM role, not the six core service roles or DCR publishing role.
 
 ## Step 1: Choose your test client
 

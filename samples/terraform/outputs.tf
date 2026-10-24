@@ -1,5 +1,5 @@
 output "resource_group_name" {
-  description = "Single shared resource group for gateway, Foundry, monitoring and optional networking."
+  description = "Shared application group; excludes linked Azure-managed OTLP helper groups and the DCR-scoped publisher assignment."
   value       = azapi_resource.resource_group["gateway"].name
 }
 
@@ -64,6 +64,14 @@ output "storage_account_name" {
 output "application_insights_ids" {
   description = "Separate Application Insights resource IDs for gateway telemetry and agent tracing."
   value       = { for key, insights in azapi_resource.insights : key => insights.id }
+}
+
+output "gateway_monitoring" {
+  description = "Nonsecret OTLP metadata returned by gateway Insights; use Get-GatewayMonitoring.ps1 to verify readiness and linked managed resources."
+  value = merge(local.gateway_monitoring, {
+    insights_id      = azapi_resource.insights["gateway"].id
+    log_analytics_id = azapi_resource.logs["gateway"].id
+  })
 }
 
 output "private_endpoint_ids" {

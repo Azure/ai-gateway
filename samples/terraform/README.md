@@ -43,7 +43,7 @@ path or repeat the temporary-public staging step for an already-private backend.
 - [ ] Existing legacy AIGateway deployment and subscription access to Foundry hosted agents in your regions
 - [ ] Permission to create resources and role assignments (for example, Contributor plus Role Based Access Control Administrator)
 - [ ] If enabling the test VM: permission to manage its **custom role definition**, not just role assignments; see [test-client permissions](docs/private-connectivity.md#test-client-permissions)
-- [ ] Providers registered: `Microsoft.ApiManagement`, `Microsoft.Web`, `Microsoft.CognitiveServices`, `Microsoft.Storage`, `Microsoft.ContainerRegistry`, `Microsoft.OperationalInsights`, `Microsoft.Insights` (this sample does not register them for you)
+- [ ] Providers registered: `Microsoft.ApiManagement`, `Microsoft.Web`, `Microsoft.CognitiveServices`, `Microsoft.Storage`, `Microsoft.ContainerRegistry`, `Microsoft.OperationalInsights`, `Microsoft.Insights`, `Microsoft.Monitor` (this sample does not register them for you)
 - [ ] Quota for the model and SKU in your region
 
 **Decide before you start:**
@@ -65,10 +65,13 @@ path or repeat the temporary-public staging step for an already-private backend.
 Both paths manage all three core components. Hosted-agent infrastructure is
 included even if you only test model calls.
 
-All resource-group-scoped resources use **one shared resource group**:
+All application resources use **one shared resource group**:
 `rg-<environment_name>-<resource_token>-gateway`. The existing gateway group name
 and Terraform address are retained; the AIGateway SKU, private-network design and
-separate gateway/agent monitoring stacks are unchanged.
+agent monitoring are unchanged. Gateway OTLP enablement can create **Azure-managed
+monitoring helper groups**, with one gateway publishing role on the linked DCR.
+This explicit exception, its costs and the required two-stage setup are covered
+in [gateway monitoring](docs/monitoring.md).
 
 **Upgrading from the former three-group layout is a migration, not a harmless
 refactor.** Terraform can propose backend replacements and deletion of the old
@@ -119,7 +122,13 @@ terraform fmt -check -recursive
 terraform validate
 ```
 
-Continue with **one** of the networking paths below.
+**4. Bootstrap or upgrade gateway monitoring:** follow
+[gateway monitoring](docs/monitoring.md) to enable the existing Insights
+destination and verify its actual endpoints before the exporter/role plan.
+Preserve your networking profile and review each saved plan. This adds
+service-managed resources and is not a cost-free or fully reversible toggle.
+
+Then continue with **one** of the networking paths below.
 
 ## Private connectivity path
 
@@ -184,7 +193,7 @@ The portal evidence validator checks completeness; it does not automate the UI.
 
 Complete the [customer acceptance guide](docs/acceptance.md) for either path.
 It includes commands, expected results, and failure boundaries for missing and
-invalid keys, the six scoped RBAC assignments, Foundry connections, telemetry,
+invalid keys, the six service RBAC assignments plus the DCR publishing role, Foundry connections, telemetry,
 and the final drift check. A successful model call alone is not full acceptance.
 
 ## Going further

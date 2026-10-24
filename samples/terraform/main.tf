@@ -41,19 +41,27 @@ resource "azapi_resource" "logs" {
 }
 
 resource "azapi_resource" "insights" {
-  for_each  = toset(["gateway", "agents"])
-  type      = "Microsoft.Insights/components@2020-02-02"
-  name      = "${local.names[each.key]}-insights"
-  parent_id = azapi_resource.resource_group["gateway"].id
-  location  = var.location
-  tags      = local.tags
+  # OTLP enablement is supported by the service but absent from the bundled schema.
+  schema_validation_enabled = each.key != "gateway"
+  for_each                  = toset(["gateway", "agents"])
+  type                      = "Microsoft.Insights/components@2020-02-02"
+  name                      = "${local.names[each.key]}-insights"
+  parent_id                 = azapi_resource.resource_group["gateway"].id
+  location                  = var.location
+  tags                      = local.tags
   body = {
     kind = "web"
-    properties = {
+    properties = merge({
       Application_Type    = "web"
       IngestionMode       = "LogAnalytics"
       WorkspaceResourceId = azapi_resource.logs[each.key].id
-    }
+    }, each.key == "gateway" ? { AzureMonitorWorkspaceIngestionMode = "Enabled" } : {})
   }
-  response_export_values = ["properties.ConnectionString"]
+  response_export_values = each.key == "gateway" ? [
+    "properties.OTLPMetricsEndpoint",
+    "properties.OTLPLogsEndpoint",
+    "properties.OTLPTracesEndpoint",
+    "properties.DataCollectionRuleResourceId",
+    "properties.DataCollectionRuleId"
+  ] : ["properties.ConnectionString"]
 }

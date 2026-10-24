@@ -11,6 +11,11 @@ $storage = "$group/providers/Microsoft.Storage/storageAccounts/storage"
 $registry = "$group/providers/Microsoft.ContainerRegistry/registries/registry"
 $vm = "$group/providers/Microsoft.Compute/virtualMachines/test"
 $vnet = "$group/providers/Microsoft.Network/virtualNetworks/vnet"
+$monitoringGroup = "/subscriptions/$subscription/resourceGroups/managed-monitoring"
+$dcr = "$monitoringGroup/providers/Microsoft.Insights/dataCollectionRules/gateway"
+$dce = "$monitoringGroup/providers/Microsoft.Insights/dataCollectionEndpoints/gateway"
+$amw = "$monitoringGroup/providers/Microsoft.Monitor/accounts/gateway"
+$publisherRole = "/subscriptions/$subscription/providers/Microsoft.Authorization/roleDefinitions/3913510d-42f4-4e42-8a64-420c390055eb"
 $testDirectory = Join-Path ([IO.Path]::GetTempPath()) "gateway-acceptance-tests-$([guid]::NewGuid().ToString('N'))"
 $null = New-Item -ItemType Directory -Path $testDirectory
 
@@ -25,6 +30,7 @@ function New-Fixture {
             storage_account_name = @{ value = 'storage' }; container_registry_endpoint = @{ value = 'registry.azurecr.io' }
             private_test_vm_id = @{ value = $vm }
             application_insights_ids = @{ value = @{} }; private_endpoint_ids = @{ value = @{} }
+            gateway_monitoring = @{ value = @{ log_analytics_id = "$group/providers/Microsoft.OperationalInsights/workspaces/gateway" } }
             model_deployment_ids = @{ value = @{} }; model_api_configuration = @{ value = @{} }
             private_probe_configuration = @{ value = @{
                 gateway_id = $gateway; gateway_endpoint = 'https://gateway.example'; model_endpoint = 'https://models.example'
@@ -49,7 +55,42 @@ function New-Fixture {
         $workspaceId = "$group/providers/Microsoft.OperationalInsights/workspaces/$name"
         $f.outputs.application_insights_ids.value[$name] = $insightsId
         $f.resources[$insightsId] = @{ properties = @{ provisioningState = 'Succeeded'; WorkspaceResourceId = $workspaceId; AppId = $tenant } }
-        $f.resources[$workspaceId] = @{ properties = @{ provisioningState = 'Succeeded' } }
+        $f.resources[$workspaceId] = @{ properties = @{ provisioningState = 'Succeeded'; customerId = $tenant } }
+    }
+    $insightsId = $f.outputs.application_insights_ids.value.gateway
+    $endpoints = @{
+        metricsEndpoint = 'https://test.metrics.ingest.monitor.azure.com/dataCollectionRules/dcr-test/streams/Microsoft-OTLP-Metrics/otlp/v1/metrics'
+        logsEndpoint = 'https://test.ingest.monitor.azure.com/dataCollectionRules/dcr-test/streams/Microsoft-OTLP-Logs/otlp/v1/logs'
+        tracesEndpoint = 'https://test.ingest.monitor.azure.com/dataCollectionRules/dcr-test/streams/Microsoft-OTLP-Traces/otlp/v1/traces'
+    }
+    $f.resources[$insightsId].properties += @{
+        AzureMonitorWorkspaceIngestionMode = 'Enabled'; DataCollectionRuleResourceId = $dcr
+        OTLPMetricsEndpoint = $endpoints.metricsEndpoint; OTLPLogsEndpoint = $endpoints.logsEndpoint
+        OTLPTracesEndpoint = $endpoints.tracesEndpoint
+    }
+    $f.resources[$monitoringGroup] = @{ managedBy = $insightsId }
+    $f.resources[$dcr] = @{ properties = @{
+        provisioningState = 'Succeeded'; immutableId = 'dcr-test'; dataCollectionEndpointId = $dce
+        destinations = @{
+            monitoringAccounts = @(@{ accountResourceId = $amw })
+            logAnalytics = @(@{ workspaceResourceId = $f.resources[$insightsId].properties.WorkspaceResourceId })
+        }
+    } }
+    $f.resources[$dce] = @{ properties = @{
+        provisioningState = 'Succeeded'
+        metricsIngestion = @{ endpoint = 'https://test.metrics.ingest.monitor.azure.com' }
+        logsIngestion = @{ endpoint = 'https://test.ingest.monitor.azure.com' }
+    } }
+    $f.resources[$amw] = @{ properties = @{
+        provisioningState = 'Succeeded'; metrics = @{ prometheusQueryEndpoint = 'https://test.prometheus.monitor.azure.com' }
+    } }
+    $f.publisherState = @{
+        address = 'azapi_resource.role_assignment["gateway-monitoring-publisher"]'; mode = 'managed'
+        values = @{
+            id = "$dcr/providers/Microsoft.Authorization/roleAssignments/$tenant"
+            parent_id = $dcr; type = 'Microsoft.Authorization/roleAssignments@2022-04-01'
+            body = @{ properties = @{ principalId = 'gateway-principal'; principalType = 'ServicePrincipal'; roleDefinitionId = $publisherRole } }
+        }
     }
     foreach ($name in @('full', 'mini')) {
         $deploymentId = "$models/deployments/$name"
@@ -93,10 +134,12 @@ function New-Fixture {
         resourceIds = @($models); endpoint = 'https://models.example/'
     } } }
     $f.resources["$gateway/workspaces/default/telemetryExporters/appinsights"] = @{ properties = @{
-        kind = 'applicationInsights'; payloadCapture = $false; applicationInsights = @{ resourceId = $f.outputs.application_insights_ids.value.gateway }
+        kind = 'OpenTelemetry'; payloadCapture = $false; applicationInsights = @{ resourceId = $insightsId }
+        openTelemetry = $endpoints + @{ credentials = @{ managedIdentity = @{ resource = 'https://monitor.azure.com' } } }
     } }
     foreach ($binding in @(
         @($models, 'gateway-principal', '53ca6127-db72-4b80-b1b0-d745d6d5456d'),
+        @($dcr, 'gateway-principal', '3913510d-42f4-4e42-8a64-420c390055eb'),
         @($storage, 'project-principal', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'),
         @($registry, 'project-principal', '7f951dda-4ed3-4680-a7ca-43fe172d538d'),
         @($agents, 'project-principal', '25fbc0a9-bd7c-42a3-aa1a-3b75d497ee68'),
@@ -135,9 +178,13 @@ function terraform {
     if ('show' -in $args) {
         $resources = @(
             @{ mode = 'managed'; values = @{ id = $group; type = 'Microsoft.Resources/resourceGroups@2021-04-01' } },
-            @{ mode = 'managed'; values = @{ id = $gateway; type = 'Microsoft.ApiManagement/service@2025-09-01-preview' } }
+            @{ mode = 'managed'; values = @{ id = $gateway; type = 'Microsoft.ApiManagement/service@2025-09-01-preview' } },
+            $f.publisherState
         )
         if ($f.scenario -eq 'extra-group') { $resources += @{ mode = 'managed'; values = @{ id = "$group-old"; type = 'Microsoft.Resources/resourceGroups@2021-04-01' } } }
+        if ($f.scenario -eq 'unrelated-managed-looking-resource') {
+            $resources += @{ mode = 'managed'; values = @{ id = "$monitoringGroup/providers/Microsoft.Storage/storageAccounts/unrelated"; type = 'Microsoft.Storage/storageAccounts@2024-01-01' } }
+        }
         return (@{ values = @{ root_module = @{ resources = $resources } } } | ConvertTo-Json -Depth 10)
     }
     throw 'Unexpected Terraform command.'
@@ -180,9 +227,37 @@ function az {
         throw 'Unexpected VM operation.'
     }
     $url = [string]$args[[Array]::IndexOf($args, '--url') + 1]
-    if ($url.StartsWith('https://api.applicationinsights.io/')) {
-        $rows = if ($f.scenario -eq 'missing-telemetry') { @() } else { @(@($f.traces[0]), @($f.traces[1])) }
-        return (@{ tables = @(@{ columns = @(@{ name = 'operation_Id' }); rows = $rows }) } | ConvertTo-Json -Depth 10)
+    if ($url.StartsWith('https://api.loganalytics.io/')) {
+        $decoded = [uri]::UnescapeDataString($url)
+        if ($decoded -notmatch 'OTelSpans' -or $decoded -notmatch 'OTelLogs' -or $decoded -notmatch 'Kind =~ "Server"' -or
+            $decoded -notmatch '== 200' -or $decoded -notmatch $f.traces[0] -or $decoded -notmatch $f.traces[1]) {
+            throw 'OTLP query contract/correlation missing.'
+        }
+        $rows = @(@('trace', $f.traces[0]), @('trace', $f.traces[1]), @('log', $f.traces[0]))
+        if ($f.scenario -eq 'missing-telemetry') { $rows = @() }
+        if ($f.scenario -eq 'missing-logs') { $rows = @(@('trace', $f.traces[0]), @('trace', $f.traces[1])) }
+        if ($f.scenario -eq 'uncorrelated-telemetry') { $rows = @(@('trace', ('d' * 32)), @('log', ('d' * 32))) }
+        $columns = @(@{ name = 'Signal' }, @{ name = 'TraceId' })
+        if ($f.scenario -eq 'telemetry-schema') { $columns = @(@{ name = 'operation_Id' }) }
+        return (@{ tables = @(@{ columns = $columns; rows = $rows }) } | ConvertTo-Json -Depth 10)
+    }
+    if ($url.StartsWith('https://test.prometheus.monitor.azure.com/')) {
+        $decoded = [uri]::UnescapeDataString($url)
+        if ($decoded -notmatch 'azure.ai_gateway.client.token.usage' -or $decoded -notmatch 'microsoft.appresourceid' -or
+            $decoded -notmatch '"azure.ai_gateway.workspace"="default"' -or 'https://prometheus.monitor.azure.com' -notin $args) {
+            throw 'Prometheus scope/authentication missing.'
+        }
+        if ($f.scenario -eq 'metrics-error') { return '{"status":"error","error":"SECRET-DO-NOT-LOG"}' }
+        $items = @(@{ metric = @{
+            __name__ = 'azure.ai_gateway.client.token.usage'
+            'microsoft.appresourceid' = $f.outputs.application_insights_ids.value.gateway.ToLowerInvariant()
+            'azure.ai_gateway.workspace' = 'default'
+        }; values = @(,@([DateTimeOffset]::UtcNow.ToUnixTimeSeconds(), '5')) })
+        if ($f.scenario -eq 'missing-metrics') { $items = @() }
+        if ($f.scenario -eq 'wrong-metric-scope') { $items[0].metric.'azure.ai_gateway.workspace' = 'other' }
+        if ($f.scenario -eq 'stale-metrics') { $items[0].values[0][0] = [DateTimeOffset]::UtcNow.AddDays(-1).ToUnixTimeSeconds() }
+        if ($f.scenario -eq 'nonfinite-metrics') { $items[0].values[0][1] = 'NaN' }
+        return (@{ status = 'success'; data = @{ resultType = 'matrix'; result = $items } } | ConvertTo-Json -Depth 10)
     }
     $id = ([uri]$url).AbsolutePath
     if ($f.scenario -eq 'arm-error') { $global:LASTEXITCODE = 1; return 'SECRET-DO-NOT-LOG' }
@@ -192,7 +267,8 @@ function az {
 
 $cases = [ordered]@{
     pass = @('PASS', 'runtime'); readonly = @('BLOCKED', 'runtime')
-    'omitted-api-format' = @('PASS', 'runtime'); 'pascal-exporter-kind' = @('PASS', 'runtime')
+    'omitted-api-format' = @('PASS', 'runtime'); 'lowercase-exporter-kind' = @('PASS', 'runtime')
+    'arm-dcr-fallback' = @('PASS', 'runtime')
     'missing-exporter-kind' = @('FAIL', 'monitoring'); 'null-exporter-kind' = @('FAIL', 'monitoring')
     'wrong-tenant' = @('FAIL', 'context'); 'wrong-scope' = @('FAIL', 'context')
     'missing-output' = @('FAIL', 'context'); malformed = @('FAIL', 'context')
@@ -203,7 +279,23 @@ $cases = [ordered]@{
     drift = @('FAIL', 'drift'); 'plan-error' = @('FAIL', 'drift')
     'runtime-error' = @('FAIL', 'runtime'); 'missing-telemetry' = @('FAIL', 'telemetry')
     'cleanup-error' = @('FAIL', 'vm-cleanup'); 'running-vm' = @('FAIL', 'runtime')
+    'missing-otlp-endpoint' = @('FAIL', 'monitoring'); 'wrong-otlp-endpoint' = @('FAIL', 'monitoring')
+    'wrong-audience' = @('FAIL', 'monitoring'); 'legacy-exporter-kind' = @('FAIL', 'monitoring')
+    'wrong-publisher-role' = @('FAIL', 'monitoring'); 'wrong-publisher-principal' = @('FAIL', 'monitoring')
+    'wrong-publisher-state' = @('FAIL', 'placement'); 'unmanaged-helper-group' = @('FAIL', 'placement')
+    'unrelated-managed-looking-resource' = @('FAIL', 'placement')
+    'wrong-law' = @('FAIL', 'monitoring'); 'immutable-dcr-only' = @('FAIL', 'monitoring')
+    'cross-subscription-dcr' = @('FAIL', 'monitoring')
+    'missing-logs' = @('FAIL', 'telemetry'); 'missing-metrics' = @('FAIL', 'telemetry')
+    'metrics-error' = @('FAIL', 'telemetry'); 'telemetry-schema' = @('FAIL', 'telemetry')
+    'uncorrelated-telemetry' = @('FAIL', 'telemetry')
+    'wrong-metric-scope' = @('FAIL', 'telemetry'); 'stale-metrics' = @('FAIL', 'telemetry')
+    'nonfinite-metrics' = @('FAIL', 'telemetry'); 'relinked-law' = @('FAIL', 'monitoring')
+    'wrong-dce-endpoint' = @('FAIL', 'monitoring'); 'unsafe-query-endpoint' = @('FAIL', 'monitoring')
 }
+$runtimeCases = @('pass', 'omitted-api-format', 'lowercase-exporter-kind', 'arm-dcr-fallback', 'runtime-error',
+    'missing-telemetry', 'missing-logs', 'missing-metrics', 'metrics-error', 'telemetry-schema', 'uncorrelated-telemetry',
+    'wrong-metric-scope', 'stale-metrics', 'nonfinite-metrics', 'cleanup-error')
 try {
     foreach ($case in $cases.Keys) {
         New-Fixture
@@ -216,7 +308,31 @@ try {
             'wrong-alias' { $f.resources["$gateway/workspaces/default/aliases/full"].properties.aliasName = 'other' }
             'wrong-api-format' { $f.resources["$gateway/workspaces/default/modelProviders/foundry/models/full"].properties.apiFormat = 'Other' }
             'wrong-exporter-kind' { $f.resources["$gateway/workspaces/default/telemetryExporters/appinsights"].properties.kind = 'Other' }
-            'pascal-exporter-kind' { $f.resources["$gateway/workspaces/default/telemetryExporters/appinsights"].properties.kind = 'ApplicationInsights' }
+            'lowercase-exporter-kind' { $f.resources["$gateway/workspaces/default/telemetryExporters/appinsights"].properties.kind = 'openTelemetry' }
+            'legacy-exporter-kind' { $f.resources["$gateway/workspaces/default/telemetryExporters/appinsights"].properties.kind = 'applicationInsights' }
+            'missing-otlp-endpoint' { $f.resources[$f.outputs.application_insights_ids.value.gateway].properties.Remove('OTLPTracesEndpoint') }
+            'wrong-otlp-endpoint' { $f.resources["$gateway/workspaces/default/telemetryExporters/appinsights"].properties.openTelemetry.logsEndpoint = 'https://other.ingest.monitor.azure.com/logs' }
+            'wrong-audience' { $f.resources["$gateway/workspaces/default/telemetryExporters/appinsights"].properties.openTelemetry.credentials.managedIdentity.resource = 'https://wrong.example' }
+            'wrong-publisher-role' { $f.resources["$dcr/providers/Microsoft.Authorization/roleAssignments"].value[0].properties.roleDefinitionId = 'wrong' }
+            'wrong-publisher-principal' { $f.resources["$dcr/providers/Microsoft.Authorization/roleAssignments"].value[0].properties.principalId = 'wrong' }
+            'wrong-publisher-state' { $f.publisherState.values.body.properties.principalId = 'wrong' }
+            'unmanaged-helper-group' { $f.resources[$monitoringGroup].managedBy = "$group/providers/Microsoft.Monitor/accounts/unrelated" }
+            'wrong-law' { $f.resources[$dcr].properties.destinations.logAnalytics[0].workspaceResourceId = "$group/providers/Microsoft.OperationalInsights/workspaces/agents" }
+            'immutable-dcr-only' {
+                $f.resources[$f.outputs.application_insights_ids.value.gateway].properties.Remove('DataCollectionRuleResourceId')
+                $f.resources[$f.outputs.application_insights_ids.value.gateway].properties.DataCollectionRuleId = 'dcr-test'
+            }
+            'arm-dcr-fallback' {
+                $f.resources[$f.outputs.application_insights_ids.value.gateway].properties.Remove('DataCollectionRuleResourceId')
+                $f.resources[$f.outputs.application_insights_ids.value.gateway].properties.DataCollectionRuleId = $dcr
+            }
+            'cross-subscription-dcr' { $f.resources[$f.outputs.application_insights_ids.value.gateway].properties.DataCollectionRuleResourceId = $dcr.Replace($subscription, $tenant) }
+            'relinked-law' {
+                $f.resources[$f.outputs.application_insights_ids.value.gateway].properties.WorkspaceResourceId = "$group/providers/Microsoft.OperationalInsights/workspaces/agents"
+                $f.resources[$dcr].properties.destinations.logAnalytics[0].workspaceResourceId = "$group/providers/Microsoft.OperationalInsights/workspaces/agents"
+            }
+            'wrong-dce-endpoint' { $f.resources[$dce].properties.metricsIngestion.endpoint = 'https://other.metrics.ingest.monitor.azure.com' }
+            'unsafe-query-endpoint' { $f.resources[$amw].properties.metrics.prometheusQueryEndpoint = 'https://unrelated.example' }
             'missing-exporter-kind' { $f.resources["$gateway/workspaces/default/telemetryExporters/appinsights"].properties.Remove('kind') }
             'null-exporter-kind' { $f.resources["$gateway/workspaces/default/telemetryExporters/appinsights"].properties.kind = $null }
             'omitted-api-format' {
@@ -244,9 +360,9 @@ try {
         if ($result.checks.$expectedCheck.status -ne $expectedStatus) { throw "Wrong failure boundary in $case." }
         if ($case -in @('missing-exporter-kind', 'null-exporter-kind') -and
             $result.checks.monitoring.detail -notmatch 'portal cannot recognize') { throw "Missing portal diagnostic in $case." }
-        if ($case -notin @('pass', 'omitted-api-format', 'pascal-exporter-kind', 'runtime-error', 'missing-telemetry', 'cleanup-error') -and
+        if ($case -notin $runtimeCases -and
             @($f.calls | Where-Object { $_ -match '^vm (start|deallocate|run-command)' }).Count) { throw "Unexpected VM mutation in $case." }
-        if ($case -in @('pass', 'omitted-api-format', 'pascal-exporter-kind', 'runtime-error', 'missing-telemetry') -and $f.power -ne 'deallocated') { throw "VM left running in $case." }
+        if ($case -in $runtimeCases -and $case -ne 'cleanup-error' -and $f.power -ne 'deallocated') { throw "VM left running in $case." }
         if ($f.scriptPath -and (Test-Path -LiteralPath $f.scriptPath)) { throw 'Probe transport file was not cleaned up.' }
         if ("$text`n$($console -join "`n")`n$caught" -match 'SECRET-DO-NOT-LOG') { throw "Secret leaked in $case." }
     }

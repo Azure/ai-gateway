@@ -17,6 +17,7 @@ Review the limitations before changing an existing deployment.
 | [private-network.tf](../private-network.tf) / [private-test-client.tf](../private-test-client.tf) | Optional VNet, private endpoints, DNS, probe VM |
 | [scripts/Test-PrivateGateway.ps1](../scripts/Test-PrivateGateway.ps1) / [private-path-probe.py](../scripts/private-path-probe.py) | Private probe (wrapper sends the Python to the VM) |
 | [scripts/Test-ModelAliases.ps1](../scripts/Test-ModelAliases.ps1) | Public test of every alias |
+| [scripts/Get-GatewayMonitoring.ps1](../scripts/Get-GatewayMonitoring.ps1) / [monitoring.md](monitoring.md) | Read-only bounded OTLP readiness, linked managed groups, two-stage setup |
 | [tests](../tests) | Offline Terraform and Python tests |
 | [acceptance.md](acceptance.md) | Customer runtime checks, expected results and evidence boundaries |
 | [versions.tf](../versions.tf) / [.terraform.lock.hcl](../.terraform.lock.hcl) | Provider versions and checksums (commit the lock file) |
@@ -55,9 +56,10 @@ Optional fields: `model_format`, `sku_name`, `api_format`, `endpoints`, `descrip
 | `model_api_configuration` | API format and endpoints per alias; compatibility check for both sample probes |
 | `project_endpoint`, `project_id` | Hosted-agent app setup (not a model-call URL) |
 | `container_registry_endpoint`, `storage_account_name` | Image and artifact setup for the agent app |
-| `resource_group_name` | The single shared resource group |
+| `resource_group_name` | The shared application group; excludes verified Azure-managed OTLP helper groups |
 | `resource_groups` | Compatibility map: `gateway`, `models` and `agents` all contain that same group name |
 | `gateway_id`, `foundry_models_id`, `application_insights_ids` | Resource and telemetry lookup |
+| `gateway_monitoring` | Nonsecret actual OTLP endpoints/DCR, Insights and expected Log Analytics IDs; not proof of readiness/delivery |
 | `private_endpoint_ids`, `private_test_vm_id`, `private_probe_configuration` | Private-path lookup (VM outputs only when the test client is enabled) |
 
 Outputs do **not** include runtime key values or telemetry connection strings.
@@ -130,6 +132,12 @@ the gateway and optional network/test client. Child resources remain under their
 service parents, and the custom role definition remains subscription-scoped with
 only this group as its assignable scope. Region inputs are still independent;
 sharing a group does not move resources to a different region.
+
+**Monitoring exception:** gateway OTLP enablement also provisions linked,
+Azure-managed monitoring resources/groups. The exact DCR-scoped publisher role
+can live outside the application group. Final acceptance verifies the linkage,
+managed-group owner, gateway principal and exact role; a managed-looking name
+alone is never an exemption. See [monitoring ownership and setup](monitoring.md).
 
 The legacy gateway has `prevent_destroy = true`: a replacement/destroy plan must
 fail rather than silently remove a resource whose SKU cannot be recreated.

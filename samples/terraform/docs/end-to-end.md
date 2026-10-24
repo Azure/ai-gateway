@@ -10,6 +10,9 @@ Keep the legacy `AIGateway` SKU and private-endpoint architecture. All applicati
 resources belong in one group; the VM's custom role definition is subscription
 scoped, with its assignable scope limited to that group. Retained migration groups
 must be cleaned up through a separately reviewed operation before final acceptance.
+The only additional placement exception is the exact gateway publisher assignment
+on the Insights-linked DCR in a verified Azure-managed monitoring group; see
+[OTLP ownership and setup](monitoring.md). No blanket `MA_*` exemption exists.
 During a three-group migration, first use the manual private/runtime checks in
 [acceptance.md](acceptance.md) to establish backend health before approving old-group
 cleanup. The strict final runner deliberately does not waive its placement gate.
@@ -63,7 +66,7 @@ Provider installation needs internet access; "offline" means no Azure operations
 Reconnect the approved state/backend and supply its existing private inputs.
 Ensure the checkout is clean, Terraform is initialized and Azure CLI is signed
 into the approved context. These checks need resource/role read access; telemetry
-also needs Application Insights query access.
+also needs Log Analytics and AMW Prometheus query access.
 
 ```powershell
 $parameters = @{
@@ -82,7 +85,7 @@ publish them to a public repository or an unrestricted CI artifact.
 
 The default checks context, a clean source commit, single-group state placement,
 live identities/resources/catalog/aliases, six exact service roles, three
-connections, monitoring/exporter, endpoint provisioning **and** approval, DNS
+connections, OTLP destination/exporter and one exact DCR publishing role, endpoint provisioning **and** approval, DNS
 links and a full drift plan. It does not start the VM, retrieve keys or call
 models. Therefore runtime/telemetry remain NOT RUN/BLOCKED and it exits with an
 incomplete-acceptance error, even if all read-only checks pass.
@@ -91,15 +94,15 @@ The legacy preview's catalog GET can omit `apiFormat`. The runner records this
 verification boundary: it requires compatible output metadata and live supported
 endpoints/alias targets; when `apiFormat` is returned it must match.
 
-The exporter must return `kind = applicationInsights` (case-insensitive), the
-expected Application Insights resource ID and `payloadCapture = false`. A missing
-or empty `kind` is a **failure**, even if the target exists: the current portal
-uses this discriminator to recognize telemetry configuration. Live diagnosis
-observed a legacy exporter omitting it while Monitoring offered "Configure"
-instead of metrics. Do not create a second monitoring stack through that wizard
-or assume waiting for ingestion will fix this configuration-recognition problem.
-Resolve the API/portal compatibility issue before final acceptance. Actual API
-behavior, telemetry delivery and visible portal metrics still need runtime proof.
+The exporter must return `kind = OpenTelemetry` (case-insensitive), the expected
+Insights ID, all three actual OTLP endpoints, system-identity audience
+`https://monitor.azure.com` and `payloadCapture = false`, without connection
+strings or custom credential headers. Missing kind, incomplete endpoints or a
+legacy Application Insights exporter fail. The runner verifies the linked
+DCR/DCE/AMW, expected Log Analytics destination and managed-group ownership.
+Do not create a second monitoring stack in the portal or assume ingestion delay
+repairs missing configuration. Actual API behavior, delivery and visible portal
+metrics still need runtime proof.
 
 Every drift plan includes `profiles\private-connectivity.tfvars.json` last.
 For additional explicitly approved nonautomatic input files use
@@ -133,9 +136,15 @@ There is no load test or model-call retry. Existing managed-identity key lookup
 retries at most 12 times, with 15-second waits for 403 propagation.
 
 Each positive request sends a unique W3C `traceparent`. The verifier queries the
-gateway's Application Insights for those exact `operation_Id` values and
-successful HTTP 200 requests in the recorded UTC window, polling for at most the
-configured ingestion wait (0-900 seconds, excluding individual CLI call duration).
+linked Log Analytics workspace for those exact `TraceId` values in `OTelSpans`
+and `OTelLogs`: successful gateway server spans for every call and at least one
+correlated log. It also requires positive, fresh
+`azure.ai_gateway.client.token.usage` samples through AMW Prometheus, scoped to
+the same Insights resource, gateway workspace and UTC window. These samples are
+not an exact per-run token total, especially under concurrent traffic. Missing
+logs mean delivery is unproven; investigate emission rather than assuming every
+successful request must log. Polling is bounded by the configured ingestion wait
+(0-900 seconds, excluding individual CLI call duration).
 It does **not** substitute historical traffic or exporter existence for delivery.
 If this preview does not propagate W3C IDs into that schema, the check fails:
 investigate actual exporter correlation support before changing the assertion.

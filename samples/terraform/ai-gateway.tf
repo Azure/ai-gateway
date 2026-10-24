@@ -43,6 +43,15 @@ resource "azapi_resource" "connector_gateway" {
 locals {
   # The AIGateway service creates its default workspace; do not manage it twice.
   gateway_workspace_id = "${azapi_resource.gateway.id}/workspaces/default"
+  gateway_monitoring = {
+    dcr_id = try(coalesce(
+      try(azapi_resource.insights["gateway"].output.properties.DataCollectionRuleResourceId, null),
+      try(azapi_resource.insights["gateway"].output.properties.DataCollectionRuleId, null)
+    ), "")
+    metrics_endpoint = try(coalesce(azapi_resource.insights["gateway"].output.properties.OTLPMetricsEndpoint), "")
+    logs_endpoint    = try(coalesce(azapi_resource.insights["gateway"].output.properties.OTLPLogsEndpoint), "")
+    traces_endpoint  = try(coalesce(azapi_resource.insights["gateway"].output.properties.OTLPTracesEndpoint), "")
+  }
 }
 
 resource "azapi_resource" "telemetry_exporter" {
@@ -53,14 +62,34 @@ resource "azapi_resource" "telemetry_exporter" {
   parent_id                 = local.gateway_workspace_id
   body = {
     properties = {
-      kind           = "applicationInsights"
+      kind           = "OpenTelemetry"
       payloadCapture = false
       applicationInsights = {
-        connectionString = azapi_resource.insights["gateway"].output.properties.ConnectionString
-        resourceId       = azapi_resource.insights["gateway"].id
+        resourceId = azapi_resource.insights["gateway"].id
+      }
+      openTelemetry = {
+        metricsEndpoint = local.gateway_monitoring.metrics_endpoint
+        logsEndpoint    = local.gateway_monitoring.logs_endpoint
+        tracesEndpoint  = local.gateway_monitoring.traces_endpoint
+        credentials = {
+          managedIdentity = { resource = "https://monitor.azure.com" }
+        }
       }
     }
   }
+  lifecycle {
+    precondition {
+      condition = alltrue([
+        for endpoint in [
+          local.gateway_monitoring.metrics_endpoint,
+          local.gateway_monitoring.logs_endpoint,
+          local.gateway_monitoring.traces_endpoint
+        ] : can(regex("^https://[^/?#]+/[^?#]+$", endpoint))
+      ])
+      error_message = "Gateway OTLP endpoints are incomplete. Enable gateway Insights first, run scripts/Get-GatewayMonitoring.ps1, then create a fresh plan; see docs/monitoring.md."
+    }
+  }
+  depends_on = [azapi_resource.role_assignment["gateway-monitoring-publisher"]]
 }
 
 resource "azapi_resource" "foundry_provider" {

@@ -1,6 +1,22 @@
 mock_provider "azapi" {}
 
 override_resource {
+  target          = azapi_resource.insights["gateway"]
+  override_during = plan
+  values = {
+    id = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/shared-gateway/providers/Microsoft.Insights/components/gateway"
+    output = {
+      properties = {
+        DataCollectionRuleResourceId = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/managed-monitoring/providers/Microsoft.Insights/dataCollectionRules/gateway"
+        OTLPMetricsEndpoint          = "https://test.metrics.ingest.monitor.azure.com/dataCollectionRules/dcr-test/streams/Microsoft-OTLP-Metrics/otlp/v1/metrics"
+        OTLPLogsEndpoint             = "https://test.ingest.monitor.azure.com/dataCollectionRules/dcr-test/streams/Microsoft-OTLP-Logs/otlp/v1/logs"
+        OTLPTracesEndpoint           = "https://test.ingest.monitor.azure.com/dataCollectionRules/dcr-test/streams/Microsoft-OTLP-Traces/otlp/v1/traces"
+      }
+    }
+  }
+}
+
+override_resource {
   target          = azapi_resource.resource_group["gateway"]
   override_during = plan
   values = {
@@ -104,7 +120,7 @@ run "models_and_access_without_developer" {
 
   assert {
     condition = (
-      length(azapi_resource.role_assignment) == 6 &&
+      length(azapi_resource.role_assignment) == 7 &&
       length(azapi_resource.private_endpoint) == 0 &&
       length(azapi_resource.private_test_vm) == 0 &&
       alltrue([for key in keys(azapi_resource.role_assignment) : !startswith(key, "developer-")])
@@ -135,7 +151,7 @@ run "explicit_developer_service_principal" {
 
   assert {
     condition = (
-      length(azapi_resource.role_assignment) == 13 &&
+      length(azapi_resource.role_assignment) == 14 &&
       alltrue([
         for key, binding in azapi_resource.role_assignment :
         binding.body.properties.principalId == var.developer_principal_id &&
@@ -224,7 +240,6 @@ run "private_gateway_and_model_paths" {
     enable_private_test_client         = true
     private_test_client_ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleOnlyNotForDeployment"
   }
-
   override_resource {
     target          = azapi_resource.private_subnet["gateway"]
     override_during = plan
@@ -372,8 +387,19 @@ run "private_connectivity_poc_profile" {
     condition = (
       azapi_resource.runtime_api_key.parent_id == azapi_resource.gateway.id &&
       azapi_resource.telemetry_exporter.parent_id == "${azapi_resource.gateway.id}/workspaces/default" &&
-      azapi_resource.telemetry_exporter.body.properties.kind == "applicationInsights" &&
-      !azapi_resource.telemetry_exporter.body.properties.payloadCapture
+      azapi_resource.telemetry_exporter.body.properties.kind == "OpenTelemetry" &&
+      !azapi_resource.telemetry_exporter.body.properties.payloadCapture &&
+      azapi_resource.insights["gateway"].body.properties.AzureMonitorWorkspaceIngestionMode == "Enabled" &&
+      !can(azapi_resource.insights["agents"].body.properties.AzureMonitorWorkspaceIngestionMode) &&
+      !can(azapi_resource.telemetry_exporter.body.properties.applicationInsights.connectionString) &&
+      azapi_resource.telemetry_exporter.body.properties.applicationInsights.resourceId == azapi_resource.insights["gateway"].id &&
+      azapi_resource.telemetry_exporter.body.properties.openTelemetry.metricsEndpoint == azapi_resource.insights["gateway"].output.properties.OTLPMetricsEndpoint &&
+      azapi_resource.telemetry_exporter.body.properties.openTelemetry.logsEndpoint == azapi_resource.insights["gateway"].output.properties.OTLPLogsEndpoint &&
+      azapi_resource.telemetry_exporter.body.properties.openTelemetry.tracesEndpoint == azapi_resource.insights["gateway"].output.properties.OTLPTracesEndpoint &&
+      azapi_resource.telemetry_exporter.body.properties.openTelemetry.credentials.managedIdentity.resource == "https://monitor.azure.com" &&
+      azapi_resource.role_assignment["gateway-monitoring-publisher"].parent_id == azapi_resource.insights["gateway"].output.properties.DataCollectionRuleResourceId &&
+      azapi_resource.role_assignment["gateway-monitoring-publisher"].body.properties.principalId == azapi_resource.gateway.identity[0].principal_id &&
+      endswith(azapi_resource.role_assignment["gateway-monitoring-publisher"].body.properties.roleDefinitionId, "/3913510d-42f4-4e42-8a64-420c390055eb")
     )
     error_message = "The profile must retain gateway API-key provisioning and workspace telemetry without payload capture."
   }
@@ -386,6 +412,41 @@ run "reject_private_client_without_network" {
     private_test_client_ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleOnlyNotForDeployment"
   }
   expect_failures = [var.enable_private_test_client]
+}
+
+run "reject_incomplete_otlp_destination" {
+  command = plan
+  override_resource {
+    target          = azapi_resource.insights["gateway"]
+    override_during = plan
+    values = {
+      output = {
+        properties = {
+          DataCollectionRuleResourceId = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/managed-monitoring/providers/Microsoft.Insights/dataCollectionRules/gateway"
+        }
+      }
+    }
+  }
+  expect_failures = [azapi_resource.telemetry_exporter]
+}
+
+run "reject_subscription_scoped_monitoring_publisher" {
+  command = plan
+  override_resource {
+    target          = azapi_resource.insights["gateway"]
+    override_during = plan
+    values = {
+      output = {
+        properties = {
+          DataCollectionRuleResourceId = "/subscriptions/00000000-0000-0000-0000-000000000001"
+          OTLPMetricsEndpoint          = "https://test.metrics.ingest.monitor.azure.com/dataCollectionRules/dcr-test/metrics"
+          OTLPLogsEndpoint             = "https://test.ingest.monitor.azure.com/dataCollectionRules/dcr-test/logs"
+          OTLPTracesEndpoint           = "https://test.ingest.monitor.azure.com/dataCollectionRules/dcr-test/traces"
+        }
+      }
+    }
+  }
+  expect_failures = [azapi_resource.role_assignment["gateway-monitoring-publisher"]]
 }
 
 run "reject_public_disable_without_network" {

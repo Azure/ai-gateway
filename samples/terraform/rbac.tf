@@ -12,6 +12,12 @@ locals {
         principal_type = "ServicePrincipal"
         role_id        = "53ca6127-db72-4b80-b1b0-d745d6d5456d"
       }
+      gateway-monitoring-publisher = {
+        scope          = local.gateway_monitoring.dcr_id
+        principal_id   = azapi_resource.gateway.identity[0].principal_id
+        principal_type = "ServicePrincipal"
+        role_id        = "3913510d-42f4-4e42-8a64-420c390055eb"
+      }
       project-storage = {
         scope          = azapi_resource.storage.id
         principal_id   = azapi_resource.project.identity[0].principal_id
@@ -58,6 +64,15 @@ resource "azapi_resource" "role_assignment" {
       principalId      = each.value.principal_id
       principalType    = each.value.principal_type
       roleDefinitionId = "${local.subscription_scope}/providers/Microsoft.Authorization/roleDefinitions/${each.value.role_id}"
+    }
+  }
+  lifecycle {
+    precondition {
+      condition = each.key != "gateway-monitoring-publisher" || can(regex(
+        "(?i)^/subscriptions/${var.subscription_id}/resourceGroups/[^/?#]+/providers/Microsoft.Insights/dataCollectionRules/[^/?#]+$",
+        each.value.scope
+      ))
+      error_message = "Gateway publishing requires the actual same-subscription OTLP DCR resource ID from Insights. Missing/immutable-only linkage must be resolved before applying; never substitute a group/subscription scope."
     }
   }
 }
