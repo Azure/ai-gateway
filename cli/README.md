@@ -4,7 +4,7 @@ Create an AI Gateway, register model providers and MCP servers, and manage
 policies, keys, identities, and networking from your terminal with `az aigateway`.
 
 > **Public preview**: commands and behavior may change before general availability.
-> Current extension release: **1.0.0b6**.
+> Current extension release: **1.0.0b12**.
 
 [Install](#install) | [Quickstart](#quickstart) | [Command reference](command-reference.md) | [AI Gateway documentation](https://aka.ms/aigateway/docs)
 
@@ -17,7 +17,7 @@ using a current Azure CLI release is recommended.
 **Bash (macOS / Linux)**
 
 ```bash
-curl -fsSL https://aka.ms/aigateway-cli-install | sh
+curl -fsSL https://aka.ms/aigateway-cli-install | bash
 ```
 
 Requires `curl` and a SHA-256 utility (`shasum` or `sha256sum`, normally
@@ -37,6 +37,12 @@ The installers download the published release, verify the wheel's SHA-256,
 and install or upgrade the `aigateway` extension. To inspect a script before
 running it, see [install.sh](install.sh) or [install.ps1](install.ps1).
 
+Running an installer again reinstalls the pinned release, including when the
+same version is already present, so a stale local build is replaced. Download
+and checksum failures leave the existing extension untouched. Once the wheel
+is verified, a same-version installation is removed before reinstalling; if
+installation fails, correct the reported error and rerun the installer.
+
 ### Verify
 
 ```bash
@@ -44,8 +50,33 @@ az aigateway version
 az aigateway --help
 ```
 
-`version` reports `extensionName: aigateway`, `extensionVersion: 1.0.0b6`,
+`version` reports `extensionName: aigateway`, `extensionVersion: 1.0.0b12`,
 and `apiVersion: 2025-09-01-preview`. Neither command needs an Azure login.
+
+### Release and installer maintenance
+
+The installers pin the public GitHub Release asset
+[`aigateway-1.0.0b12-py3-none-any.whl`](https://github.com/Azure/ai-gateway/releases/download/cli-v1.0.0b12/aigateway-1.0.0b12-py3-none-any.whl)
+and SHA-256
+`ea95c4cdd880afbacbab78c64c41d02b48a08a7c8a92471ee2438920bab6ab69`.
+Customers do not need access to the build system.
+
+The AKA links are commit-pinned. Merging an installer update does **not** change
+the scripts served by those links: the link owner must repin both links to the
+merged commit after confirming the release asset is publicly downloadable.
+
+Installer regression tests require Python 3, Bash, and PowerShell (`pwsh`):
+
+```bash
+python3 -m unittest discover -s cli/tests -v
+CLI_TEST_REAL_AZ=1 python3 -m unittest discover -s cli/tests -v
+```
+
+The second command also requires Azure CLI and exercises clean installation,
+upgrade from b6, and same-version replacement in temporary `AZURE_CONFIG_DIR`
+and `AZURE_EXTENSION_DIR` directories. Tests download the approved wheels by
+default; set `CLI_TEST_WHEEL` and `CLI_TEST_OLD_WHEEL` to local copies to avoid
+those downloads. Both copies must match the pinned SHA-256 values.
 
 ## Quickstart
 
@@ -87,9 +118,9 @@ az aigateway create --resource-group "$RG" --name "$GATEWAY" --location "$LOCATI
 az aigateway show --resource-group "$RG" --name "$GATEWAY" --output table
 ```
 
-Creation waits for provisioning to finish. The gateway is an Azure API Management
-resource (`Microsoft.ApiManagement/service`) with the `AIGateway` SKU; the CLI
-selects the SKU for you.
+Creation waits for provisioning to finish. The gateway is an Azure AI Gateway
+resource (`Microsoft.ApiManagement/aigateways`); the CLI selects the `AIGateway`
+SKU and capacity for you.
 
 ### 2. Register an MCP server
 
