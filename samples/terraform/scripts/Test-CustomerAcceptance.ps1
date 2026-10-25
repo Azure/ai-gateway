@@ -334,7 +334,11 @@ Invoke-Check 'private-network' @('resources') {
         $endpointId = $context.outputs.private_endpoint_ids.value.$name
         $endpoint = Read-Arm $endpointId '2024-05-01'
         Assert-Ready $endpoint
-        $connections = @($endpoint.properties.privateLinkServiceConnections)
+        $connections = @(
+            @($endpoint.properties.privateLinkServiceConnections) +
+            @($endpoint.properties.manualPrivateLinkServiceConnections) |
+                Where-Object { $null -ne $_ }
+        )
         $target = if ($name -eq 'gateway') { $context.gatewayId } else { $context.modelsId }
         $group = if ($name -eq 'gateway') { 'Gateway' } else { 'account' }
         if ($connections.Count -ne 1 -or

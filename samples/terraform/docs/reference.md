@@ -8,7 +8,7 @@ Review the limitations before changing an existing deployment.
 | File | What it controls |
 | --- | --- |
 | [terraform.tfvars.example](../terraform.tfvars.example) | Template for your ignored `terraform.tfvars` |
-| [profiles/private-connectivity.tfvars.json](../profiles/private-connectivity.tfvars.json) | Three private-connectivity settings (no secrets) |
+| [profiles/private-connectivity.tfvars.json](../profiles/private-connectivity.tfvars.json) | Four private-connectivity settings, including explicit gateway endpoint approval (no secrets) |
 | [variables.tf](../variables.tf) / [outputs.tf](../outputs.tf) | Inputs, validation, outputs |
 | [ai-gateway.tf](../ai-gateway.tf) | Gateway, provider, catalog, aliases, runtime key, telemetry exporter |
 | [foundry-models.tf](../foundry-models.tf) | Model account and versioned deployments |

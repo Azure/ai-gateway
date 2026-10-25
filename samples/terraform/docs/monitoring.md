@@ -154,6 +154,39 @@ existence or a screenshot of an empty chart for all three signal paths.
 Live service behavior and UI delivery are still deployment-time acceptance gates;
 offline fixtures alone do not prove the preview works in a subscription.
 
+## Troubleshooting identity and delayed ingestion
+
+An ARM `principalId`, `Succeeded` provisioning state and matching role assignments
+do **not** prove that the gateway's managed identity still exists. If inference
+and telemetry fail together, verify the exact principal in the correct Entra
+tenant. An authorized Graph check of the active service principal, deleted items
+and directory audit can distinguish a deleted identity from an access or tenant
+error. A failed or unauthorized lookup alone is not proof of deletion.
+
+Deleted managed identities cannot be restored through Graph. A confirmed orphan
+requires a separately reviewed identity repair on the existing resource, followed
+by replacement of its original-scope role assignments and Terraform state
+reconciliation. Identity removal/re-enablement is not atomic and can affect other
+dependencies, including Key Vault-backed certificates. Do not automatically reset
+an identity, recreate the gateway or reuse a plan from before the identity change.
+
+Allow **up to 30 minutes** for the DCR publisher role to propagate before treating
+an ingestion `403` as a persistent failure. This is separate from destination
+provisioning and from the additional time needed for accepted records to appear
+in Log Analytics. After propagation, generate a fresh bounded gateway request:
+older spans may no longer be retried. Check its exact trace ID, correlated logs
+and fresh, resource-scoped token samples rather than relying on old traffic.
+
+A separately authorized synthetic OTLP trace can test the destination without
+changing the exporter. Require both successful submission and the exact stored
+trace; a `2xx` alone proves acceptance, not query visibility. Mark synthetic data,
+exclude it from gateway acceptance, and remove any temporary publishing role.
+Verify real gateway traffic independently afterward.
+
+Token counters and trace-backed call counts can recover with different historical
+coverage. Compare before/after counter samples with response usage; do not assume
+that the portal's selected-range token total belongs entirely to the newest test.
+
 ## Sources
 
 - [Official exact legacy API/SKU exporter example](https://github.com/Azure-Samples/AI-Gateway/blob/1679e3137d2fe7592d2a668d77ff71550d35b69e/modules/ai-gateway/v1/ai-gateway.bicep)
@@ -161,3 +194,6 @@ offline fixtures alone do not prove the preview works in a subscription.
 - [Portal monitoring migration release](https://ai.gateway.azure.com/docs/releases/2026-08-28)
 - [Direct OTLP ingestion](https://learn.microsoft.com/azure/azure-monitor/containers/opentelemetry-protocol-ingestion)
 - [AMW managed infrastructure](https://learn.microsoft.com/azure/azure-monitor/metrics/azure-monitor-workspace-manage)
+- [Managed identity deletion and token caching](https://learn.microsoft.com/entra/identity/managed-identities-azure-resources/managed-identities-faq)
+- [API Management managed identity lifecycle](https://learn.microsoft.com/azure/api-management/api-management-howto-use-managed-service-identity)
+- [DCR publisher permissions and propagation](https://learn.microsoft.com/azure/azure-monitor/logs/tutorial-logs-ingestion-portal#assign-permissions-to-the-dcr)

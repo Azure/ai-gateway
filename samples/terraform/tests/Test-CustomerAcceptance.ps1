@@ -275,6 +275,8 @@ $cases = [ordered]@{
     'terraform-error' = @('FAIL', 'context'); dirty = @('FAIL', 'context')
     'extra-group' = @('FAIL', 'placement'); 'arm-error' = @('FAIL', 'resources')
     'failed-endpoint' = @('FAIL', 'private-network'); 'wrong-alias' = @('FAIL', 'resources')
+    'manual-approved' = @('PASS', 'runtime'); 'manual-pending' = @('FAIL', 'private-network')
+    'manual-wrong-target' = @('FAIL', 'private-network'); 'mixed-connections' = @('FAIL', 'private-network')
     'wrong-api-format' = @('FAIL', 'resources'); 'wrong-exporter-kind' = @('FAIL', 'monitoring')
     drift = @('FAIL', 'drift'); 'plan-error' = @('FAIL', 'drift')
     'runtime-error' = @('FAIL', 'runtime'); 'missing-telemetry' = @('FAIL', 'telemetry')
@@ -293,7 +295,7 @@ $cases = [ordered]@{
     'nonfinite-metrics' = @('FAIL', 'telemetry'); 'relinked-law' = @('FAIL', 'monitoring')
     'wrong-dce-endpoint' = @('FAIL', 'monitoring'); 'unsafe-query-endpoint' = @('FAIL', 'monitoring')
 }
-$runtimeCases = @('pass', 'omitted-api-format', 'lowercase-exporter-kind', 'arm-dcr-fallback', 'runtime-error',
+$runtimeCases = @('pass', 'manual-approved', 'omitted-api-format', 'lowercase-exporter-kind', 'arm-dcr-fallback', 'runtime-error',
     'missing-telemetry', 'missing-logs', 'missing-metrics', 'metrics-error', 'telemetry-schema', 'uncorrelated-telemetry',
     'wrong-metric-scope', 'stale-metrics', 'nonfinite-metrics', 'cleanup-error')
 try {
@@ -301,6 +303,17 @@ try {
         New-Fixture
         $f = $global:acceptanceTest
         $f.scenario = $case
+        if ($case -in @('manual-approved', 'manual-pending', 'manual-wrong-target', 'mixed-connections')) {
+            $properties = $f.resources[$f.outputs.private_endpoint_ids.value.gateway].properties
+            $properties.manualPrivateLinkServiceConnections = $properties.privateLinkServiceConnections
+            if ($case -ne 'mixed-connections') { $properties.privateLinkServiceConnections = @() }
+            if ($case -eq 'manual-pending') {
+                $properties.manualPrivateLinkServiceConnections[0].properties.privateLinkServiceConnectionState.status = 'Pending'
+            }
+            if ($case -eq 'manual-wrong-target') {
+                $properties.manualPrivateLinkServiceConnections[0].properties.privateLinkServiceId = $models
+            }
+        }
         switch ($case) {
             'wrong-scope' { $f.outputs.gateway_id.value = $gateway.Replace('/resourceGroups/test/', '/resourceGroups/other/') }
             'missing-output' { $f.outputs.Remove('resource_group_name') }

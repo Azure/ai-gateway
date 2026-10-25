@@ -103,6 +103,16 @@ variable "models_public_network_access" {
   }
 }
 
+variable "gateway_private_endpoint_manual_approval" {
+  description = "Use a separately named manual-request gateway endpoint and approve it after creation. Changing this replaces only the gateway private endpoint; review migration first."
+  type        = bool
+  default     = false
+  validation {
+    condition     = !var.gateway_private_endpoint_manual_approval || var.enable_private_networking
+    error_message = "Manual gateway endpoint approval requires enable_private_networking."
+  }
+}
+
 variable "enable_private_test_client" {
   description = "Create a billable private Ubuntu test VM with outbound-only internet, no public IP and narrowly scoped API-key retrieval access."
   type        = bool

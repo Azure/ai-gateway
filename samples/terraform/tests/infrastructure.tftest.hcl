@@ -306,9 +306,10 @@ run "private_gateway_and_model_paths" {
 run "private_connectivity_poc_profile" {
   command = plan
   variables {
-    enable_private_networking     = jsondecode(file("profiles/private-connectivity.tfvars.json")).enable_private_networking
-    gateway_public_network_access = jsondecode(file("profiles/private-connectivity.tfvars.json")).gateway_public_network_access
-    models_public_network_access  = jsondecode(file("profiles/private-connectivity.tfvars.json")).models_public_network_access
+    enable_private_networking                = jsondecode(file("profiles/private-connectivity.tfvars.json")).enable_private_networking
+    gateway_private_endpoint_manual_approval = jsondecode(file("profiles/private-connectivity.tfvars.json")).gateway_private_endpoint_manual_approval
+    gateway_public_network_access            = jsondecode(file("profiles/private-connectivity.tfvars.json")).gateway_public_network_access
+    models_public_network_access             = jsondecode(file("profiles/private-connectivity.tfvars.json")).models_public_network_access
   }
 
   override_resource {
@@ -362,7 +363,15 @@ run "private_connectivity_poc_profile" {
     condition = (
       length(azapi_resource.private_endpoint) == 2 &&
       length(azapi_resource.private_dns_zone) == 4 &&
-      azapi_resource.private_endpoint["gateway"].body.properties.privateLinkServiceConnections[0].properties.privateLinkServiceId == azapi_resource.gateway.id &&
+      azapi_resource.private_endpoint["gateway"].body.properties.manualPrivateLinkServiceConnections[0].properties.privateLinkServiceId == azapi_resource.gateway.id &&
+      !can(azapi_resource.private_endpoint["gateway"].body.properties.privateLinkServiceConnections) &&
+      endswith(azapi_resource.private_endpoint["gateway"].name, "-gateway-manual-pe") &&
+      azapi_resource.private_endpoint["gateway"].body.properties.manualPrivateLinkServiceConnections[0].name == "gateway-manual" &&
+      jsonencode(azapi_resource.private_endpoint["gateway"].replace_triggers_refs) == jsonencode(["properties.manualPrivateLinkServiceConnections"]) &&
+      length(azapi_resource_action.gateway_private_endpoint_approval) == 1 &&
+      data.azapi_resource.gateway_private_endpoint_connection[0].parent_id == azapi_resource.gateway.id &&
+      data.azapi_resource.gateway_private_endpoint_connection[0].name == "gateway-manual" &&
+      azapi_resource_action.gateway_private_endpoint_approval[0].when == "apply" &&
       azapi_resource.private_endpoint["models"].body.properties.privateLinkServiceConnections[0].properties.privateLinkServiceId == azapi_resource.models.id &&
       length(azapi_resource.private_test_vm) == 0 &&
       azapi_resource.agents.body.properties.publicNetworkAccess == "Enabled" &&
@@ -411,7 +420,16 @@ run "reject_private_client_without_network" {
     enable_private_test_client         = true
     private_test_client_ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleOnlyNotForDeployment"
   }
+
   expect_failures = [var.enable_private_test_client]
+}
+
+run "reject_manual_endpoint_without_network" {
+  command = plan
+  variables {
+    gateway_private_endpoint_manual_approval = true
+  }
+  expect_failures = [var.gateway_private_endpoint_manual_approval]
 }
 
 run "reject_incomplete_otlp_destination" {

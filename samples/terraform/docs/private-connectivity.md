@@ -15,11 +15,48 @@ Private client -> gateway private endpoint -> private model endpoint
 | Setting | Value |
 | --- | --- |
 | `enable_private_networking` | `true` |
+| `gateway_private_endpoint_manual_approval` | `true` (create Pending, then explicitly approve) |
 | `gateway_public_network_access` | `Enabled` (stays on; public calls with a valid key still work) |
 | `models_public_network_access` | `Disabled` after step 4 |
 
 Always pass the profile on every plan, including drift checks:
 `-var-file=profiles\private-connectivity.tfvars.json`. It overrides `terraform.tfvars`.
+
+The gateway endpoint uses a manual request followed by an explicit APIM
+connection approval. Terraform waits for approval before creating its DNS zone
+group. Approval first verifies that the service-created connection belongs to
+the expected endpoint. An explicit PUT action preserves the required body `id`;
+the legacy API rejects ordinary update-resource requests that omit this field.
+Already-approved connections are read with GET instead: the legacy API also
+rejects redundant approval. After a newly Pending connection is approved, run
+a second plan/apply to record this read-only GET state before the final drift
+check. This does not recreate the endpoint or change its approval.
+This avoids an observed legacy auto-approval failure:
+`PrivateConnectionNotFound`, where Network expects a generated connection name
+but APIM stores the caller-supplied name. `Approved` alone is not sufficient:
+wait for the asynchronous operation, both provisioning states and private DNS,
+then prove inference from the VNet.
+
+**Existing deployments:** this profile now selects the separately named
+`-gateway-manual-pe`. Switching the flag replaces the gateway endpoint, not the
+gateway service or the model endpoint. Review the plan before migrating. To
+retain a healthy automatic endpoint, override
+`-var=gateway_private_endpoint_manual_approval=false` after the profile on every
+plan. Never import a new endpoint over the old state without first preserving
+state and accounting for the old cloud resource.
+
+**Cleanup caveat:** the legacy service can retain an APIM connection record
+after its failed Network endpoint and NIC have been deleted. In the observed
+repair, deleting that orphan or first rejecting it returned an asynchronous
+`UpdateApiServiceFailed`; the approved replacement kept working. Follow the
+operation's polling URL: an initial `202` is not successful cleanup. Verify the
+old endpoint/NIC are absent and the replacement still passes private inference.
+Record the residual APIM reference rather than repeatedly retrying or rebuilding
+the gateway. A zero-drift Terraform plan does not prove this unmanaged reference
+has disappeared.
+
+See the [AI Gateway private networking guide](https://learn.microsoft.com/azure/api-management/ai-gateway-configure-private-networking)
+for the Pending/Approve sequence.
 
 > **Pending: private-only gateway ingress.** The observed public-disable failure
 > is under investigation with the product group. Until a fix is verified, the

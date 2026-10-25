@@ -188,7 +188,11 @@ if ($models.properties.publicNetworkAccess -ne 'Disabled' -or
 }
 foreach ($name in @('gateway', 'models')) {
     $endpoint = Get-Arm $o.private_endpoint_ids.value.$name '2024-05-01'
-    $connections = @($endpoint.properties.privateLinkServiceConnections)
+    $connections = @(
+        @($endpoint.properties.privateLinkServiceConnections) +
+        @($endpoint.properties.manualPrivateLinkServiceConnections) |
+            Where-Object { $null -ne $_ }
+    )
     $target = if ($name -eq 'gateway') { $gatewayId } else { $modelsId }
     if ($endpoint.properties.provisioningState -ne 'Succeeded' -or
         $connections.Count -ne 1 -or
