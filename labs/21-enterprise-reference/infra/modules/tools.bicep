@@ -28,15 +28,18 @@ param toolUsers principal[] = []
 
 var aiGatewayToolsUserRoleDefinitionId = 'dce03f8d-857f-4e40-a90d-67770fa6ecd2'
 
+#disable-next-line BCP081
 resource aiGateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' existing = {
   name: gatewayName
 }
 
+#disable-next-line BCP081
 resource defaultWorkspace 'Microsoft.ApiManagement/aigateways/workspaces@2025-09-01-preview' existing = {
   parent: aiGateway
   name: 'default'
 }
 
+#disable-next-line BCP081
 resource toolServer 'Microsoft.ApiManagement/aigateways/workspaces/toolServers@2025-09-01-preview' = {
   parent: defaultWorkspace
   name: serverName

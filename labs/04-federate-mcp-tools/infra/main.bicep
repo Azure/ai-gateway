@@ -53,15 +53,18 @@ var secondEndpoint = {
   required: false
 }
 
+#disable-next-line BCP081
 resource gateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' existing = {
   name: gatewayName
 }
 
+#disable-next-line BCP081
 resource workspace 'Microsoft.ApiManagement/aigateways/workspaces@2025-09-01-preview' existing = {
   parent: gateway
   name: 'default'
 }
 
+#disable-next-line BCP081
 resource toolServer 'Microsoft.ApiManagement/aigateways/workspaces/toolServers@2025-09-01-preview' = {
   parent: workspace
   name: serverName

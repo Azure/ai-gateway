@@ -24,14 +24,9 @@ param apiKeyName string = 'app-first-call'
 
 var foundryUserRoleId = '53ca6127-db72-4b80-b1b0-d745d6d5456d'
 
-// 1. The gateway, with its companion connector gateway and a system-assigned managed identity.
-resource connectorGateway 'Microsoft.Web/connectorGateways@2026-05-01-preview' = {
-  name: gatewayName
-  location: location
-  tags: tags
-  properties: {}
-}
-
+// 1. The gateway in the Consumption SKU, with a system-assigned managed identity, then its companion connector
+//    gateway.
+#disable-next-line BCP081
 resource gateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' = {
   name: gatewayName
   location: location
@@ -39,14 +34,24 @@ resource gateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' = {
   identity: {
     type: 'SystemAssigned'
   }
-  properties: {
-    publicNetworkAccess: 'Enabled'
+  sku: {
+    name: 'Consumption'
   }
+  properties: {}
+}
+
+#disable-next-line BCP081
+resource connectorGateway 'Microsoft.Web/connectorGateways@2026-05-01-preview' = {
+  name: gatewayName
+  location: location
+  tags: tags
+  properties: {}
   dependsOn: [
-    connectorGateway
+    gateway
   ]
 }
 
+#disable-next-line BCP081
 resource workspace 'Microsoft.ApiManagement/aigateways/workspaces@2025-09-01-preview' existing = {
   parent: gateway
   name: 'default'
@@ -96,6 +101,7 @@ resource foundryUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
 }
 
 // 3. A model provider that points at the Foundry account and signs in with the managed identity.
+#disable-next-line BCP081
 resource provider 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders@2025-09-01-preview' = {
   parent: workspace
   name: providerName
@@ -120,10 +126,12 @@ resource provider 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders@
 }
 
 // 4. The deployment as a backend model, and an alias that apps send in the "model" field.
+#disable-next-line BCP081
 resource model 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders/models@2025-09-01-preview' = {
   parent: provider
   name: modelName
   properties: {
+    displayName: modelName
     apiFormat: 'OpenAIChatCompletions'
     supportedEndpoints: [
       '/openai/v1/chat/completions'
@@ -132,14 +140,17 @@ resource model 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders/mod
     deployment: {
       resourceId: deployment.id
       modelName: modelName
+      modelVersion: modelVersion
     }
   }
 }
 
+#disable-next-line BCP081
 resource alias 'Microsoft.ApiManagement/aigateways/workspaces/aliases@2025-09-01-preview' = {
   parent: workspace
   name: modelName
   properties: {
+    aliasName: modelName
     backendModels: [
       {
         resourceId: model.id
@@ -150,6 +161,7 @@ resource alias 'Microsoft.ApiManagement/aigateways/workspaces/aliases@2025-09-01
 
 // 5. A runtime API key for your first app. Read its value with az aigateway api-key list-secrets; it's never a
 //    deployment output.
+#disable-next-line BCP081
 resource apiKey 'Microsoft.ApiManagement/aigateways/apiKeys@2025-09-01-preview' = {
   parent: gateway
   name: apiKeyName

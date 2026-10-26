@@ -52,15 +52,18 @@ param aliasUsers principal[] = []
 var normalizedFoundryEndpoint = endsWith(foundryEndpoint, '/') ? foundryEndpoint : '${foundryEndpoint}/'
 var aiGatewayModelsUserRoleDefinitionId = 'a6b68e3d-a1f0-4c60-8678-237c050cf4ea'
 
+#disable-next-line BCP081
 resource aiGateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' existing = {
   name: gatewayName
 }
 
+#disable-next-line BCP081
 resource defaultWorkspace 'Microsoft.ApiManagement/aigateways/workspaces@2025-09-01-preview' existing = {
   parent: aiGateway
   name: 'default'
 }
 
+#disable-next-line BCP081
 resource foundryProvider 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders@2025-09-01-preview' = {
   parent: defaultWorkspace
   name: providerName
@@ -81,6 +84,7 @@ resource foundryProvider 'Microsoft.ApiManagement/aigateways/workspaces/modelPro
   }
 }
 
+#disable-next-line BCP081
 resource foundryCatalogModels 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders/models@2025-09-01-preview' = [for model in foundryModels: {
   parent: foundryProvider
   name: model.armName
@@ -112,6 +116,7 @@ resource foundryCatalogModels 'Microsoft.ApiManagement/aigateways/workspaces/mod
   }
 }]
 
+#disable-next-line BCP081
 resource alias 'Microsoft.ApiManagement/aigateways/workspaces/aliases@2025-09-01-preview' = {
   parent: defaultWorkspace
   name: aliasName

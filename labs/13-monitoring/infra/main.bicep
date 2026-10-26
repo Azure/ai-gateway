@@ -49,16 +49,19 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   }
 }
 
+#disable-next-line BCP081
 resource gateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' existing = {
   name: gatewayName
 }
 
+#disable-next-line BCP081
 resource defaultWorkspace 'Microsoft.ApiManagement/aigateways/workspaces@2025-09-01-preview' existing = {
   parent: gateway
   name: 'default'
 }
 
 // The reference sample's exporter, unchanged. Kept for reference only: see deployLegacyExporter.
+#disable-next-line BCP081
 resource telemetryExporter 'Microsoft.ApiManagement/aigateways/workspaces/telemetryExporters@2025-09-01-preview' = if (deployLegacyExporter) {
   parent: defaultWorkspace
   name: 'appinsights'

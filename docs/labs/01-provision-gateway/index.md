@@ -25,7 +25,7 @@ way around the portal so you're ready for the rest of the labs.
 
 <!-- video: media/walkthrough.mp4 | Narrated walkthrough: create an AI Gateway in the portal and tour it (3 min) -->
 
-![What provisioning creates: you choose a name, resource group, and region; Azure creates the connector gateway, the AI Gateway, and its managed identity; you get a runtime URL, a default workspace, and the portal](../assets/diagrams/provisioning.svg "One gateway per environment is the usual starting point. Every later lab publishes models, tools, keys, and policies on it.")
+![What provisioning creates: you choose a name, resource group, and region; Azure creates the AI Gateway, its managed identity, and its connector gateway; you get a runtime URL, a default workspace, and the portal](../assets/diagrams/provisioning.svg "One gateway per environment is the usual starting point. Every later lab publishes models, tools, keys, and policies on it.")
 
 ## Before you begin
 
@@ -90,8 +90,8 @@ $SUBSCRIPTION_ID = az account show --query id -o tsv
 An AI Gateway is an Azure Resource Manager resource of type `Microsoft.ApiManagement/aigateways`. You manage it
 in the [AI Gateway portal](https://ai.gateway.azure.com), which is separate from the Azure portal, or through
 Azure Resource Manager with the CLI, REST, or Bicep. Each gateway has a companion connector gateway
-(`Microsoft.Web/connectorGateways`) with the same name, which is created first. The service sets the SKU and
-capacity itself, so the only real decisions are the name, the region, and the resource group.
+(`Microsoft.Web/connectorGateways`) with the same name. There's no capacity to size, so the only real decisions
+are the name, the region, and the resource group.
 
 | Property | Value |
 |---|---|
@@ -101,6 +101,7 @@ capacity itself, so the only real decisions are the name, the region, and the re
 | Runtime URL | `https://` + `properties.frontend.defaultHostname`, for example `https://<gateway>.eastus2-01.ai.gateway.azure.com` |
 | Runtime routes | Models under `/default/models/…`, MCP servers under `/default/toolservers/<server>/mcp` |
 | Outbound identity | A system-assigned managed identity, used to call Foundry and other Microsoft Entra–protected backends |
+| SKU | `Consumption`, which `az aigateway create` and the Bicep templates set. A template that omits `sku` creates a `Premium` gateway |
 | Provisioning time | A few minutes, often less |
 
 Everything you publish later lives in the gateway's `default` workspace. That's why every runtime route
@@ -173,8 +174,8 @@ az group create --name "$RG" --location "$LOCATION"
 
 ### Create the connector gateway
 
-Every AI gateway has a companion `Microsoft.Web/connectorGateways` resource with the same name. The portal and
-the Bicep template create it first, so do the same. The `aigateway` extension creates only the AI gateway, so
+Every AI gateway has a companion `Microsoft.Web/connectorGateways` resource with the same name, and either one
+can be created first. The `aigateway` extension creates only the AI gateway, so
 create the connector gateway through the Azure Resource Manager REST API with `az rest`.
 
 ```bash title="Bash"
@@ -193,9 +194,9 @@ Remove-Item body.json
 
 ### Create the AI gateway
 
-`az aigateway create` only needs the name, the region, and the managed identity. There's no SKU, capacity, or
-publisher to set: the service picks them, and public network access is enabled. The command waits until
-provisioning finishes, usually within a few minutes.
+`az aigateway create` only needs the name, the region, and the managed identity. It creates the gateway in the
+`Consumption` SKU, and there's no capacity or publisher to set. The command waits until provisioning finishes,
+usually within a few minutes.
 
 ```bash title="Bash"
 az aigateway create -g "$RG" -n "$GATEWAY" --location "$LOCATION" --system-assigned true -o none
@@ -231,10 +232,10 @@ az aigateway show -g $RG -n $GATEWAY `
 
 ### Review the template
 
-The template creates what the portal creates: a `Microsoft.Web/connectorGateways` resource first, then the AI
-gateway (`Microsoft.ApiManagement/aigateways`) with the same name, a system-assigned identity, and public
-network access enabled. There's no SKU, capacity, or publisher to set. Keep both resources together in your own
-templates.
+The template follows the AI Gateway [reference sample](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway/blob/main/infra/ai-gateway/main.bicep). It creates the AI gateway
+(`Microsoft.ApiManagement/aigateways`) in the `Consumption` SKU with a system-assigned identity, then a
+`Microsoft.Web/connectorGateways` resource with the same name. There's no capacity or publisher to set. Keep both
+resources together in your own templates, and set `sku`: without it, the gateway is created in the `Premium` SKU.
 
 | Parameter | Description |
 |---|---|
@@ -285,8 +286,9 @@ Expected output (trimmed):
 ```
 
 > [!TIP]
-> `BCP081` warnings about `Microsoft.ApiManagement/aigateways` and `Microsoft.Web/connectorGateways` mean that
-> Bicep has no local type definitions for these preview resources. They don't block the deployment.
+> Bicep has no type definitions yet for `Microsoft.ApiManagement/aigateways` and `Microsoft.Web/connectorGateways`.
+> As in the reference sample, each `#disable-next-line BCP081` line silences the warning about it. Without these
+> lines, the build shows `BCP081` warnings, which don't block the deployment.
 
 > **Checkpoint**
 > The deployment succeeds and the outputs show `gatewayUrl` and `principalId`.
@@ -414,6 +416,8 @@ az resource delete -g $RG -n $GATEWAY --resource-type Microsoft.Web/connectorGat
 | Your subscription is disabled in the portal's subscription picker | You lack write permission for API Management or connector gateways in that subscription | Ask for **Contributor** on the subscription or resource group, or pick another subscription. |
 | The deployment fails because the region isn't supported | `$LOCATION` or the template's `location` is outside the preview regions | Use `eastus2` or `swedencentral`. The template accepts only these two values and defaults to `eastus2`. |
 | The name is rejected | Gateway names are globally unique and limited to 24 characters: letters, digits, and hyphens, starting with a letter | Pick another name that follows the rules. |
+| `AIGatewaySubscriptionGatewayLimitExceeded`: `…has reached the maximum of 5 AI Gateway resources allowed in this region.` | The subscription already has five gateways in `$LOCATION` | Delete a gateway you no longer need, or create this one in the other preview region. |
+| `InvalidSkuName`: `Supported AI Gateway SKU names are 'Premium' and 'Consumption'.` | Your template sets another `sku.name`, such as `AIGateway` from older samples | Set `sku: { name: 'Consumption' }`, as [`infra/main.bicep`](infra/main.bicep) does. |
 | `MissingSubscriptionRegistration` | A resource provider isn't registered in the subscription | Run `az provider register -n Microsoft.ApiManagement --wait` and `az provider register -n Microsoft.Web --wait`, or ask your subscription administrator. |
 | `Could not resolve host` when you call the URL | Provisioning or DNS isn't finished | Run `az aigateway wait -g "$RG" -n "$GATEWAY" --created` and retry. |
 | `'aigateway' is misspelled or not recognized by the system` | The `aigateway` extension isn't installed | Run the installer from [Before you begin](#before-you-begin), then `az aigateway version`. |

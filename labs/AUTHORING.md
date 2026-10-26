@@ -239,12 +239,17 @@ Keep the video optional: every step it shows must also be written in the lab.
 
 ## Infrastructure as code
 
-- Bicep files live in the lab's `infra/` folder and must compile: `az bicep build --file infra/main.bicep --stdout > /dev/null`.
-  `BCP081` warnings for preview types are acceptable.
+- Bicep files live in the lab's `infra/` folder and must compile without warnings:
+  `az bicep build --file infra/main.bicep --stdout > /dev/null`. Bicep has no types yet for
+  `Microsoft.ApiManagement/aigateways` and `Microsoft.Web/connectorGateways`, so put `#disable-next-line BCP081` on
+  the line before each of their `resource` declarations, including `existing` ones.
 - Use API version `2025-09-01-preview` for `Microsoft.ApiManagement/*` resources.
 - Gateways are the dedicated `Microsoft.ApiManagement/aigateways` type, never `Microsoft.ApiManagement/service`.
-  Create a `Microsoft.Web/connectorGateways` resource with the same name first (API version `2026-05-01-preview`),
-  as [lab 01's template](01-provision-gateway/infra/main.bicep) does. Don't set `sku` or publisher properties.
+  Follow the product's [reference sample](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway/blob/main/infra/ai-gateway/main.bicep), as
+  [lab 01's template](01-provision-gateway/infra/main.bicep) does: set `sku: { name: 'Consumption' }` (without it,
+  the gateway is created in the `Premium` SKU) and no publisher properties, then create a
+  `Microsoft.Web/connectorGateways` resource with the same name (API version `2026-05-01-preview`) that depends on
+  the gateway. A subscription can have at most five gateways in each region.
   Gateway names have 24 characters or fewer, and the runtime URL is `https://` plus
   `properties.frontend.defaultHostname` (`<name>.<region>-01.ai.gateway.azure.com`).
 - Policy `counterKey` values are arrays: `counterKey: [ 'identity' ]` or `[ 'ipAddress' ]`.

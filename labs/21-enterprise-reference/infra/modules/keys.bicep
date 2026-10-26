@@ -9,10 +9,12 @@ param gatewayName string
 @description('One runtime API key is created per entry, named after the app, for example web-chat.')
 param appNames string[] = []
 
+#disable-next-line BCP081
 resource aiGateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' existing = {
   name: gatewayName
 }
 
+#disable-next-line BCP081
 resource runtimeApiKeys 'Microsoft.ApiManagement/aigateways/apiKeys@2025-09-01-preview' = [for app in appNames: {
   parent: aiGateway
   name: app

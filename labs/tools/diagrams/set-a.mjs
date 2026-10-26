@@ -26,16 +26,16 @@ export const architecture = () => svgDoc('architecture', {
 
 export const provisioning = () => svgDoc('provisioning', {
   title: 'What provisioning an AI Gateway creates',
-  desc: 'You choose a name, a resource group, and a preview region. Azure creates the connector gateway first, then the AI Gateway with a system-assigned managed identity, and sets the SKU and capacity. You get a runtime URL, a default workspace for model and MCP routes, and the AI Gateway portal.',
+  desc: 'You choose a name, a resource group, and a preview region. Azure creates the AI Gateway with a system-assigned managed identity, and its companion connector gateway with the same name. There is no capacity to size. You get a runtime URL, a default workspace for model and MCP routes, and the AI Gateway portal.',
   h: 356,
   body: () => {
     let o = zone(16, 20, 220, 316, 'You choose', { ic: 'user', tone: 'azure' });
     [['Name', 'Up to 24 characters', 'Globally unique', 'doc'], ['Resource group', 'New or existing', 'Holds both resources', 'layers'], ['Region (preview)', 'East US 2', 'Sweden Central', 'globe']]
       .forEach(([t, s, s2, ic], i) => { o += box(28, 56 + i * 96, 196, 72, { t, s, s2, icon: ic, tone: 'azure' }); });
     o += zone(270, 20, 340, 316, 'Azure creates', { gw: true, ic: 'sparkle' });
-    o += box(282, 56, 316, 72, { t: '1 · Connector gateway', s: 'Same name, created first', s2: 'Microsoft.Web/connectorGateways', icon: 'plug', mono: true });
+    o += box(282, 56, 316, 72, { t: '1 · AI Gateway', s: 'No capacity to size', s2: 'Microsoft.ApiManagement/aigateways', icon: 'sparkle', mono: true, accent: true });
     o += arrow('M440 130 V150', { flow: false });
-    o += box(282, 152, 316, 72, { t: '2 · AI Gateway', s: 'SKU and capacity set for you', s2: 'Microsoft.ApiManagement/aigateways', icon: 'sparkle', mono: true, accent: true });
+    o += box(282, 152, 316, 72, { t: '2 · Connector gateway', s: 'Same name, companion resource', s2: 'Microsoft.Web/connectorGateways', icon: 'plug', mono: true });
     o += box(282, 248, 316, 72, { t: 'Managed identity', s: 'System-assigned, on by default', s2: 'Calls backends without keys', icon: 'key', tone: 'green' });
     o += zone(644, 20, 300, 316, 'You get', { ic: 'check', tone: 'green' });
     o += box(656, 56, 276, 72, { t: 'Runtime URL', s: 'https://<gateway>.eastus2-01', s2: '.ai.gateway.azure.com', icon: 'globe', tone: 'green', mono: 'all' });

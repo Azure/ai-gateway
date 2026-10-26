@@ -69,7 +69,7 @@
         <span class="meta-pill"><span class="level-dots" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i></span>Advanced</span>
         <span class="meta-pill"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M10 5.5V10l3 2"/></svg>1 h</span>
         <span class="meta-pill meta-tracks"><span class="track-chips"><span class="track-chip" title="Bicep / azd"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5 17 6.5v7L10 17.5 3 13.5v-7Z"/><path d="M3 6.5 10 10.5l7-4M10 10.5v7"/></svg><span>Bicep</span></span></span></span>
-        <span class="meta-updated">Updated <time datetime="2026-10-23">Oct 23, 2026</time></span>
+        <span class="meta-updated">Updated <time datetime="2026-10-26">Oct 26, 2026</time></span>
       </div>
       <div class="lab-actions">
         <button class="btn btn-secondary btn-sm" type="button" data-values-open><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h7M14 6h3M3 14h3M10 14h7"/><circle cx="12" cy="6" r="2"/><circle cx="8" cy="14" r="2"/></svg>Your values</button>
@@ -487,9 +487,9 @@ right order: monitoring and Foundry first, then the gateway, then models, tools,
 <span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">output</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> LOG_ANALYTICS_WORKSPACE_ID string = monitoring.outputs.logAnalyticsWorkspaceId</span></span></code></pre><button class="code-expand" type="button"><span>Show all 250 lines</span></button></div><p>On GitHub, open <a href="https://github.com/Azure/ai-gateway/blob/main/labs/21-enterprise-reference/infra/main.bicep" target="_blank" rel="noopener">infra/main.bicep<span class="ext" aria-hidden="true">↗</span></a>.</p>
 <p><code>gateway.bicep</code> is the only module that declares the gateway itself. The others reference it as <code>existing</code> and
 only add child resources to it.</p>
-<div class="code code-collapsible" data-lang="bicep"><div class="code-head"><span class="code-title"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.5h6.5L15 6v11.5H5Z"/><path d="M11 2.5V6.5h4"/></svg>infra/modules/gateway.bicep</span><span class="code-actions"><a class="code-btn" href="https://github.com/Azure/ai-gateway/blob/main/labs/21-enterprise-reference/infra/modules/gateway.bicep" target="_blank" rel="noopener" title="View on GitHub"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11 3.5h5.5V9M16.5 3.5 9 11M14 12v4.5H3.5V6H8"/></svg><span>GitHub</span></a><button class="code-btn copy-btn" type="button" title="Copy"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M13 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/></svg><span>Copy</span></button></span></div><pre class="shiki"><code><span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#768390">// The AI Gateway itself: a Microsoft.ApiManagement/aigateways resource with a system-assigned managed identity,</span></span>
-<span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#768390">// the companion connector gateway (created first, as the AI Gateway portal does), and the Foundry User role for the</span></span>
-<span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#768390">// gateway identity on every Foundry account it calls.</span></span>
+<div class="code code-collapsible" data-lang="bicep"><div class="code-head"><span class="code-title"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.5h6.5L15 6v11.5H5Z"/><path d="M11 2.5V6.5h4"/></svg>infra/modules/gateway.bicep</span><span class="code-actions"><a class="code-btn" href="https://github.com/Azure/ai-gateway/blob/main/labs/21-enterprise-reference/infra/modules/gateway.bicep" target="_blank" rel="noopener" title="View on GitHub"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11 3.5h5.5V9M16.5 3.5 9 11M14 12v4.5H3.5V6H8"/></svg><span>GitHub</span></a><button class="code-btn copy-btn" type="button" title="Copy"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M13 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/></svg><span>Copy</span></button></span></div><pre class="shiki"><code><span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#768390">// The AI Gateway itself: a Microsoft.ApiManagement/aigateways resource in the Consumption SKU with a system-assigned</span></span>
+<span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#768390">// managed identity, the companion connector gateway (created after it, as in the reference sample), and the Foundry</span></span>
+<span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#768390">// User role for the gateway identity on every Foundry account it calls.</span></span>
 <span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">targetScope</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> = </span><span style="--shiki-light:#032F62;--shiki-dark:#96D0FF">'resourceGroup'</span></span>
 <span class="line"></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">@</span><span style="--shiki-light:#6F42C1;--shiki-dark:#DCBDFB">description</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">(</span><span style="--shiki-light:#032F62;--shiki-dark:#96D0FF">'Location of the gateway. The AI Gateway tier preview is available in East US 2 and Sweden Central.'</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">)</span></span>
@@ -512,13 +512,7 @@ only add child resources to it.</p>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">@</span><span style="--shiki-light:#6F42C1;--shiki-dark:#DCBDFB">description</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">(</span><span style="--shiki-light:#032F62;--shiki-dark:#96D0FF">'Resource IDs of the Foundry accounts the gateway calls with its managed identity.'</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">)</span></span>
 <span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">param</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> foundryResourceIds array = []</span></span>
 <span class="line"></span>
-<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">resource</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> connectorNamespace </span><span style="--shiki-light:#032F62;--shiki-dark:#96D0FF">'Microsoft.Web/connectorGateways@2026-05-01-preview'</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> = {</span></span>
-<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  name: gatewayName</span></span>
-<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  location: location</span></span>
-<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  tags: tags</span></span>
-<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  properties: {}</span></span>
-<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">}</span></span>
-<span class="line"></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">#disable-next-line </span><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">BCP081</span></span>
 <span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">resource</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> aiGateway </span><span style="--shiki-light:#032F62;--shiki-dark:#96D0FF">'Microsoft.ApiManagement/aigateways@2025-09-01-preview'</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> = {</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  name: gatewayName</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  location: location</span></span>
@@ -526,14 +520,20 @@ only add child resources to it.</p>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  identity: {</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">    type: </span><span style="--shiki-light:#032F62;--shiki-dark:#96D0FF">'SystemAssigned'</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  }</span></span>
-<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  properties: </span><span style="--shiki-light:#6F42C1;--shiki-dark:#DCBDFB">union</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">(</span></span>
-<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">    {</span></span>
-<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">      publicNetworkAccess: </span><span style="--shiki-light:#032F62;--shiki-dark:#96D0FF">'Enabled'</span></span>
-<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">    },</span></span>
-<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#DCBDFB">    empty</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">(backendSubnetId) ? {} : { backend: { subnet: { id: backendSubnetId } } }</span></span>
-<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  )</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  sku: {</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">    name: </span><span style="--shiki-light:#032F62;--shiki-dark:#96D0FF">'Consumption'</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  }</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  properties: </span><span style="--shiki-light:#6F42C1;--shiki-dark:#DCBDFB">empty</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">(backendSubnetId) ? {} : { backend: { subnet: { id: backendSubnetId } } }</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">#disable-next-line </span><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">BCP081</span></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">resource</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> connectorNamespace </span><span style="--shiki-light:#032F62;--shiki-dark:#96D0FF">'Microsoft.Web/connectorGateways@2026-05-01-preview'</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> = {</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  name: gatewayName</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  location: location</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  tags: tags</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  properties: {}</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  dependsOn: [</span></span>
-<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">    connectorNamespace</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">    aiGateway</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  ]</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">}</span></span>
 <span class="line"></span>
@@ -616,15 +616,18 @@ to <code>main.bicep</code> before the first deployment and keep passing the same
 <span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">var</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> normalizedFoundryEndpoint = </span><span style="--shiki-light:#6F42C1;--shiki-dark:#DCBDFB">endsWith</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">(foundryEndpoint, </span><span style="--shiki-light:#032F62;--shiki-dark:#96D0FF">'/'</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">) ? foundryEndpoint : </span><span style="--shiki-light:#032F62;--shiki-dark:#96D0FF">'${</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">foundryEndpoint</span><span style="--shiki-light:#032F62;--shiki-dark:#96D0FF">}/'</span></span>
 <span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">var</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> aiGatewayModelsUserRoleDefinitionId = </span><span style="--shiki-light:#032F62;--shiki-dark:#96D0FF">'a6b68e3d-a1f0-4c60-8678-237c050cf4ea'</span></span>
 <span class="line"></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">#disable-next-line </span><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">BCP081</span></span>
 <span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">resource</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> aiGateway </span><span style="--shiki-light:#032F62;--shiki-dark:#96D0FF">'Microsoft.ApiManagement/aigateways@2025-09-01-preview'</span><span style="--shiki-light:#D73A49;--shiki-dark:#F47067"> existing</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> = {</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  name: gatewayName</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">}</span></span>
 <span class="line"></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">#disable-next-line </span><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">BCP081</span></span>
 <span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">resource</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> defaultWorkspace </span><span style="--shiki-light:#032F62;--shiki-dark:#96D0FF">'Microsoft.ApiManagement/aigateways/workspaces@2025-09-01-preview'</span><span style="--shiki-light:#D73A49;--shiki-dark:#F47067"> existing</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> = {</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  parent: aiGateway</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  name: </span><span style="--shiki-light:#032F62;--shiki-dark:#96D0FF">'default'</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">}</span></span>
 <span class="line"></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">#disable-next-line </span><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">BCP081</span></span>
 <span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">resource</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> foundryProvider </span><span style="--shiki-light:#032F62;--shiki-dark:#96D0FF">'Microsoft.ApiManagement/aigateways/workspaces/modelProviders@2025-09-01-preview'</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> = {</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  parent: defaultWorkspace</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  name: providerName</span></span>
@@ -645,6 +648,7 @@ to <code>main.bicep</code> before the first deployment and keep passing the same
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  }</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">}</span></span>
 <span class="line"></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">#disable-next-line </span><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">BCP081</span></span>
 <span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">resource</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> foundryCatalogModels </span><span style="--shiki-light:#032F62;--shiki-dark:#96D0FF">'Microsoft.ApiManagement/aigateways/workspaces/modelProviders/models@2025-09-01-preview'</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> = [</span><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">for</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> model </span><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">in</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> foundryModels: {</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  parent: foundryProvider</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  name: model.armName</span></span>
@@ -676,6 +680,7 @@ to <code>main.bicep</code> before the first deployment and keep passing the same
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  }</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">}]</span></span>
 <span class="line"></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">#disable-next-line </span><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">BCP081</span></span>
 <span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">resource</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> alias </span><span style="--shiki-light:#032F62;--shiki-dark:#96D0FF">'Microsoft.ApiManagement/aigateways/workspaces/aliases@2025-09-01-preview'</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> = {</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  parent: defaultWorkspace</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  name: aliasName</span></span>
@@ -699,7 +704,7 @@ to <code>main.bicep</code> before the first deployment and keep passing the same
 <span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">output</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> providerName string = foundryProvider.name</span></span>
 <span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">output</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> modelNames array = [</span><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">for</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> (model, i) </span><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">in</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> foundryModels: foundryCatalogModels[i].name]</span></span>
 <span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">output</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> aliasName string = alias.name</span></span>
-<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">output</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> aliasId string = alias.id</span></span></code></pre><button class="code-expand" type="button"><span>Show all 138 lines</span></button></div><p>On GitHub, open <a href="https://github.com/Azure/ai-gateway/blob/main/labs/21-enterprise-reference/infra/modules/models.bicep" target="_blank" rel="noopener">infra/modules/models.bicep<span class="ext" aria-hidden="true">↗</span></a>.</p>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">output</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> aliasId string = alias.id</span></span></code></pre><button class="code-expand" type="button"><span>Show all 143 lines</span></button></div><p>On GitHub, open <a href="https://github.com/Azure/ai-gateway/blob/main/labs/21-enterprise-reference/infra/modules/models.bicep" target="_blank" rel="noopener">infra/modules/models.bicep<span class="ext" aria-hidden="true">↗</span></a>.</p>
 <p>The gateway floor is a plain policy file that goes through code review like any template:</p>
 <div class="code" data-lang="json"><div class="code-head"><span class="code-title"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.5h6.5L15 6v11.5H5Z"/><path d="M11 2.5V6.5h4"/></svg>infra/baselines.json</span><span class="code-actions"><a class="code-btn" href="https://github.com/Azure/ai-gateway/blob/main/labs/21-enterprise-reference/infra/baselines.json" target="_blank" rel="noopener" title="View on GitHub"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11 3.5h5.5V9M16.5 3.5 9 11M14 12v4.5H3.5V6H8"/></svg><span>GitHub</span></a><button class="code-btn copy-btn" type="button" title="Copy"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M13 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/></svg><span>Copy</span></button></span></div><pre class="shiki"><code><span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">[</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7">  {</span></span>

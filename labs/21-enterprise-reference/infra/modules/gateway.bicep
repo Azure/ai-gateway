@@ -1,6 +1,6 @@
-// The AI Gateway itself: a Microsoft.ApiManagement/aigateways resource with a system-assigned managed identity,
-// the companion connector gateway (created first, as the AI Gateway portal does), and the Foundry User role for the
-// gateway identity on every Foundry account it calls.
+// The AI Gateway itself: a Microsoft.ApiManagement/aigateways resource in the Consumption SKU with a system-assigned
+// managed identity, the companion connector gateway (created after it, as in the reference sample), and the Foundry
+// User role for the gateway identity on every Foundry account it calls.
 targetScope = 'resourceGroup'
 
 @description('Location of the gateway. The AI Gateway tier preview is available in East US 2 and Sweden Central.')
@@ -23,13 +23,7 @@ param backendSubnetId string = ''
 @description('Resource IDs of the Foundry accounts the gateway calls with its managed identity.')
 param foundryResourceIds array = []
 
-resource connectorNamespace 'Microsoft.Web/connectorGateways@2026-05-01-preview' = {
-  name: gatewayName
-  location: location
-  tags: tags
-  properties: {}
-}
-
+#disable-next-line BCP081
 resource aiGateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' = {
   name: gatewayName
   location: location
@@ -37,14 +31,20 @@ resource aiGateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' = {
   identity: {
     type: 'SystemAssigned'
   }
-  properties: union(
-    {
-      publicNetworkAccess: 'Enabled'
-    },
-    empty(backendSubnetId) ? {} : { backend: { subnet: { id: backendSubnetId } } }
-  )
+  sku: {
+    name: 'Consumption'
+  }
+  properties: empty(backendSubnetId) ? {} : { backend: { subnet: { id: backendSubnetId } } }
+}
+
+#disable-next-line BCP081
+resource connectorNamespace 'Microsoft.Web/connectorGateways@2026-05-01-preview' = {
+  name: gatewayName
+  location: location
+  tags: tags
+  properties: {}
   dependsOn: [
-    connectorNamespace
+    aiGateway
   ]
 }
 

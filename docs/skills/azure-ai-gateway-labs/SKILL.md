@@ -72,9 +72,12 @@ Before you create, change, or delete Azure resources, confirm the subscription a
 ## Facts to rely on
 
 - The gateway is the `Microsoft.ApiManagement/aigateways` resource, API version `2025-09-01-preview`. Never use
-  `Microsoft.ApiManagement/service`. Create a `Microsoft.Web/connectorGateways` resource with the same name first
-  (API version `2026-05-01-preview`). Don't set `sku` or publisher properties. Gateway names are at most 24
-  characters.
+  `Microsoft.ApiManagement/service`. In Bicep, set `sku: { name: 'Consumption' }` (without it, the gateway is
+  created in the `Premium` SKU; `az aigateway create` sets `Consumption`) and no publisher properties, and add a
+  `Microsoft.Web/connectorGateways` resource with the same name (API version `2026-05-01-preview`) that depends on
+  the gateway. Put `#disable-next-line BCP081` before each `aigateways` and `connectorGateways` resource
+  declaration, because Bicep has no types for them. Gateway names are at most 24 characters, and a subscription
+  can have at most five gateways in each region.
 - The public preview runs in East US 2 (`eastus2`) and Sweden Central (`swedencentral`).
 - The CLI track uses the `az aigateway` extension (lab 01 installs it) for gateways, providers, aliases, API keys,
   and MCP servers. `az aigateway api-key create` needs `--display-name`, secrets come from `api-key list-secrets`,

@@ -38,10 +38,12 @@ var foundrySubscriptionId = split(foundryAccountId, '/')[2]
 var foundryResourceGroup = split(foundryAccountId, '/')[4]
 var deploymentId = '${foundryAccountId}/deployments/${deploymentName}'
 
+#disable-next-line BCP081
 resource aiGateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' existing = {
   name: gatewayName
 }
 
+#disable-next-line BCP081
 resource defaultWorkspace 'Microsoft.ApiManagement/aigateways/workspaces@2025-09-01-preview' existing = {
   parent: aiGateway
   name: 'default'
@@ -65,6 +67,7 @@ module foundryUserRole './foundry-user-role.bicep' = {
   }
 }
 
+#disable-next-line BCP081
 resource foundryProvider 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders@2025-09-01-preview' = {
   parent: defaultWorkspace
   name: providerName
@@ -90,6 +93,7 @@ resource foundryProvider 'Microsoft.ApiManagement/aigateways/workspaces/modelPro
   }
 }
 
+#disable-next-line BCP081
 resource model 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders/models@2025-09-01-preview' = {
   parent: foundryProvider
   name: deploymentName
@@ -119,6 +123,7 @@ resource model 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders/mod
   }
 }
 
+#disable-next-line BCP081
 resource alias 'Microsoft.ApiManagement/aigateways/workspaces/aliases@2025-09-01-preview' = {
   parent: defaultWorkspace
   name: aliasName
@@ -129,6 +134,7 @@ resource alias 'Microsoft.ApiManagement/aigateways/workspaces/aliases@2025-09-01
   }
 }
 
+#disable-next-line BCP081
 resource runtimeApiKey 'Microsoft.ApiManagement/aigateways/apiKeys@2025-09-01-preview' = {
   parent: aiGateway
   name: apiKeyName

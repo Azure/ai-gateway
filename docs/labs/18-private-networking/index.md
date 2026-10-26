@@ -293,9 +293,9 @@ az provider register -n Microsoft.Web --wait
 
 ### Create the connector gateway
 
-Every AI gateway has a companion `Microsoft.Web/connectorGateways` resource with the same name, created first.
-The `aigateway` extension creates only the AI gateway, so create the connector gateway through the Azure Resource
-Manager REST API with `az rest`.
+Every AI gateway has a companion `Microsoft.Web/connectorGateways` resource with the same name. The `aigateway`
+extension creates only the AI gateway, so create the connector gateway through the Azure Resource Manager REST API
+with `az rest`.
 
 ```bash title="Bash"
 az rest --method put \
@@ -359,8 +359,8 @@ az deployment group create -g $RG `
   --query properties.outputs
 ```
 
-`BCP081` warnings about `Microsoft.ApiManagement/aigateways` and `Microsoft.Web/connectorGateways` are expected:
-Bicep has no type definitions for these preview types yet.
+Bicep has no type definitions yet for `Microsoft.ApiManagement/aigateways` and `Microsoft.Web/connectorGateways`,
+so lab 01's template silences the `BCP081` warnings about them with `#disable-next-line BCP081`.
 
 > **Checkpoint**
 > The outputs include `gatewayUrl`, `integrationSubnetId`, and `foundryPrivateEndpointName`

@@ -26,25 +26,30 @@ param period string = 'minute'
 @allowed([ 'identity', 'ipAddress' ])
 param counterKey array = [ 'identity' ]
 
+#disable-next-line BCP081
 resource gateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' existing = {
   name: gatewayName
 }
 
+#disable-next-line BCP081
 resource workspace 'Microsoft.ApiManagement/aigateways/workspaces@2025-09-01-preview' existing = {
   parent: gateway
   name: 'default'
 }
 
+#disable-next-line BCP081
 resource provider 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders@2025-09-01-preview' existing = {
   parent: workspace
   name: providerName
 }
 
+#disable-next-line BCP081
 resource model 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders/models@2025-09-01-preview' existing = {
   parent: provider
   name: modelName
 }
 
+#disable-next-line BCP081
 resource limitedAlias 'Microsoft.ApiManagement/aigateways/workspaces/aliases@2025-09-01-preview' = {
   parent: workspace
   name: aliasName

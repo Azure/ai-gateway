@@ -52,25 +52,30 @@ type route = {
   weight: int
 }
 
+#disable-next-line BCP081
 resource aiGateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' existing = {
   name: gatewayName
 }
 
+#disable-next-line BCP081
 resource defaultWorkspace 'Microsoft.ApiManagement/aigateways/workspaces@2025-09-01-preview' existing = {
   parent: aiGateway
   name: 'default'
 }
 
+#disable-next-line BCP081
 resource provider 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders@2025-09-01-preview' existing = {
   parent: defaultWorkspace
   name: providerName
 }
 
+#disable-next-line BCP081
 resource primary 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders/models@2025-09-01-preview' existing = {
   parent: provider
   name: primaryModelName
 }
 
+#disable-next-line BCP081
 resource candidate 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders/models@2025-09-01-preview' = {
   parent: provider
   name: candidateDeploymentName
@@ -100,6 +105,7 @@ var routes route[] = strategy == 'weighted'
       { resourceId: candidate.id, priority: 1, weight: 1 }
     ]
 
+#disable-next-line BCP081
 resource alias 'Microsoft.ApiManagement/aigateways/workspaces/aliases@2025-09-01-preview' = {
   parent: defaultWorkspace
   name: aliasName

@@ -27,6 +27,13 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
 
 #### Labs changes
 
+- **October 26.** The Bicep templates now follow the AI Gateway [reference sample](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway/blob/main/infra/ai-gateway/main.bicep): they
+  create the gateway in the `Consumption` SKU, the same one that `az aigateway create` uses, and then its connector
+  gateway. A template that omits `sku` creates a `Premium` gateway, so set it in your own templates too. Every
+  template now silences the `BCP081` warnings for the preview resource types, so `az bicep build` runs clean, and
+  the quick start template's model and alias set `displayName`, `modelVersion`, and `aliasName`, as the sample does.
+  [Lab 01](01-provision-gateway/README.md#review-the-template) explains the template, and its troubleshooting now
+  covers `InvalidSkuName` and the limit of five gateways per subscription in each region.
 - **October 23.** The Azure CLI tracks, the **Verify** and **Clean up** steps, and the lab scripts now use the
   `aigateway` CLI extension for gateways, model providers, aliases, API keys, and MCP servers.
   [Lab 01](01-provision-gateway/README.md#before-you-begin) shows how to install it. The labs keep `az rest` only
