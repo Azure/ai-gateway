@@ -1,11 +1,11 @@
 # AI Gateway CLI command reference
 
-This guide covers the public command groups in **aigateway 1.0.0b6**; use your
+This guide covers the public command groups in **aigateway 1.0.0b12**; use your
 installed CLI's `--help` for the full option list and examples for each command.
 
 New to the CLI? Start with the [installation and quickstart](README.md).
 
-[Find a command](#find-a-command) | [Command groups](#command-groups) | [Arguments](#read-the-arguments) | [Model policies](#common-model-policies) | [Output and queries](#output-and-queries) | [Runtime tests](#test-models-with-additional-checks) | [Usage notes](#usage-notes)
+[Find a command](#find-a-command) | [Command groups](#command-groups) | [Arguments](#read-the-arguments) | [Model policies](#common-model-policies) | [Model aliases](#model-aliases) | [Output and queries](#output-and-queries) | [Runtime tests](#test-models-with-additional-checks) | [Usage notes](#usage-notes)
 
 ## Find a command
 
@@ -46,6 +46,7 @@ commands; each group and command accepts `--help`.
 | Top level | `create`, `show`, `list`, `update`, `delete`, `wait`, `version` | Manage gateways and inspect the CLI version. |
 | `model-provider` | `create`, `show`, `list`, `update`, `delete` | Register model providers, including importing existing Foundry deployments. |
 | `model` | `create`, `show`, `list`, `update`, `delete` | Register and manage individual models. |
+| `model-alias` | `create`, `show`, `list`, `update`, `delete` | Manage callable model aliases with priority and weight routing across registered backend models. |
 | `model policy` | `set`, `set-token-limit`, `set-content-safety`, `list`, `remove` | Configure token limits and content safety on a model. |
 | `mcp` | `create`, `show`, `list`, `update`, `delete`, `authorize` | Register MCP servers and start OAuth authorization where configured. |
 | `mcp source` | `add`, `list`, `remove` | Manage individual backend sources on an MCP registration. |
@@ -111,6 +112,7 @@ permissions, cost considerations, and cleanup.
 | Model provider | `--resource-group "$RG" --gateway-name "$GATEWAY" --name "$PROVIDER"` |
 | API key | `--resource-group "$RG" --gateway-name "$GATEWAY" --name "$KEY_NAME"` |
 | Individual model | `--resource-group "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" --name "$MODEL"` |
+| Model alias | `--resource-group "$RG" --gateway-name "$GATEWAY" --name "$ALIAS_NAME"` |
 
 `-g` is short for `--resource-group`, and `-n` for `--name`. The meaning of
 `--name` follows the resource being operated on; it is not always the gateway.
@@ -205,6 +207,37 @@ az aigateway model policy list \
 
 Policies apply to the selected gateway model only. Repeat for other models that
 need the same controls; they do not govern direct calls to the backend.
+
+## Model aliases
+
+Aliases exist on `Microsoft.ApiManagement/aigateways` gateways and let clients
+call a stable `--routing-name` (`properties.aliasName`) that routes across 1 to
+30 registered backend models using integer `priority` (`0-100`, lower handles
+requests first) and `weight` (`1-100`, relative traffic share within the same
+priority tier).
+
+Create an alias that splits traffic 50/50 across two registered backend models
+at `priority=0`, `weight=1`:
+
+```bash
+MODEL_A_ID="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL_A" --query id -o tsv)"
+MODEL_B_ID="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL_B" --query id -o tsv)"
+
+az aigateway model-alias create \
+  -g "$RG" --gateway-name "$GATEWAY" -n chat-production --routing-name contoso/chat \
+  --backend-model resource-id="$MODEL_A_ID" priority=0 weight=1 \
+  --backend-model resource-id="$MODEL_B_ID" priority=0 weight=1
+```
+
+Rebalance to a 75/25 weighted split or shift a backend model to fallback
+`priority=1`:
+
+```bash
+az aigateway model-alias update \
+  -g "$RG" --gateway-name "$GATEWAY" -n chat-production \
+  --backend-model resource-id="$MODEL_A_ID" priority=0 weight=75 \
+  --backend-model resource-id="$MODEL_B_ID" priority=0 weight=25
+```
 
 ## Output and queries
 
