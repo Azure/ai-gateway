@@ -94,10 +94,8 @@ the network in their own resource group, so clean-up is one command.
 export RG="rg-ai-gateway-private"            # a new resource group for this lab
 export LOCATION="eastus2"                    # eastus2 or swedencentral
 export GATEWAY="<private-gateway>"           # a NEW, globally unique name, 24 characters or fewer
-export API="api-version=2025-09-01-preview"
 export SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
 export GATEWAY_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
-export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
 
 export VNET="vnet-aigw"
 export INTEGRATION_SUBNET="snet-aigw-integration"
@@ -127,10 +125,8 @@ az group create -n "$RG" -l "$LOCATION" -o none
 $RG              = "rg-ai-gateway-private"   # a new resource group for this lab
 $LOCATION        = "eastus2"                 # eastus2 or swedencentral
 $GATEWAY         = "<private-gateway>"       # a NEW, globally unique name, 24 characters or fewer
-$API             = "api-version=2025-09-01-preview"
 $SUBSCRIPTION_ID = az account show --query id -o tsv
 $GATEWAY_ID      = "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
-$WS              = "https://management.azure.com$GATEWAY_ID/workspaces/default"
 
 $VNET               = "vnet-aigw"
 $INTEGRATION_SUBNET = "snet-aigw-integration"
@@ -840,8 +836,8 @@ az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principa
 
 ### Publish the deployment and an alias
 
-The `aigateway` extension can't register models on this resource type yet, so the model registration calls the
-Azure Resource Manager REST API with `az rest`. The provider and the alias use the extension.
+Create a provider that signs in to Foundry with the gateway's managed identity, register the deployment under it,
+and publish an alias.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
@@ -853,11 +849,10 @@ az aigateway model-provider create -g "$RG" --gateway-name "$GATEWAY" -n "$PROVI
       authentication: {kind: "ManagedIdentity",
                        managedIdentity: {resource: "https://cognitiveservices.azure.com/"}}}')" -o none
 
-az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$DEPLOYMENT?$API" -o none \
-  --body "$(jq -cn --arg d "$DEPLOYMENT" --arg id "$FOUNDRY_ID/deployments/$DEPLOYMENT" \
-    '{properties: {displayName: $d, apiFormat: "OpenAIChatCompletions",
-      supportedEndpoints: ["/openai/v1/chat/completions", "/openai/v1/responses"],
-      deployment: {resourceId: $id, modelName: $d}}}')"
+az aigateway model create -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$DEPLOYMENT" \
+  --display-name "$DEPLOYMENT" --api-format OpenAIChatCompletions \
+  --supported-endpoints /openai/v1/chat/completions /openai/v1/responses \
+  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$DEPLOYMENT,modelName:$DEPLOYMENT}" -o none
 
 MODEL_ID="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT"
 az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" \
@@ -877,13 +872,10 @@ az aigateway model-provider create -g $RG --gateway-name $GATEWAY -n $PROVIDER `
   --kind Foundry --display-name "Foundry (private)" --foundry "@foundry.json" -o none
 Remove-Item foundry.json
 
-@{ properties = @{
-    displayName = $DEPLOYMENT; apiFormat = "OpenAIChatCompletions"
-    supportedEndpoints = @("/openai/v1/chat/completions", "/openai/v1/responses")
-    deployment = @{ resourceId = "$FOUNDRY_ID/deployments/$DEPLOYMENT"; modelName = $DEPLOYMENT }
-  } } | ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
-az rest --method put --url "$WS/modelProviders/$PROVIDER/models/${DEPLOYMENT}?$API" --body "@body.json" -o none
-Remove-Item body.json
+az aigateway model create -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $DEPLOYMENT `
+  --display-name $DEPLOYMENT --api-format OpenAIChatCompletions `
+  --supported-endpoints /openai/v1/chat/completions /openai/v1/responses `
+  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$DEPLOYMENT,modelName:$DEPLOYMENT}" -o none
 
 $MODEL_ID = "$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT"
 az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $ALIAS `

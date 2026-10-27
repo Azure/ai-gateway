@@ -218,10 +218,8 @@ export FOUNDRY="aigw$SUFFIX"                  # the Foundry account and its subd
 export DEPLOYMENT="gpt-6-luna"
 export PROVIDER="foundry-models"
 
-export API="api-version=2025-09-01-preview"
 export SUBSCRIPTION_ID="$(az account show --query id --output tsv)"
 export GATEWAY_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
-export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
 ```
 
 ```powershell title="PowerShell"
@@ -235,10 +233,8 @@ $FOUNDRY    = "aigw$SUFFIX"                   # the Foundry account and its subd
 $DEPLOYMENT = "gpt-6-luna"
 $PROVIDER   = "foundry-models"
 
-$API             = "api-version=2025-09-01-preview"
 $SUBSCRIPTION_ID = az account show --query id --output tsv
 $GATEWAY_ID      = "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
-$WS              = "https://management.azure.com$GATEWAY_ID/workspaces/default"
 ```
 
 ### Start creating the gateway
@@ -303,8 +299,7 @@ az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principa
 ### Publish the model
 
 Wait for the gateway, then publish the deployment in three steps: a provider that points at the Foundry account and
-signs in with the managed identity, a model for the deployment, and an alias that apps send in the `model` field. The
-extension can't register models on this resource type yet, so the model step calls the REST API with `az rest`.
+signs in with the managed identity, a model for the deployment, and an alias that apps send in the `model` field.
 
 ```bash title="Bash"
 az aigateway wait --resource-group "$RG" --name "$GATEWAY" --created
@@ -313,10 +308,9 @@ az aigateway model-provider create --resource-group "$RG" --gateway-name "$GATEW
   --kind Foundry --display-name "Foundry models" \
   --foundry "$(jq -cn --arg e "https://$FOUNDRY.cognitiveservices.azure.com/" --arg id "$FOUNDRY_ID" '{endpoint: $e,
       resourceIds: [$id], authentication: {kind: "ManagedIdentity", managedIdentity: {resource: "https://cognitiveservices.azure.com/"}}}')"
-az rest --method put --output none --url "$WS/modelProviders/$PROVIDER/models/$DEPLOYMENT?$API" \
-  --body "$(jq -cn --arg id "$FOUNDRY_ID/deployments/$DEPLOYMENT" --arg d "$DEPLOYMENT" '{properties: {
-      apiFormat: "OpenAIChatCompletions", supportedEndpoints: ["/openai/v1/chat/completions", "/openai/v1/responses"],
-      deployment: {resourceId: $id, modelName: $d}}}')"
+az aigateway model create --resource-group "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" --name "$DEPLOYMENT" \
+  --api-format OpenAIChatCompletions --supported-endpoints /openai/v1/chat/completions /openai/v1/responses \
+  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$DEPLOYMENT,modelName:$DEPLOYMENT}" --output none
 az aigateway model-alias create --resource-group "$RG" --gateway-name "$GATEWAY" --name "$DEPLOYMENT" --only-show-errors \
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT" \
   --query properties.aliasName --output tsv
@@ -331,16 +325,13 @@ az aigateway wait --resource-group $RG --name $GATEWAY --created
   ConvertTo-Json -Depth 10 -Compress | Set-Content foundry.json
 az aigateway model-provider create --resource-group $RG --gateway-name $GATEWAY --name $PROVIDER --output none `
   --kind Foundry --display-name "Foundry models" --foundry "@foundry.json"
-@{ properties = @{
-      apiFormat          = "OpenAIChatCompletions"
-      supportedEndpoints = @("/openai/v1/chat/completions", "/openai/v1/responses")
-      deployment         = @{ resourceId = "$FOUNDRY_ID/deployments/$DEPLOYMENT"; modelName = $DEPLOYMENT } } } |
-  ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
-az rest --method put --output none --url "$WS/modelProviders/$PROVIDER/models/$DEPLOYMENT`?$API" --body "@body.json"
+az aigateway model create --resource-group $RG --gateway-name $GATEWAY --provider-name $PROVIDER --name $DEPLOYMENT `
+  --api-format OpenAIChatCompletions --supported-endpoints /openai/v1/chat/completions /openai/v1/responses `
+  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$DEPLOYMENT,modelName:$DEPLOYMENT}" --output none
 az aigateway model-alias create --resource-group $RG --gateway-name $GATEWAY --name $DEPLOYMENT --only-show-errors `
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT" `
   --query properties.aliasName --output tsv
-Remove-Item foundry.json, body.json
+Remove-Item foundry.json
 ```
 
 ### Create a runtime API key
@@ -878,12 +869,13 @@ irm https://aka.ms/aigateway-cli-install-ps | iex
 az aigateway version
 ```
 
-`az aigateway version` prints the extension version and the API version it calls, `2025-09-01-preview`.
+`az aigateway version` prints the extension version and the API version it calls, `2025-09-01-preview`. The labs
+need version `1.0.0b14` or later; run the installer again to upgrade an older one.
 
 > [!NOTE]
 > The labs use `az aigateway` commands wherever the extension covers an operation. A few operations, such as
-> registering a model or setting policies, aren't in the extension yet. For those, the labs call the Azure
-> Resource Manager REST API with `az rest` and say why.
+> gateway-wide policies, telemetry exporters, and the connector gateway, aren't in the extension yet. For those,
+> the labs call the Azure Resource Manager REST API with `az rest` and say why.
 
 Set these variables once. Every track and the **Verify** section reuse them.
 
@@ -1311,9 +1303,7 @@ export FOUNDRY_ACCOUNT="<foundry-account-name>"   # the account name, not a proj
 export DEPLOYMENT="gpt-6-luna"                    # the model deployment to publish
 export PROVIDER="foundry-models"                  # CLI and IaC tracks: the gateway provider to create
 
-export API="api-version=2025-09-01-preview"
 export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
-export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 ```
 
@@ -1325,9 +1315,7 @@ $FOUNDRY_ACCOUNT = "<foundry-account-name>"       # the account name, not a proj
 $DEPLOYMENT      = "gpt-6-luna"                   # the model deployment to publish
 $PROVIDER        = "foundry-models"               # CLI and IaC tracks: the gateway provider to create
 
-$API        = "api-version=2025-09-01-preview"
 $GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
-$WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 ```
 
@@ -1500,34 +1488,35 @@ Remove-Item foundry.json
 
 ### Register the deployment
 
-A backend model registers one deployment under the provider. Name it after the deployment. The `aigateway`
-extension can't register models on this resource type yet, so call the Azure Resource Manager REST API with
-`az rest`.
+A backend model registers one deployment under the provider. Name it after the deployment.
 
 ```bash title="Bash"
-az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$DEPLOYMENT?$API" \
-  --body "$(jq -cn --arg id "$FOUNDRY_ID/deployments/$DEPLOYMENT" --arg d "$DEPLOYMENT" '{properties: {
-      displayName: $d, apiFormat: "OpenAIChatCompletions",
-      supportedEndpoints: ["/openai/v1/chat/completions", "/openai/v1/responses"],
-      deployment: {resourceId: $id, modelName: $d}}}')" \
+az aigateway model create -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$DEPLOYMENT" \
+  --display-name "$DEPLOYMENT" --api-format OpenAIChatCompletions \
+  --supported-endpoints /openai/v1/chat/completions /openai/v1/responses \
+  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$DEPLOYMENT,modelName:$DEPLOYMENT}" \
   --query "{name:name, deployment:properties.deployment.modelName}"
 ```
 
 ```powershell title="PowerShell"
-@{ properties = @{
-    displayName        = $DEPLOYMENT
-    apiFormat          = "OpenAIChatCompletions"
-    supportedEndpoints = @("/openai/v1/chat/completions", "/openai/v1/responses")
-    deployment         = @{ resourceId = "$FOUNDRY_ID/deployments/$DEPLOYMENT"; modelName = $DEPLOYMENT }
-  } } | ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
-az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$DEPLOYMENT`?$API" --body "@body.json" `
+az aigateway model create -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $DEPLOYMENT `
+  --display-name $DEPLOYMENT --api-format OpenAIChatCompletions `
+  --supported-endpoints /openai/v1/chat/completions /openai/v1/responses `
+  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$DEPLOYMENT,modelName:$DEPLOYMENT}" `
   --query "{name:name, deployment:properties.deployment.modelName}"
-Remove-Item body.json
 ```
+
+`--deployment-config` uses the Azure CLI shorthand syntax, so the same value works in Bash and PowerShell.
 
 To publish more deployments, repeat this step and the next one for each name that
 `az cognitiveservices account deployment list -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --query "[].name" -o tsv`
 returns.
+
+> [!TIP]
+> `az aigateway model create --foundry-resource-id "$FOUNDRY_ID" --deployment "$DEPLOYMENT"` does the last three
+> steps in one command, like the portal import: it grants the gateway's identity **Foundry User** on the account,
+> creates a provider named after the account, and registers the deployment. You can run it again safely. It doesn't
+> publish an alias, so you still run the next step. This lab creates each piece itself so you see how they fit together.
 
 ### Publish an alias
 
@@ -2024,9 +2013,6 @@ export PROVIDER="anthropic"               # the gateway provider you create in t
 export FAST_MODEL="claude-haiku-5-5"      # two models that your Anthropic key can call
 export SMART_MODEL="claude-sonnet-5-5"
 
-export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
-export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 # Paste the gateway runtime key from lab 02, not the Anthropic key. Don't commit it or write it to a file.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
@@ -2039,9 +2025,6 @@ $PROVIDER    = "anthropic"                # the gateway provider you create in t
 $FAST_MODEL  = "claude-haiku-5-5"         # two models that your Anthropic key can call
 $SMART_MODEL = "claude-sonnet-5-5"
 
-$API         = "api-version=2025-09-01-preview"
-$GATEWAY_ID  = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
-$WS          = "https://management.azure.com$GATEWAY_ID/workspaces/default"
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 # Paste the gateway runtime key from lab 02, not the Anthropic key. Don't commit it or write it to a file.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
@@ -2197,34 +2180,30 @@ For OpenAI, use `https://api.openai.com`, the header `Authorization`, and the va
 
 ### Register the backend models
 
-The `aigateway` extension can't register models on this resource type yet, so call the Azure Resource Manager
-REST API with `az rest`. The resource name of a backend model in the URL may only contain lowercase letters,
-digits, and hyphens. If the provider's model ID contains other characters, replace them with `-` in the URL and
-keep the real ID in `deployment.modelName`.
+A backend model names one of the provider's models. Its name (`--name`) may only contain lowercase letters, digits,
+and hyphens. If the provider's model ID contains other characters, replace them with `-` in `--name` and keep the
+real ID in `modelName`.
 
 ```bash title="Bash"
 for MODEL in "$FAST_MODEL" "$SMART_MODEL"; do
-  az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$MODEL?$API" \
-    --body "$(jq -cn --arg m "$MODEL" \
-      '{properties: {displayName: $m, supportedEndpoints: ["/v1/messages"], deployment: {modelName: $m}}}')" \
+  az aigateway model create -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+    --display-name "$MODEL" --supported-endpoints /v1/messages --deployment-config "{modelName:$MODEL}" \
     --query "{name:name,endpoints:properties.supportedEndpoints}" -o json
 done
 ```
 
 ```powershell title="PowerShell"
 foreach ($model in $FAST_MODEL, $SMART_MODEL) {
-  @{ properties = @{ displayName = $model; supportedEndpoints = @('/v1/messages'); deployment = @{ modelName = $model } } } |
-    ConvertTo-Json -Depth 10 -Compress | Set-Content -Path model.json
-  az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$model`?$API" --body '@model.json' `
+  az aigateway model create -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $model `
+    --display-name $model --supported-endpoints /v1/messages --deployment-config "{modelName:$model}" `
     --query "{name:name,endpoints:properties.supportedEndpoints}" -o json
 }
-Remove-Item model.json
 ```
 
 > [!NOTE]
 > The provider settings and model bodies mirror what the portal sends during the preview. For custom providers,
 > `supportedEndpoints` holds the provider path: `/v1/messages` for Anthropic, `/v1/chat/completions` or
-> `/v1/responses` for OpenAI-compatible endpoints. The model has no `apiFormat`. If the service rejects either
+> `/v1/responses` for OpenAI-compatible endpoints. Leave out `--api-format` for custom providers. If the service rejects either
 > command, create the provider and models with the **Portal** tab, then continue here with the aliases.
 
 ### Create the aliases
@@ -2631,9 +2610,7 @@ export CANDIDATE="gpt-6.1-sol"                   # the new model to try
 export CANDIDATE_VERSION="2026-09-29"
 export ALIAS="chat"                              # the name that clients send in "model"
 
-export API="api-version=2025-09-01-preview"
 export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
-export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
 export FOUNDRY_ID="$(az cognitiveservices account show -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --query id -o tsv)"
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 # Paste the gateway runtime key from lab 02. Don't commit it or write it to a file.
@@ -2651,9 +2628,7 @@ $CANDIDATE         = "gpt-6.1-sol"                 # the new model to try
 $CANDIDATE_VERSION = "2026-09-29"
 $ALIAS             = "chat"                        # the name that clients send in "model"
 
-$API        = "api-version=2025-09-01-preview"
 $GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
-$WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
 $FOUNDRY_ID = az cognitiveservices account show -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT --query id -o tsv
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 # Paste the gateway runtime key from lab 02. Don't commit it or write it to a file.
@@ -2760,29 +2735,23 @@ weights `80` and `20`.
 
 ### Register the candidate model
 
-A backend model registers one deployment under the provider. This is the same call as in lab 02, with the
-model version. The `aigateway` extension can't register models on this resource type yet, so call the Azure
-Resource Manager REST API with `az rest`.
+A backend model registers one deployment under the provider. This is the same command as in lab 02, with the
+model version.
 
 ```bash title="Bash"
-az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$CANDIDATE?$API" \
-  --body "$(jq -cn --arg id "$FOUNDRY_ID/deployments/$CANDIDATE" --arg d "$CANDIDATE" --arg v "$CANDIDATE_VERSION" '{properties: {
-      displayName: $d, apiFormat: "OpenAIChatCompletions",
-      supportedEndpoints: ["/openai/v1/chat/completions", "/openai/v1/responses"],
-      deployment: {resourceId: $id, modelName: $d, modelVersion: $v}}}')" \
+az aigateway model create -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$CANDIDATE" \
+  --display-name "$CANDIDATE" --api-format OpenAIChatCompletions \
+  --supported-endpoints /openai/v1/chat/completions /openai/v1/responses \
+  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$CANDIDATE,modelName:$CANDIDATE,modelVersion:$CANDIDATE_VERSION}" \
   --query "{name:name, version:properties.deployment.modelVersion}"
 ```
 
 ```powershell title="PowerShell"
-@{ properties = @{
-    displayName        = $CANDIDATE
-    apiFormat          = "OpenAIChatCompletions"
-    supportedEndpoints = @("/openai/v1/chat/completions", "/openai/v1/responses")
-    deployment         = @{ resourceId = "$FOUNDRY_ID/deployments/$CANDIDATE"; modelName = $CANDIDATE; modelVersion = $CANDIDATE_VERSION }
-  } } | ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
-az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$CANDIDATE`?$API" --body "@body.json" `
+az aigateway model create -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $CANDIDATE `
+  --display-name $CANDIDATE --api-format OpenAIChatCompletions `
+  --supported-endpoints /openai/v1/chat/completions /openai/v1/responses `
+  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$CANDIDATE,modelName:$CANDIDATE,modelVersion:$CANDIDATE_VERSION}" `
   --query "{name:name, version:properties.deployment.modelVersion}"
-Remove-Item body.json
 ```
 
 ### Create the chat alias
@@ -4815,10 +4784,6 @@ export GATEWAY="<gateway>"                 # 24 characters or fewer
 export PROVIDER="<provider-name>"          # for example foundry-models
 export MODEL="<model-name>"                # the backend model name under that provider
 
-export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
-export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
-export MODEL_URL="$WS/modelProviders/$PROVIDER/models/$MODEL"
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 # A starting guess for the alias. Confirm it on the model's Aliases tab (lab 02) and replace it if it differs.
 export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" \
@@ -4833,10 +4798,6 @@ $GATEWAY    = "<gateway>"                 # 24 characters or fewer
 $PROVIDER   = "<provider-name>"           # for example foundry-models
 $MODEL      = "<model-name>"              # the backend model name under that provider
 
-$API        = "api-version=2025-09-01-preview"
-$GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
-$WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
-$MODEL_URL  = "$WS/modelProviders/$PROVIDER/models/$MODEL"
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 # A starting guess for the alias. Confirm it on the model's Aliases tab (lab 02) and replace it if it differs.
 $env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER `
@@ -4918,28 +4879,22 @@ Select **Create**. The policy appears in the **Policies** list with your model a
 
 ### Set the token limit
 
-Policies live in the model's `properties.policies` array, and a `PATCH` replaces the whole array. So read the
-array, swap in the token limit, keep every other policy, and write it back. The `aigateway` extension doesn't set
-model policies yet, so this step calls the Azure Resource Manager REST API with `az rest`.
+Policies live in the model's `properties.policies` array. `az aigateway model policy set-token-limit` adds the
+token limit, or replaces the one that's there, and keeps every other policy on the model.
 
 ```bash title="Bash"
-az rest --url "$MODEL_URL?$API" \
-  | jq -c '{properties:{policies:([(.properties.policies // [])[] | select(.type != "tokenLimit")]
-      + [{type:"tokenLimit",count:1000,period:"minute",counterKey:["identity"]}])}}' > policies.json
-az rest --method patch --url "$MODEL_URL?$API" --body @policies.json --query properties.policies
-rm policies.json
+az aigateway model policy set-token-limit -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --token-limit 1000 --token-period minute --token-counter-key Identity
 ```
 
 ```powershell title="PowerShell"
-$p = (az rest --url "$MODEL_URL`?$API" | ConvertFrom-Json).properties.policies
-$p = @($p | Where-Object { $_ -and $_.type -ne 'tokenLimit' }) +
-     @(@{ type = 'tokenLimit'; count = 1000; period = 'minute'; counterKey = @('identity') })
-@{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
-az rest --method patch --url "$MODEL_URL`?$API" --body "@policies.json" --query properties.policies
-Remove-Item policies.json
+az aigateway model policy set-token-limit -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
+  --token-limit 1000 --token-period minute --token-counter-key Identity
 ```
 
-`period` accepts `minute`, `hour`, or `day`. `counterKey` is an array with `identity`, `ipAddress`, or both.
+The command prints the model's policies. `--token-period` accepts `minute` (the default), `hour`, or `day`.
+`--token-counter-key` accepts `Identity` (the default) or `IPAddress`. To count by both, as the portal's
+**Counter dimensions** allows, use the **REST API** track.
 
 ### Confirm the policy
 
@@ -5154,22 +5109,14 @@ key for testing, revoke it in **Access** › **Keys**.
 
 ### Remove the policy
 
-Like **Set the token limit**, this step uses `az rest`, because the `aigateway` extension doesn't change model
-policies yet.
-
 ```bash title="Bash"
-az rest --url "$MODEL_URL?$API" \
-  | jq -c '{properties:{policies:[(.properties.policies // [])[] | select(.type != "tokenLimit")]}}' > policies.json
-az rest --method patch --url "$MODEL_URL?$API" --body @policies.json --query properties.policies
-rm policies.json
+az aigateway model policy remove -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --remove-token-limit true
 ```
 
 ```powershell title="PowerShell"
-$p = (az rest --url "$MODEL_URL`?$API" | ConvertFrom-Json).properties.policies
-$p = @($p | Where-Object { $_ -and $_.type -ne 'tokenLimit' })
-@{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
-az rest --method patch --url "$MODEL_URL`?$API" --body "@policies.json" --query properties.policies
-Remove-Item policies.json
+az aigateway model policy remove -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
+  --remove-token-limit true
 ```
 
 This removes only the token limit and keeps every other policy on the model. To keep a limit for real traffic
@@ -5678,10 +5625,6 @@ export GATEWAY="<gateway>"                 # 24 characters or fewer
 export PROVIDER="<provider-name>"          # for example foundry-models
 export MODEL="<model-name>"                # the backend model name under that provider
 
-export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
-export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
-export MODEL_URL="$WS/modelProviders/$PROVIDER/models/$MODEL"
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 # For Foundry imports, the default alias matches the deployment's model name.
 export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" \
@@ -5696,10 +5639,6 @@ $GATEWAY    = "<gateway>"                 # 24 characters or fewer
 $PROVIDER   = "<provider-name>"           # for example foundry-models
 $MODEL      = "<model-name>"              # the backend model name under that provider
 
-$API        = "api-version=2025-09-01-preview"
-$GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
-$WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
-$MODEL_URL  = "$WS/modelProviders/$PROVIDER/models/$MODEL"
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 # For Foundry imports, the default alias matches the deployment's model name.
 $env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER `
@@ -5776,29 +5715,22 @@ Select **Create**. The policy appears in the **Policies** list with your model a
 
 ### Set the policy
 
-Policies live in the model's `properties.policies` array, and a `PATCH` replaces the whole array. So read the
-array, swap in the content safety policy, keep every other policy, and write it back. The `aigateway` extension
-doesn't set model policies yet, so this step calls the Azure Resource Manager REST API with `az rest`.
+Policies live in the model's `properties.policies` array. `az aigateway model policy set-content-safety` adds the
+content safety policy, or replaces the one that's there, and keeps every other policy on the model.
+`--content-safety` sets the threshold for all four categories, and `--violence-severity` overrides **Violence**.
 
 ```bash title="Bash"
-az rest --url "$MODEL_URL?$API" \
-  | jq -c '{properties:{policies:([(.properties.policies // [])[] | select(.type != "contentSafety")]
-      + [{type:"contentSafety",hateSeverity:"Medium",selfHarmSeverity:"Medium",sexualSeverity:"Medium",violenceSeverity:"Low"}])}}' > policies.json
-az rest --method patch --url "$MODEL_URL?$API" --body @policies.json --query properties.policies
-rm policies.json
+az aigateway model policy set-content-safety -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --content-safety Medium --violence-severity Low
 ```
 
 ```powershell title="PowerShell"
-$p = (az rest --url "$MODEL_URL`?$API" | ConvertFrom-Json).properties.policies
-$p = @($p | Where-Object { $_ -and $_.type -ne 'contentSafety' }) +
-     @(@{ type = 'contentSafety'; hateSeverity = 'Medium'; selfHarmSeverity = 'Medium'; sexualSeverity = 'Medium'; violenceSeverity = 'Low' })
-@{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
-az rest --method patch --url "$MODEL_URL`?$API" --body "@policies.json" --query properties.policies
-Remove-Item policies.json
+az aigateway model policy set-content-safety -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
+  --content-safety Medium --violence-severity Low
 ```
 
-Each of `hateSeverity`, `selfHarmSeverity`, `sexualSeverity`, and `violenceSeverity` accepts `None`, `Low`,
-`Medium`, or `High`. Set all four explicitly.
+The command prints the model's policies. Each threshold accepts `None`, `Low`, `Medium`, or `High`. To override
+another category, add `--hate-severity`, `--self-harm-severity`, or `--sexual-severity`.
 
 ### Confirm the policy
 
@@ -5905,23 +5837,17 @@ Violence threshold. If it returns `400`, the gateway blocked it and the error me
 ### Relax one category
 
 Set **Violence** back to **Balanced** (`Medium`) with the track you used, then run the script again. For
-example, from the command line, change only `violenceSeverity` and keep everything else. Like the CLI track, this
-uses `az rest`, because the `aigateway` extension doesn't change model policies yet:
+example, from the command line, set all four categories to `Medium`. The other three already are, so only
+**Violence** changes, and the command keeps every other policy on the model:
 
 ```bash title="Bash"
-az rest --url "$MODEL_URL?$API" \
-  | jq -c '{properties:{policies:[(.properties.policies // [])[]
-      | if .type == "contentSafety" then .violenceSeverity = "Medium" else . end]}}' > policies.json
-az rest --method patch --url "$MODEL_URL?$API" --body @policies.json --query properties.policies
-rm policies.json
+az aigateway model policy set-content-safety -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --content-safety Medium
 ```
 
 ```powershell title="PowerShell"
-$p = @((az rest --url "$MODEL_URL`?$API" | ConvertFrom-Json).properties.policies | Where-Object { $_ })
-$p | Where-Object type -eq 'contentSafety' | ForEach-Object { $_.violenceSeverity = 'Medium' }
-@{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
-az rest --method patch --url "$MODEL_URL`?$API" --body "@policies.json" --query properties.policies
-Remove-Item policies.json
+az aigateway model policy set-content-safety -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
+  --content-safety Medium
 ```
 
 A prompt that **Strict** blocked is more likely to pass at **Balanced**. Prompts that passed before still pass.
@@ -5969,22 +5895,14 @@ Select **Policies**, open the **Content safety** policy that's scoped to your mo
 
 ### Remove the policy
 
-Like **Set the policy**, this step uses `az rest`, because the `aigateway` extension doesn't change model policies
-yet.
-
 ```bash title="Bash"
-az rest --url "$MODEL_URL?$API" \
-  | jq -c '{properties:{policies:[(.properties.policies // [])[] | select(.type != "contentSafety")]}}' > policies.json
-az rest --method patch --url "$MODEL_URL?$API" --body @policies.json --query properties.policies
-rm policies.json
+az aigateway model policy remove -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --remove-content-safety true
 ```
 
 ```powershell title="PowerShell"
-$p = (az rest --url "$MODEL_URL`?$API" | ConvertFrom-Json).properties.policies
-$p = @($p | Where-Object { $_ -and $_.type -ne 'contentSafety' })
-@{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
-az rest --method patch --url "$MODEL_URL`?$API" --body "@policies.json" --query properties.policies
-Remove-Item policies.json
+az aigateway model policy remove -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
+  --remove-content-safety true
 ```
 
 This removes only the content safety policy and keeps every other policy on the model.
@@ -6077,10 +5995,6 @@ export GATEWAY="<gateway>"                 # 24 characters or fewer
 export PROVIDER="<provider-name>"          # for example foundry-models
 export MODEL="<model-name>"                # the backend model name under that provider
 
-export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
-export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
-export MODEL_URL="$WS/modelProviders/$PROVIDER/models/$MODEL"
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 # For Foundry imports, the default alias matches the deployment's model name.
 export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" \
@@ -6099,10 +6013,6 @@ $GATEWAY    = "<gateway>"                 # 24 characters or fewer
 $PROVIDER   = "<provider-name>"           # for example foundry-models
 $MODEL      = "<model-name>"              # the backend model name under that provider
 
-$API        = "api-version=2025-09-01-preview"
-$GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
-$WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
-$MODEL_URL  = "$WS/modelProviders/$PROVIDER/models/$MODEL"
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 # For Foundry imports, the default alias matches the deployment's model name.
 $env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER `
@@ -6376,25 +6286,17 @@ filter, request rate limit, and content safety policies, and it still lists its 
 
 ### Layer a stricter model policy
 
-Add a deliberately low token limit to your model only, the same one you used in lab 06. A model `PATCH`
-replaces the model's whole `policies` array, so merge it with what's there. The `aigateway` extension doesn't
-set model policies yet, so this step uses `az rest`:
+Add a deliberately low token limit to your model only, the same one you used in lab 06.
+`az aigateway model policy set-token-limit` keeps every other policy on the model:
 
 ```bash title="Bash"
-az rest --url "$MODEL_URL?$API" \
-  | jq -c '{properties:{policies:([(.properties.policies // [])[] | select(.type != "tokenLimit")]
-      + [{type:"tokenLimit",count:1000,period:"minute",counterKey:["identity"]}])}}' > policies.json
-az rest --method patch --url "$MODEL_URL?$API" --body @policies.json --query properties.policies
-rm policies.json
+az aigateway model policy set-token-limit -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --token-limit 1000
 ```
 
 ```powershell title="PowerShell"
-$p = (az rest --url "$MODEL_URL`?$API" | ConvertFrom-Json).properties.policies
-$p = @($p | Where-Object { $_ -and $_.type -ne 'tokenLimit' }) +
-     @(@{ type = 'tokenLimit'; count = 1000; period = 'minute'; counterKey = @('identity') })
-@{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
-az rest --method patch --url "$MODEL_URL`?$API" --body "@policies.json" --query properties.policies
-Remove-Item policies.json
+az aigateway model policy set-token-limit -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
+  --token-limit 1000
 ```
 
 Then send a burst with the script from lab 06:
@@ -6411,18 +6313,13 @@ After three or four requests, the gateway returns `429`. The baseline allows 100
 model's tighter limit is evaluated too, and it blocks. Remove the model limit and run the burst again:
 
 ```bash title="Bash"
-az rest --url "$MODEL_URL?$API" \
-  | jq -c '{properties:{policies:[(.properties.policies // [])[] | select(.type != "tokenLimit")]}}' > policies.json
-az rest --method patch --url "$MODEL_URL?$API" --body @policies.json --query properties.policies
-rm policies.json
+az aigateway model policy remove -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --remove-token-limit true
 ```
 
 ```powershell title="PowerShell"
-$p = (az rest --url "$MODEL_URL`?$API" | ConvertFrom-Json).properties.policies
-$p = @($p | Where-Object { $_ -and $_.type -ne 'tokenLimit' })
-@{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
-az rest --method patch --url "$MODEL_URL`?$API" --body "@policies.json" --query properties.policies
-Remove-Item policies.json
+az aigateway model policy remove -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
+  --remove-token-limit true
 ```
 
 All eight requests now return `200`, because only the generous baseline applies.
@@ -6654,7 +6551,7 @@ That's why every app, agent, or user should get its own key.
 |---|---|---|
 | Create a key | **Create API key** | `create` |
 | Read a value | **View keys** (primary value) | `list-secrets` (primary and secondary values) |
-| Rotate | **Rotate key** (primary value) | `regenerate --key-type primary`, or `az rest` `POST` to `$GW/apiKeys/<name>/regenerateSecondaryKey` |
+| Rotate | **Rotate key** (primary value) | `regenerate --key-type primary` or `--key-type secondary` |
 | Block temporarily | — | `az rest` `PATCH` with `state` set to `suspended`, then back to `active` |
 | Revoke | **Delete** | `delete` |
 
@@ -6866,10 +6763,9 @@ No client uses the secondary value, so regenerating it breaks nothing:
 ./infra/rotate-key.ps1 -ResourceGroup $RG -Gateway $GATEWAY -KeyName support-bot -KeyType secondary # -KeyVault $KEY_VAULT
 ```
 
-The script regenerates the value and reads the new one with `az aigateway api-key list-secrets`. For the
-primary value it runs `az aigateway api-key regenerate`. The extension can't regenerate the secondary value yet,
-so for that one it calls the key's `regenerateSecondaryKey` action with `az rest`. It prints only the last four
-characters of the new value. If `KEY_VAULT` is set in Bash, or you pass `-KeyVault` in PowerShell, it also
+The script runs `az aigateway api-key regenerate --key-type secondary`, which replaces only the secondary value,
+and reads the new value with `az aigateway api-key list-secrets`. It prints only the last four characters of the
+new value. If `KEY_VAULT` is set in Bash, or you pass `-KeyVault` in PowerShell, it also
 writes the new value to the `support-bot-api-key` secret. On GitHub, open [rotate-key.sh](infra/rotate-key.sh) or
 [rotate-key.ps1](infra/rotate-key.ps1).
 
@@ -10594,7 +10490,6 @@ export KEY_NAME="github-copilot"                  # the runtime key that Copilot
 export API="api-version=2025-09-01-preview"
 export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
 export GW="https://management.azure.com$GATEWAY_ID"
-export WS="$GW/workspaces/default"
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 export AI_GATEWAY_MODEL="$MODEL"
 ```
@@ -10611,7 +10506,6 @@ $KEY_NAME        = "github-copilot"               # the runtime key that Copilot
 $API        = "api-version=2025-09-01-preview"
 $GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
 $GW         = "https://management.azure.com$GATEWAY_ID"
-$WS         = "$GW/workspaces/default"
 $env:AI_GATEWAY_URL   = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 $env:AI_GATEWAY_MODEL = $MODEL
 ```
@@ -10769,31 +10663,25 @@ az cognitiveservices account deployment create -g $FOUNDRY_RG -n $FOUNDRY_ACCOUN
 
 ### Register the model with its token limit
 
-A backend model carries its own `policies` array, so one `PUT` registers the deployment and its limit. The
-`aigateway` extension can't register models on this resource type yet, so call the Azure Resource Manager REST API
-with `az rest`.
+Register the deployment under the provider, then give the backend model a token limit of 100,000 tokens per minute
+for each caller. `az aigateway model policy set-token-limit` keeps any other policy that's already on the model.
 
 ```bash title="Bash"
-az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$MODEL?$API" \
-  --body "$(jq -cn --arg id "$FOUNDRY_ID/deployments/$MODEL" --arg m "$MODEL" '{properties: {
-      displayName: $m, apiFormat: "OpenAIChatCompletions",
-      supportedEndpoints: ["/openai/v1/chat/completions", "/openai/v1/responses"],
-      deployment: {resourceId: $id, modelName: $m, modelVersion: "2026-09-03"},
-      policies: [{type: "tokenLimit", period: "minute", count: 100000, counterKey: ["identity"]}]}}')" \
-  --query "{name:name, policies:properties.policies}"
+az aigateway model create -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --display-name "$MODEL" --api-format OpenAIChatCompletions \
+  --supported-endpoints /openai/v1/chat/completions /openai/v1/responses \
+  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$MODEL,modelName:$MODEL,modelVersion:2026-09-03}" -o none
+az aigateway model policy set-token-limit -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --token-limit 100000
 ```
 
 ```powershell title="PowerShell"
-@{ properties = @{
-    displayName        = $MODEL
-    apiFormat          = "OpenAIChatCompletions"
-    supportedEndpoints = @("/openai/v1/chat/completions", "/openai/v1/responses")
-    deployment         = @{ resourceId = "$FOUNDRY_ID/deployments/$MODEL"; modelName = $MODEL; modelVersion = "2026-09-03" }
-    policies           = @(@{ type = "tokenLimit"; period = "minute"; count = 100000; counterKey = @("identity") })
-  } } | ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
-az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$MODEL`?$API" --body "@body.json" `
-  --query "{name:name, policies:properties.policies}"
-Remove-Item body.json
+az aigateway model create -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
+  --display-name $MODEL --api-format OpenAIChatCompletions `
+  --supported-endpoints /openai/v1/chat/completions /openai/v1/responses `
+  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$MODEL,modelName:$MODEL,modelVersion:2026-09-03}" -o none
+az aigateway model policy set-token-limit -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
+  --token-limit 100000
 ```
 
 ### Publish the gpt-6-astra alias
@@ -11915,10 +11803,8 @@ the network in their own resource group, so clean-up is one command.
 export RG="rg-ai-gateway-private"            # a new resource group for this lab
 export LOCATION="eastus2"                    # eastus2 or swedencentral
 export GATEWAY="<private-gateway>"           # a NEW, globally unique name, 24 characters or fewer
-export API="api-version=2025-09-01-preview"
 export SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
 export GATEWAY_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
-export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
 
 export VNET="vnet-aigw"
 export INTEGRATION_SUBNET="snet-aigw-integration"
@@ -11945,10 +11831,8 @@ az group create -n "$RG" -l "$LOCATION" -o none
 $RG              = "rg-ai-gateway-private"   # a new resource group for this lab
 $LOCATION        = "eastus2"                 # eastus2 or swedencentral
 $GATEWAY         = "<private-gateway>"       # a NEW, globally unique name, 24 characters or fewer
-$API             = "api-version=2025-09-01-preview"
 $SUBSCRIPTION_ID = az account show --query id -o tsv
 $GATEWAY_ID      = "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
-$WS              = "https://management.azure.com$GATEWAY_ID/workspaces/default"
 
 $VNET               = "vnet-aigw"
 $INTEGRATION_SUBNET = "snet-aigw-integration"
@@ -12368,8 +12252,8 @@ az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principa
 
 ### Publish the deployment and an alias
 
-The `aigateway` extension can't register models on this resource type yet, so the model registration calls the
-Azure Resource Manager REST API with `az rest`. The provider and the alias use the extension.
+Create a provider that signs in to Foundry with the gateway's managed identity, register the deployment under it,
+and publish an alias.
 
 ```bash title="Bash"
 az aigateway model-provider create -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" \
@@ -12379,11 +12263,10 @@ az aigateway model-provider create -g "$RG" --gateway-name "$GATEWAY" -n "$PROVI
       authentication: {kind: "ManagedIdentity",
                        managedIdentity: {resource: "https://cognitiveservices.azure.com/"}}}')" -o none
 
-az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$DEPLOYMENT?$API" -o none \
-  --body "$(jq -cn --arg d "$DEPLOYMENT" --arg id "$FOUNDRY_ID/deployments/$DEPLOYMENT" \
-    '{properties: {displayName: $d, apiFormat: "OpenAIChatCompletions",
-      supportedEndpoints: ["/openai/v1/chat/completions", "/openai/v1/responses"],
-      deployment: {resourceId: $id, modelName: $d}}}')"
+az aigateway model create -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$DEPLOYMENT" \
+  --display-name "$DEPLOYMENT" --api-format OpenAIChatCompletions \
+  --supported-endpoints /openai/v1/chat/completions /openai/v1/responses \
+  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$DEPLOYMENT,modelName:$DEPLOYMENT}" -o none
 
 MODEL_ID="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT"
 az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" \
@@ -12400,13 +12283,10 @@ az aigateway model-provider create -g $RG --gateway-name $GATEWAY -n $PROVIDER `
   --kind Foundry --display-name "Foundry (private)" --foundry "@foundry.json" -o none
 Remove-Item foundry.json
 
-@{ properties = @{
-    displayName = $DEPLOYMENT; apiFormat = "OpenAIChatCompletions"
-    supportedEndpoints = @("/openai/v1/chat/completions", "/openai/v1/responses")
-    deployment = @{ resourceId = "$FOUNDRY_ID/deployments/$DEPLOYMENT"; modelName = $DEPLOYMENT }
-  } } | ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
-az rest --method put --url "$WS/modelProviders/$PROVIDER/models/${DEPLOYMENT}?$API" --body "@body.json" -o none
-Remove-Item body.json
+az aigateway model create -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $DEPLOYMENT `
+  --display-name $DEPLOYMENT --api-format OpenAIChatCompletions `
+  --supported-endpoints /openai/v1/chat/completions /openai/v1/responses `
+  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$DEPLOYMENT,modelName:$DEPLOYMENT}" -o none
 
 $MODEL_ID = "$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT"
 az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $ALIAS `

@@ -55,9 +55,7 @@ export CANDIDATE="gpt-6.1-sol"                   # the new model to try
 export CANDIDATE_VERSION="2026-09-29"
 export ALIAS="chat"                              # the name that clients send in "model"
 
-export API="api-version=2025-09-01-preview"
 export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
-export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
 export FOUNDRY_ID="$(az cognitiveservices account show -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --query id -o tsv)"
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 # Paste the gateway runtime key from lab 02. Don't commit it or write it to a file.
@@ -75,9 +73,7 @@ $CANDIDATE         = "gpt-6.1-sol"                 # the new model to try
 $CANDIDATE_VERSION = "2026-09-29"
 $ALIAS             = "chat"                        # the name that clients send in "model"
 
-$API        = "api-version=2025-09-01-preview"
 $GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
-$WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
 $FOUNDRY_ID = az cognitiveservices account show -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT --query id -o tsv
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 # Paste the gateway runtime key from lab 02. Don't commit it or write it to a file.
@@ -184,29 +180,23 @@ weights `80` and `20`.
 
 ### Register the candidate model
 
-A backend model registers one deployment under the provider. This is the same call as in lab 02, with the
-model version. The `aigateway` extension can't register models on this resource type yet, so call the Azure
-Resource Manager REST API with `az rest`.
+A backend model registers one deployment under the provider. This is the same command as in lab 02, with the
+model version.
 
 ```bash title="Bash"
-az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$CANDIDATE?$API" \
-  --body "$(jq -cn --arg id "$FOUNDRY_ID/deployments/$CANDIDATE" --arg d "$CANDIDATE" --arg v "$CANDIDATE_VERSION" '{properties: {
-      displayName: $d, apiFormat: "OpenAIChatCompletions",
-      supportedEndpoints: ["/openai/v1/chat/completions", "/openai/v1/responses"],
-      deployment: {resourceId: $id, modelName: $d, modelVersion: $v}}}')" \
+az aigateway model create -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$CANDIDATE" \
+  --display-name "$CANDIDATE" --api-format OpenAIChatCompletions \
+  --supported-endpoints /openai/v1/chat/completions /openai/v1/responses \
+  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$CANDIDATE,modelName:$CANDIDATE,modelVersion:$CANDIDATE_VERSION}" \
   --query "{name:name, version:properties.deployment.modelVersion}"
 ```
 
 ```powershell title="PowerShell"
-@{ properties = @{
-    displayName        = $CANDIDATE
-    apiFormat          = "OpenAIChatCompletions"
-    supportedEndpoints = @("/openai/v1/chat/completions", "/openai/v1/responses")
-    deployment         = @{ resourceId = "$FOUNDRY_ID/deployments/$CANDIDATE"; modelName = $CANDIDATE; modelVersion = $CANDIDATE_VERSION }
-  } } | ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
-az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$CANDIDATE`?$API" --body "@body.json" `
+az aigateway model create -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $CANDIDATE `
+  --display-name $CANDIDATE --api-format OpenAIChatCompletions `
+  --supported-endpoints /openai/v1/chat/completions /openai/v1/responses `
+  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$CANDIDATE,modelName:$CANDIDATE,modelVersion:$CANDIDATE_VERSION}" `
   --query "{name:name, version:properties.deployment.modelVersion}"
-Remove-Item body.json
 ```
 
 ### Create the chat alias

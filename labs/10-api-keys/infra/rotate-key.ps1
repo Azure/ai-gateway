@@ -9,8 +9,7 @@
     2. Move every client to the secondary value.
     3. ./rotate-key.ps1 -ResourceGroup $RG -Gateway $GATEWAY -KeyName support-bot -KeyType primary
   Next time, swap the roles: regenerate primary first, move clients, then regenerate secondary.
-  Requires the Azure CLI 2.75 or later with the aigateway extension. The extension can't regenerate the secondary
-  value yet, so for that value the script calls the Azure Resource Manager REST API with az rest.
+  Requires the Azure CLI 2.75 or later with the aigateway extension.
 
 .EXAMPLE
   ./rotate-key.ps1 -ResourceGroup $RG -Gateway $GATEWAY -KeyName support-bot -KeyType secondary -KeyVault $KEY_VAULT
@@ -25,17 +24,8 @@ param(
 )
 $ErrorActionPreference = "Stop"
 
-if ($KeyType -eq "primary") {
-  az aigateway api-key regenerate -g $ResourceGroup --gateway-name $Gateway -n $KeyName --key-type primary -o none
-  if ($LASTEXITCODE -ne 0) { throw "az aigateway api-key regenerate failed." }
-} else {
-  $api = "api-version=2025-09-01-preview"
-  $gatewayId = az aigateway show -g $ResourceGroup -n $Gateway --query id -o tsv
-  if ($LASTEXITCODE -ne 0 -or -not $gatewayId) { throw "Couldn't find AI Gateway '$Gateway' in '$ResourceGroup'." }
-  az rest --method post --url "https://management.azure.com$gatewayId/apiKeys/$KeyName/regenerateSecondaryKey?$api" `
-    -o none
-  if ($LASTEXITCODE -ne 0) { throw "regenerateSecondaryKey failed." }
-}
+az aigateway api-key regenerate -g $ResourceGroup --gateway-name $Gateway -n $KeyName --key-type $KeyType -o none
+if ($LASTEXITCODE -ne 0) { throw "az aigateway api-key regenerate failed." }
 
 $value = az aigateway api-key list-secrets -g $ResourceGroup --gateway-name $Gateway -n $KeyName `
   --query "${KeyType}Key" -o tsv

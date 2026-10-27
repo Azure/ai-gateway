@@ -123,7 +123,8 @@ In the [AI Gateway portal](https://ai.gateway.azure.com), select **Policies** â€
 <!-- track: cli | Azure CLI -->
 ### Set the policy
 ```bash
-az rest --method patch --url "$WS/modelProviders/$PROVIDER/models/$MODEL?$API" --body @policies.json
+az aigateway model policy set-token-limit -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" \
+  -n "$MODEL" --token-limit 1000 --token-period minute
 ```
 
 <!-- /tracks -->
@@ -164,7 +165,8 @@ For secrets, use shell variables (`$AI_GATEWAY_API_KEY`) and show how to set the
 > Start limits above observed traffic, then lower them with evidence.
 
 > **Checkpoint**
-> `az rest --url "$MODEL_URL?$API" --query properties.policies` shows a `tokenLimit` entry with `count: 1000`.
+> `az aigateway model policy list -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL"`
+> shows a `tokenLimit` entry with `count: 1000`.
 ```
 
 Kinds: `NOTE`, `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`. A blockquote starting with **Checkpoint**,
@@ -253,14 +255,17 @@ Keep the video optional: every step it shows must also be written in the lab.
   Gateway names have 24 characters or fewer, and the runtime URL is `https://` plus
   `properties.frontend.defaultHostname` (`<name>.<region>-01.ai.gateway.azure.com`).
 - Policy `counterKey` values are arrays: `counterKey: [ 'identity' ]` or `[ 'ipAddress' ]`.
-- CLI tracks use the `az aigateway` extension, which [lab 01](01-provision-gateway/README.md#before-you-begin)
-  installs, for gateways, providers, aliases, API keys, and MCP servers. Call ARM with `az rest` only for what the
-  extension can't do yet: register models, set policies and telemetry exporters, manage MCP versions and tool rules,
-  change network settings, rotate secondary keys, and create the connector gateway. Say why in one sentence. Set
-  `GATEWAY_ID` with `az aigateway show` once at the top of the track, plus `WS`
-  (`https://management.azure.com$GATEWAY_ID/workspaces/default`) and `API` (`api-version=2025-09-01-preview`) when
-  the track still calls `az rest`. `PATCH` replaces whole arrays such as `properties.policies`, so read, edit, then
-  write.
+- CLI tracks use the `az aigateway` extension (1.0.0b14 or later), which
+  [lab 01](01-provision-gateway/README.md#before-you-begin) installs, for gateways, providers, models, aliases,
+  model policies (`model policy set-token-limit`, `set-content-safety`, `remove`), API keys (including
+  `api-key regenerate --key-type secondary`), and MCP servers. Call ARM with `az rest` only for what the extension
+  can't do yet: gateway and workspace policies, telemetry exporters, MCP versions, tool rules and `failureMode`,
+  network settings after creation, API key `state`, and the connector gateway. Say why in one sentence. Set
+  `GATEWAY_ID` with `az aigateway show`, plus `WS` (`https://management.azure.com$GATEWAY_ID/workspaces/default`)
+  and `API` (`api-version=2025-09-01-preview`), only in tracks that still call `az rest`. `--token-counter-key`
+  takes one value; to count by `identity` and `ipAddress` together, pass the whole array with
+  `az aigateway model update --policies`. `PATCH` and `--policies` replace whole arrays such as
+  `properties.policies`, so read, edit, then write.
 - Parameterize names and locations; default `location` to `resourceGroup().location`.
 - Mirror the structure of the existing labs: lab 01 for a single template, lab 21 for modules, and lab 16 for an
   azd project.

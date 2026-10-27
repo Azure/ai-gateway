@@ -52,10 +52,6 @@ export GATEWAY="<gateway>"                 # 24 characters or fewer
 export PROVIDER="<provider-name>"          # for example foundry-models
 export MODEL="<model-name>"                # the backend model name under that provider
 
-export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
-export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
-export MODEL_URL="$WS/modelProviders/$PROVIDER/models/$MODEL"
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 # For Foundry imports, the default alias matches the deployment's model name.
 export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" \
@@ -74,10 +70,6 @@ $GATEWAY    = "<gateway>"                 # 24 characters or fewer
 $PROVIDER   = "<provider-name>"           # for example foundry-models
 $MODEL      = "<model-name>"              # the backend model name under that provider
 
-$API        = "api-version=2025-09-01-preview"
-$GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
-$WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
-$MODEL_URL  = "$WS/modelProviders/$PROVIDER/models/$MODEL"
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 # For Foundry imports, the default alias matches the deployment's model name.
 $env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER `
@@ -351,25 +343,17 @@ filter, request rate limit, and content safety policies, and it still lists its 
 
 ### Layer a stricter model policy
 
-Add a deliberately low token limit to your model only, the same one you used in lab 06. A model `PATCH`
-replaces the model's whole `policies` array, so merge it with what's there. The `aigateway` extension doesn't
-set model policies yet, so this step uses `az rest`:
+Add a deliberately low token limit to your model only, the same one you used in lab 06.
+`az aigateway model policy set-token-limit` keeps every other policy on the model:
 
 ```bash title="Bash"
-az rest --url "$MODEL_URL?$API" \
-  | jq -c '{properties:{policies:([(.properties.policies // [])[] | select(.type != "tokenLimit")]
-      + [{type:"tokenLimit",count:1000,period:"minute",counterKey:["identity"]}])}}' > policies.json
-az rest --method patch --url "$MODEL_URL?$API" --body @policies.json --query properties.policies
-rm policies.json
+az aigateway model policy set-token-limit -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --token-limit 1000
 ```
 
 ```powershell title="PowerShell"
-$p = (az rest --url "$MODEL_URL`?$API" | ConvertFrom-Json).properties.policies
-$p = @($p | Where-Object { $_ -and $_.type -ne 'tokenLimit' }) +
-     @(@{ type = 'tokenLimit'; count = 1000; period = 'minute'; counterKey = @('identity') })
-@{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
-az rest --method patch --url "$MODEL_URL`?$API" --body "@policies.json" --query properties.policies
-Remove-Item policies.json
+az aigateway model policy set-token-limit -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
+  --token-limit 1000
 ```
 
 Then send a burst with the script from lab 06:
@@ -386,18 +370,13 @@ After three or four requests, the gateway returns `429`. The baseline allows 100
 model's tighter limit is evaluated too, and it blocks. Remove the model limit and run the burst again:
 
 ```bash title="Bash"
-az rest --url "$MODEL_URL?$API" \
-  | jq -c '{properties:{policies:[(.properties.policies // [])[] | select(.type != "tokenLimit")]}}' > policies.json
-az rest --method patch --url "$MODEL_URL?$API" --body @policies.json --query properties.policies
-rm policies.json
+az aigateway model policy remove -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --remove-token-limit true
 ```
 
 ```powershell title="PowerShell"
-$p = (az rest --url "$MODEL_URL`?$API" | ConvertFrom-Json).properties.policies
-$p = @($p | Where-Object { $_ -and $_.type -ne 'tokenLimit' })
-@{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
-az rest --method patch --url "$MODEL_URL`?$API" --body "@policies.json" --query properties.policies
-Remove-Item policies.json
+az aigateway model policy remove -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
+  --remove-token-limit true
 ```
 
 All eight requests now return `200`, because only the generous baseline applies.

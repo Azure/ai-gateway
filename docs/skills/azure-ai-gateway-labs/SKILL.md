@@ -63,7 +63,7 @@ Before you create, change, or delete Azure resources, confirm the subscription a
 | Track | Marker id | How to use it |
 | :-- | :-- | :-- |
 | Portal | `portal` | Click-by-click steps in the AI Gateway portal. You can't run them from a shell, so guide the user through them one screen at a time. |
-| Azure CLI | `cli` | `az aigateway` commands, plus `az rest` calls to Azure Resource Manager for what the extension can't do yet, in Bash and PowerShell variants. This is the easiest track for an agent to run. |
+| Azure CLI | `cli` | `az aigateway` commands (extension 1.0.0b14 or later), plus `az rest` calls to Azure Resource Manager for what the extension can't do yet, in Bash and PowerShell variants. This is the easiest track for an agent to run. |
 | REST API | `rest` | Raw Azure Resource Manager requests, for users who script against the API themselves. |
 | Bicep | `iac` | Templates in `infra/`, deployed with `az deployment group create`, or with `azd` in lab 16. |
 | Code | `code` | Python, TypeScript, and .NET clients, and agent frameworks, calling the gateway at runtime. |
@@ -79,12 +79,16 @@ Before you create, change, or delete Azure resources, confirm the subscription a
   declaration, because Bicep has no types for them. Gateway names are at most 24 characters, and a subscription
   can have at most five gateways in each region.
 - The public preview runs in East US 2 (`eastus2`) and Sweden Central (`swedencentral`).
-- The CLI track uses the `az aigateway` extension (lab 01 installs it) for gateways, providers, aliases, API keys,
-  and MCP servers. `az aigateway api-key create` needs `--display-name`, secrets come from `api-key list-secrets`,
-  and `model-alias create` fails when the alias exists, so use `model-alias update`. The track keeps `az rest` for
-  what the extension can't do yet: registering models, policies, telemetry exporters, MCP versions and tool rules,
-  network settings, secondary key rotation, and the connector gateway. It sets `GATEWAY_ID` (from
-  `az aigateway show`), `WS` (`https://management.azure.com$GATEWAY_ID/workspaces/default`), and `API`
+- The CLI track uses the `az aigateway` extension 1.0.0b14 or later (lab 01 installs it) for gateways, providers,
+  models (`model create --deployment-config "{resourceId:…,modelName:…}"`), aliases, model policies
+  (`model policy set-token-limit`, `set-content-safety`, `remove`), API keys, and MCP servers.
+  `az aigateway api-key create` needs `--display-name`, secrets come from `api-key list-secrets`, rotation uses
+  `api-key regenerate --key-type primary|secondary`, and `model-alias create` fails when the alias exists, so use
+  `model-alias update`. `--token-counter-key` takes one value; for `[identity, ipAddress]`, use
+  `model update --policies`. The track keeps `az rest` for what the extension can't do yet: gateway and workspace
+  policies, telemetry exporters, MCP versions, tool rules and `failureMode`, network settings after creation, API
+  key `state`, and the connector gateway. Tracks that call `az rest` set `GATEWAY_ID` (from `az aigateway show`),
+  `WS` (`https://management.azure.com$GATEWAY_ID/workspaces/default`), and `API`
   (`api-version=2025-09-01-preview`) once. A `PATCH` replaces whole arrays such as `properties.policies`, so read,
   edit, then write.
 - The runtime URL is `https://` plus `properties.frontend.defaultHostname`, which looks like

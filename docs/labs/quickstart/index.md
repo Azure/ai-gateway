@@ -217,10 +217,8 @@ export FOUNDRY="aigw$SUFFIX"                  # the Foundry account and its subd
 export DEPLOYMENT="gpt-6-luna"
 export PROVIDER="foundry-models"
 
-export API="api-version=2025-09-01-preview"
 export SUBSCRIPTION_ID="$(az account show --query id --output tsv)"
 export GATEWAY_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
-export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
 ```
 
 ```powershell title="PowerShell"
@@ -234,10 +232,8 @@ $FOUNDRY    = "aigw$SUFFIX"                   # the Foundry account and its subd
 $DEPLOYMENT = "gpt-6-luna"
 $PROVIDER   = "foundry-models"
 
-$API             = "api-version=2025-09-01-preview"
 $SUBSCRIPTION_ID = az account show --query id --output tsv
 $GATEWAY_ID      = "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
-$WS              = "https://management.azure.com$GATEWAY_ID/workspaces/default"
 ```
 
 ### Start creating the gateway
@@ -302,8 +298,7 @@ az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principa
 ### Publish the model
 
 Wait for the gateway, then publish the deployment in three steps: a provider that points at the Foundry account and
-signs in with the managed identity, a model for the deployment, and an alias that apps send in the `model` field. The
-extension can't register models on this resource type yet, so the model step calls the REST API with `az rest`.
+signs in with the managed identity, a model for the deployment, and an alias that apps send in the `model` field.
 
 ```bash title="Bash"
 az aigateway wait --resource-group "$RG" --name "$GATEWAY" --created
@@ -312,10 +307,9 @@ az aigateway model-provider create --resource-group "$RG" --gateway-name "$GATEW
   --kind Foundry --display-name "Foundry models" \
   --foundry "$(jq -cn --arg e "https://$FOUNDRY.cognitiveservices.azure.com/" --arg id "$FOUNDRY_ID" '{endpoint: $e,
       resourceIds: [$id], authentication: {kind: "ManagedIdentity", managedIdentity: {resource: "https://cognitiveservices.azure.com/"}}}')"
-az rest --method put --output none --url "$WS/modelProviders/$PROVIDER/models/$DEPLOYMENT?$API" \
-  --body "$(jq -cn --arg id "$FOUNDRY_ID/deployments/$DEPLOYMENT" --arg d "$DEPLOYMENT" '{properties: {
-      apiFormat: "OpenAIChatCompletions", supportedEndpoints: ["/openai/v1/chat/completions", "/openai/v1/responses"],
-      deployment: {resourceId: $id, modelName: $d}}}')"
+az aigateway model create --resource-group "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" --name "$DEPLOYMENT" \
+  --api-format OpenAIChatCompletions --supported-endpoints /openai/v1/chat/completions /openai/v1/responses \
+  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$DEPLOYMENT,modelName:$DEPLOYMENT}" --output none
 az aigateway model-alias create --resource-group "$RG" --gateway-name "$GATEWAY" --name "$DEPLOYMENT" --only-show-errors \
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT" \
   --query properties.aliasName --output tsv
@@ -330,16 +324,13 @@ az aigateway wait --resource-group $RG --name $GATEWAY --created
   ConvertTo-Json -Depth 10 -Compress | Set-Content foundry.json
 az aigateway model-provider create --resource-group $RG --gateway-name $GATEWAY --name $PROVIDER --output none `
   --kind Foundry --display-name "Foundry models" --foundry "@foundry.json"
-@{ properties = @{
-      apiFormat          = "OpenAIChatCompletions"
-      supportedEndpoints = @("/openai/v1/chat/completions", "/openai/v1/responses")
-      deployment         = @{ resourceId = "$FOUNDRY_ID/deployments/$DEPLOYMENT"; modelName = $DEPLOYMENT } } } |
-  ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
-az rest --method put --output none --url "$WS/modelProviders/$PROVIDER/models/$DEPLOYMENT`?$API" --body "@body.json"
+az aigateway model create --resource-group $RG --gateway-name $GATEWAY --provider-name $PROVIDER --name $DEPLOYMENT `
+  --api-format OpenAIChatCompletions --supported-endpoints /openai/v1/chat/completions /openai/v1/responses `
+  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$DEPLOYMENT,modelName:$DEPLOYMENT}" --output none
 az aigateway model-alias create --resource-group $RG --gateway-name $GATEWAY --name $DEPLOYMENT --only-show-errors `
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT" `
   --query properties.aliasName --output tsv
-Remove-Item foundry.json, body.json
+Remove-Item foundry.json
 ```
 
 ### Create a runtime API key

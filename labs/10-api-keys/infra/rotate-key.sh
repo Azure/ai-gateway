@@ -12,8 +12,7 @@
 #   export RG="<resource-group>" GATEWAY="<gateway>"
 #   export KEY_VAULT="<key-vault-name>"     # optional: store the new value as secret <key-name>-api-key
 #   ./rotate-key.sh <key-name> <primary|secondary>
-# Requires the Azure CLI 2.75 or later with the aigateway extension. The extension can't regenerate the secondary
-# value yet, so for that value the script calls the Azure Resource Manager REST API with az rest.
+# Requires the Azure CLI 2.75 or later with the aigateway extension.
 set -euo pipefail
 
 NAME="${1:?Usage: rotate-key.sh <key-name> <primary|secondary>}"
@@ -25,14 +24,7 @@ esac
 : "${RG:?Set RG to the gateway resource group}"
 : "${GATEWAY:?Set GATEWAY to the gateway name}"
 
-if [[ "$TYPE" == "primary" ]]; then
-  az aigateway api-key regenerate -g "$RG" --gateway-name "$GATEWAY" -n "$NAME" --key-type primary -o none
-else
-  API="api-version=2025-09-01-preview"
-  GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
-  az rest --method post --url "https://management.azure.com$GATEWAY_ID/apiKeys/$NAME/regenerateSecondaryKey?$API" \
-    -o none
-fi
+az aigateway api-key regenerate -g "$RG" --gateway-name "$GATEWAY" -n "$NAME" --key-type "$TYPE" -o none
 
 VALUE="$(az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n "$NAME" --query "${TYPE}Key" -o tsv)"
 if [[ -z "$VALUE" ]]; then

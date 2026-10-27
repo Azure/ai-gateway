@@ -27,6 +27,15 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
 
 #### Labs changes
 
+- **October 27.** The Azure CLI tracks need `aigateway` extension 1.0.0b14 or later, which
+  [lab 01](01-provision-gateway/README.md#before-you-begin) installs. They now register models with
+  `az aigateway model create`, set and remove token limits and content safety with `az aigateway model policy`
+  ([lab 06](06-token-limits/README.md), [lab 08](08-content-safety/README.md),
+  [lab 09](09-gateway-baselines/README.md), [lab 24](24-github-copilot-byok/README.md)), and rotate the secondary
+  key value with `az aigateway api-key regenerate --key-type secondary` ([lab 10](10-api-keys/README.md)).
+  [Lab 02](02-first-model-call/README.md#register-the-deployment) also shows the one-step
+  `az aigateway model create --foundry-resource-id`. The labs keep `az rest` for gateway policies, cost limits,
+  telemetry exporters, MCP versions, API key state, and the connector gateway.
 - **October 26.** The Bicep templates now follow the AI Gateway [reference sample](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway/blob/main/infra/ai-gateway/main.bicep): they
   create the gateway in the `Consumption` SKU, the same one that `az aigateway create` uses, and then its connector
   gateway. A template that omits `sku` creates a `Premium` gateway, so set it in your own templates too. Every

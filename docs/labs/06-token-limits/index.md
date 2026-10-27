@@ -45,10 +45,6 @@ export GATEWAY="<gateway>"                 # 24 characters or fewer
 export PROVIDER="<provider-name>"          # for example foundry-models
 export MODEL="<model-name>"                # the backend model name under that provider
 
-export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
-export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
-export MODEL_URL="$WS/modelProviders/$PROVIDER/models/$MODEL"
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 # A starting guess for the alias. Confirm it on the model's Aliases tab (lab 02) and replace it if it differs.
 export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" \
@@ -63,10 +59,6 @@ $GATEWAY    = "<gateway>"                 # 24 characters or fewer
 $PROVIDER   = "<provider-name>"           # for example foundry-models
 $MODEL      = "<model-name>"              # the backend model name under that provider
 
-$API        = "api-version=2025-09-01-preview"
-$GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
-$WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
-$MODEL_URL  = "$WS/modelProviders/$PROVIDER/models/$MODEL"
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 # A starting guess for the alias. Confirm it on the model's Aliases tab (lab 02) and replace it if it differs.
 $env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER `
@@ -148,28 +140,22 @@ Select **Create**. The policy appears in the **Policies** list with your model a
 
 ### Set the token limit
 
-Policies live in the model's `properties.policies` array, and a `PATCH` replaces the whole array. So read the
-array, swap in the token limit, keep every other policy, and write it back. The `aigateway` extension doesn't set
-model policies yet, so this step calls the Azure Resource Manager REST API with `az rest`.
+Policies live in the model's `properties.policies` array. `az aigateway model policy set-token-limit` adds the
+token limit, or replaces the one that's there, and keeps every other policy on the model.
 
 ```bash title="Bash"
-az rest --url "$MODEL_URL?$API" \
-  | jq -c '{properties:{policies:([(.properties.policies // [])[] | select(.type != "tokenLimit")]
-      + [{type:"tokenLimit",count:1000,period:"minute",counterKey:["identity"]}])}}' > policies.json
-az rest --method patch --url "$MODEL_URL?$API" --body @policies.json --query properties.policies
-rm policies.json
+az aigateway model policy set-token-limit -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --token-limit 1000 --token-period minute --token-counter-key Identity
 ```
 
 ```powershell title="PowerShell"
-$p = (az rest --url "$MODEL_URL`?$API" | ConvertFrom-Json).properties.policies
-$p = @($p | Where-Object { $_ -and $_.type -ne 'tokenLimit' }) +
-     @(@{ type = 'tokenLimit'; count = 1000; period = 'minute'; counterKey = @('identity') })
-@{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
-az rest --method patch --url "$MODEL_URL`?$API" --body "@policies.json" --query properties.policies
-Remove-Item policies.json
+az aigateway model policy set-token-limit -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
+  --token-limit 1000 --token-period minute --token-counter-key Identity
 ```
 
-`period` accepts `minute`, `hour`, or `day`. `counterKey` is an array with `identity`, `ipAddress`, or both.
+The command prints the model's policies. `--token-period` accepts `minute` (the default), `hour`, or `day`.
+`--token-counter-key` accepts `Identity` (the default) or `IPAddress`. To count by both, as the portal's
+**Counter dimensions** allows, use the **REST API** track.
 
 ### Confirm the policy
 
@@ -384,22 +370,14 @@ key for testing, revoke it in **Access** › **Keys**.
 
 ### Remove the policy
 
-Like **Set the token limit**, this step uses `az rest`, because the `aigateway` extension doesn't change model
-policies yet.
-
 ```bash title="Bash"
-az rest --url "$MODEL_URL?$API" \
-  | jq -c '{properties:{policies:[(.properties.policies // [])[] | select(.type != "tokenLimit")]}}' > policies.json
-az rest --method patch --url "$MODEL_URL?$API" --body @policies.json --query properties.policies
-rm policies.json
+az aigateway model policy remove -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --remove-token-limit true
 ```
 
 ```powershell title="PowerShell"
-$p = (az rest --url "$MODEL_URL`?$API" | ConvertFrom-Json).properties.policies
-$p = @($p | Where-Object { $_ -and $_.type -ne 'tokenLimit' })
-@{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
-az rest --method patch --url "$MODEL_URL`?$API" --body "@policies.json" --query properties.policies
-Remove-Item policies.json
+az aigateway model policy remove -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
+  --remove-token-limit true
 ```
 
 This removes only the token limit and keeps every other policy on the model. To keep a limit for real traffic

@@ -99,7 +99,6 @@ export KEY_NAME="github-copilot"                  # the runtime key that Copilot
 export API="api-version=2025-09-01-preview"
 export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
 export GW="https://management.azure.com$GATEWAY_ID"
-export WS="$GW/workspaces/default"
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 export AI_GATEWAY_MODEL="$MODEL"
 ```
@@ -119,7 +118,6 @@ $KEY_NAME        = "github-copilot"               # the runtime key that Copilot
 $API        = "api-version=2025-09-01-preview"
 $GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
 $GW         = "https://management.azure.com$GATEWAY_ID"
-$WS         = "$GW/workspaces/default"
 $env:AI_GATEWAY_URL   = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 $env:AI_GATEWAY_MODEL = $MODEL
 ```
@@ -299,36 +297,30 @@ az cognitiveservices account deployment create -g $FOUNDRY_RG -n $FOUNDRY_ACCOUN
 
 ### Register the model with its token limit
 
-A backend model carries its own `policies` array, so one `PUT` registers the deployment and its limit. The
-`aigateway` extension can't register models on this resource type yet, so call the Azure Resource Manager REST API
-with `az rest`.
+Register the deployment under the provider, then give the backend model a token limit of 100,000 tokens per minute
+for each caller. `az aigateway model policy set-token-limit` keeps any other policy that's already on the model.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$MODEL?$API" \
-  --body "$(jq -cn --arg id "$FOUNDRY_ID/deployments/$MODEL" --arg m "$MODEL" '{properties: {
-      displayName: $m, apiFormat: "OpenAIChatCompletions",
-      supportedEndpoints: ["/openai/v1/chat/completions", "/openai/v1/responses"],
-      deployment: {resourceId: $id, modelName: $m, modelVersion: "2026-09-03"},
-      policies: [{type: "tokenLimit", period: "minute", count: 100000, counterKey: ["identity"]}]}}')" \
-  --query "{name:name, policies:properties.policies}"
+az aigateway model create -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --display-name "$MODEL" --api-format OpenAIChatCompletions \
+  --supported-endpoints /openai/v1/chat/completions /openai/v1/responses \
+  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$MODEL,modelName:$MODEL,modelVersion:2026-09-03}" -o none
+az aigateway model policy set-token-limit -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --token-limit 100000
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-@{ properties = @{
-    displayName        = $MODEL
-    apiFormat          = "OpenAIChatCompletions"
-    supportedEndpoints = @("/openai/v1/chat/completions", "/openai/v1/responses")
-    deployment         = @{ resourceId = "$FOUNDRY_ID/deployments/$MODEL"; modelName = $MODEL; modelVersion = "2026-09-03" }
-    policies           = @(@{ type = "tokenLimit"; period = "minute"; count = 100000; counterKey = @("identity") })
-  } } | ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
-az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$MODEL`?$API" --body "@body.json" `
-  --query "{name:name, policies:properties.policies}"
-Remove-Item body.json
+az aigateway model create -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
+  --display-name $MODEL --api-format OpenAIChatCompletions `
+  --supported-endpoints /openai/v1/chat/completions /openai/v1/responses `
+  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$MODEL,modelName:$MODEL,modelVersion:2026-09-03}" -o none
+az aigateway model policy set-token-limit -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
+  --token-limit 100000
 ```
 </details> <!-- gh -->
 

@@ -52,9 +52,7 @@ export FOUNDRY_ACCOUNT="<foundry-account-name>"   # the account name, not a proj
 export DEPLOYMENT="gpt-6-luna"                    # the model deployment to publish
 export PROVIDER="foundry-models"                  # CLI and IaC tracks: the gateway provider to create
 
-export API="api-version=2025-09-01-preview"
 export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
-export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 ```
 
@@ -66,9 +64,7 @@ $FOUNDRY_ACCOUNT = "<foundry-account-name>"       # the account name, not a proj
 $DEPLOYMENT      = "gpt-6-luna"                   # the model deployment to publish
 $PROVIDER        = "foundry-models"               # CLI and IaC tracks: the gateway provider to create
 
-$API        = "api-version=2025-09-01-preview"
 $GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
-$WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 ```
 
@@ -241,34 +237,35 @@ Remove-Item foundry.json
 
 ### Register the deployment
 
-A backend model registers one deployment under the provider. Name it after the deployment. The `aigateway`
-extension can't register models on this resource type yet, so call the Azure Resource Manager REST API with
-`az rest`.
+A backend model registers one deployment under the provider. Name it after the deployment.
 
 ```bash title="Bash"
-az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$DEPLOYMENT?$API" \
-  --body "$(jq -cn --arg id "$FOUNDRY_ID/deployments/$DEPLOYMENT" --arg d "$DEPLOYMENT" '{properties: {
-      displayName: $d, apiFormat: "OpenAIChatCompletions",
-      supportedEndpoints: ["/openai/v1/chat/completions", "/openai/v1/responses"],
-      deployment: {resourceId: $id, modelName: $d}}}')" \
+az aigateway model create -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$DEPLOYMENT" \
+  --display-name "$DEPLOYMENT" --api-format OpenAIChatCompletions \
+  --supported-endpoints /openai/v1/chat/completions /openai/v1/responses \
+  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$DEPLOYMENT,modelName:$DEPLOYMENT}" \
   --query "{name:name, deployment:properties.deployment.modelName}"
 ```
 
 ```powershell title="PowerShell"
-@{ properties = @{
-    displayName        = $DEPLOYMENT
-    apiFormat          = "OpenAIChatCompletions"
-    supportedEndpoints = @("/openai/v1/chat/completions", "/openai/v1/responses")
-    deployment         = @{ resourceId = "$FOUNDRY_ID/deployments/$DEPLOYMENT"; modelName = $DEPLOYMENT }
-  } } | ConvertTo-Json -Depth 10 -Compress | Set-Content body.json
-az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$DEPLOYMENT`?$API" --body "@body.json" `
+az aigateway model create -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $DEPLOYMENT `
+  --display-name $DEPLOYMENT --api-format OpenAIChatCompletions `
+  --supported-endpoints /openai/v1/chat/completions /openai/v1/responses `
+  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$DEPLOYMENT,modelName:$DEPLOYMENT}" `
   --query "{name:name, deployment:properties.deployment.modelName}"
-Remove-Item body.json
 ```
+
+`--deployment-config` uses the Azure CLI shorthand syntax, so the same value works in Bash and PowerShell.
 
 To publish more deployments, repeat this step and the next one for each name that
 `az cognitiveservices account deployment list -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --query "[].name" -o tsv`
 returns.
+
+> [!TIP]
+> `az aigateway model create --foundry-resource-id "$FOUNDRY_ID" --deployment "$DEPLOYMENT"` does the last three
+> steps in one command, like the portal import: it grants the gateway's identity **Foundry User** on the account,
+> creates a provider named after the account, and registers the deployment. You can run it again safely. It doesn't
+> publish an alias, so you still run the next step. This lab creates each piece itself so you see how they fit together.
 
 ### Publish an alias
 

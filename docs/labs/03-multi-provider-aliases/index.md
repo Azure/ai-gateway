@@ -52,9 +52,6 @@ export PROVIDER="anthropic"               # the gateway provider you create in t
 export FAST_MODEL="claude-haiku-5-5"      # two models that your Anthropic key can call
 export SMART_MODEL="claude-sonnet-5-5"
 
-export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
-export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 # Paste the gateway runtime key from lab 02, not the Anthropic key. Don't commit it or write it to a file.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
@@ -67,9 +64,6 @@ $PROVIDER    = "anthropic"                # the gateway provider you create in t
 $FAST_MODEL  = "claude-haiku-5-5"         # two models that your Anthropic key can call
 $SMART_MODEL = "claude-sonnet-5-5"
 
-$API         = "api-version=2025-09-01-preview"
-$GATEWAY_ID  = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
-$WS          = "https://management.azure.com$GATEWAY_ID/workspaces/default"
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 # Paste the gateway runtime key from lab 02, not the Anthropic key. Don't commit it or write it to a file.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
@@ -225,34 +219,30 @@ For OpenAI, use `https://api.openai.com`, the header `Authorization`, and the va
 
 ### Register the backend models
 
-The `aigateway` extension can't register models on this resource type yet, so call the Azure Resource Manager
-REST API with `az rest`. The resource name of a backend model in the URL may only contain lowercase letters,
-digits, and hyphens. If the provider's model ID contains other characters, replace them with `-` in the URL and
-keep the real ID in `deployment.modelName`.
+A backend model names one of the provider's models. Its name (`--name`) may only contain lowercase letters, digits,
+and hyphens. If the provider's model ID contains other characters, replace them with `-` in `--name` and keep the
+real ID in `modelName`.
 
 ```bash title="Bash"
 for MODEL in "$FAST_MODEL" "$SMART_MODEL"; do
-  az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$MODEL?$API" \
-    --body "$(jq -cn --arg m "$MODEL" \
-      '{properties: {displayName: $m, supportedEndpoints: ["/v1/messages"], deployment: {modelName: $m}}}')" \
+  az aigateway model create -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+    --display-name "$MODEL" --supported-endpoints /v1/messages --deployment-config "{modelName:$MODEL}" \
     --query "{name:name,endpoints:properties.supportedEndpoints}" -o json
 done
 ```
 
 ```powershell title="PowerShell"
 foreach ($model in $FAST_MODEL, $SMART_MODEL) {
-  @{ properties = @{ displayName = $model; supportedEndpoints = @('/v1/messages'); deployment = @{ modelName = $model } } } |
-    ConvertTo-Json -Depth 10 -Compress | Set-Content -Path model.json
-  az rest --method put --url "$WS/modelProviders/$PROVIDER/models/$model`?$API" --body '@model.json' `
+  az aigateway model create -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $model `
+    --display-name $model --supported-endpoints /v1/messages --deployment-config "{modelName:$model}" `
     --query "{name:name,endpoints:properties.supportedEndpoints}" -o json
 }
-Remove-Item model.json
 ```
 
 > [!NOTE]
 > The provider settings and model bodies mirror what the portal sends during the preview. For custom providers,
 > `supportedEndpoints` holds the provider path: `/v1/messages` for Anthropic, `/v1/chat/completions` or
-> `/v1/responses` for OpenAI-compatible endpoints. The model has no `apiFormat`. If the service rejects either
+> `/v1/responses` for OpenAI-compatible endpoints. Leave out `--api-format` for custom providers. If the service rejects either
 > command, create the provider and models with the **Portal** tab, then continue here with the aliases.
 
 ### Create the aliases

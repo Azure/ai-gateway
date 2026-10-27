@@ -116,7 +116,7 @@ That's why every app, agent, or user should get its own key.
 |---|---|---|
 | Create a key | **Create API key** | `create` |
 | Read a value | **View keys** (primary value) | `list-secrets` (primary and secondary values) |
-| Rotate | **Rotate key** (primary value) | `regenerate --key-type primary`, or `az rest` `POST` to `$GW/apiKeys/<name>/regenerateSecondaryKey` |
+| Rotate | **Rotate key** (primary value) | `regenerate --key-type primary` or `--key-type secondary` |
 | Block temporarily | — | `az rest` `PATCH` with `state` set to `suspended`, then back to `active` |
 | Revoke | **Delete** | `delete` |
 
@@ -328,10 +328,9 @@ No client uses the secondary value, so regenerating it breaks nothing:
 ./infra/rotate-key.ps1 -ResourceGroup $RG -Gateway $GATEWAY -KeyName support-bot -KeyType secondary # -KeyVault $KEY_VAULT
 ```
 
-The script regenerates the value and reads the new one with `az aigateway api-key list-secrets`. For the
-primary value it runs `az aigateway api-key regenerate`. The extension can't regenerate the secondary value yet,
-so for that one it calls the key's `regenerateSecondaryKey` action with `az rest`. It prints only the last four
-characters of the new value. If `KEY_VAULT` is set in Bash, or you pass `-KeyVault` in PowerShell, it also
+The script runs `az aigateway api-key regenerate --key-type secondary`, which replaces only the secondary value,
+and reads the new value with `az aigateway api-key list-secrets`. It prints only the last four characters of the
+new value. If `KEY_VAULT` is set in Bash, or you pass `-KeyVault` in PowerShell, it also
 writes the new value to the `support-bot-api-key` secret. On GitHub, open [rotate-key.sh](infra/rotate-key.sh) or
 [rotate-key.ps1](infra/rotate-key.ps1).
 

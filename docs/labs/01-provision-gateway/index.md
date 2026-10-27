@@ -53,12 +53,13 @@ irm https://aka.ms/aigateway-cli-install-ps | iex
 az aigateway version
 ```
 
-`az aigateway version` prints the extension version and the API version it calls, `2025-09-01-preview`.
+`az aigateway version` prints the extension version and the API version it calls, `2025-09-01-preview`. The labs
+need version `1.0.0b14` or later; run the installer again to upgrade an older one.
 
 > [!NOTE]
 > The labs use `az aigateway` commands wherever the extension covers an operation. A few operations, such as
-> registering a model or setting policies, aren't in the extension yet. For those, the labs call the Azure
-> Resource Manager REST API with `az rest` and say why.
+> gateway-wide policies, telemetry exporters, and the connector gateway, aren't in the extension yet. For those,
+> the labs call the Azure Resource Manager REST API with `az rest` and say why.
 
 Set these variables once. Every track and the **Verify** section reuse them.
 

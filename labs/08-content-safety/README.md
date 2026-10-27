@@ -73,10 +73,6 @@ export GATEWAY="<gateway>"                 # 24 characters or fewer
 export PROVIDER="<provider-name>"          # for example foundry-models
 export MODEL="<model-name>"                # the backend model name under that provider
 
-export API="api-version=2025-09-01-preview"
-export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
-export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
-export MODEL_URL="$WS/modelProviders/$PROVIDER/models/$MODEL"
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 # For Foundry imports, the default alias matches the deployment's model name.
 export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" \
@@ -94,10 +90,6 @@ $GATEWAY    = "<gateway>"                 # 24 characters or fewer
 $PROVIDER   = "<provider-name>"           # for example foundry-models
 $MODEL      = "<model-name>"              # the backend model name under that provider
 
-$API        = "api-version=2025-09-01-preview"
-$GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
-$WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
-$MODEL_URL  = "$WS/modelProviders/$PROVIDER/models/$MODEL"
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 # For Foundry imports, the default alias matches the deployment's model name.
 $env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER `
@@ -178,35 +170,28 @@ Select **Create**. The policy appears in the **Policies** list with your model a
 
 ### Set the policy
 
-Policies live in the model's `properties.policies` array, and a `PATCH` replaces the whole array. So read the
-array, swap in the content safety policy, keep every other policy, and write it back. The `aigateway` extension
-doesn't set model policies yet, so this step calls the Azure Resource Manager REST API with `az rest`.
+Policies live in the model's `properties.policies` array. `az aigateway model policy set-content-safety` adds the
+content safety policy, or replaces the one that's there, and keeps every other policy on the model.
+`--content-safety` sets the threshold for all four categories, and `--violence-severity` overrides **Violence**.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-az rest --url "$MODEL_URL?$API" \
-  | jq -c '{properties:{policies:([(.properties.policies // [])[] | select(.type != "contentSafety")]
-      + [{type:"contentSafety",hateSeverity:"Medium",selfHarmSeverity:"Medium",sexualSeverity:"Medium",violenceSeverity:"Low"}])}}' > policies.json
-az rest --method patch --url "$MODEL_URL?$API" --body @policies.json --query properties.policies
-rm policies.json
+az aigateway model policy set-content-safety -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --content-safety Medium --violence-severity Low
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-$p = (az rest --url "$MODEL_URL`?$API" | ConvertFrom-Json).properties.policies
-$p = @($p | Where-Object { $_ -and $_.type -ne 'contentSafety' }) +
-     @(@{ type = 'contentSafety'; hateSeverity = 'Medium'; selfHarmSeverity = 'Medium'; sexualSeverity = 'Medium'; violenceSeverity = 'Low' })
-@{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
-az rest --method patch --url "$MODEL_URL`?$API" --body "@policies.json" --query properties.policies
-Remove-Item policies.json
+az aigateway model policy set-content-safety -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
+  --content-safety Medium --violence-severity Low
 ```
 </details> <!-- gh -->
 
-Each of `hateSeverity`, `selfHarmSeverity`, `sexualSeverity`, and `violenceSeverity` accepts `None`, `Low`,
-`Medium`, or `High`. Set all four explicitly.
+The command prints the model's policies. Each threshold accepts `None`, `Low`, `Medium`, or `High`. To override
+another category, add `--hate-severity`, `--self-harm-severity`, or `--sexual-severity`.
 
 ### Confirm the policy
 
@@ -334,28 +319,22 @@ Violence threshold. If it returns `400`, the gateway blocked it and the error me
 ### Relax one category
 
 Set **Violence** back to **Balanced** (`Medium`) with the track you used, then run the script again. For
-example, from the command line, change only `violenceSeverity` and keep everything else. Like the CLI track, this
-uses `az rest`, because the `aigateway` extension doesn't change model policies yet:
+example, from the command line, set all four categories to `Medium`. The other three already are, so only
+**Violence** changes, and the command keeps every other policy on the model:
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-az rest --url "$MODEL_URL?$API" \
-  | jq -c '{properties:{policies:[(.properties.policies // [])[]
-      | if .type == "contentSafety" then .violenceSeverity = "Medium" else . end]}}' > policies.json
-az rest --method patch --url "$MODEL_URL?$API" --body @policies.json --query properties.policies
-rm policies.json
+az aigateway model policy set-content-safety -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --content-safety Medium
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-$p = @((az rest --url "$MODEL_URL`?$API" | ConvertFrom-Json).properties.policies | Where-Object { $_ })
-$p | Where-Object type -eq 'contentSafety' | ForEach-Object { $_.violenceSeverity = 'Medium' }
-@{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
-az rest --method patch --url "$MODEL_URL`?$API" --body "@policies.json" --query properties.policies
-Remove-Item policies.json
+az aigateway model policy set-content-safety -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
+  --content-safety Medium
 ```
 </details> <!-- gh -->
 
@@ -407,27 +386,19 @@ Select **Policies**, open the **Content safety** policy that's scoped to your mo
 
 ### Remove the policy
 
-Like **Set the policy**, this step uses `az rest`, because the `aigateway` extension doesn't change model policies
-yet.
-
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-az rest --url "$MODEL_URL?$API" \
-  | jq -c '{properties:{policies:[(.properties.policies // [])[] | select(.type != "contentSafety")]}}' > policies.json
-az rest --method patch --url "$MODEL_URL?$API" --body @policies.json --query properties.policies
-rm policies.json
+az aigateway model policy remove -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --remove-content-safety true
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-$p = (az rest --url "$MODEL_URL`?$API" | ConvertFrom-Json).properties.policies
-$p = @($p | Where-Object { $_ -and $_.type -ne 'contentSafety' })
-@{ properties = @{ policies = $p } } | ConvertTo-Json -Depth 10 -Compress | Set-Content policies.json
-az rest --method patch --url "$MODEL_URL`?$API" --body "@policies.json" --query properties.policies
-Remove-Item policies.json
+az aigateway model policy remove -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
+  --remove-content-safety true
 ```
 </details> <!-- gh -->
 
