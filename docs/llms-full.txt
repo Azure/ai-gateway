@@ -426,18 +426,16 @@ The template creates the Foundry deployment for you.
 
 The template is a small azd project in the
 [`labs/quickstart`](https://github.com/Azure/ai-gateway/tree/main/labs/quickstart) folder of the GitHub repo: an
-`azure.yaml` and a Bicep file for each scope. Clone the repo with only that folder, then move into it. The shallow,
-sparse clone skips the rest of the repo, so it takes a few seconds.
+`azure.yaml` and a Bicep file for each scope. Clone the repo, then move into that folder. The clone also gets the
+other labs, which you can use next.
 
 ```bash title="Bash"
-git clone --depth 1 --filter=blob:none --sparse https://github.com/Azure/ai-gateway.git
-git -C ai-gateway sparse-checkout set labs/quickstart
+git clone https://github.com/Azure/ai-gateway.git
 cd ai-gateway/labs/quickstart
 ```
 
 ```powershell title="PowerShell"
-git clone --depth 1 --filter=blob:none --sparse https://github.com/Azure/ai-gateway.git
-git -C ai-gateway sparse-checkout set labs/quickstart
+git clone https://github.com/Azure/ai-gateway.git
 Set-Location ai-gateway/labs/quickstart
 ```
 

@@ -37,8 +37,8 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
   `az aigateway model create --foundry-resource-id`. The labs keep `az rest` for gateway policies, cost limits,
   telemetry exporters, MCP versions, API key state, and the connector gateway.
 - **October 27.** The [quick start](quickstart/README.md#clone-the-template)'s Bicep + azd track now gets its
-  template with a shallow, sparse clone of `labs/quickstart`, instead of downloading each file. It takes a few
-  seconds, and the track no longer lists the template's files.
+  template by cloning the repo and moving into `labs/quickstart`, instead of downloading each file. The clone also
+  gets the other labs, and the track no longer lists the template's files.
 - **October 26.** The Bicep templates now follow the AI Gateway [reference sample](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway/blob/main/infra/ai-gateway/main.bicep): they
   create the gateway in the `Consumption` SKU, the same one that `az aigateway create` uses, and then its connector
   gateway. A template that omits `sku` creates a `Premium` gateway, so set it in your own templates too. Every

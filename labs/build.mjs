@@ -52,9 +52,9 @@ function write(rel, content) {
   fs.writeFileSync(f, content);
 }
 
-// A lab folder with a root azure.yaml is an azd template. azd can't init from a repo subfolder, so the lab makes a
-// shallow, sparse clone of the repo with only labs/<slug> and runs azd there. A clone block must check out and move
-// into the lab folder, and use the site's branch: the default branch, or --branch with that name.
+// A lab folder with a root azure.yaml is an azd template. azd can't init from a repo subfolder, so the lab clones
+// the repo and runs azd in labs/<slug>. A clone block must move into the lab folder and use the site's branch: the
+// default branch, or --branch with that name.
 function checkTemplate(lab, site) {
   if (!fs.existsSync(path.join(lab.dir, 'azure.yaml'))) return;
   const folder = `labs/${lab.slug}`;
@@ -62,7 +62,6 @@ function checkTemplate(lab, site) {
     .filter((b) => /\bgit clone\b/.test(b) && b.includes(site.repo));
   if (!blocks.length) warn(`${lab.slug}: has an azd template, but no code block clones ${site.repo}`);
   for (const b of blocks) {
-    if (!b.includes(`sparse-checkout set ${folder}`)) warn(`${lab.slug}: the template clone block doesn't check out only ${folder}`);
     if (!new RegExp(`\\b(?:cd|Set-Location)\\s+\\S*${folder}\\s*$`, 'm').test(b)) warn(`${lab.slug}: the template clone block doesn't move into ${folder}`);
     const branch = b.match(/--branch[\s=](\S+)/);
     if (branch && branch[1] !== site.branch) warn(`${lab.slug}: the template clone block uses branch ${branch[1]}, not ${site.branch}`);

@@ -60,19 +60,18 @@ has no separate call, verify, or clean up section. Teach the details in labs 00 
 ### azd templates
 
 A lab folder with an `azure.yaml` at its root (not in `infra/`) is an azd template. `azd init` can't start from a
-folder of a repo, so the lab makes a shallow, sparse clone of the repo (the `repo` in `catalog.json`) with only the lab
-folder, moves into it, and runs azd there. The clone takes a few seconds and skips the rest of the repo:
+folder of a repo, so the lab clones the repo (the `repo` in `catalog.json`), moves into the lab folder, and runs azd
+there. The clone also gets the other labs, which the reader can use next:
 
 ```bash
-git clone --depth 1 --filter=blob:none --sparse https://github.com/Azure/ai-gateway.git
-git -C ai-gateway sparse-checkout set labs/<lab>
+git clone https://github.com/Azure/ai-gateway.git
 cd ai-gateway/labs/<lab>
 ```
 
-Use the same `git` lines in PowerShell, with `Set-Location` instead of `cd`. The clone gets the default branch, which
-must be the `branch` in `catalog.json`; otherwise add `--branch <branch>`. The build warns when a lab has a template
-but no code block clones the repo, or when a clone block doesn't check out and move into the lab folder or uses
-another branch. The clone works once the lab is on `main`. Keep secrets out of the template's outputs, because azd
+Use the same `git clone` line in PowerShell, with `Set-Location` instead of `cd`. The clone gets the default branch,
+which must be the `branch` in `catalog.json`; otherwise add `--branch <branch>`. The build warns when a lab has a
+template but no code block clones the repo, or when a clone block doesn't move into the lab folder or uses another
+branch. The clone works once the lab is on `main`. Keep secrets out of the template's outputs, because azd
 saves them in `.azure/<environment>/.env`.
 
 ## GitHub view
