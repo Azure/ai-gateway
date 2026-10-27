@@ -52,27 +52,20 @@ function write(rel, content) {
   fs.writeFileSync(f, content);
 }
 
-// A lab folder with a root azure.yaml is an azd template. azd can't init from a repo subfolder, so the lab
-// downloads azure.yaml and infra/ file by file from the main branch on GitHub. Every download block must list
-// exactly the template's files, so a new Bicep file can't be left out.
+// A lab folder with a root azure.yaml is an azd template. azd can't init from a repo subfolder, so the lab makes a
+// shallow, sparse clone of the repo with only labs/<slug> and runs azd there. A clone block must check out and move
+// into the lab folder, and use the site's branch: the default branch, or --branch with that name.
 function checkTemplate(lab, site) {
   if (!fs.existsSync(path.join(lab.dir, 'azure.yaml'))) return;
-  const files = ['azure.yaml'];
-  const walk = (rel) => {
-    for (const e of fs.readdirSync(path.join(lab.dir, rel), { withFileTypes: true })) {
-      if (e.name.startsWith('.')) continue;
-      if (e.isDirectory()) walk(`${rel}/${e.name}`);
-      else files.push(`${rel}/${e.name}`);
-    }
-  };
-  if (fs.existsSync(path.join(lab.dir, 'infra'))) walk('infra');
-  const raw = `${site.repo.replace('https://github.com/', 'https://raw.githubusercontent.com/')}/${site.branch}/labs/${lab.slug}/`;
-  const blocks = [...lab.content.matchAll(/^```[^\n]*\n([\s\S]*?)^```/gm)].map((m) => m[1]).filter((b) => b.includes(raw));
-  if (!blocks.length) warn(`${lab.slug}: has an azd template, but no code block downloads it from ${raw}`);
+  const folder = `labs/${lab.slug}`;
+  const blocks = [...lab.content.matchAll(/^```[^\n]*\n([\s\S]*?)^```/gm)].map((m) => m[1])
+    .filter((b) => /\bgit clone\b/.test(b) && b.includes(site.repo));
+  if (!blocks.length) warn(`${lab.slug}: has an azd template, but no code block clones ${site.repo}`);
   for (const b of blocks) {
-    const listed = new Set(b.match(/\b(?:azure\.yaml|infra\/[\w./-]*\w)/g) || []);
-    for (const f of files) if (!listed.has(f)) warn(`${lab.slug}: a template download block doesn't fetch ${f}`);
-    for (const f of listed) if (!files.includes(f)) warn(`${lab.slug}: a template download block fetches ${f}, which isn't in the lab folder`);
+    if (!b.includes(`sparse-checkout set ${folder}`)) warn(`${lab.slug}: the template clone block doesn't check out only ${folder}`);
+    if (!new RegExp(`\\b(?:cd|Set-Location)\\s+\\S*${folder}\\s*$`, 'm').test(b)) warn(`${lab.slug}: the template clone block doesn't move into ${folder}`);
+    const branch = b.match(/--branch[\s=](\S+)/);
+    if (branch && branch[1] !== site.branch) warn(`${lab.slug}: the template clone block uses branch ${branch[1]}, not ${site.branch}`);
   }
 }
 

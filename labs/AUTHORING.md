@@ -50,9 +50,9 @@ prereqs:                        # lab folder names, rendered as links
 
 `quickstart/` is the only lab without a number. It sets `order: -1`, so it comes before lab 00 everywhere, and the
 site shows a ⚡ instead of a number and "Quick start" instead of "Lab NN". The home page's hero and its **Start here**
-band link to it. Keep it to five minutes and self-contained, with no repo to clone and no notebook: a portal track, an
+band link to it. Keep it to five minutes and self-contained, with no notebook: a portal track, an
 Azure CLI track that runs in Cloud Shell, and a Bicep + azd track. Each track starts with the tools that it needs.
-The Bicep + azd track deploys `quickstart/azure.yaml` and `quickstart/infra/`, which it downloads from GitHub
+The Bicep + azd track deploys `quickstart/azure.yaml` and `quickstart/infra/`, which it clones from GitHub
 (see [azd templates](#azd-templates)). It uses lab 02's names (`foundry-models`, `gpt-6-luna`, `app-first-call`), so
 labs 03 onward work on its gateway. Each track ends with the first call and then its own **Clean up** step, so the lab
 has no separate call, verify, or clean up section. Teach the details in labs 00 to 02 instead.
@@ -60,12 +60,20 @@ has no separate call, verify, or clean up section. Teach the details in labs 00 
 ### azd templates
 
 A lab folder with an `azure.yaml` at its root (not in `infra/`) is an azd template. `azd init` can't start from a
-folder of a repo, so the lab downloads the template file by file from the `main` branch on GitHub, with `curl` in Bash
-and `Invoke-WebRequest` in PowerShell, from `https://raw.githubusercontent.com/Azure/ai-gateway/main/labs/<lab>/`
-(the `repo` and `branch` in `catalog.json`). The build warns when a lab has a template but no code block downloads it
-from there, or when a download block misses a file of `azure.yaml` and `infra/` or lists one that doesn't exist, so
-add new template files to the download lists. The links work once the lab is on `main`. Keep secrets out of the
-template's outputs, because azd saves them in `.azure/<environment>/.env`.
+folder of a repo, so the lab makes a shallow, sparse clone of the repo (the `repo` in `catalog.json`) with only the lab
+folder, moves into it, and runs azd there. The clone takes a few seconds and skips the rest of the repo:
+
+```bash
+git clone --depth 1 --filter=blob:none --sparse https://github.com/Azure/ai-gateway.git
+git -C ai-gateway sparse-checkout set labs/<lab>
+cd ai-gateway/labs/<lab>
+```
+
+Use the same `git` lines in PowerShell, with `Set-Location` instead of `cd`. The clone gets the default branch, which
+must be the `branch` in `catalog.json`; otherwise add `--branch <branch>`. The build warns when a lab has a template
+but no code block clones the repo, or when a clone block doesn't check out and move into the lab folder or uses
+another branch. The clone works once the lab is on `main`. Keep secrets out of the template's outputs, because azd
+saves them in `.azure/<environment>/.env`.
 
 ## GitHub view
 

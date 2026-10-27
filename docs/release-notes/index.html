@@ -89,6 +89,9 @@ key value with <code>az aigateway api-key regenerate --key-type secondary</code>
 <a href="../labs/02-first-model-call/#register-the-deployment">Lab 02</a> also shows the one-step
 <code>az aigateway model create --foundry-resource-id</code>. The labs keep <code>az rest</code> for gateway policies, cost limits,
 telemetry exporters, MCP versions, API key state, and the connector gateway.</li>
+<li><strong>October 27.</strong> The <a href="../labs/quickstart/#clone-the-template">quick start</a>&#39;s Bicep + azd track now gets its
+template with a shallow, sparse clone of <code>labs/quickstart</code>, instead of downloading each file. It takes a few
+seconds, and the track no longer lists the template&#39;s files.</li>
 <li><strong>October 26.</strong> The Bicep templates now follow the AI Gateway <a href="https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway/blob/main/infra/ai-gateway/main.bicep" target="_blank" rel="noopener">reference sample<span class="ext" aria-hidden="true">↗</span></a>: they
 create the gateway in the <code>Consumption</code> SKU, the same one that <code>az aigateway create</code> uses, and then its connector
 gateway. A template that omits <code>sku</code> creates a <code>Premium</code> gateway, so set it in your own templates too. Every

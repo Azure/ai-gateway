@@ -1,6 +1,6 @@
 ---
 title: Your first model call in 5 minutes
-summary: Learn the five building blocks of Azure AI Gateway, create a gateway with a Microsoft Foundry model in the portal, the Azure CLI, or Bicep with azd, and make your first model call, all in about five minutes with nothing to clone.
+summary: Learn the five building blocks of Azure AI Gateway, create a gateway with a Microsoft Foundry model in the portal, the Azure CLI, or Bicep with azd, and make your first model call, all in about five minutes.
 category: foundations
 level: Beginner
 duration: 5
@@ -21,7 +21,7 @@ prereqs: []
 Azure AI Gateway gives your apps and agents one governed endpoint for models and tools. In five minutes you create a
 gateway, put a Microsoft Foundry model behind it, and call that model the way an app does: with the gateway's URL, an
 alias in the `model` field, and a runtime API key. Click through the AI Gateway portal, paste a few Azure CLI
-commands into Azure Cloud Shell, or deploy a Bicep template with one `azd up`. There's nothing to clone.
+commands into Azure Cloud Shell, or clone a Bicep template and deploy it with one `azd up`.
 
 ![Create the gateway, a Foundry model, a provider, an alias, and a runtime key in the AI Gateway portal, with the Azure CLI in Cloud Shell, or with a Bicep template and azd up. Then your app calls the alias with the key, and the gateway routes the call to Foundry with its managed identity](../assets/diagrams/quickstart.svg "Set up once, in the portal, in Cloud Shell, or with azd up. Then every call goes through the gateway: it checks the key, routes the alias, and signs in to Foundry with its own identity.")
 
@@ -417,29 +417,27 @@ If Cloud Shell timed out, set `RG`, `FOUNDRY`, and `LOCATION` again with the nam
 <!-- track: iac | Bicep + azd -->
 
 **What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell. It's already signed in and has
-the Azure Developer CLI (`azd`), the Azure CLI, `curl`, and `jq`. Locally,
-[install azd](https://aka.ms/azd-install) and the Azure CLI, and sign in with `azd auth login` and `az login`. The
-template creates the Foundry deployment for you.
+the Azure Developer CLI (`azd`), the Azure CLI, Git, `curl`, and `jq`. Locally,
+[install azd](https://aka.ms/azd-install), the Azure CLI, and Git, and sign in with `azd auth login` and `az login`.
+The template creates the Foundry deployment for you.
 
-### Download the template
+### Clone the template
 
 The template is a small azd project in the
 [`labs/quickstart`](https://github.com/Azure/ai-gateway/tree/main/labs/quickstart) folder of the GitHub repo: an
-`azure.yaml` and a Bicep file for each scope. Download its four files from the `main` branch into a new
-`aigw-quickstart` folder, so you don't clone anything.
+`azure.yaml` and a Bicep file for each scope. Clone the repo with only that folder, then move into it. The shallow,
+sparse clone skips the rest of the repo, so it takes a few seconds.
 
 ```bash title="Bash"
-mkdir -p aigw-quickstart/infra && cd aigw-quickstart
-for f in azure.yaml infra/main.bicep infra/main.parameters.json infra/resources.bicep; do
-  curl -fsSL "https://raw.githubusercontent.com/Azure/ai-gateway/main/labs/quickstart/$f" -o "$f"
-done
+git clone --depth 1 --filter=blob:none --sparse https://github.com/Azure/ai-gateway.git
+git -C ai-gateway sparse-checkout set labs/quickstart
+cd ai-gateway/labs/quickstart
 ```
 
 ```powershell title="PowerShell"
-New-Item -ItemType Directory -Path aigw-quickstart/infra -Force | Out-Null; Set-Location aigw-quickstart
-foreach ($f in 'azure.yaml', 'infra/main.bicep', 'infra/main.parameters.json', 'infra/resources.bicep') {
-  Invoke-WebRequest "https://raw.githubusercontent.com/Azure/ai-gateway/main/labs/quickstart/$f" -OutFile $f
-}
+git clone --depth 1 --filter=blob:none --sparse https://github.com/Azure/ai-gateway.git
+git -C ai-gateway sparse-checkout set labs/quickstart
+Set-Location ai-gateway/labs/quickstart
 ```
 
 `infra/main.bicep` creates the resource group `rg-<environment name>` and passes unique names to
@@ -521,7 +519,7 @@ bar: **Models**, **Access** › **Keys**, and the **Catalog** playground.
 ### Clean up
 
 To keep exploring, skip this step: [lab 03](../03-multi-provider-aliases/README.md) and the labs after it work on this
-gateway. Otherwise, in the `aigw-quickstart` folder, delete everything that `azd up` created. `--purge` also purges
+gateway. Otherwise, in the `ai-gateway/labs/quickstart` folder, delete everything that `azd up` created. `--purge` also purges
 the Foundry account, which would otherwise stay soft-deleted for 48 hours and keep counting against your quota. It
 takes about ten minutes.
 
@@ -534,7 +532,7 @@ azd down --purge --force
 ```
 
 > **Checkpoint:** `azd down` ended with `SUCCESS`. The resource group `rg-aigw-quickstart` is gone, and you can delete
-> the `aigw-quickstart` folder.
+> the `ai-gateway` folder.
 
 <!-- /tracks -->
 
