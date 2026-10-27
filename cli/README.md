@@ -101,9 +101,11 @@ ask your subscription administrator if registration is needed. See the
 during public preview; connected services and other Azure resources may incur
 charges. Use a new, dedicated resource group and review pricing before proceeding.
 
-### 1. Sign in and create a gateway
+### 1. Sign in, create a gateway, and set CLI defaults
 
-Choose a globally unique gateway name and a supported region.
+Choose a globally unique gateway name and a supported region. After creating the
+gateway, set `group`, `aigateway`, and `output=json` defaults with `az configure`
+so subsequent commands do not need `--resource-group` or `--gateway-name`.
 
 ```bash
 az login
@@ -115,7 +117,8 @@ LOCATION="<supported-region>"
 
 az group create --name "$RG" --location "$LOCATION"
 az aigateway create --resource-group "$RG" --name "$GATEWAY" --location "$LOCATION"
-az aigateway show --resource-group "$RG" --name "$GATEWAY" --output table
+az configure --defaults group="$RG" aigateway="$GATEWAY" output=json
+az aigateway show --output table
 ```
 
 Creation waits for provisioning to finish. The gateway is an Azure AI Gateway
@@ -128,17 +131,17 @@ The Learn endpoint does not require backend authentication. This command adds a
 registration to your gateway; it does not deploy a new MCP server.
 
 ```bash
-az aigateway mcp create \
-  --resource-group "$RG" --gateway-name "$GATEWAY" --name learn \
+az aigateway mcp create --name learn \
   --endpoints '[{"kind":"mcp","namespace":"learn","mcp":{"transport":"streamableHttp","url":"https://learn.microsoft.com/api/mcp"}}]'
 
-az aigateway mcp list --resource-group "$RG" --gateway-name "$GATEWAY" --output table
-az aigateway mcp show --resource-group "$RG" --gateway-name "$GATEWAY" --name learn
+az aigateway mcp list --output table
+az aigateway mcp show --name learn
 ```
 
-Notice that `--name` now identifies the **MCP registration**; `--gateway-name`
-identifies its parent gateway. The output shows the registered server and its
-configuration, not a tool invocation. Use the
+Notice that `--name` now identifies the **MCP registration**; the parent gateway
+comes from your configured `aigateway` default (or `--gateway-name` if you did
+not run `az configure --defaults`). The output shows the registered server and
+its configuration, not a tool invocation. Use the
 [coding-agent plugin](../README.md#coding-agent-plugin) to build an application
 that consumes the gateway, or explore more commands in the
 [command reference](command-reference.md).
@@ -169,11 +172,10 @@ FOUNDRY_RESOURCE_ID="$(az cognitiveservices account show \
   --query id --output tsv)"
 
 az aigateway model-provider create \
-  -g "$RG" --gateway-name "$GATEWAY" --name "$PROVIDER" \
+  --name "$PROVIDER" \
   --foundry-resource-id "$FOUNDRY_RESOURCE_ID"
 
 az aigateway model list \
-  -g "$RG" --gateway-name "$GATEWAY" \
   --model-provider "$PROVIDER" --output table
 ```
 
@@ -191,12 +193,12 @@ example values to suit your application.
 MODEL="<imported-model-name>"
 
 az aigateway model policy set \
-  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --model-provider "$PROVIDER" -n "$MODEL" \
   --token-limit 10000 --token-period minute --token-counter-key Identity \
   --content-safety Medium
 
 az aigateway model policy list \
-  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL"
+  --model-provider "$PROVIDER" -n "$MODEL"
 ```
 
 These policies apply only to this gateway model registration, not every model
@@ -214,22 +216,21 @@ key; if there are several, list them with `az aigateway api-key list`, set
 `KEY_NAME` to your chosen name, and continue from `list-secrets`.
 Model calls can incur inference charges.
 
-**Bash / curl** -- reuse the variables from the earlier steps:
+**Bash / curl** -- reuse the variables and `az configure` defaults from the earlier steps:
 
 ```bash
-AI_GATEWAY_URL="$(az aigateway show -g "$RG" -n "$GATEWAY" \
-  --query properties.gatewayUrl -o tsv)"
-KEY_NAME="$(az aigateway api-key list -g "$RG" --gateway-name "$GATEWAY" \
+AI_GATEWAY_URL="$(az aigateway show --query properties.gatewayUrl -o tsv)"
+KEY_NAME="$(az aigateway api-key list \
   --query "[?properties.state=='active'].name" -o tsv)" || exit 1
 if [ -z "$KEY_NAME" ] || [[ "$KEY_NAME" == *$'\n'* ]]; then
   echo "Select exactly one active API key name before continuing." >&2
   exit 1
 fi
 AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets \
-  -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" --query primaryKey -o tsv)" || exit 1
+  -n "$KEY_NAME" --query primaryKey -o tsv)" || exit 1
 : "${AI_GATEWAY_API_KEY:?No key value returned; check your key-read permissions.}"
 RUNTIME_MODEL="$(az aigateway model show \
-  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --model-provider "$PROVIDER" -n "$MODEL" \
   --query properties.deployment.modelName -o tsv)"
 
 curl -fsS "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions" \

@@ -79,11 +79,11 @@ The general shape is `az aigateway [group] command [arguments]`. Replace values
 inside `<...>` with your own values; do not include the angle brackets.
 Examples below use Bash quoting and line continuation.
 
-### Set up example variables
+### Set up example variables and CLI defaults
 
-Set these once in your shell before using the resource examples. If you followed
-the quickstart, reuse your `RG`, `GATEWAY`, and `LOCATION` values. Set the child
-resource names for the commands you use, choosing existing registrations or keys.
+Set these once in your shell before using the resource examples, and configure
+`group`, `aigateway`, and `output=json` defaults with `az configure --defaults`
+so you can omit `-g "$RG"` and `--gateway-name "$GATEWAY"` on subsequent commands.
 
 ```bash
 SUBSCRIPTION="<subscription-id>"
@@ -97,6 +97,7 @@ KEY_NAME="<api-key-name>"
 
 az login
 az account set --subscription "$SUBSCRIPTION"
+az configure --defaults group="$RG" aigateway="$GATEWAY" output=json
 ```
 
 The examples are independent, not a script to run from top to bottom. Creation
@@ -226,14 +227,14 @@ requests first) and `weight` (`1-100`, relative traffic share within the same
 priority tier).
 
 Create an alias that splits traffic 50/50 across two registered backend models
-at `priority=0`, `weight=1`:
+at `priority=0`, `weight=1` (with `az configure --defaults group="$RG" aigateway="$GATEWAY"` set):
 
 ```bash
-MODEL_A_ID="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL_A" --query id -o tsv)"
-MODEL_B_ID="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL_B" --query id -o tsv)"
+MODEL_A_ID="$(az aigateway model show --model-provider "$PROVIDER" -n "$MODEL_A" --query id -o tsv)"
+MODEL_B_ID="$(az aigateway model show --model-provider "$PROVIDER" -n "$MODEL_B" --query id -o tsv)"
 
 az aigateway model-alias create \
-  -g "$RG" --gateway-name "$GATEWAY" -n chat-production --routing-name contoso/chat \
+  -n chat-production --routing-name contoso/chat \
   --backend-model resource-id="$MODEL_A_ID" priority=0 weight=1 \
   --backend-model resource-id="$MODEL_B_ID" priority=0 weight=1
 ```
@@ -243,7 +244,7 @@ Rebalance to a 75/25 weighted split or shift a backend model to fallback
 
 ```bash
 az aigateway model-alias update \
-  -g "$RG" --gateway-name "$GATEWAY" -n chat-production \
+  -n chat-production \
   --backend-model resource-id="$MODEL_A_ID" priority=0 weight=75 \
   --backend-model resource-id="$MODEL_B_ID" priority=0 weight=25
 ```
