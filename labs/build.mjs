@@ -410,7 +410,7 @@ async function renderTroubleshooting(site, known, rendered, labs) {
     const n = (part.match(/<tr>/g) || []).length - (part.match(/<thead>/g) || []).length;
     if (!n) warn(`TROUBLESHOOTING.md: section "${title}" has no table rows`);
     rows += n;
-    sections.push({ id, title, text: htmlToText(part.replace(/^<h2[\s\S]*?<\/h2>/, '')) });
+    sections.push({ id, title, rows: n, text: htmlToText(part.replace(/^<h2[\s\S]*?<\/h2>/, '')) });
     return `<section class="ts-section" data-ts="${id}">${part}</section>`;
   }).join('');
   return {
@@ -483,6 +483,8 @@ export async function build({ strict = false } = {}) {
   // render them before checking the labs' anchors.
   const setup = await renderSetup(site, known, rendered);
   const trouble = await renderTroubleshooting(site, known, rendered, labs);
+  // The Troubleshooting panel lists the sections and fetches their rows from /troubleshooting/ when it opens.
+  if (trouble) shared.troubleshooting = trouble.sections.map(({ id, title, rows }) => ({ id, title, rows }));
   const guides = { setup: setup?.html, troubleshooting: trouble?.html };
   if (setup) checkGuideAnchors('SETUP.md', setup.html, guides);
   if (trouble) checkGuideAnchors('TROUBLESHOOTING.md', trouble.html, guides);
@@ -502,7 +504,7 @@ export async function build({ strict = false } = {}) {
       slug: 'troubleshooting', page: true, url: 'troubleshooting/', num: '', icon: 'lifebuoy', title: 'Troubleshooting',
       summary: trouble.description, tags: ['troubleshooting', 'errors', 'fix'],
       headings: [], text: htmlToText(trouble.lead),
-      sections: trouble.sections.map((x) => ({ ...x, text: x.text.slice(0, 8000) })),
+      sections: trouble.sections.map(({ id, title, text }) => ({ id, title, text: text.slice(0, 8000) })),
     });
     write('troubleshooting/index.html', layout({
       rel: '../', site, kind: 'troubleshooting', title: 'Troubleshooting', description: trouble.description,
@@ -518,7 +520,7 @@ export async function build({ strict = false } = {}) {
     write(`labs/${lab.slug}/index.html`, layout({
       rel, site, kind: 'lab', title: lab.title, description: lab.summary, body,
       canonical: `${BASE_URL}labs/${lab.slug}/`,
-      data: { ...shared, lab: lab.slug, tracks: lab.tracks, mermaid: lab.html.includes('class="mermaid"') },
+      data: { ...shared, lab: lab.slug, ts: lab.troubleshooting, tracks: lab.tracks, mermaid: lab.html.includes('class="mermaid"') },
     }));
     write(`labs/${lab.slug}/index.md`, lab.raw);
   }

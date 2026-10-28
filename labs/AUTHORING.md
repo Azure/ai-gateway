@@ -134,7 +134,8 @@ For the errors you might hit in this lab, with their likely causes and fixes, se
 [Troubleshooting](../TROUBLESHOOTING.md#lab-06-token-limits).
 ```
 
-The lab's right rail links to the same section. The build warns when a lab doesn't link to its section, when the
+The lab's right rail links to the same section. On the site, every link to the page opens it in a side panel,
+with the lab's own section first, except on the page itself. The build warns when a lab doesn't link to its section, when the
 link points to a missing section, when the section doesn't link back to the lab, or when a lab's Troubleshooting
 section still has a table.
 

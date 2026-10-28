@@ -16,6 +16,7 @@ function boot() {
   run('videos', initVideos);
   run('catalog', initCatalog);
   run('troubleshooting', initTroubleshooting);
+  run('tsPanel', initTsPanel);
   run('hero', initHero);
   run('diagrams', initDiagrams);
   run('widgets', () => renderWidgets(document));

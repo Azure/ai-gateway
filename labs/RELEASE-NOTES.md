@@ -45,6 +45,10 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
   [Setup and deployment](TROUBLESHOOTING.md#setup-and-deployment).
   On the site, you can filter it by an error code or a word from the message, and site search finds each lab's
   section. Each lab's **Troubleshooting** section and its right rail link to its section on the page.
+- **October 28.** On the site, [Troubleshooting](TROUBLESHOOTING.md) now opens in a panel next to the lab, like
+  the Setup guide, from the right rail, the lab's **Troubleshooting** section, or any other link to it. The lab's
+  own errors come first, open, as cards that label the likely cause and the fix, and the filter works in the panel
+  too. **Open as a page** keeps the filter.
 - **October 28.** Every Azure CLI, azd, and REST command in the labs, the [quick start](quickstart/README.md), and
   the [Setup guide](SETUP.md) now has a comment that explains what it does, in both Bash and PowerShell. After it
   runs, it prints a short status line with an emoji, such as `🚀 Gateway aigw-1a2b3c is ready` or

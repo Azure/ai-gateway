@@ -208,6 +208,7 @@ function loadSetupSections() {
 
 function openSetup(hash = '') {
   if (!SETUP.length) { location.href = SETUP_URL.href + hash; return; }
+  closeTs();
   if (!setupDrawer) buildSetupDrawer();
   if (setupDrawer.hidden) setupDrawer.lastFocus = document.activeElement;
   setupDrawer.hidden = false;
