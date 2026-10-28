@@ -379,9 +379,9 @@ az aigateway model policy set-token-limit -g $RG --gateway-name $GATEWAY --provi
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-# Publish the gpt-6-astra alias, which Copilot sends in the model field, and show the model that it points at
+# Publish (or update) the gpt-6-astra alias, which Copilot sends in the model field, and show its target model
 echo "🔖 Alias $MODEL and its target model:"
-az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$MODEL" \
+az aigateway model-alias set -g "$RG" --gateway-name "$GATEWAY" -n "$MODEL" \
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" \
   --query "{alias:properties.aliasName, target:properties.backendModels[0].resourceId}"
 ```
@@ -390,17 +390,17 @@ az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$MODEL" \
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-# Publish the gpt-6-astra alias, which Copilot sends in the model field, and show the model that it points at
+# Publish (or update) the gpt-6-astra alias, which Copilot sends in the model field, and show its target model
 Write-Host "🔖 Alias $MODEL and its target model:"
-az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $MODEL `
+az aigateway model-alias set -g $RG --gateway-name $GATEWAY -n $MODEL `
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" `
   --query "{alias:properties.aliasName, target:properties.backendModels[0].resourceId}"
 ```
 </details> <!-- gh -->
 
-The command warns that the service doesn't enforce atomic alias creation. That's expected: it only matters when
-two people create the same alias at the same time. If the alias already exists, `create` fails; change it with
-`az aigateway model-alias update` and the same arguments instead.
+`az aigateway model-alias set` creates the alias, or updates it if it exists, so you can run the step again. When
+it creates the alias, it warns that the service doesn't enforce atomic alias creation. That's expected: it only
+matters when two people create the same alias at the same time.
 
 ### Create the key for Copilot
 

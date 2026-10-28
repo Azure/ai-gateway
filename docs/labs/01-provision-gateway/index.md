@@ -97,7 +97,7 @@ are the name, the region, and the resource group.
 | Runtime URL | `https://` + `properties.frontend.defaultHostname`, for example `https://<gateway>.eastus2-01.ai.gateway.azure.com` |
 | Runtime routes | Models under `/default/models/…`, MCP servers under `/default/toolservers/<server>/mcp` |
 | Outbound identity | A system-assigned managed identity, used to call Foundry and other Microsoft Entra–protected backends |
-| SKU | `Consumption`, which `az aigateway create` and the Bicep templates set. A template that omits `sku` creates a `Premium` gateway |
+| SKU | `Consumption` or `Premium`. The labs use `Consumption`, the default of `az aigateway create --sku`, which the Bicep templates set too. A template that omits `sku` creates a `Premium` gateway |
 | Provisioning time | A few minutes, often less |
 
 Everything you publish later lives in the gateway's `default` workspace. That's why every runtime route
@@ -190,47 +190,47 @@ Remove-Item body.json
 
 ### Create the AI gateway
 
-`az aigateway create` only needs the name, the region, and the managed identity. It creates the gateway in the
-`Consumption` SKU, and there's no capacity or publisher to set. The command waits until provisioning finishes,
+`az aigateway create` only needs the name, the region, and the managed identity. `--sku` picks `Consumption`, the
+default, or `Premium`, and there's no capacity or publisher to set. The command waits until provisioning finishes,
 usually within a few minutes.
 
 ```bash title="Bash"
-# Create the gateway with a system-assigned managed identity, and wait until it's provisioned
-az aigateway create -g "$RG" -n "$GATEWAY" --location "$LOCATION" --system-assigned true -o none &&
+# Create the gateway in the Consumption SKU with a system-assigned managed identity, and wait until it's provisioned
+az aigateway create -g "$RG" -n "$GATEWAY" --location "$LOCATION" --sku Consumption --system-assigned true -o none &&
   echo "🚀 Gateway $GATEWAY is ready in $LOCATION"
 ```
 
 ```powershell title="PowerShell"
-# Create the gateway with a system-assigned managed identity, and wait until it's provisioned
-az aigateway create -g $RG -n $GATEWAY --location $LOCATION --system-assigned true -o none
+# Create the gateway in the Consumption SKU with a system-assigned managed identity, and wait until it's provisioned
+az aigateway create -g $RG -n $GATEWAY --location $LOCATION --sku Consumption --system-assigned true -o none
 if ($?) { Write-Host "🚀 Gateway $GATEWAY is ready in $LOCATION" }
 ```
 
 > [!TIP]
 > Add `--no-wait` to return right away, then run `az aigateway wait -g "$RG" -n "$GATEWAY" --created` when you
-> need the gateway.
+> need the gateway. To change the SKU later, run `az aigateway update -g "$RG" -n "$GATEWAY" --sku Premium`.
 
 ### Read the runtime URL and identity
 
 ```bash title="Bash"
-# Show the gateway's state, its runtime host name, and the principal ID of its managed identity
+# Show the gateway's SKU and state, its runtime host name, and the principal ID of its managed identity
 echo "📊 Gateway $GATEWAY, its runtime host, and its identity:"
 az aigateway show -g "$RG" -n "$GATEWAY" \
-  --query "{name:name, location:location, state:properties.provisioningState, host:properties.frontend.defaultHostname, principalId:identity.principalId}" \
+  --query "{name:name, location:location, sku:sku.name, state:properties.provisioningState, host:properties.frontend.defaultHostname, principalId:identity.principalId}" \
   -o table
 ```
 
 ```powershell title="PowerShell"
-# Show the gateway's state, its runtime host name, and the principal ID of its managed identity
+# Show the gateway's SKU and state, its runtime host name, and the principal ID of its managed identity
 Write-Host "📊 Gateway $GATEWAY, its runtime host, and its identity:"
 az aigateway show -g $RG -n $GATEWAY `
-  --query "{name:name, location:location, state:properties.provisioningState, host:properties.frontend.defaultHostname, principalId:identity.principalId}" `
+  --query "{name:name, location:location, sku:sku.name, state:properties.provisioningState, host:properties.frontend.defaultHostname, principalId:identity.principalId}" `
   -o table
 ```
 
 > **Checkpoint**
-> The table shows `Succeeded`, a `Host` like `<gateway>.eastus2-01.ai.gateway.azure.com`, and a `PrincipalId`
-> GUID.
+> The table shows the `Consumption` SKU, `Succeeded`, a `Host` like `<gateway>.eastus2-01.ai.gateway.azure.com`,
+> and a `PrincipalId` GUID.
 
 <!-- track: iac | Bicep + azd -->
 

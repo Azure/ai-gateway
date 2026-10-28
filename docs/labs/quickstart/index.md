@@ -334,8 +334,8 @@ Wait for the gateway, then publish the deployment with two commands:
   managed identity the **Foundry User** role on the account, adds a model provider that signs in with that identity,
   and adds a model for each deployment. The gateway calls the model with this identity, so your apps never hold a
   Foundry key.
-- `az aigateway model-alias create` adds the alias that apps send in the `model` field. The import doesn't add
-  aliases.
+- `az aigateway model-alias set` adds the alias that apps send in the `model` field, or updates it if it exists, so
+  you can run the step again. The import doesn't add aliases.
 
 ```bash title="Bash"
 # Wait until the gateway finishes provisioning
@@ -347,8 +347,8 @@ MODELS="$(az aigateway model-provider create --resource-group "$RG" --gateway-na
   --foundry-resource-id "$FOUNDRY_ID" --query "join(', ', models[].name)" --output tsv)" &&
   echo "🔌 Model provider $PROVIDER imported $MODELS from $FOUNDRY"
 
-# Add the alias that apps send in the model field
-ALIAS="$(az aigateway model-alias create --resource-group "$RG" --gateway-name "$GATEWAY" --name "$DEPLOYMENT" --only-show-errors \
+# Add or update the alias that apps send in the model field
+ALIAS="$(az aigateway model-alias set --resource-group "$RG" --gateway-name "$GATEWAY" --name "$DEPLOYMENT" --only-show-errors \
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT" \
   --query properties.aliasName --output tsv)" &&
   echo "🔖 Alias $ALIAS is ready"
@@ -364,8 +364,8 @@ $MODELS = az aigateway model-provider create --resource-group $RG --gateway-name
   --foundry-resource-id $FOUNDRY_ID --query "models[].name" --output tsv
 if ($?) { Write-Host "🔌 Model provider $PROVIDER imported $($MODELS -join ', ') from $FOUNDRY" }
 
-# Add the alias that apps send in the model field
-$ALIAS = az aigateway model-alias create --resource-group $RG --gateway-name $GATEWAY --name $DEPLOYMENT --only-show-errors `
+# Add or update the alias that apps send in the model field
+$ALIAS = az aigateway model-alias set --resource-group $RG --gateway-name $GATEWAY --name $DEPLOYMENT --only-show-errors `
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT" `
   --query properties.aliasName --output tsv
 if ($?) { Write-Host "🔖 Alias $ALIAS is ready" }

@@ -125,7 +125,7 @@ az aigateway version
 
 > **Checkpoint**
 > The installer printed `📦 aigateway extension … is installed`, and `az aigateway version` prints the extension
-> version and the API version it calls, `2025-09-01-preview`. The labs need version `1.0.0b14` or later; run the
+> version and the API version it calls, `2025-09-01-preview`. The labs need version `1.0.0b15` or later; run the
 > installer again to upgrade an older one.
 
 > [!NOTE]
@@ -655,8 +655,8 @@ Wait for the gateway, then publish the deployment with two commands:
   managed identity the **Foundry User** role on the account, adds a model provider that signs in with that identity,
   and adds a model for each deployment. The gateway calls the model with this identity, so your apps never hold a
   Foundry key.
-- `az aigateway model-alias create` adds the alias that apps send in the `model` field. The import doesn't add
-  aliases.
+- `az aigateway model-alias set` adds the alias that apps send in the `model` field, or updates it if it exists, so
+  you can run the step again. The import doesn't add aliases.
 
 ```bash title="Bash"
 # Wait until the gateway finishes provisioning
@@ -668,8 +668,8 @@ MODELS="$(az aigateway model-provider create --resource-group "$RG" --gateway-na
   --foundry-resource-id "$FOUNDRY_ID" --query "join(', ', models[].name)" --output tsv)" &&
   echo "🔌 Model provider $PROVIDER imported $MODELS from $FOUNDRY"
 
-# Add the alias that apps send in the model field
-ALIAS="$(az aigateway model-alias create --resource-group "$RG" --gateway-name "$GATEWAY" --name "$DEPLOYMENT" --only-show-errors \
+# Add or update the alias that apps send in the model field
+ALIAS="$(az aigateway model-alias set --resource-group "$RG" --gateway-name "$GATEWAY" --name "$DEPLOYMENT" --only-show-errors \
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT" \
   --query properties.aliasName --output tsv)" &&
   echo "🔖 Alias $ALIAS is ready"
@@ -685,8 +685,8 @@ $MODELS = az aigateway model-provider create --resource-group $RG --gateway-name
   --foundry-resource-id $FOUNDRY_ID --query "models[].name" --output tsv
 if ($?) { Write-Host "🔌 Model provider $PROVIDER imported $($MODELS -join ', ') from $FOUNDRY" }
 
-# Add the alias that apps send in the model field
-$ALIAS = az aigateway model-alias create --resource-group $RG --gateway-name $GATEWAY --name $DEPLOYMENT --only-show-errors `
+# Add or update the alias that apps send in the model field
+$ALIAS = az aigateway model-alias set --resource-group $RG --gateway-name $GATEWAY --name $DEPLOYMENT --only-show-errors `
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT" `
   --query properties.aliasName --output tsv
 if ($?) { Write-Host "🔖 Alias $ALIAS is ready" }
@@ -1296,7 +1296,7 @@ are the name, the region, and the resource group.
 | Runtime URL | `https://` + `properties.frontend.defaultHostname`, for example `https://<gateway>.eastus2-01.ai.gateway.azure.com` |
 | Runtime routes | Models under `/default/models/…`, MCP servers under `/default/toolservers/<server>/mcp` |
 | Outbound identity | A system-assigned managed identity, used to call Foundry and other Microsoft Entra–protected backends |
-| SKU | `Consumption`, which `az aigateway create` and the Bicep templates set. A template that omits `sku` creates a `Premium` gateway |
+| SKU | `Consumption` or `Premium`. The labs use `Consumption`, the default of `az aigateway create --sku`, which the Bicep templates set too. A template that omits `sku` creates a `Premium` gateway |
 | Provisioning time | A few minutes, often less |
 
 Everything you publish later lives in the gateway's `default` workspace. That's why every runtime route
@@ -1389,47 +1389,47 @@ Remove-Item body.json
 
 ### Create the AI gateway
 
-`az aigateway create` only needs the name, the region, and the managed identity. It creates the gateway in the
-`Consumption` SKU, and there's no capacity or publisher to set. The command waits until provisioning finishes,
+`az aigateway create` only needs the name, the region, and the managed identity. `--sku` picks `Consumption`, the
+default, or `Premium`, and there's no capacity or publisher to set. The command waits until provisioning finishes,
 usually within a few minutes.
 
 ```bash title="Bash"
-# Create the gateway with a system-assigned managed identity, and wait until it's provisioned
-az aigateway create -g "$RG" -n "$GATEWAY" --location "$LOCATION" --system-assigned true -o none &&
+# Create the gateway in the Consumption SKU with a system-assigned managed identity, and wait until it's provisioned
+az aigateway create -g "$RG" -n "$GATEWAY" --location "$LOCATION" --sku Consumption --system-assigned true -o none &&
   echo "🚀 Gateway $GATEWAY is ready in $LOCATION"
 ```
 
 ```powershell title="PowerShell"
-# Create the gateway with a system-assigned managed identity, and wait until it's provisioned
-az aigateway create -g $RG -n $GATEWAY --location $LOCATION --system-assigned true -o none
+# Create the gateway in the Consumption SKU with a system-assigned managed identity, and wait until it's provisioned
+az aigateway create -g $RG -n $GATEWAY --location $LOCATION --sku Consumption --system-assigned true -o none
 if ($?) { Write-Host "🚀 Gateway $GATEWAY is ready in $LOCATION" }
 ```
 
 > [!TIP]
 > Add `--no-wait` to return right away, then run `az aigateway wait -g "$RG" -n "$GATEWAY" --created` when you
-> need the gateway.
+> need the gateway. To change the SKU later, run `az aigateway update -g "$RG" -n "$GATEWAY" --sku Premium`.
 
 ### Read the runtime URL and identity
 
 ```bash title="Bash"
-# Show the gateway's state, its runtime host name, and the principal ID of its managed identity
+# Show the gateway's SKU and state, its runtime host name, and the principal ID of its managed identity
 echo "📊 Gateway $GATEWAY, its runtime host, and its identity:"
 az aigateway show -g "$RG" -n "$GATEWAY" \
-  --query "{name:name, location:location, state:properties.provisioningState, host:properties.frontend.defaultHostname, principalId:identity.principalId}" \
+  --query "{name:name, location:location, sku:sku.name, state:properties.provisioningState, host:properties.frontend.defaultHostname, principalId:identity.principalId}" \
   -o table
 ```
 
 ```powershell title="PowerShell"
-# Show the gateway's state, its runtime host name, and the principal ID of its managed identity
+# Show the gateway's SKU and state, its runtime host name, and the principal ID of its managed identity
 Write-Host "📊 Gateway $GATEWAY, its runtime host, and its identity:"
 az aigateway show -g $RG -n $GATEWAY `
-  --query "{name:name, location:location, state:properties.provisioningState, host:properties.frontend.defaultHostname, principalId:identity.principalId}" `
+  --query "{name:name, location:location, sku:sku.name, state:properties.provisioningState, host:properties.frontend.defaultHostname, principalId:identity.principalId}" `
   -o table
 ```
 
 > **Checkpoint**
-> The table shows `Succeeded`, a `Host` like `<gateway>.eastus2-01.ai.gateway.azure.com`, and a `PrincipalId`
-> GUID.
+> The table shows the `Consumption` SKU, `Succeeded`, a `Host` like `<gateway>.eastus2-01.ai.gateway.azure.com`,
+> and a `PrincipalId` GUID.
 
 <!-- track: iac | Bicep + azd -->
 
@@ -2035,8 +2035,8 @@ deployment that points at the model you registered.
 export AI_GATEWAY_MODEL="$DEPLOYMENT"
 MODEL_ID="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT"
 
-# Publish the alias, which prints its name and the model that it points at
-az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$AI_GATEWAY_MODEL" \
+# Publish the alias, or update it if it exists, and print its name and the model that it points at
+az aigateway model-alias set -g "$RG" --gateway-name "$GATEWAY" -n "$AI_GATEWAY_MODEL" \
   --backend-model resource-id="$MODEL_ID" \
   --query "{alias:properties.aliasName, target:properties.backendModels[0].resourceId}" &&
   echo "🔖 Alias $AI_GATEWAY_MODEL is ready"
@@ -2047,16 +2047,16 @@ az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$AI_GATEW
 $env:AI_GATEWAY_MODEL = $DEPLOYMENT
 $MODEL_ID = "$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT"
 
-# Publish the alias, which prints its name and the model that it points at
-az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $env:AI_GATEWAY_MODEL `
+# Publish the alias, or update it if it exists, and print its name and the model that it points at
+az aigateway model-alias set -g $RG --gateway-name $GATEWAY -n $env:AI_GATEWAY_MODEL `
   --backend-model resource-id="$MODEL_ID" `
   --query "{alias:properties.aliasName, target:properties.backendModels[0].resourceId}"
 if ($?) { Write-Host "🔖 Alias $env:AI_GATEWAY_MODEL is ready" }
 ```
 
-The command warns that the service doesn't enforce atomic alias creation. That's expected: it only matters when
-two people create the same alias at the same time. If the alias already exists, `create` fails; change it with
-`az aigateway model-alias update` and the same arguments instead.
+`az aigateway model-alias set` creates the alias, or updates it if it exists, so you can run the step again. When
+it creates the alias, it warns that the service doesn't enforce atomic alias creation. That's expected: it only
+matters when two people create the same alias at the same time.
 
 ### Create a runtime API key
 
@@ -2964,12 +2964,11 @@ if ($?) { Write-Host "🔖 Alias support-chat is ready" }
 if ($?) { Write-Host "🔖 Alias $PROVIDER/$SMART_MODEL is ready" }
 ```
 
-On GitHub, open [alias.sh](infra/alias.sh) or [alias.ps1](infra/alias.ps1). For a new alias, each `put` runs a
-command like this. For an alias that already exists, it runs `az aigateway model-alias update` with the same
-arguments.
+On GitHub, open [alias.sh](infra/alias.sh) or [alias.ps1](infra/alias.ps1). Each `put` runs a command like this.
+`az aigateway model-alias set` creates the alias, or updates it if it already exists.
 
 ```text
-az aigateway model-alias create -g <resource-group> --gateway-name <gateway> -n support-chat \
+az aigateway model-alias set -g <resource-group> --gateway-name <gateway> -n support-chat \
   --routing-name support-chat \
   --backend-model resource-id=.../workspaces/default/modelProviders/anthropic/models/claude-haiku-5-5 \
   --policies '[]' --only-show-errors -o none
@@ -3822,9 +3821,9 @@ a `weight`. With more than one backend model, each entry needs both a priority a
 # Build the resource ID prefix of the provider's backend models, which each --backend-model entry uses
 export MODELS="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models"
 
-# Create the alias with both backend models at priority 0 and weights 80 and 20, then print each one's routing
+# Create or update the alias with both backend models at priority 0 and weights 80 and 20, then print the routing
 echo "🔖 Alias $ALIAS routes to:"
-az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" \
+az aigateway model-alias set -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" \
   --description "Canary: 80/20 between the current and the new model" \
   --backend-model resource-id="$MODELS/$PRIMARY" priority=0 weight=80 \
   --backend-model resource-id="$MODELS/$CANDIDATE" priority=0 weight=20 \
@@ -3836,9 +3835,9 @@ az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" \
 # Build the resource ID prefix of the provider's backend models, which each --backend-model entry uses
 $MODELS = "$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models"
 
-# Create the alias with both backend models at priority 0 and weights 80 and 20, then print each one's routing
+# Create or update the alias with both backend models at priority 0 and weights 80 and 20, then print the routing
 Write-Host "🔖 Alias $ALIAS routes to:"
-az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $ALIAS `
+az aigateway model-alias set -g $RG --gateway-name $GATEWAY -n $ALIAS `
   --description "Canary: 80/20 between the current and the new model" `
   --backend-model resource-id="$MODELS/$PRIMARY" priority=0 weight=80 `
   --backend-model resource-id="$MODELS/$CANDIDATE" priority=0 weight=20 `
@@ -3846,8 +3845,7 @@ az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $ALIAS `
   ConvertFrom-Json | ForEach-Object { '{0}  priority {1}  weight {2}' -f ($_.resourceId -split '/')[-1], $_.priority, $_.weight }
 ```
 
-If the alias already exists, `create` fails. Change it with `az aigateway model-alias update` and the same
-arguments instead.
+`az aigateway model-alias set` creates the alias, or updates it if it exists, so you can run the step again.
 
 > **Checkpoint**
 > The output shows `gpt-6-luna  priority 0  weight 80` and `gpt-6.1-sol  priority 0  weight 20`.
@@ -4722,10 +4720,10 @@ lab 02, so clients that call that alias aren't affected.
 An alias carries its own `policies` array, so one command creates the alias and its limit together.
 
 ```bash title="Bash"
-# Create the streaming alias for the same backend model, with its own token limit of 1,000 tokens per minute
+# Create or update the streaming alias for the same backend model, with its own token limit of 1,000 tokens per minute
 # for each caller identity, and show the alias and its policies
 echo "🔖 Alias $STREAM_ALIAS and its policies:"
-az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$STREAM_ALIAS" \
+az aigateway model-alias set -g "$RG" --gateway-name "$GATEWAY" -n "$STREAM_ALIAS" \
   --description "Streaming lab: 1,000 tokens per minute for each caller" \
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" \
   --policies '[{"type": "tokenLimit", "count": 1000, "period": "minute", "counterKey": ["identity"]}]' \
@@ -4739,9 +4737,9 @@ ConvertTo-Json -Depth 10 -Compress -InputObject @(
   @{ type = "tokenLimit"; count = 1000; period = "minute"; counterKey = @("identity") }
 ) | Set-Content policies.json
 
-# Create the streaming alias for the same backend model, with that limit, and show the alias and its policies
+# Create or update the streaming alias for the same backend model, with that limit, and show it and its policies
 Write-Host "🔖 Alias $STREAM_ALIAS and its policies:"
-az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $STREAM_ALIAS `
+az aigateway model-alias set -g $RG --gateway-name $GATEWAY -n $STREAM_ALIAS `
   --description "Streaming lab: 1,000 tokens per minute for each caller" `
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" `
   --policies "@policies.json" `
@@ -4749,8 +4747,7 @@ az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $STREAM_ALIAS 
 Remove-Item policies.json
 ```
 
-If the alias already exists, `create` fails. Change it with `az aigateway model-alias update` and the same
-arguments instead.
+`az aigateway model-alias set` creates the alias, or updates it if it exists, so you can run the step again.
 
 > **Checkpoint**
 > The output shows your alias and one policy with `"type": "tokenLimit"`, `"count": 1000`, `"period": "minute"`,
@@ -6831,8 +6828,8 @@ if ($?) { Write-Host "🔐 Token limit of 1,000 tokens per minute is on $MODEL" 
 ```
 
 The command prints the model's policies. `--token-period` accepts `minute` (the default), `hour`, or `day`.
-`--token-counter-key` accepts `Identity` (the default) or `IPAddress`. To count by both, as the portal's
-**Counter dimensions** allows, use the **REST API** track.
+`--token-counter-key` accepts `Identity` (the default), `IPAddress`, or both, as the portal's **Counter dimensions**
+allows: `--token-counter-key Identity IPAddress` gives each caller identity and IP address its own counter.
 
 ### Confirm the policy
 
@@ -11238,73 +11235,46 @@ switches it to your identity. Clients don't change: they keep calling the same a
 The portal picks the identity only when you import a Foundry account: the **Authentication method** step offers
 **Managed identity** with a choice of the system-assigned identity or any attached user-assigned identity, and
 grants the selected identity **Foundry User**. To switch a provider that already exists, run these Azure CLI
-commands, for example in [Azure Cloud Shell](https://shell.azure.com). They read the provider's `foundry`
-settings, set `clientId`, and write the settings back:
+command, for example in [Azure Cloud Shell](https://shell.azure.com). It sets `clientId` in the provider's
+`foundry` settings and keeps the rest:
 
 ```bash title="Bash"
-# Read the provider's foundry settings, set clientId to your identity's client ID, and save them in a local file
-az aigateway model-provider show -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --query properties.foundry -o json \
-  | jq -c --arg c "$IDENTITY_CLIENT_ID" '.authentication.managedIdentity.clientId=$c' > foundry.json &&
-  echo "📄 foundry.json points the provider at client ID $IDENTITY_CLIENT_ID"
-
-# Send the whole foundry object back, show the provider's new authentication settings, and delete the file
+# Set clientId to your identity's client ID; the CLI merges it into the provider's other foundry settings
 echo "🔌 Authentication of $PROVIDER:"
-az aigateway model-provider update -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --foundry @foundry.json \
+az aigateway model-provider update -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" \
+  --foundry "{authentication:{managedIdentity:{clientId:$IDENTITY_CLIENT_ID}}}" \
   --query properties.foundry.authentication
-rm foundry.json
 ```
 
 ```powershell title="PowerShell"
-# Read the provider's foundry settings, set clientId to your identity's client ID, and save them in a local file
-$foundry = az aigateway model-provider show -g $RG --gateway-name $GATEWAY -n $PROVIDER --query properties.foundry `
-  -o json | ConvertFrom-Json
-$foundry.authentication.managedIdentity |
-  Add-Member -NotePropertyName clientId -NotePropertyValue $IDENTITY_CLIENT_ID -Force
-$foundry | ConvertTo-Json -Depth 10 -Compress | Set-Content foundry.json
-if ($?) { Write-Host "📄 foundry.json points the provider at client ID $IDENTITY_CLIENT_ID" }
-
-# Send the whole foundry object back, show the provider's new authentication settings, and delete the file
+# Set clientId to your identity's client ID; the CLI merges it into the provider's other foundry settings
 Write-Host "🔌 Authentication of ${PROVIDER}:"
-az aigateway model-provider update -g $RG --gateway-name $GATEWAY -n $PROVIDER --foundry "@foundry.json" `
+az aigateway model-provider update -g $RG --gateway-name $GATEWAY -n $PROVIDER `
+  --foundry "{authentication:{managedIdentity:{clientId:$IDENTITY_CLIENT_ID}}}" `
   --query properties.foundry.authentication
-Remove-Item foundry.json
 ```
 
 <!-- track: cli | Azure CLI -->
 
 ### Update the provider's authentication
 
-`--foundry` replaces the whole `foundry` object, so a value with only `authentication` fails. Read the current
-settings, set `clientId`, and send the whole object back. The endpoint and accounts stay
-as they are, and models are separate resources.
+`--foundry` takes only the settings to change: the CLI merges them into the provider's `foundry` settings. Set
+`clientId`, and the endpoint and accounts stay as they are. Models are separate resources, so they don't change.
 
 ```bash title="Bash"
-# Read the provider's foundry settings, set clientId to your identity's client ID, and save them in a local file
-az aigateway model-provider show -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --query properties.foundry -o json \
-  | jq -c --arg c "$IDENTITY_CLIENT_ID" '.authentication.managedIdentity.clientId=$c' > foundry.json &&
-  echo "📄 foundry.json points the provider at client ID $IDENTITY_CLIENT_ID"
-
-# Send the whole foundry object back, show the provider's new authentication settings, and delete the file
+# Set clientId to your identity's client ID; the CLI merges it into the provider's other foundry settings
 echo "🔌 Authentication of $PROVIDER:"
-az aigateway model-provider update -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --foundry @foundry.json \
+az aigateway model-provider update -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" \
+  --foundry "{authentication:{managedIdentity:{clientId:$IDENTITY_CLIENT_ID}}}" \
   --query properties.foundry.authentication
-rm foundry.json
 ```
 
 ```powershell title="PowerShell"
-# Read the provider's foundry settings, set clientId to your identity's client ID, and save them in a local file
-$foundry = az aigateway model-provider show -g $RG --gateway-name $GATEWAY -n $PROVIDER --query properties.foundry `
-  -o json | ConvertFrom-Json
-$foundry.authentication.managedIdentity |
-  Add-Member -NotePropertyName clientId -NotePropertyValue $IDENTITY_CLIENT_ID -Force
-$foundry | ConvertTo-Json -Depth 10 -Compress | Set-Content foundry.json
-if ($?) { Write-Host "📄 foundry.json points the provider at client ID $IDENTITY_CLIENT_ID" }
-
-# Send the whole foundry object back, show the provider's new authentication settings, and delete the file
+# Set clientId to your identity's client ID; the CLI merges it into the provider's other foundry settings
 Write-Host "🔌 Authentication of ${PROVIDER}:"
-az aigateway model-provider update -g $RG --gateway-name $GATEWAY -n $PROVIDER --foundry "@foundry.json" `
+az aigateway model-provider update -g $RG --gateway-name $GATEWAY -n $PROVIDER `
+  --foundry "{authentication:{managedIdentity:{clientId:$IDENTITY_CLIENT_ID}}}" `
   --query properties.foundry.authentication
-Remove-Item foundry.json
 ```
 
 <!-- track: iac | Bicep + azd -->
@@ -11471,35 +11441,22 @@ identity in this order, so the provider never points at an identity it can't use
 
 ### Switch the provider back to the system-assigned identity
 
-Removing `clientId` selects the system-assigned identity again. As before, read the `foundry` settings, change
-them, and write them back:
+Removing `clientId` selects the system-assigned identity again. A `null` value removes a setting:
 
 ```bash title="Bash"
-# Read the provider's foundry settings, remove clientId, and save them in a local file
-az aigateway model-provider show -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --query properties.foundry -o json \
-  | jq -c 'del(.authentication.managedIdentity.clientId)' > foundry.json &&
-  echo "📄 foundry.json points the provider at the system-assigned identity"
-
-# Send the whole foundry object back, show the provider's new authentication settings, and delete the file
+# Remove clientId (null removes a setting), so the provider signs in with the system-assigned identity again
 echo "🔌 Authentication of $PROVIDER:"
-az aigateway model-provider update -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --foundry @foundry.json \
+az aigateway model-provider update -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" \
+  --foundry "{authentication:{managedIdentity:{clientId:null}}}" \
   --query properties.foundry.authentication
-rm foundry.json
 ```
 
 ```powershell title="PowerShell"
-# Read the provider's foundry settings, remove clientId, and save them in a local file
-$foundry = az aigateway model-provider show -g $RG --gateway-name $GATEWAY -n $PROVIDER --query properties.foundry `
-  -o json | ConvertFrom-Json
-$foundry.authentication.managedIdentity.PSObject.Properties.Remove('clientId')
-$foundry | ConvertTo-Json -Depth 10 -Compress | Set-Content foundry.json
-if ($?) { Write-Host "📄 foundry.json points the provider at the system-assigned identity" }
-
-# Send the whole foundry object back, show the provider's new authentication settings, and delete the file
+# Remove clientId (null removes a setting), so the provider signs in with the system-assigned identity again
 Write-Host "🔌 Authentication of ${PROVIDER}:"
-az aigateway model-provider update -g $RG --gateway-name $GATEWAY -n $PROVIDER --foundry "@foundry.json" `
+az aigateway model-provider update -g $RG --gateway-name $GATEWAY -n $PROVIDER `
+  --foundry "{authentication:{managedIdentity:{clientId:null}}}" `
   --query properties.foundry.authentication
-Remove-Item foundry.json
 ```
 
 The output no longer shows `clientId`.
@@ -14655,24 +14612,24 @@ az aigateway model policy set-token-limit -g $RG --gateway-name $GATEWAY --provi
 ### Publish the gpt-6-astra alias
 
 ```bash title="Bash"
-# Publish the gpt-6-astra alias, which Copilot sends in the model field, and show the model that it points at
+# Publish (or update) the gpt-6-astra alias, which Copilot sends in the model field, and show its target model
 echo "🔖 Alias $MODEL and its target model:"
-az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$MODEL" \
+az aigateway model-alias set -g "$RG" --gateway-name "$GATEWAY" -n "$MODEL" \
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" \
   --query "{alias:properties.aliasName, target:properties.backendModels[0].resourceId}"
 ```
 
 ```powershell title="PowerShell"
-# Publish the gpt-6-astra alias, which Copilot sends in the model field, and show the model that it points at
+# Publish (or update) the gpt-6-astra alias, which Copilot sends in the model field, and show its target model
 Write-Host "🔖 Alias $MODEL and its target model:"
-az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $MODEL `
+az aigateway model-alias set -g $RG --gateway-name $GATEWAY -n $MODEL `
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" `
   --query "{alias:properties.aliasName, target:properties.backendModels[0].resourceId}"
 ```
 
-The command warns that the service doesn't enforce atomic alias creation. That's expected: it only matters when
-two people create the same alias at the same time. If the alias already exists, `create` fails; change it with
-`az aigateway model-alias update` and the same arguments instead.
+`az aigateway model-alias set` creates the alias, or updates it if it exists, so you can run the step again. When
+it creates the alias, it warns that the service doesn't enforce atomic alias creation. That's expected: it only
+matters when two people create the same alias at the same time.
 
 ### Create the key for Copilot
 
@@ -16679,9 +16636,9 @@ az aigateway model create -g "$RG" --gateway-name "$GATEWAY" --provider-name "$P
   --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$DEPLOYMENT,modelName:$DEPLOYMENT}" -o none &&
   echo "✨ Model $DEPLOYMENT is published through $PROVIDER"
 
-# Build the model's resource ID, and publish the alias that apps send in the model field
+# Build the model's resource ID, and publish (or update) the alias that apps send in the model field
 MODEL_ID="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT"
-az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" \
+az aigateway model-alias set -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" \
   --backend-model resource-id="$MODEL_ID" --only-show-errors -o none &&
   echo "🔖 Alias $ALIAS is ready"
 ```
@@ -16700,15 +16657,14 @@ az aigateway model create -g $RG --gateway-name $GATEWAY --provider-name $PROVID
   --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$DEPLOYMENT,modelName:$DEPLOYMENT}" -o none
 if ($?) { Write-Host "✨ Model $DEPLOYMENT is published through $PROVIDER" }
 
-# Build the model's resource ID, and publish the alias that apps send in the model field
+# Build the model's resource ID, and publish (or update) the alias that apps send in the model field
 $MODEL_ID = "$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT"
-az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $ALIAS `
+az aigateway model-alias set -g $RG --gateway-name $GATEWAY -n $ALIAS `
   --backend-model resource-id="$MODEL_ID" --only-show-errors -o none
 if ($?) { Write-Host "🔖 Alias $ALIAS is ready" }
 ```
 
-If the alias already exists, `create` fails; change it with `az aigateway model-alias update` and the same
-arguments instead.
+`az aigateway model-alias set` creates the alias, or updates it if it exists, so you can run the step again.
 
 ### Create a runtime API key
 
@@ -19363,7 +19319,6 @@ Lab 22: [Route an alias across models by priority and weight](22-model-routing/R
 | Create the chat alias<br>Edit the alias<br>Update the priorities | "Weight must be a whole number from 1 to 100.", `Each target's weight must be a whole number from 1 to 100.`, or `weight must be between 1 and 100.` | A weight is `0`, negative, or above `100` | To stop traffic to a model, raise its priority number or remove it. |
 | Create the chat alias<br>Edit the alias<br>Update the priorities<br>Promote the new model | "Priority must be a whole number from 0 to 100.", `Each target's priority must be a whole number from 0 to 100.`, or `priority must be between 0 and 100.` | A priority is outside `0` to `100` | Use `0` for the preferred tier and higher numbers for the others. |
 | Create the chat alias<br>Update the priorities<br>Promote the new model | "Each backend model can appear only once." or `backendModels must not contain duplicate model identities.` | The same backend model is listed twice | Combine the entries and adjust the weight. |
-| Create the chat alias (Azure CLI) | `This model alias already exists; use model-alias update.` | You ran `az aigateway model-alias create` for an alias that exists | Run `az aigateway model-alias update` with the same arguments. |
 | Create the chat alias<br>Read the outputs and the key | All requests go to one model | The models have different priorities, so only the lowest number receives traffic | Give the models the same priority to split by weight. |
 | Create the chat alias<br>Read the outputs and the key<br>Promote the new model | `404` with `DeploymentNotFound` | The candidate backend model points to a Foundry deployment that doesn't exist | Create the deployment, or fix `deployment.resourceId` on the backend model. |
 | Count the requests again<br>Promote the new model | `429` from the preferred model | The preferred deployment is out of capacity, and the gateway returns the error | Retry in the client, add capacity, or spread traffic with weights at the same priority. |

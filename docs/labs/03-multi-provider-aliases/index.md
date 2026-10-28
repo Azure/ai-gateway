@@ -313,12 +313,11 @@ if ($?) { Write-Host "🔖 Alias support-chat is ready" }
 if ($?) { Write-Host "🔖 Alias $PROVIDER/$SMART_MODEL is ready" }
 ```
 
-On GitHub, open [alias.sh](infra/alias.sh) or [alias.ps1](infra/alias.ps1). For a new alias, each `put` runs a
-command like this. For an alias that already exists, it runs `az aigateway model-alias update` with the same
-arguments.
+On GitHub, open [alias.sh](infra/alias.sh) or [alias.ps1](infra/alias.ps1). Each `put` runs a command like this.
+`az aigateway model-alias set` creates the alias, or updates it if it already exists.
 
 ```text
-az aigateway model-alias create -g <resource-group> --gateway-name <gateway> -n support-chat \
+az aigateway model-alias set -g <resource-group> --gateway-name <gateway> -n support-chat \
   --routing-name support-chat \
   --backend-model resource-id=.../workspaces/default/modelProviders/anthropic/models/claude-haiku-5-5 \
   --policies '[]' --only-show-errors -o none

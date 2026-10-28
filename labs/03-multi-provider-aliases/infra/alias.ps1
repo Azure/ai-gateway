@@ -72,15 +72,13 @@ switch ($Action) {
     if ($TokensPerMinute -gt 0) {
       $policies = @(@{ type = 'tokenLimit'; count = $TokensPerMinute; period = 'minute'; counterKey = @('identity') })
     }
-    $name = Get-ExistingName $Alias
-    $verb = if ($name) { 'update' } else { 'create' }
-    if (-not $name) { $name = ConvertTo-ResourceName $Alias }
+    $name = Get-ResourceName $Alias
     $file = Join-Path (Get-Location) "alias-policies-$([guid]::NewGuid().ToString('N')).json"
     try {
       ConvertTo-Json -InputObject $policies -Depth 10 -Compress | Set-Content -Path $file
-      az aigateway model-alias $verb @aliasArgs -n $name --routing-name $Alias `
+      az aigateway model-alias set @aliasArgs -n $name --routing-name $Alias `
         --backend-model "resource-id=$(Get-ModelId)" --policies "@$file" --only-show-errors -o none
-      if ($LASTEXITCODE -ne 0) { throw "az aigateway model-alias $verb failed for alias '$Alias'." }
+      if ($LASTEXITCODE -ne 0) { throw "az aigateway model-alias set failed for alias '$Alias'." }
     }
     finally { Remove-Item -Path $file -ErrorAction SilentlyContinue }
     Format-Alias @(Get-AliasJson $name | ConvertFrom-Json)

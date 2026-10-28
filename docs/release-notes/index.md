@@ -90,6 +90,17 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
 - **October 28.** On the site, Safari no longer offers saved credit cards or contacts in **Your values**, such as on
   **Subscription ID**. The panel now focuses its close button when it opens instead of the first field, and
   password managers skip its fields too. Your saved values carry over.
+- **October 28.** The Azure CLI tracks need `aigateway` extension 1.0.0b15 or later, which the
+  [Setup guide](SETUP.md#install-the-aigateway-extension) installs. They publish aliases with
+  `az aigateway model-alias set`, which creates the alias or updates it, so you can run the step again (the
+  [quick start](quickstart/README.md#publish-the-model), labs [02](02-first-model-call/README.md#publish-an-alias),
+  [03](03-multi-provider-aliases/README.md#create-the-aliases), [18](18-private-networking/README.md),
+  [22](22-model-routing/README.md), [23](23-streaming-responses/README.md), and
+  [24](24-github-copilot-byok/README.md)). [Lab 01](01-provision-gateway/README.md#create-the-ai-gateway) passes
+  `--sku Consumption` and shows the SKU, [lab 06](06-token-limits/README.md#set-the-token-limit) shows that
+  `--token-counter-key` takes `Identity`, `IPAddress`, or both, like the portal's **Counter dimensions**, and
+  [lab 12](12-backend-identity/README.md#update-the-providers-authentication) changes only the provider's identity
+  with a partial `az aigateway model-provider update --foundry`, without reading and rewriting the whole provider.
 - **October 27.** Every Bicep + azd track is now a self-contained azd template, like the quick start's: clone the
   repo, run `azd up` in the lab's folder to create a new gateway with everything the lab needs, change its settings
   with `azd env set` and `azd provision`, and remove it all with `azd down --purge --force`

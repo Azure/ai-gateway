@@ -240,9 +240,9 @@ a `weight`. With more than one backend model, each entry needs both a priority a
 # Build the resource ID prefix of the provider's backend models, which each --backend-model entry uses
 export MODELS="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models"
 
-# Create the alias with both backend models at priority 0 and weights 80 and 20, then print each one's routing
+# Create or update the alias with both backend models at priority 0 and weights 80 and 20, then print the routing
 echo "🔖 Alias $ALIAS routes to:"
-az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" \
+az aigateway model-alias set -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" \
   --description "Canary: 80/20 between the current and the new model" \
   --backend-model resource-id="$MODELS/$PRIMARY" priority=0 weight=80 \
   --backend-model resource-id="$MODELS/$CANDIDATE" priority=0 weight=20 \
@@ -254,9 +254,9 @@ az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" \
 # Build the resource ID prefix of the provider's backend models, which each --backend-model entry uses
 $MODELS = "$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models"
 
-# Create the alias with both backend models at priority 0 and weights 80 and 20, then print each one's routing
+# Create or update the alias with both backend models at priority 0 and weights 80 and 20, then print the routing
 Write-Host "🔖 Alias $ALIAS routes to:"
-az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $ALIAS `
+az aigateway model-alias set -g $RG --gateway-name $GATEWAY -n $ALIAS `
   --description "Canary: 80/20 between the current and the new model" `
   --backend-model resource-id="$MODELS/$PRIMARY" priority=0 weight=80 `
   --backend-model resource-id="$MODELS/$CANDIDATE" priority=0 weight=20 `
@@ -264,8 +264,7 @@ az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $ALIAS `
   ConvertFrom-Json | ForEach-Object { '{0}  priority {1}  weight {2}' -f ($_.resourceId -split '/')[-1], $_.priority, $_.weight }
 ```
 
-If the alias already exists, `create` fails. Change it with `az aigateway model-alias update` and the same
-arguments instead.
+`az aigateway model-alias set` creates the alias, or updates it if it exists, so you can run the step again.
 
 > **Checkpoint**
 > The output shows `gpt-6-luna  priority 0  weight 80` and `gpt-6.1-sol  priority 0  weight 20`.

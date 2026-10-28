@@ -74,7 +74,7 @@ Before you create, change, or delete Azure resources, confirm the subscription a
 | Track | Marker id | How to use it |
 | :-- | :-- | :-- |
 | Portal | `portal` | Click-by-click steps in the AI Gateway portal. You can't run them from a shell, so guide the user through them one screen at a time. |
-| Azure CLI | `cli` | `az aigateway` commands (extension 1.0.0b14 or later), plus `az rest` calls to Azure Resource Manager for what the extension can't do yet, in Bash and PowerShell variants. This is the easiest track for an agent to run. |
+| Azure CLI | `cli` | `az aigateway` commands (extension 1.0.0b15 or later), plus `az rest` calls to Azure Resource Manager for what the extension can't do yet, in Bash and PowerShell variants. This is the easiest track for an agent to run. |
 | REST API | `rest` | Raw Azure Resource Manager requests, for users who script against the API themselves. |
 | Bicep + azd | `iac` | A self-contained azd template in the lab folder (`azure.yaml` and `infra/main.bicep`): clone the repo, run `azd up` in the lab folder to create a new resource group with its own gateway, model, and the lab's feature, read the outputs with `azd env get-value`, change settings with `azd env set` and `azd provision`, and delete everything with `azd down --purge --force`. Lab 09 labels its track **Policy as code** (JSON policies applied by a script), and lab 21 **Bicep** (`az deployment sub create` with parameter files). |
 | Code | `code` | Python, TypeScript, and .NET clients, and agent frameworks, calling the gateway at runtime. |
@@ -94,15 +94,17 @@ Before you create, change, or delete Azure resources, confirm the subscription a
   (display names; `az account list-locations` maps them to `--location` names), as in the Setup guide's
   **Find the available regions**. The portal can offer fewer regions than the CLI and Bicep. Templates that deploy
   Foundry models need a region where those models are available too.
-- The CLI track uses the `az aigateway` extension 1.0.0b14 or later (the Setup guide installs it) for gateways,
+- The CLI track uses the `az aigateway` extension 1.0.0b15 or later (the Setup guide installs it) for gateways,
   providers, models (`model create --deployment-config "{resourceId:…,modelName:…}"`), aliases, model policies
   (`model policy set-token-limit`, `set-content-safety`, `remove`), API keys, and MCP servers.
   `az aigateway api-key create` needs `--display-name`, secrets come from `api-key list-secrets`, rotation uses
-  `api-key regenerate --key-type primary|secondary`, and `model-alias create` fails when the alias exists, so use
-  `model-alias update`. `--token-counter-key` takes one value; for `[identity, ipAddress]`, use
-  `model update --policies`. The track keeps `az rest` for what the extension can't do yet: gateway and workspace
-  policies, telemetry exporters, MCP versions, tool rules and `failureMode`, network settings after creation, API
-  key `state`, and the connector gateway. Only connector-based MCP tools use the connector gateway: the CLI doesn't
+  `api-key regenerate --key-type primary|secondary`, and `model-alias set` creates an alias or updates the
+  existing one. `--token-counter-key` takes one or more values, such as `Identity IPAddress`.
+  `model-provider update --foundry` and `--custom` merge a partial JSON value into the provider's settings, and
+  `az aigateway create` and `update` take `--sku Consumption|Premium`. The track keeps `az rest` for what the
+  extension can't do yet: gateway and workspace policies, telemetry exporters, MCP versions, tool rules and
+  `failureMode`, network settings after creation, API key `state`, and the connector gateway. Only connector-based
+  MCP tools use the connector gateway: the CLI doesn't
   create it, the portal creates it when you first add a connector backend, and the quick start's CLI track skips it.
   Tracks that call `az rest` set `GATEWAY_ID` (from `az aigateway show`),
   `WS` (`https://management.azure.com$GATEWAY_ID/workspaces/default`), and `API`

@@ -472,10 +472,10 @@ lab 02, so clients that call that alias aren't affected.
 An alias carries its own `policies` array, so one command creates the alias and its limit together.
 
 ```bash title="Bash"
-# Create the streaming alias for the same backend model, with its own token limit of 1,000 tokens per minute
+# Create or update the streaming alias for the same backend model, with its own token limit of 1,000 tokens per minute
 # for each caller identity, and show the alias and its policies
 echo "🔖 Alias $STREAM_ALIAS and its policies:"
-az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$STREAM_ALIAS" \
+az aigateway model-alias set -g "$RG" --gateway-name "$GATEWAY" -n "$STREAM_ALIAS" \
   --description "Streaming lab: 1,000 tokens per minute for each caller" \
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" \
   --policies '[{"type": "tokenLimit", "count": 1000, "period": "minute", "counterKey": ["identity"]}]' \
@@ -489,9 +489,9 @@ ConvertTo-Json -Depth 10 -Compress -InputObject @(
   @{ type = "tokenLimit"; count = 1000; period = "minute"; counterKey = @("identity") }
 ) | Set-Content policies.json
 
-# Create the streaming alias for the same backend model, with that limit, and show the alias and its policies
+# Create or update the streaming alias for the same backend model, with that limit, and show it and its policies
 Write-Host "🔖 Alias $STREAM_ALIAS and its policies:"
-az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $STREAM_ALIAS `
+az aigateway model-alias set -g $RG --gateway-name $GATEWAY -n $STREAM_ALIAS `
   --description "Streaming lab: 1,000 tokens per minute for each caller" `
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" `
   --policies "@policies.json" `
@@ -499,8 +499,7 @@ az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $STREAM_ALIAS 
 Remove-Item policies.json
 ```
 
-If the alias already exists, `create` fails. Change it with `az aigateway model-alias update` and the same
-arguments instead.
+`az aigateway model-alias set` creates the alias, or updates it if it exists, so you can run the step again.
 
 > **Checkpoint**
 > The output shows your alias and one policy with `"type": "tokenLimit"`, `"count": 1000`, `"period": "minute"`,

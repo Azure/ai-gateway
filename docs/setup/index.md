@@ -124,7 +124,7 @@ az aigateway version
 
 > **Checkpoint**
 > The installer printed `📦 aigateway extension … is installed`, and `az aigateway version` prints the extension
-> version and the API version it calls, `2025-09-01-preview`. The labs need version `1.0.0b14` or later; run the
+> version and the API version it calls, `2025-09-01-preview`. The labs need version `1.0.0b15` or later; run the
 > installer again to upgrade an older one.
 
 > [!NOTE]

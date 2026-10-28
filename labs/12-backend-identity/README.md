@@ -836,41 +836,28 @@ switches it to your identity. Clients don't change: they keep calling the same a
 The portal picks the identity only when you import a Foundry account: the **Authentication method** step offers
 **Managed identity** with a choice of the system-assigned identity or any attached user-assigned identity, and
 grants the selected identity **Foundry User**. To switch a provider that already exists, run these Azure CLI
-commands, for example in [Azure Cloud Shell](https://shell.azure.com). They read the provider's `foundry`
-settings, set `clientId`, and write the settings back:
+command, for example in [Azure Cloud Shell](https://shell.azure.com). It sets `clientId` in the provider's
+`foundry` settings and keeps the rest:
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-# Read the provider's foundry settings, set clientId to your identity's client ID, and save them in a local file
-az aigateway model-provider show -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --query properties.foundry -o json \
-  | jq -c --arg c "$IDENTITY_CLIENT_ID" '.authentication.managedIdentity.clientId=$c' > foundry.json &&
-  echo "📄 foundry.json points the provider at client ID $IDENTITY_CLIENT_ID"
-
-# Send the whole foundry object back, show the provider's new authentication settings, and delete the file
+# Set clientId to your identity's client ID; the CLI merges it into the provider's other foundry settings
 echo "🔌 Authentication of $PROVIDER:"
-az aigateway model-provider update -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --foundry @foundry.json \
+az aigateway model-provider update -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" \
+  --foundry "{authentication:{managedIdentity:{clientId:$IDENTITY_CLIENT_ID}}}" \
   --query properties.foundry.authentication
-rm foundry.json
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-# Read the provider's foundry settings, set clientId to your identity's client ID, and save them in a local file
-$foundry = az aigateway model-provider show -g $RG --gateway-name $GATEWAY -n $PROVIDER --query properties.foundry `
-  -o json | ConvertFrom-Json
-$foundry.authentication.managedIdentity |
-  Add-Member -NotePropertyName clientId -NotePropertyValue $IDENTITY_CLIENT_ID -Force
-$foundry | ConvertTo-Json -Depth 10 -Compress | Set-Content foundry.json
-if ($?) { Write-Host "📄 foundry.json points the provider at client ID $IDENTITY_CLIENT_ID" }
-
-# Send the whole foundry object back, show the provider's new authentication settings, and delete the file
+# Set clientId to your identity's client ID; the CLI merges it into the provider's other foundry settings
 Write-Host "🔌 Authentication of ${PROVIDER}:"
-az aigateway model-provider update -g $RG --gateway-name $GATEWAY -n $PROVIDER --foundry "@foundry.json" `
+az aigateway model-provider update -g $RG --gateway-name $GATEWAY -n $PROVIDER `
+  --foundry "{authentication:{managedIdentity:{clientId:$IDENTITY_CLIENT_ID}}}" `
   --query properties.foundry.authentication
-Remove-Item foundry.json
 ```
 </details> <!-- gh -->
 
@@ -880,42 +867,28 @@ Remove-Item foundry.json
 
 ### Update the provider's authentication
 
-`--foundry` replaces the whole `foundry` object, so a value with only `authentication` fails. Read the current
-settings, set `clientId`, and send the whole object back. The endpoint and accounts stay
-as they are, and models are separate resources.
+`--foundry` takes only the settings to change: the CLI merges them into the provider's `foundry` settings. Set
+`clientId`, and the endpoint and accounts stay as they are. Models are separate resources, so they don't change.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-# Read the provider's foundry settings, set clientId to your identity's client ID, and save them in a local file
-az aigateway model-provider show -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --query properties.foundry -o json \
-  | jq -c --arg c "$IDENTITY_CLIENT_ID" '.authentication.managedIdentity.clientId=$c' > foundry.json &&
-  echo "📄 foundry.json points the provider at client ID $IDENTITY_CLIENT_ID"
-
-# Send the whole foundry object back, show the provider's new authentication settings, and delete the file
+# Set clientId to your identity's client ID; the CLI merges it into the provider's other foundry settings
 echo "🔌 Authentication of $PROVIDER:"
-az aigateway model-provider update -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --foundry @foundry.json \
+az aigateway model-provider update -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" \
+  --foundry "{authentication:{managedIdentity:{clientId:$IDENTITY_CLIENT_ID}}}" \
   --query properties.foundry.authentication
-rm foundry.json
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-# Read the provider's foundry settings, set clientId to your identity's client ID, and save them in a local file
-$foundry = az aigateway model-provider show -g $RG --gateway-name $GATEWAY -n $PROVIDER --query properties.foundry `
-  -o json | ConvertFrom-Json
-$foundry.authentication.managedIdentity |
-  Add-Member -NotePropertyName clientId -NotePropertyValue $IDENTITY_CLIENT_ID -Force
-$foundry | ConvertTo-Json -Depth 10 -Compress | Set-Content foundry.json
-if ($?) { Write-Host "📄 foundry.json points the provider at client ID $IDENTITY_CLIENT_ID" }
-
-# Send the whole foundry object back, show the provider's new authentication settings, and delete the file
+# Set clientId to your identity's client ID; the CLI merges it into the provider's other foundry settings
 Write-Host "🔌 Authentication of ${PROVIDER}:"
-az aigateway model-provider update -g $RG --gateway-name $GATEWAY -n $PROVIDER --foundry "@foundry.json" `
+az aigateway model-provider update -g $RG --gateway-name $GATEWAY -n $PROVIDER `
+  --foundry "{authentication:{managedIdentity:{clientId:$IDENTITY_CLIENT_ID}}}" `
   --query properties.foundry.authentication
-Remove-Item foundry.json
 ```
 </details> <!-- gh -->
 
@@ -1195,40 +1168,27 @@ identity in this order, so the provider never points at an identity it can't use
 
 ### Switch the provider back to the system-assigned identity
 
-Removing `clientId` selects the system-assigned identity again. As before, read the `foundry` settings, change
-them, and write them back:
+Removing `clientId` selects the system-assigned identity again. A `null` value removes a setting:
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-# Read the provider's foundry settings, remove clientId, and save them in a local file
-az aigateway model-provider show -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --query properties.foundry -o json \
-  | jq -c 'del(.authentication.managedIdentity.clientId)' > foundry.json &&
-  echo "📄 foundry.json points the provider at the system-assigned identity"
-
-# Send the whole foundry object back, show the provider's new authentication settings, and delete the file
+# Remove clientId (null removes a setting), so the provider signs in with the system-assigned identity again
 echo "🔌 Authentication of $PROVIDER:"
-az aigateway model-provider update -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --foundry @foundry.json \
+az aigateway model-provider update -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" \
+  --foundry "{authentication:{managedIdentity:{clientId:null}}}" \
   --query properties.foundry.authentication
-rm foundry.json
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-# Read the provider's foundry settings, remove clientId, and save them in a local file
-$foundry = az aigateway model-provider show -g $RG --gateway-name $GATEWAY -n $PROVIDER --query properties.foundry `
-  -o json | ConvertFrom-Json
-$foundry.authentication.managedIdentity.PSObject.Properties.Remove('clientId')
-$foundry | ConvertTo-Json -Depth 10 -Compress | Set-Content foundry.json
-if ($?) { Write-Host "📄 foundry.json points the provider at the system-assigned identity" }
-
-# Send the whole foundry object back, show the provider's new authentication settings, and delete the file
+# Remove clientId (null removes a setting), so the provider signs in with the system-assigned identity again
 Write-Host "🔌 Authentication of ${PROVIDER}:"
-az aigateway model-provider update -g $RG --gateway-name $GATEWAY -n $PROVIDER --foundry "@foundry.json" `
+az aigateway model-provider update -g $RG --gateway-name $GATEWAY -n $PROVIDER `
+  --foundry "{authentication:{managedIdentity:{clientId:null}}}" `
   --query properties.foundry.authentication
-Remove-Item foundry.json
 ```
 </details> <!-- gh -->
 

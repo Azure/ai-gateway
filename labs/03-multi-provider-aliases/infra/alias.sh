@@ -63,9 +63,8 @@ case "$ACTION" in
     POLICIES="$(jq -cn --arg tpm "$TPM" '
       if $tpm == "" then [] else
         [{type: "tokenLimit", count: ($tpm | tonumber), period: "minute", counterKey: ["identity"]}] end')"
-    NAME="$(existing_name "$ALIAS")"
-    if [ -n "$NAME" ]; then VERB="update"; else VERB="create"; NAME="$(new_name "$ALIAS")"; fi
-    az aigateway model-alias "$VERB" "${ALIAS_ARGS[@]}" -n "$NAME" --routing-name "$ALIAS" \
+    NAME="$(resource_name "$ALIAS")"
+    az aigateway model-alias set "${ALIAS_ARGS[@]}" -n "$NAME" --routing-name "$ALIAS" \
       --backend-model resource-id="$(model_id "$PROVIDER" "$MODEL")" --policies "$POLICIES" \
       --only-show-errors -o none
     show_json "$NAME" | print_table

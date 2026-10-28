@@ -1234,9 +1234,9 @@ az aigateway model create -g "$RG" --gateway-name "$GATEWAY" --provider-name "$P
   --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$DEPLOYMENT,modelName:$DEPLOYMENT}" -o none &&
   echo "✨ Model $DEPLOYMENT is published through $PROVIDER"
 
-# Build the model's resource ID, and publish the alias that apps send in the model field
+# Build the model's resource ID, and publish (or update) the alias that apps send in the model field
 MODEL_ID="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT"
-az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" \
+az aigateway model-alias set -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" \
   --backend-model resource-id="$MODEL_ID" --only-show-errors -o none &&
   echo "🔖 Alias $ALIAS is ready"
 ```
@@ -1258,16 +1258,15 @@ az aigateway model create -g $RG --gateway-name $GATEWAY --provider-name $PROVID
   --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$DEPLOYMENT,modelName:$DEPLOYMENT}" -o none
 if ($?) { Write-Host "✨ Model $DEPLOYMENT is published through $PROVIDER" }
 
-# Build the model's resource ID, and publish the alias that apps send in the model field
+# Build the model's resource ID, and publish (or update) the alias that apps send in the model field
 $MODEL_ID = "$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT"
-az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $ALIAS `
+az aigateway model-alias set -g $RG --gateway-name $GATEWAY -n $ALIAS `
   --backend-model resource-id="$MODEL_ID" --only-show-errors -o none
 if ($?) { Write-Host "🔖 Alias $ALIAS is ready" }
 ```
 </details> <!-- gh -->
 
-If the alias already exists, `create` fails; change it with `az aigateway model-alias update` and the same
-arguments instead.
+`az aigateway model-alias set` creates the alias, or updates it if it exists, so you can run the step again.
 
 ### Create a runtime API key
 

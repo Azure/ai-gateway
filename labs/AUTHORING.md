@@ -444,17 +444,18 @@ Keep the video optional: every step it shows must also be written in the lab.
   Gateway names have 24 characters or fewer, and the runtime URL is `https://` plus
   `properties.frontend.defaultHostname` (`<name>.<region>-01.ai.gateway.azure.com`).
 - Policy `counterKey` values are arrays: `counterKey: [ 'identity' ]` or `[ 'ipAddress' ]`.
-- CLI tracks use the `az aigateway` extension (1.0.0b14 or later, see
+- CLI tracks use the `az aigateway` extension (1.0.0b15 or later, see
   [Install the aigateway extension](SETUP.md#install-the-aigateway-extension)) for gateways, providers, models,
   aliases, model policies (`model policy set-token-limit`, `set-content-safety`, `remove`), API keys (including
   `api-key regenerate --key-type secondary`), and MCP servers. Call ARM with `az rest` only for what the extension
   can't do yet: gateway and workspace policies, telemetry exporters, MCP versions, tool rules and `failureMode`,
   network settings after creation, API key `state`, and the connector gateway. Say why in one sentence. Set
   `GATEWAY_ID` with `az aigateway show`, plus `WS` (`https://management.azure.com$GATEWAY_ID/workspaces/default`)
-  and `API` (`api-version=2025-09-01-preview`), only in tracks that still call `az rest`. `--token-counter-key`
-  takes one value; to count by `identity` and `ipAddress` together, pass the whole array with
-  `az aigateway model update --policies`. `PATCH` and `--policies` replace whole arrays such as
-  `properties.policies`, so read, edit, then write.
+  and `API` (`api-version=2025-09-01-preview`), only in tracks that still call `az rest`. Publish aliases with
+  `model-alias set`, which creates the alias or updates it, so a step can run again. `--token-counter-key` takes one
+  or more values (`Identity IPAddress`). `model-provider update --foundry` and `--custom` merge a partial JSON value
+  into the provider's settings. `PATCH` and `--policies` replace whole arrays such as `properties.policies`, so
+  read, edit, then write.
 - Parameterize names and locations; default `location` to `resourceGroup().location` in resource-group-scoped
   modules.
 - Mirror the structure of the existing labs: lab 06 for a Bicep + azd track (see [azd templates](#azd-templates)),

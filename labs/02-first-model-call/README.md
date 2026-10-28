@@ -402,8 +402,8 @@ deployment that points at the model you registered.
 export AI_GATEWAY_MODEL="$DEPLOYMENT"
 MODEL_ID="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT"
 
-# Publish the alias, which prints its name and the model that it points at
-az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$AI_GATEWAY_MODEL" \
+# Publish the alias, or update it if it exists, and print its name and the model that it points at
+az aigateway model-alias set -g "$RG" --gateway-name "$GATEWAY" -n "$AI_GATEWAY_MODEL" \
   --backend-model resource-id="$MODEL_ID" \
   --query "{alias:properties.aliasName, target:properties.backendModels[0].resourceId}" &&
   echo "🔖 Alias $AI_GATEWAY_MODEL is ready"
@@ -417,17 +417,17 @@ az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$AI_GATEW
 $env:AI_GATEWAY_MODEL = $DEPLOYMENT
 $MODEL_ID = "$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT"
 
-# Publish the alias, which prints its name and the model that it points at
-az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $env:AI_GATEWAY_MODEL `
+# Publish the alias, or update it if it exists, and print its name and the model that it points at
+az aigateway model-alias set -g $RG --gateway-name $GATEWAY -n $env:AI_GATEWAY_MODEL `
   --backend-model resource-id="$MODEL_ID" `
   --query "{alias:properties.aliasName, target:properties.backendModels[0].resourceId}"
 if ($?) { Write-Host "🔖 Alias $env:AI_GATEWAY_MODEL is ready" }
 ```
 </details> <!-- gh -->
 
-The command warns that the service doesn't enforce atomic alias creation. That's expected: it only matters when
-two people create the same alias at the same time. If the alias already exists, `create` fails; change it with
-`az aigateway model-alias update` and the same arguments instead.
+`az aigateway model-alias set` creates the alias, or updates it if it exists, so you can run the step again. When
+it creates the alias, it warns that the service doesn't enforce atomic alias creation. That's expected: it only
+matters when two people create the same alias at the same time.
 
 ### Create a runtime API key
 

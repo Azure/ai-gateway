@@ -232,8 +232,8 @@ if ($?) { Write-Host "🔐 Token limit of 1,000 tokens per minute is on $MODEL" 
 </details> <!-- gh -->
 
 The command prints the model's policies. `--token-period` accepts `minute` (the default), `hour`, or `day`.
-`--token-counter-key` accepts `Identity` (the default) or `IPAddress`. To count by both, as the portal's
-**Counter dimensions** allows, use the **REST API** track.
+`--token-counter-key` accepts `Identity` (the default), `IPAddress`, or both, as the portal's **Counter dimensions**
+allows: `--token-counter-key Identity IPAddress` gives each caller identity and IP address its own counter.
 
 ### Confirm the policy
 
