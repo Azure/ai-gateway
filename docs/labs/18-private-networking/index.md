@@ -39,18 +39,19 @@ while the internet can't.
 
 ## Before you begin
 
+<!-- setup: tools sign-in extension providers clone -->
+
 > [!TIP]
 > On the **Bicep + azd** track, `azd up` creates its own resource group, network, gateway, and a Foundry resource with
-> `gpt-6-luna` that only this lab uses, so you can skip this section, including the variables. You need only
-> [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands).
+> `gpt-6-luna` that only this lab uses, so you can skip this section, including the variables. You need only the
+> one-time setup above.
 
 - Complete [Provision your AI Gateway](../01-provision-gateway/README.md) and
   [Call backends with managed identities](../12-backend-identity/README.md). You need a Foundry resource with a
   chat model deployment, for example `gpt-6-luna`.
 - Private routing can only be chosen when a gateway is created, so this lab creates a **new** gateway. The
   gateway from the earlier labs stays as it is.
-- The Azure CLI with the [`aigateway` extension](../SETUP.md#install-the-aigateway-extension),
-  [signed in](../SETUP.md#sign-in-to-azure), and `jq` for the Bash snippets. Every track uses the CLI for the checks.
+- Every track uses the Azure CLI for the checks.
 - Permission to create a resource group, network resources, and a gateway, to change the Foundry resource, and
   to assign roles on it, for example **Owner**, or **Contributor** plus **Role Based Access Control
   Administrator**.
@@ -262,22 +263,8 @@ az network vnet subnet create -g "$RG" --vnet-name "$VNET" -n "$PE_SUBNET" --add
 
 <!-- track: iac | Bicep + azd -->
 
-**What you need:** [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands) with the
-[`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure). This
-track doesn't use your gateway or Foundry resource from the earlier labs: `azd up` creates new ones, so it works on
-its own.
-
-### Clone the lab
-
-The lab is a small azd project in the
-[`labs/18-private-networking`](https://github.com/Azure/ai-gateway/tree/main/labs/18-private-networking) folder.
-[Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
-
-```bash title="Bash or PowerShell"
-# Move into the lab's folder, which holds the azd project
-cd ~/ai-gateway/labs/18-private-networking &&
-  echo "📂 Lab folder: ~/ai-gateway/labs/18-private-networking"
-```
+**What you need:** only the one-time setup from **Before you begin**. This track doesn't use your gateway or Foundry
+resource from the earlier labs: `azd up` creates new ones, so it works on its own.
 
 ### Review the templates
 
@@ -413,10 +400,14 @@ if ($?) { Write-Host "🚀 Gateway $GATEWAY is ready, with private routing throu
 
 ### Deploy with azd up
 
-In the `ai-gateway/labs/18-private-networking` folder, create an azd environment named `aigw-lab18` in your
-current subscription, then provision everything. It takes about seven minutes.
+Move into the lab's folder, create an azd environment named `aigw-lab18` in your current subscription, then provision
+everything. It takes about seven minutes.
 
 ```bash title="Bash"
+# Move into the lab's folder, which holds the azd project
+cd ~/ai-gateway/labs/18-private-networking &&
+  echo "📂 Lab folder: $(pwd)"
+
 # Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab18 --location eastus2 --subscription "$(az account show --query id --output tsv)" &&
   echo "📝 azd environment aigw-lab18 deploys to eastus2"
@@ -427,6 +418,10 @@ azd up &&
 ```
 
 ```powershell title="PowerShell"
+# Move into the lab's folder, which holds the azd project
+Set-Location ~/ai-gateway/labs/18-private-networking
+if ($?) { Write-Host "📂 Lab folder: $(Get-Location)" }
+
 # Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab18 --location eastus2 --subscription (az account show --query id --output tsv)
 if ($?) { Write-Host "📝 azd environment aigw-lab18 deploys to eastus2" }

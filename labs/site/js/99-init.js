@@ -9,6 +9,7 @@ function boot() {
   run('tracks', initTracks);
   run('codeTabs', initCodeTabs);
   run('steps', initSteps);
+  run('setup', initSetup);
   run('pathBanner', initPathBanner);
   run('toc', initToc);
   run('lightbox', initLightbox);
@@ -20,7 +21,10 @@ function boot() {
   run('widgets', () => renderWidgets(document));
   run('labLinks', updateLabLinks);
   run('mermaid', () => { initMermaid(); });
-  addEventListener('storage', (e) => { if (e.key === 'aigw-progress') { if (LAB) updateProgressUI(); else updateLabLinks(); } });
+  addEventListener('storage', (e) => {
+    if (e.key === 'aigw-progress') { if (LAB) updateProgressUI(); else updateLabLinks(); }
+    if (e.key === 'aigw-setup') updateSetupUI();
+  });
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
 else boot();

@@ -30,6 +30,13 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
   **Open the portal**, and the labs link to its sections instead of repeating the steps, so they're shorter. Labs
   that run scripts or samples from `infra/` now say to clone the repo first. The
   [quick start](quickstart/README.md) keeps its steps inline, so it stays paste-ready in Cloud Shell.
+- **October 28.** On the site, the [Setup guide](SETUP.md) now opens in a panel next to the lab, like
+  **Your values**, from the right rail, the lab's header, or any link to one of its tasks. Mark a task **Done** in
+  the panel or on the guide's page, and the labs stop listing it. Each lab's **Before you begin** starts with a
+  **One-time setup** card that lists only the tasks it needs and that you haven't done yet, so the labs no longer
+  repeat tool lists, sign-in, or a **Clone the lab** step: the **Bicep + azd** tracks start by moving into the lab's
+  folder. Checking a [quick start](quickstart/README.md) step that installs the extension, registers the providers,
+  or clones the repo marks those tasks done too.
 - **October 28.** A new [Troubleshooting](TROUBLESHOOTING.md) page collects the errors from every lab, with their
   likely causes and fixes, in one section per lab, plus
   [Setup and deployment](TROUBLESHOOTING.md#setup-and-deployment).
@@ -61,9 +68,9 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
 - **October 27.** Every Bicep + azd track is now a self-contained azd template, like the quick start's: clone the
   repo, run `azd up` in the lab's folder to create a new gateway with everything the lab needs, change its settings
   with `azd env set` and `azd provision`, and remove it all with `azd down --purge --force`
-  ([lab 06](06-token-limits/README.md#clone-the-lab) shows the pattern). Labs [01](01-provision-gateway/README.md),
-  [02](02-first-model-call/README.md), [04](04-federate-mcp-tools/README.md), [06](06-token-limits/README.md),
-  [11](11-entra-rbac/README.md), [12](12-backend-identity/README.md), [13](13-monitoring/README.md),
+  ([lab 06](06-token-limits/README.md#deploy-with-azd-up) shows the pattern). Labs
+  [01](01-provision-gateway/README.md), [02](02-first-model-call/README.md), [04](04-federate-mcp-tools/README.md),
+  [06](06-token-limits/README.md), [11](11-entra-rbac/README.md), [12](12-backend-identity/README.md), [13](13-monitoring/README.md),
   [18](18-private-networking/README.md), [22](22-model-routing/README.md), [23](23-streaming-responses/README.md),
   and [24](24-github-copilot-byok/README.md) move to it, and labs [03](03-multi-provider-aliases/README.md),
   [05](05-mcp-tool-controls/README.md), [07](07-cost-budgets/README.md), [08](08-content-safety/README.md),

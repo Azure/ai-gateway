@@ -31,6 +31,8 @@ governed and observable in the same place.
 
 ## Before you begin
 
+<!-- setup: tools clone -->
+
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need the
   gateway URL, a callable alias, and a runtime key. Create a dedicated key for this agent under **Access** ›
   **Keys**, for example `docs-agent`, so its traffic is easy to find.
@@ -39,8 +41,7 @@ governed and observable in the same place.
 - Python 3.10 or later. The samples were tested together on Python 3.13 with the versions in
   [infra/requirements.txt](infra/requirements.txt).
 - Optional: monitoring from [Monitor usage, cost, and traces](../13-monitoring/README.md), to see the agent's calls.
-- For the scripts and samples: the labs repo, [cloned](../SETUP.md#clone-the-labs-repo). Run them from the lab
-  folder, `~/ai-gateway/labs/15-agent-frameworks`.
+- Run the scripts and samples from the lab's folder, `~/ai-gateway/labs/15-agent-frameworks`.
 
 ## How it works
 

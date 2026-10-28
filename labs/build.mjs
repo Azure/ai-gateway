@@ -11,6 +11,7 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { initHighlighter, renderLab, escapeHtml } from './site/markdown.mjs';
 import { parseLab, stripGitHub, syncLab, syncIndex, syncSkill, findVideo } from './site/github.mjs';
+import { readSetupTasks, inlineMd } from './site/setup.mjs';
 import { layout, homePage, catalogPage, labPage, releaseNotesPage, setupPage, troubleshootingPage, notFoundPage } from './site/templates.mjs';
 
 const LABS = path.dirname(fileURLToPath(import.meta.url));
@@ -31,6 +32,8 @@ const REQUIRED = ['title', 'summary', 'category', 'level', 'duration', 'tracks',
 
 const warnings = [];
 const warn = (msg) => warnings.push(msg);
+// The Setup guide's tasks, which the <!-- setup: … --> directives list. Read from SETUP.md at the start of a build.
+let setupTasks = [];
 
 function rmGenerated() {
   fs.mkdirSync(OUT, { recursive: true });
@@ -55,7 +58,8 @@ function write(rel, content) {
 }
 
 // A lab folder with a root azure.yaml is an azd template. azd can't init from a repo subfolder, so the lab runs azd
-// in labs/<slug> of a clone: it either clones the repo itself or links to the setup guide's clone step. A code block
+// in labs/<slug> of a clone: it either clones the repo itself, lists the setup guide's clone task in a
+// <!-- setup: … --> checklist, or links to that task. A code block
 // must move into the lab folder, and a clone block must move into it too and use the site's branch: the default
 // branch, or --branch with that name.
 function checkTemplate(lab, site) {
@@ -64,8 +68,9 @@ function checkTemplate(lab, site) {
   const cd = new RegExp(`\\b(?:cd|Set-Location)\\s+\\S*${folder}\\s*(?:&&\\s*)?$`, 'm');
   const blocks = [...lab.content.matchAll(/^```[^\n]*\n([\s\S]*?)^```/gm)].map((m) => m[1]);
   const clones = blocks.filter((b) => /\bgit clone\b/.test(b) && b.includes(site.repo));
-  if (!clones.length && !lab.content.includes('SETUP.md#clone-the-labs-repo')) {
-    warn(`${lab.slug}: has an azd template, but neither clones ${site.repo} nor links to SETUP.md#clone-the-labs-repo`);
+  const listsClone = /^<!--\s*setup:[^>]*\bclone\b[^>]*-->/m.test(lab.content);
+  if (!clones.length && !listsClone && !lab.content.includes('SETUP.md#clone-the-labs-repo')) {
+    warn(`${lab.slug}: has an azd template, but doesn't clone ${site.repo}, list the clone setup task, or link to SETUP.md#clone-the-labs-repo`);
   }
   if (!blocks.some((b) => cd.test(b))) warn(`${lab.slug}: has an azd template, but no code block moves into ${folder}`);
   for (const b of clones) {
@@ -158,6 +163,8 @@ function makeCtx(lab, site, knownSlugs, { labsPrefix = '../' } = {}) {
   const ctx = {
     labDir: lab.dir,
     media,
+    setupTasks,
+    setupHref(id) { return this.resolveLink(`${path.relative(lab.dir, SETUP).split(path.sep).join('/')}#${id}`).url; },
     ghBlob: (file) => `${ghBase}/labs/${lab.slug}/${file}`,
     resolveAsset(href) {
       if (/^(https?:)?\/\//.test(href) || href.startsWith('data:')) return href;
@@ -237,7 +244,7 @@ function syncSources(labs, catalog, { check = false } = {}) {
   const stale = [];
   for (const lab of labs) {
     const file = path.join(lab.dir, 'README.md');
-    const next = syncLab(lab.source, { lab, labs, catalog, site });
+    const next = syncLab(lab.source, { lab, labs, catalog, site, setupTasks });
     if (next === lab.source) continue;
     stale.push(path.relative(ROOT, file));
     if (!check) { fs.writeFileSync(file, next); lab.source = next; }
@@ -376,6 +383,8 @@ export async function build({ strict = false } = {}) {
   const catalog = JSON.parse(fs.readFileSync(path.join(LABS, 'catalog.json'), 'utf8'));
   const ogVersion = createHash('sha256').update(fs.readFileSync(path.join(SITE_SRC, 'og-image.jpg'))).digest('hex').slice(0, 8);
   const site = { ...catalog.site, baseUrl: BASE_URL, ogVersion };
+  setupTasks = readSetupTasks(SETUP);
+  for (const t of setupTasks) if (!t.when) warn(`SETUP.md: the task table has no row for #${t.id} (setup task "${t.key}")`);
   const labs = loadLabs(catalog);
   const known = new Set(labs.map((l) => l.slug));
   syncSources(labs, catalog, { check: strict });
@@ -394,6 +403,7 @@ export async function build({ strict = false } = {}) {
   const shared = {
     labs: labs.map((l) => ({ slug: l.slug, num: l.num, title: l.title, short: l.short })),
     paths: catalog.paths.map((p) => ({ id: p.id, title: p.title, labs: p.labs.filter((s) => known.has(s)) })),
+    setup: setupTasks.map((t) => ({ key: t.key, id: t.id, title: inlineMd(t.title), when: inlineMd(t.when), check: t.check || undefined })),
   };
 
   // Labs
@@ -514,6 +524,7 @@ const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPat
 if (isMain) {
   if (process.argv.includes('--sync')) {
     const catalog = JSON.parse(fs.readFileSync(path.join(LABS, 'catalog.json'), 'utf8'));
+    setupTasks = readSetupTasks(SETUP);
     const stale = syncSources(loadLabs(catalog), catalog);
     if (!stale.length) console.log('Lab READMEs are in sync.');
     for (const w of warnings) console.warn(`  - ${w}`);

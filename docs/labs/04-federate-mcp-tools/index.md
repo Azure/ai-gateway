@@ -29,9 +29,11 @@ Learn MCP server, so agents get tools through the same front door they already u
 
 ## Before you begin
 
+<!-- setup: tools sign-in extension clone -->
+
 > [!TIP]
 > On the **Bicep + azd** track, `azd up` creates its own gateway, the `learn` MCP server, and a key, so you can skip
-> this section. You need only [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands).
+> this section. You need only the one-time setup above.
 
 - Complete [Provision your AI Gateway](../01-provision-gateway/README.md).
 - A runtime API key, for example `app-first-call` from [lab 02](../02-first-model-call/README.md). If you don't have
@@ -40,13 +42,9 @@ Learn MCP server, so agents get tools through the same front door they already u
   `az aigateway api-key create -g "$RG" --gateway-name "$GATEWAY" -n app-first-call --display-name app-first-call`
   and read its value with
   `az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n app-first-call --query primaryKey -o tsv`.
-- For the CLI track: the Azure CLI with the [`aigateway` extension](../SETUP.md#install-the-aigateway-extension),
-  [signed in](../SETUP.md#sign-in-to-azure), and `jq` for the Bash snippets.
-- For the **Verify** scripts: `curl` and `jq` (Bash) or PowerShell 7 or later. The Code track also uses
-  Python 3.10 or later and, optionally, VS Code.
+- For the Code track: Python 3.10 or later and, optionally, VS Code.
 - Permission to change the gateway, for example **Contributor** on the resource group.
-- For the scripts and samples: the labs repo, [cloned](../SETUP.md#clone-the-labs-repo). Run them from the lab
-  folder, `~/ai-gateway/labs/04-federate-mcp-tools`.
+- Run the scripts and samples from the lab's folder, `~/ai-gateway/labs/04-federate-mcp-tools`.
 
 Set these variables once. Every track and the **Verify** section reuse them.
 
@@ -230,21 +228,8 @@ az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn --query "prope
 
 <!-- track: iac | Bicep + azd -->
 
-**What you need:** [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands) with the
-[`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure). This
-track doesn't use your gateway from lab 01: `azd up` creates a new one, so it works on its own.
-
-### Clone the lab
-
-The lab is a small azd project in the
-[`labs/04-federate-mcp-tools`](https://github.com/Azure/ai-gateway/tree/main/labs/04-federate-mcp-tools) folder.
-[Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
-
-```bash title="Bash or PowerShell"
-# Move into the lab's folder, which holds the azd project
-cd ~/ai-gateway/labs/04-federate-mcp-tools &&
-  echo "📂 Lab folder: ~/ai-gateway/labs/04-federate-mcp-tools"
-```
+**What you need:** only the one-time setup from **Before you begin**. This track doesn't use your gateway from lab 01:
+`azd up` creates a new one, so it works on its own.
 
 ### Review the templates
 
@@ -269,10 +254,14 @@ the module on its own to a gateway you already have, with `az deployment group c
 
 ### Deploy with azd up
 
-Create an azd environment named `aigw-lab04` in your current subscription, then provision everything. It takes
-about three minutes.
+Move into the lab's folder, create an azd environment named `aigw-lab04` in your current subscription, then provision
+everything. It takes about three minutes.
 
 ```bash title="Bash"
+# Move into the lab's folder, which holds the azd project
+cd ~/ai-gateway/labs/04-federate-mcp-tools &&
+  echo "📂 Lab folder: $(pwd)"
+
 # Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab04 --location eastus2 --subscription "$(az account show --query id --output tsv)" &&
   echo "📝 azd environment aigw-lab04 deploys to eastus2"
@@ -283,6 +272,10 @@ azd up &&
 ```
 
 ```powershell title="PowerShell"
+# Move into the lab's folder, which holds the azd project
+Set-Location ~/ai-gateway/labs/04-federate-mcp-tools
+if ($?) { Write-Host "📂 Lab folder: $(Get-Location)" }
+
 # Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab04 --location eastus2 --subscription (az account show --query id --output tsv)
 if ($?) { Write-Host "📝 azd environment aigw-lab04 deploys to eastus2" }

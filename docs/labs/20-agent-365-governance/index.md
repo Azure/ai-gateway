@@ -33,6 +33,8 @@ enforce each decision on live traffic.
 
 ## Before you begin
 
+<!-- setup: tools sign-in extension clone -->
+
 - Complete [Federate MCP tools behind one endpoint](../04-federate-mcp-tools/README.md) and
   [Control which tools agents can call](../05-mcp-tool-controls/README.md). This lab governs the `learn` MCP
   server, and you edit its **Tool availability** the same way you did in lab 05.
@@ -41,11 +43,7 @@ enforce each decision on live traffic.
   Azure permissions of their own.
 - Permission to edit the MCP server in the AI Gateway portal, for example **Contributor** on the gateway's resource
   group, and a runtime API key from **Access** › **Keys**.
-- For the test script: `curl` and `jq` (Bash) or PowerShell 7 or later. Get the gateway URL from the portal or with
-  the Azure CLI and the [`aigateway` extension](../SETUP.md#install-the-aigateway-extension),
-  [signed in](../SETUP.md#sign-in-to-azure).
-- For the scripts and samples: the labs repo, [cloned](../SETUP.md#clone-the-labs-repo). Run them from the lab
-  folder, `~/ai-gateway/labs/20-agent-365-governance`.
+- Run the scripts and samples from the lab's folder, `~/ai-gateway/labs/20-agent-365-governance`.
 
 > [!NOTE]
 > The Agent 365 integration is an emerging capability. Labels and behavior can change; see the

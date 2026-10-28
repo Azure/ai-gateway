@@ -45,9 +45,10 @@ When the workspace is a clone of `Azure/ai-gateway`, read `labs/<slug>/README.md
    model, an alias, and a runtime key with lab 02's names, so labs 03 onward work on it. Then suggest the 30-minute
    essentials path.
 2. **Read the whole lab** before you run anything. **Before you begin** lists the tools, Azure roles, regions, and
-   billable resources. Labs link to the Setup guide (`../SETUP.md#<section>`) for shared tasks, such as installing
-   the `aigateway` extension or cloning the repo, instead of repeating them; read the linked section and run it
-   when the user hasn't done it yet.
+   billable resources. Its first line, `<!-- setup: <keys> -->`, lists the one-time tasks of the Setup guide that the
+   lab needs (`permissions`, `tools`, `sign-in`, `extension`, `providers`, `regions`, `clone`), and the region below
+   it links to each one (`../SETUP.md#<section>`). The lab doesn't repeat them, so read each linked section and run
+   it when the user hasn't done it yet. Bicep + azd tracks expect the repo cloned to `~/ai-gateway`.
 3. **Choose one track.** A track starts at `<!-- track: <id> | <label> -->`, and the group of tracks ends at
    `<!-- /tracks -->`. On GitHub, each track is a collapsible `<details>` section. Follow only the chosen track.
    Sections outside the track markers, such as **Verify** and **Clean up**, apply to every track. A track can end

@@ -503,6 +503,7 @@ export function labPage({ rel, site, catalog, labs, lab, html, toc, prev, next }
       </div>
       <div class="lab-actions">
         <button class="btn btn-secondary btn-sm" type="button" data-values-open>${I.sliders}Your values</button>
+        <button class="btn btn-secondary btn-sm" type="button" data-setup-open>${I.wrench}Setup guide<span class="setup-badge" data-setup-badge hidden></span></button>
         <button class="btn btn-ghost btn-sm" type="button" data-copy-md="index.md">${I.markdown}Copy as Markdown</button>${lab.video ? `
         <a class="btn btn-ghost btn-sm" href="#${lab.video.id}" title="${esc(lab.video.title)}">${I.play}Watch video</a>` : ''}${notebookUrl ? `
         <a class="btn btn-ghost btn-sm" href="${notebookUrl}" target="_blank" rel="noopener" title="Run this lab end to end in Jupyter">${I.notebook}Notebook</a>` : ''}
@@ -542,7 +543,7 @@ ${html}
       <ul class="toc-list">${toc.map((t) => `<li><a href="#${t.id}" data-toc="${t.id}">${esc(t.text)}</a></li>`).join('')}</ul>
       <div class="toc-help">
         <button class="toc-tool" type="button" data-values-open>${I.sliders}<span>Your values</span></button>
-        <a class="toc-tool" href="${rel}setup/" title="Permissions, tools, sign-in, the aigateway extension, regions, the labs repo, and azd">${I.wrench}<span>Setup guide</span></a>
+        <a class="toc-tool" href="${rel}setup/" title="The one-time tasks: permissions, tools, sign-in, the aigateway extension, regions, the labs repo, and azd">${I.wrench}<span>Setup guide</span><span class="setup-badge" data-setup-badge hidden></span></a>
         ${lab.troubleshooting ? `<a class="toc-tool" href="${rel}troubleshooting/#${lab.troubleshooting}" title="The errors you might hit in this lab, with their likely causes and fixes">${I.lifebuoy}<span>Troubleshooting</span></a>` : ''}
         <a class="toc-tool" href="${site.portal}" target="_blank" rel="noopener">${I.portal}<span>Open the portal</span></a>
         <a class="toc-tool" href="${site.docs}" target="_blank" rel="noopener">${I.book}<span>Product docs</span></a>
@@ -614,8 +615,9 @@ ${before}${html}
 export function setupPage({ rel, site, html, toc }) {
   return guidePage({
     rel, site, cls: 'setup', title: 'Setup guide', file: 'SETUP.md', html, toc,
-    lead: 'The one-time tasks that every lab builds on: permissions, tools, sign-in, the <code>aigateway</code> extension, resource providers, regions, the labs repo, and the azd workflow. Each lab links here instead of repeating them.',
-    cta: `<button class="btn btn-primary btn-sm" type="button" data-values-open>${I.sliders}<span>Set your values</span></button>`,
+    lead: 'The one-time tasks that every lab builds on: permissions, tools, sign-in, the <code>aigateway</code> extension, resource providers, regions, the labs repo, and the azd workflow. Do each one once, and mark it done.',
+    cta: `<span class="setup-pill setup-pill-hero" data-setup-pill hidden></span>
+        <button class="btn btn-primary btn-sm" type="button" data-values-open>${I.sliders}<span>Set your values</span></button>`,
   });
 }
 

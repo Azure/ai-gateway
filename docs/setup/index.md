@@ -1,8 +1,9 @@
 # Setup guide
 
-The tasks that the labs share, in one place. Do each one once: every lab links back here for the ones it needs, so
-the labs themselves stay short. On the labs site, set **Your values** first, and the commands below fill in your
-subscription, tenant, and region.
+The tasks that the labs share, in one place. Do each one once: every lab lists the ones it needs under **Before you
+begin** and links back here, so the labs themselves stay short. On the labs site, set **Your values** first, and the
+commands below fill in your subscription, tenant, and region. The site also opens this guide in a panel from any lab,
+and you can mark each task **Done**: the labs then stop listing it. Your browser keeps the marks.
 
 | Task | When you need it |
 | :-- | :-- |

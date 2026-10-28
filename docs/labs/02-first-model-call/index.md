@@ -29,10 +29,11 @@ Foundry credential.
 
 ## Before you begin
 
+<!-- setup: tools sign-in extension clone -->
+
 > [!TIP]
 > On the **Bicep + azd** track, `azd up` creates its own gateway, Foundry account, model, and key, so you can skip
-> this section. You need only [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands), plus the
-> language runtime for the code track if you follow it.
+> this section. You need only the one-time setup above, plus the language runtime for the code track if you follow it.
 
 - Complete [Provision your AI Gateway](../01-provision-gateway/README.md). You need the gateway, its resource
   group, and its runtime URL.
@@ -41,12 +42,8 @@ Foundry credential.
 - Permission to grant the gateway access to the account: **Owner**, **User Access Administrator**, or **Role
   Based Access Control Administrator** on the Foundry account. You also need to change the gateway, for example
   **Contributor** on its resource group.
-- For the CLI track and the **Verify** steps: the Azure CLI with the
-  [`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure), and
-  `jq` for the Bash snippets.
 - For the code track: Python 3.9 or later, Node.js 22.18 or later, or the .NET 8 SDK.
-- For the scripts and samples: the labs repo, [cloned](../SETUP.md#clone-the-labs-repo). Run them from the lab
-  folder, `~/ai-gateway/labs/02-first-model-call`.
+- Run the scripts and samples from the lab's folder, `~/ai-gateway/labs/02-first-model-call`.
 
 Set these variables once. Every track and the **Verify** section reuse them.
 
@@ -397,22 +394,9 @@ Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) c
 
 <!-- track: iac | Bicep + azd -->
 
-**What you need:** [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands) with the
-[`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure). The
-template assigns a role, so you need **Owner** on the subscription, or **Contributor** and **Role Based Access Control
-Administrator**. This track doesn't use your gateway from lab 01: `azd up` creates a new one, so it works on its own.
-
-### Clone the lab
-
-The lab is a small azd project in the
-[`labs/02-first-model-call`](https://github.com/Azure/ai-gateway/tree/main/labs/02-first-model-call) folder.
-[Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
-
-```bash title="Bash or PowerShell"
-# Move into the lab's folder, which holds the azd project
-cd ~/ai-gateway/labs/02-first-model-call &&
-  echo "📂 Lab folder: ~/ai-gateway/labs/02-first-model-call"
-```
+**What you need:** the one-time setup from **Before you begin**. The template assigns a role, so you need **Owner** on
+the subscription, or **Contributor** and **Role Based Access Control Administrator**. This track doesn't use your
+gateway from lab 01: `azd up` creates a new one, so it works on its own.
 
 ### Review the templates
 
@@ -439,10 +423,14 @@ can also deploy it on its own to a gateway you already have, with `az deployment
 
 ### Deploy with azd up
 
-Create an azd environment named `aigw-lab02` in your current subscription, then provision everything. It takes
-about three minutes.
+Move into the lab's folder, create an azd environment named `aigw-lab02` in your current subscription, then provision
+everything. It takes about three minutes.
 
 ```bash title="Bash"
+# Move into the lab's folder, which holds the azd project
+cd ~/ai-gateway/labs/02-first-model-call &&
+  echo "📂 Lab folder: $(pwd)"
+
 # Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab02 --location eastus2 --subscription "$(az account show --query id --output tsv)" &&
   echo "📝 azd environment aigw-lab02 deploys to eastus2"
@@ -453,6 +441,10 @@ azd up &&
 ```
 
 ```powershell title="PowerShell"
+# Move into the lab's folder, which holds the azd project
+Set-Location ~/ai-gateway/labs/02-first-model-call
+if ($?) { Write-Host "📂 Lab folder: $(Get-Location)" }
+
 # Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab02 --location eastus2 --subscription (az account show --query id --output tsv)
 if ($?) { Write-Host "📝 azd environment aigw-lab02 deploys to eastus2" }

@@ -61,8 +61,10 @@ has no separate call, verify, or clean up section. Teach the details in labs 00 
 
 ### The Setup guide
 
-[`SETUP.md`](SETUP.md) holds the tasks that every lab shares, and the site renders it at `/setup/`. Each lab's
-right rail links to it, between **Your values** and **Open the portal**. Its sections are:
+[`SETUP.md`](SETUP.md) holds the tasks that every lab shares, and the site renders it at `/setup/` and in a panel
+that slides in like **Your values**. The lab's right rail and its header open the panel, and so does any link to a
+Setup guide section. Readers mark each task **Done** in the panel or on the page, and the browser remembers the marks
+(`localStorage` key `aigw-setup`). Its sections are:
 
 - Check your subscription and permissions
 - Choose where to run commands
@@ -73,10 +75,36 @@ right rail links to it, between **Your values** and **Open the portal**. Its sec
 - Clone the labs repo
 - Deploy a lab with azd, and Delete what azd created
 
-Link to a section, such as `../SETUP.md#install-the-aigateway-extension`, instead of repeating its steps in a
-lab. Keep only what's specific to the lab: its variables, its extra resource providers, and its own checks. The build
-checks every link to a Setup guide anchor. The quick start is the exception: its tracks stay paste-ready in Cloud
-Shell, with the install, the registration, and the clone inline.
+The task table at the top of `SETUP.md` lists the tasks and when each one is needed, and `site/setup.mjs` maps a
+short key to each task's section:
+
+| Key | Task |
+|---|---|
+| `permissions` | Check your subscription and permissions |
+| `tools` | Choose where to run commands: Cloud Shell, or the Azure CLI, azd, Git, `jq`, `curl`, and PowerShell 7 |
+| `sign-in` | Sign in to Azure |
+| `extension` | Install the aigateway extension |
+| `providers` | Register the resource providers |
+| `regions` | Find the available regions |
+| `clone` | Clone the labs repo |
+
+List the tasks that a lab needs with a directive on its own line, right after `## Before you begin`:
+
+```markdown
+## Before you begin
+
+<!-- setup: tools sign-in extension clone -->
+```
+
+The site renders a **One-time setup** card with a checkbox per task. Tasks the reader marked done drop off the card,
+and the card shrinks to one line when they're all done. On GitHub, `npm run sync` writes a `setup` region with a
+link to each task. Don't repeat those tasks as bullets, links, or steps in the lab: no tool lists, no sign-in, and
+no **Clone the lab** step. Keep only what's specific to the lab, such as Python for a Code track, a sign-in as a user,
+or its extra resource providers. The build fails on an unknown key, and checks every link to a Setup guide anchor.
+
+The quick start is the exception: its tracks stay paste-ready in Cloud Shell, with the install, the registration,
+and the clone inline. A step that does a setup task carries `<!-- setup-done: keys -->` on its own line, right
+after its `###` heading, and checking the step's **Done** box marks those tasks done in the Setup guide too.
 
 ### The Troubleshooting page
 
@@ -115,21 +143,22 @@ section still has a table.
 
 A lab folder with an `azure.yaml` at its root (not in `infra/`) is an azd template. `azd init` can't start from a
 folder of a repo, so the reader clones the repo (the `repo` in `catalog.json`) once, moves into the lab folder, and
-runs azd there. The clone also gets the other labs. The track's **Clone the lab** step links to the Setup guide
-and then moves into the lab folder:
+runs azd there. The clone also gets the other labs. The `clone` task of the lab's `<!-- setup: -->` directive
+covers the clone, so the track has no clone step. Its **Deploy with azd up** step starts by moving into the lab
+folder:
 
 ````markdown
-[Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into this lab's folder:
-
-```bash title="Bash or PowerShell"
-cd ~/ai-gateway/labs/<lab>
+```bash title="Bash"
+# Move into the lab's folder, which holds the azd project
+cd ~/ai-gateway/labs/<lab> &&
+  echo "📂 Lab folder: $(pwd)"
 ```
 ````
 
 The clone gets the default branch, which must be the `branch` in `catalog.json`. The build warns when a lab has a
-template but neither clones the repo nor links to the Setup guide's clone section, when no code block moves into the
-lab folder, or when a clone block uses another branch. The clone works once the lab is on `main`. Keep secrets out
-of the template's outputs, because azd saves them in `.azure/<environment>/.env`.
+template but neither clones the repo, lists the `clone` setup task, nor links to the Setup guide's clone section, when
+no code block moves into the lab folder, or when a clone block uses another branch. The clone works once the lab is on
+`main`. Keep secrets out of the template's outputs, because azd saves them in `.azure/<environment>/.env`.
 
 Every lab's **Bicep + azd** track is a self-contained azd template, so it never needs a gateway from an earlier
 lab. Follow [lab 06](06-token-limits/) and the quick start:
@@ -158,10 +187,10 @@ lab. Follow [lab 06](06-token-limits/) and the quick start:
 - To change a setting, the reader runs `azd env set <VAR> <value>` and `azd provision`. azd converts the value to
   the parameter's type, including integers and JSON arrays such as `'["ipAddress"]'`. Feed secrets to `@secure()`
   parameters the same way, and the signed-in user's object ID with `${AZURE_PRINCIPAL_ID}`.
-- The track's sections are **Clone the lab**, **Review the templates** (with `<!-- include: -->`), **Deploy with
-  azd up** (`azd env new aigw-labNN --location eastus2 --subscription …`, then `azd up`), and **Read the outputs and
-  the key**. Its **Clean up** section runs `azd down --purge --force`, which deletes the resource group and purges
-  the Foundry account. Add a `[!TIP]` to **Before you begin** saying the track needs no earlier lab.
+- The track's sections are **Review the templates** (with `<!-- include: -->`), **Deploy with azd up** (`cd` into the
+  lab folder, `azd env new aigw-labNN --location eastus2 --subscription …`, then `azd up`), and **Read the outputs and
+  the key**. Its **Clean up** section runs `azd down --purge --force`, which deletes the resource group and purges the
+  Foundry account. Add a `[!TIP]` to **Before you begin** saying the track needs no earlier lab.
 - The track's label is **Bicep + azd**. The site shows the label of the lab's first `iac` marker instead when a lab
   uses another one, such as **Policy as code** in lab 09 or **Bicep** in lab 21.
 
@@ -176,6 +205,7 @@ each README, so the lab reads well on github.com:
 | `intro` region below the H1 | Summary, a time, level, tracks, and prerequisites table, the objectives, links to the interactive version, the video walkthrough, the notebook, and `infra/`, and an **On this page** list of the H2 sections |
 | `<details>` lines around tracks | Each track becomes a collapsible section; the first one is open |
 | `<details>` lines around titled code blocks | Bash/PowerShell (and other) tab groups become collapsible sections |
+| `setup` region after `<!-- setup: … -->` | **One-time setup** with a link to each Setup guide task the lab needs |
 | `include` region after `<!-- include: … -->` | The included file's code, with a link to the file; files over 28 lines are collapsed |
 | `widget` region after `<!-- widget: … -->` | A pointer to the interactive simulator on the site |
 | `video` region after `<!-- video: … -->` | A poster image that opens the video on the site, plus links to the MP4 and captions |
@@ -198,9 +228,8 @@ Use these H2 sections in this order. Keep the H1 identical to `title`.
 
 1. `# Title` then a 2–4 sentence **scenario** paragraph: who has the problem and why the gateway solves it.
    Follow with the illustration (`![…](../assets/diagrams/x.svg)`) and, when useful, an interactive widget.
-2. `## Before you begin` – tools, permissions, and the outputs of prerequisite labs. Link prerequisites, and
-   link common tasks, such as installing the CLI extension or cloning the repo, to the
-   [Setup guide](#the-setup-guide).
+2. `## Before you begin` – a `<!-- setup: … -->` directive for the [Setup guide](#the-setup-guide) tasks, then
+   what's specific to the lab: its tools, permissions, and the outputs of prerequisite labs. Link prerequisites.
 3. `## How it works` – the concept in under 200 words, a table of key values, and a widget or diagram.
 4. One or more task sections (for example `## Add a token limit`). Put multi-track instructions in
    track tabs. Each `###` heading inside a track becomes a numbered step with a **Done** checkbox.

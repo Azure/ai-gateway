@@ -32,18 +32,16 @@ and keep tighter asset policies on top of it.
 
 ## Before you begin
 
+<!-- setup: tools sign-in extension clone -->
+
 - Complete [Throttle tokens per caller with token limits](../06-token-limits/README.md) and
   [Screen prompts and responses with content safety](../08-content-safety/README.md), including their
   **Clean up** sections. You need a gateway, an imported model, a callable alias, and a runtime API key from
   **Access** › **Keys**.
-- The Azure CLI with the [`aigateway` extension](../SETUP.md#install-the-aigateway-extension),
-  [signed in](../SETUP.md#sign-in-to-azure), and `jq` (Bash) or PowerShell 7 or later.
-- For **Verify**: `curl` (Bash) or PowerShell 7 or later.
 - Permission to change the gateway, for example **Contributor** on the resource group.
 - The public IP addresses or CIDR ranges your callers use. Once the IP filter is on, calls from anywhere else get
   `403`.
-- For the scripts and samples: the labs repo, [cloned](../SETUP.md#clone-the-labs-repo). Run them from the lab
-  folder, `~/ai-gateway/labs/09-gateway-baselines`.
+- Run the scripts and samples from the lab's folder, `~/ai-gateway/labs/09-gateway-baselines`.
 
 Set these variables once. Every track and the **Verify** section reuse them.
 

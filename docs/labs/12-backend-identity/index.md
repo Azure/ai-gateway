@@ -31,19 +31,19 @@ provider to it without changing a single client.
 
 ## Before you begin
 
+<!-- setup: tools sign-in extension clone -->
+
 > [!TIP]
 > On the **Bicep + azd** track, `azd up` creates its own gateway, model, and key, so you can skip this section. You
-> need only [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands), and permission to create role
-> assignments, for example **Owner** on the subscription. To check the system-assigned identity first, run the track
-> in [Create a user-assigned identity and give it access](#create-a-user-assigned-identity-and-give-it-access) up to
-> **Read the outputs and the key**, which sets the variables, then come back.
+> need only the one-time setup above, and permission to create role assignments, for example **Owner** on the
+> subscription. To check the system-assigned identity first, run the track in [Create a user-assigned identity and
+> give it access](#create-a-user-assigned-identity-and-give-it-access) up to **Read the outputs and the key**, which
+> sets the variables, then come back.
 
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need a
   gateway with a Foundry model provider that uses a managed identity, a model alias, and a runtime API key.
-- The Azure CLI with the [`aigateway` extension](../SETUP.md#install-the-aigateway-extension),
-  [signed in](../SETUP.md#sign-in-to-azure). Every track uses it at least once: the portal can't change the identity
-  of a model provider that already exists.
-- For the Bash commands: [jq](https://jqlang.org/download/), which edits the provider's settings.
+- Every track uses the Azure CLI at least once: the portal can't change the identity of a model provider that already
+  exists.
 - Permissions:
   - Create a managed identity in the resource group, for example **Contributor** or
     **Managed Identity Contributor**.
@@ -351,9 +351,8 @@ Grant the role on the Foundry account itself, the resource that the provider cal
 
 <!-- track: iac | Bicep + azd -->
 
-**What you need:** [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands) with the
-[`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure). This
-track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
+**What you need:** only the one-time setup from **Before you begin**. This track doesn't use your gateway from lab 02:
+`azd up` creates a new one, so it works on its own.
 
 ### Choose what to declare
 
@@ -365,18 +364,6 @@ identity and yours.
 
 The Foundry provider keeps the system-assigned identity for now. You point it at your identity in the next section,
 which gives the role assignment time to take effect.
-
-### Clone the lab
-
-The lab is a small azd project in the
-[`labs/12-backend-identity`](https://github.com/Azure/ai-gateway/tree/main/labs/12-backend-identity) folder.
-[Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
-
-```bash title="Bash or PowerShell"
-# Move into the lab's folder, which holds azure.yaml and the templates
-cd ~/ai-gateway/labs/12-backend-identity &&
-  echo "📂 Lab folder: ~/ai-gateway/labs/12-backend-identity"
-```
 
 ### Review the templates
 
@@ -403,10 +390,14 @@ quick start's gateway with only its system-assigned identity first, then attache
 
 ### Deploy with azd up
 
-Create an azd environment named `aigw-lab12` in your current subscription, then provision everything. It takes
-about five minutes.
+Move into the lab's folder, create an azd environment named `aigw-lab12` in your current subscription, then provision
+everything. It takes about five minutes.
 
 ```bash title="Bash"
+# Move into the lab's folder, which holds the azd project
+cd ~/ai-gateway/labs/12-backend-identity &&
+  echo "📂 Lab folder: $(pwd)"
+
 # Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab12 --location eastus2 --subscription "$(az account show --query id --output tsv)" &&
   echo "📝 azd environment aigw-lab12 deploys to eastus2"
@@ -417,6 +408,10 @@ azd up &&
 ```
 
 ```powershell title="PowerShell"
+# Move into the lab's folder, which holds the azd project
+Set-Location ~/ai-gateway/labs/12-backend-identity
+if ($?) { Write-Host "📂 Lab folder: $(Get-Location)" }
+
 # Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab12 --location eastus2 --subscription (az account show --query id --output tsv)
 if ($?) { Write-Host "📝 azd environment aigw-lab12 deploys to eastus2" }

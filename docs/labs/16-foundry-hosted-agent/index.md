@@ -29,20 +29,16 @@ model and its tools only through AI Gateway, with a key of its own.
 
 ## Before you begin
 
+<!-- setup: tools sign-in extension clone -->
+
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md) and
   [Federate MCP tools behind one endpoint](../04-federate-mcp-tools/README.md). The agent calls the alias from lab 02 and the `learn` MCP
   server from lab 04.
 - An Azure subscription where you can create a resource group and a Foundry resource, and assign roles, for example
   **Owner**. azd gives the agent's identity access to its Foundry project.
-- These tools:
-  - [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) (azd) 1.34.2
-    or later, signed in with `azd auth login`
-  - Python 3.13 or later. With [uv](https://docs.astral.sh/uv/getting-started/installation/) installed, azd uses it
-    to create the agent's virtual environment.
-  - Git
-- For the Azure CLI track: the Azure CLI with the
-  [`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure) to
-  the same tenant, and `jq` for the Bash snippets.
+- The [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) (azd) 1.34.2
+  or later, and Python 3.13 or later. With [uv](https://docs.astral.sh/uv/getting-started/installation/) installed,
+  azd uses it to create the agent's virtual environment.
 
 > [!WARNING]
 > `azd up` creates a Foundry resource, and the hosted agent and its model calls are billable. Run
@@ -192,8 +188,7 @@ Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) c
 
 ### Get the lab files
 
-[Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet. Then move into the lab's `infra` folder
-and install the Foundry extensions for azd:
+Move into the lab's `infra` folder and install the Foundry extensions for azd:
 
 ```bash
 # Move into the lab's azd project

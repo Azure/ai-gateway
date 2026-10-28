@@ -29,6 +29,8 @@ developers build on top of your governance instead of around it.
 
 ## Before you begin
 
+<!-- setup: tools sign-in extension -->
+
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need the
   gateway, a model that answers, and its alias.
 - Optional: complete [Federate MCP tools behind one endpoint](../04-federate-mcp-tools/README.md) so the gateway
@@ -37,9 +39,7 @@ developers build on top of your governance instead of around it.
   documents its plugin support: [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/plugins-finding-installing),
   [Claude Code](https://code.claude.com/docs/en/plugins), [Cursor](https://cursor.com/docs/plugins), and
   [Gemini CLI](https://geminicli.com/docs/extensions/).
-- The Azure CLI with the [`aigateway` extension](../SETUP.md#install-the-aigateway-extension),
-  [signed in](../SETUP.md#sign-in-to-azure). The plugin uses your Azure sign-in to read the gateway, so your account
-  needs read access to it.
+- Read access to the gateway: the plugin uses your Azure sign-in to read it.
 - Python 3.10 or later to run the generated app. To scaffold a standalone agent, you also need the GitHub Copilot
   CLI, because the GitHub Copilot SDK uses it.
 

@@ -30,18 +30,16 @@ you give each caller its own token allowance at the gateway, so a noisy neighbor
 
 ## Before you begin
 
+<!-- setup: tools sign-in extension clone -->
+
 > [!TIP]
 > On the **Bicep + azd** track, `azd up` creates its own gateway, model, and key, so you can skip this section. You
-> need only [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands).
+> need only the one-time setup above.
 
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need a gateway, an imported
   model, a callable alias, and a runtime API key from **Access** › **Keys**.
-- For the CLI and REST tracks: the Azure CLI with the
-  [`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure), and
-  `jq` for the Bash snippets.
 - Permission to change the gateway, for example **Contributor** on the resource group.
-- For the scripts and samples: the labs repo, [cloned](../SETUP.md#clone-the-labs-repo). Run them from the lab
-  folder, `~/ai-gateway/labs/06-token-limits`.
+- Run the scripts and samples from the lab's folder, `~/ai-gateway/labs/06-token-limits`.
 
 Set these variables once. Every track and the **Verify** section reuse them.
 
@@ -266,9 +264,8 @@ Remove-Item patch.json
 
 <!-- track: iac | Bicep + azd -->
 
-**What you need:** [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands) with the
-[`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure). This
-track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
+**What you need:** only the one-time setup from **Before you begin**. This track doesn't use your gateway from lab 02:
+`azd up` creates a new one, so it works on its own.
 
 ### Choose what to declare
 
@@ -279,18 +276,6 @@ keep calling the original alias. Callers that you move to the new alias get the 
 
 This is also a common production pattern: one backend model, several aliases, and a different limit for each
 audience (for example `gpt-chat` for interactive apps and `gpt-batch` for offline jobs).
-
-### Clone the lab
-
-The lab is a small azd project in the
-[`labs/06-token-limits`](https://github.com/Azure/ai-gateway/tree/main/labs/06-token-limits) folder.
-[Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
-
-```bash title="Bash or PowerShell"
-# Move into the lab's folder, which holds the azd project and the scripts
-cd ~/ai-gateway/labs/06-token-limits &&
-  echo "📂 Lab folder: ~/ai-gateway/labs/06-token-limits"
-```
 
 ### Review the templates
 
@@ -307,10 +292,14 @@ also deploy it on its own to a gateway you already have, with `az deployment gro
 
 ### Deploy with azd up
 
-Create an azd environment named `aigw-lab06` in your current subscription, then provision everything. It takes
-about three minutes.
+Move into the lab's folder, create an azd environment named `aigw-lab06` in your current subscription, then provision
+everything. It takes about three minutes.
 
 ```bash title="Bash"
+# Move into the lab's folder, which holds the azd project
+cd ~/ai-gateway/labs/06-token-limits &&
+  echo "📂 Lab folder: $(pwd)"
+
 # Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab06 --location eastus2 --subscription "$(az account show --query id --output tsv)" &&
   echo "📝 azd environment aigw-lab06 deploys to eastus2"
@@ -321,6 +310,10 @@ azd up &&
 ```
 
 ```powershell title="PowerShell"
+# Move into the lab's folder, which holds the azd project
+Set-Location ~/ai-gateway/labs/06-token-limits
+if ($?) { Write-Host "📂 Lab folder: $(Get-Location)" }
+
 # Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab06 --location eastus2 --subscription (az account show --query id --output tsv)
 if ($?) { Write-Host "📝 azd environment aigw-lab06 deploys to eastus2" }

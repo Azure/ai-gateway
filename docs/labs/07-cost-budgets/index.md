@@ -34,9 +34,11 @@ called.
 
 ## Before you begin
 
+<!-- setup: tools sign-in extension clone -->
+
 > [!TIP]
 > On the **Bicep + azd** track, `azd up` creates its own gateway, model, and keys, so you can skip this section. You
-> need only [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands).
+> need only the one-time setup above.
 
 - Complete [Throttle tokens per caller with token limits](../06-token-limits/README.md). This lab reuses the
   **Policies** › **Add policy** wizard and the idea of per-caller counters.
@@ -46,12 +48,8 @@ called.
   and send a few requests first, so **Monitoring** can show estimated spend before you choose a budget.
 - Optional, for the Entra override: a user or service principal that can call the gateway with Microsoft
   Entra ID. [Go keyless with Microsoft Entra ID and RBAC](../11-entra-rbac/README.md) shows how.
-- For the variables below and the REST track: the Azure CLI with the
-  [`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure), and
-  `jq` for the Bash snippets.
 - Permission to change the gateway, for example **Contributor** on the resource group.
-- For the scripts and samples: the labs repo, [cloned](../SETUP.md#clone-the-labs-repo). Run them from the lab
-  folder, `~/ai-gateway/labs/07-cost-budgets`.
+- Run the scripts and samples from the lab's folder, `~/ai-gateway/labs/07-cost-budgets`.
 
 Set these variables once. Both tracks and the **Verify** section reuse them. Use the `app-dev` key here.
 
@@ -307,9 +305,8 @@ above keeps those overrides when you change the amount later.
 
 <!-- track: iac | Bicep + azd -->
 
-**What you need:** [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands) with the
-[`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure). This
-track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
+**What you need:** only the one-time setup from **Before you begin**. This track doesn't use your gateway from lab 02:
+`azd up` creates a new one, so it works on its own.
 
 ### Choose what to declare
 
@@ -330,18 +327,6 @@ azd fills in the object ID of the account you signed in with. The policy `id` is
 from the gateway and the alias name, so it stays the same on every deployment, and a new amount keeps the spend
 accumulated so far.
 
-### Clone the lab
-
-The lab is a small azd project in the
-[`labs/07-cost-budgets`](https://github.com/Azure/ai-gateway/tree/main/labs/07-cost-budgets) folder.
-[Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
-
-```bash title="Bash or PowerShell"
-# Move into the lab's folder, which holds the azd project
-cd ~/ai-gateway/labs/07-cost-budgets &&
-  echo "📂 Lab folder: ~/ai-gateway/labs/07-cost-budgets"
-```
-
 ### Review the templates
 
 `infra/main.bicep` creates the resource group `rg-<environment name>` and calls the quick start's
@@ -357,10 +342,14 @@ model, so you can also deploy it on its own to a gateway you already have, with 
 
 ### Deploy with azd up
 
-Create an azd environment named `aigw-lab07` in your current subscription, then provision everything. It takes
-about three minutes.
+Move into the lab's folder, create an azd environment named `aigw-lab07` in your current subscription, then provision
+everything. It takes about three minutes.
 
 ```bash title="Bash"
+# Move into the lab's folder, which holds the azd project
+cd ~/ai-gateway/labs/07-cost-budgets &&
+  echo "📂 Lab folder: $(pwd)"
+
 # Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab07 --location eastus2 --subscription "$(az account show --query id --output tsv)" &&
   echo "📝 azd environment aigw-lab07 deploys to eastus2"
@@ -371,6 +360,10 @@ azd up &&
 ```
 
 ```powershell title="PowerShell"
+# Move into the lab's folder, which holds the azd project
+Set-Location ~/ai-gateway/labs/07-cost-budgets
+if ($?) { Write-Host "📂 Lab folder: $(Get-Location)" }
+
 # Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab07 --location eastus2 --subscription (az account show --query id --output tsv)
 if ($?) { Write-Host "📝 azd environment aigw-lab07 deploys to eastus2" }

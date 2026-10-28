@@ -33,11 +33,12 @@ allowed calls through.
 
 ## Before you begin
 
+<!-- setup: tools sign-in extension clone -->
+
 > [!TIP]
 > On the **Bicep + azd** track, `azd up` creates its own gateway, the `learn` MCP server, your **AI Gateway Tools
 > User** role assignment on it, and a key, so you can skip this section except for the Microsoft Defender or Microsoft
-> Purview license. You need only [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands), signed in
-> as a user, plus `curl` and `jq` for the Bash script.
+> Purview license. You need only the one-time setup above, signed in as a user.
 
 - Complete [Federate MCP tools behind one endpoint](../04-federate-mcp-tools/README.md). This lab protects the
   `learn` MCP server from that lab. Any MCP server in your gateway works.
@@ -46,11 +47,8 @@ allowed calls through.
 - A **Microsoft Defender or Microsoft Purview license** in your tenant.
 - Permission to manage policies on the gateway, for example **Contributor** on its resource group, and permission
   to create role assignments if your user doesn't have a data-plane role yet.
-- The Azure CLI with the [`aigateway` extension](../SETUP.md#install-the-aigateway-extension),
-  [signed in](../SETUP.md#sign-in-to-azure) as a **user** (not a service principal).
-- For the test scripts and the Bash snippets: `curl` and `jq` (Bash) or PowerShell 7 or later.
-- For the scripts and samples: the labs repo, [cloned](../SETUP.md#clone-the-labs-repo). Run them from the lab
-  folder, `~/ai-gateway/labs/19-tool-threat-protection`.
+- Your Azure CLI sign-in as a **user**, not a service principal.
+- Run the scripts and samples from the lab's folder, `~/ai-gateway/labs/19-tool-threat-protection`.
 
 > [!NOTE]
 > Agent 365 tool threat protection is an emerging capability of the AI Gateway tier. Labels and behavior can
@@ -156,23 +154,9 @@ assignments can take several minutes to apply.
 
 <!-- track: iac | Bicep + azd -->
 
-**What you need:** [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands) with the
-[`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure) as a
-**user**, plus `curl` and `jq` for the Bash script. This track doesn't use your gateway or `learn` server from lab 04:
-`azd up` creates a new gateway with its own `learn` server, so it works on its own. You still need the Microsoft
-Defender or Microsoft Purview license.
-
-### Clone the lab
-
-The lab is a small azd project in the
-[`labs/19-tool-threat-protection`](https://github.com/Azure/ai-gateway/tree/main/labs/19-tool-threat-protection)
-folder. [Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
-
-```bash title="Bash or PowerShell"
-# Move into the lab's folder, which holds azure.yaml, the templates, and the test scripts
-cd ~/ai-gateway/labs/19-tool-threat-protection &&
-  echo "📂 Lab folder: ~/ai-gateway/labs/19-tool-threat-protection"
-```
+**What you need:** only the one-time setup from **Before you begin**, signed in as a **user**. This track doesn't use
+your gateway or `learn` server from lab 04: `azd up` creates a new gateway with its own `learn` server, so it works on
+its own. You still need the Microsoft Defender or Microsoft Purview license.
 
 ### Review the templates
 
@@ -202,10 +186,15 @@ portal step does, and creates the `app-first-call` key.
 
 ### Deploy with azd up
 
-Create an azd environment named `aigw-lab19` in your current subscription, then provision everything. It takes
-three to eight minutes. Both stages are off at first, so you can test your token before you add the policy.
+Move into the lab's folder, create an azd environment named `aigw-lab19` in your current subscription, then provision
+everything. It takes three to eight minutes. Both stages are off at first, so you can test your token before you add
+the policy.
 
 ```bash title="Bash"
+# Move into the lab's folder, which holds the azd project
+cd ~/ai-gateway/labs/19-tool-threat-protection &&
+  echo "📂 Lab folder: $(pwd)"
+
 # Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab19 --location eastus2 --subscription "$(az account show --query id --output tsv)" &&
   echo "📝 azd environment aigw-lab19 deploys to eastus2"
@@ -216,6 +205,10 @@ azd up &&
 ```
 
 ```powershell title="PowerShell"
+# Move into the lab's folder, which holds the azd project
+Set-Location ~/ai-gateway/labs/19-tool-threat-protection
+if ($?) { Write-Host "📂 Lab folder: $(Get-Location)" }
+
 # Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab19 --location eastus2 --subscription (az account show --query id --output tsv)
 if ($?) { Write-Host "📝 azd environment aigw-lab19 deploys to eastus2" }

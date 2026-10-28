@@ -10,6 +10,8 @@
 //   <!-- include: infra/main.bicep -->  inlines a file from the lab folder as a code viewer
 //   <!-- widget: name {"json":1} -->    mounts an interactive widget from site.js
 //   <!-- video: media/x.mp4 | Title --> video player; media/x.jpg is the poster, media/x.vtt the captions file
+//   <!-- setup: tools sign-in clone -->  checklist of the Setup guide tasks the lab uses (see setup.mjs)
+//   <!-- setup-done: extension -->      inside a step: marking the step done marks these setup tasks done
 //   > [!NOTE|TIP|IMPORTANT|WARNING|CAUTION]  GitHub alerts become callouts
 //   > **Checkpoint** ...                becomes a checkpoint callout
 //   ```bash title="Bash"                titled code blocks; adjacent titled blocks become tabs
@@ -18,6 +20,7 @@ import path from 'node:path';
 import { Marked } from 'marked';
 import { createHighlighter } from 'shiki';
 import { stripGitHub, videoInfo } from './github.mjs';
+import { SETUP_RE, SETUP_DONE_RE, setupKeys, inlineMd, plainMd } from './setup.mjs';
 
 const LANGS = ['bash', 'shellscript', 'powershell', 'python', 'json', 'jsonc', 'typescript', 'javascript',
   'csharp', 'yaml', 'http', 'bicep', 'kusto', 'text', 'dotenv', 'toml', 'markdown', 'html', 'css', 'xml', 'sql'];
@@ -93,7 +96,23 @@ const ICONS = {
   checkpoint: '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="m6.5 10.2 2.3 2.3 4.7-4.8"/></svg>',
   file: '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.5h6.5L15 6v11.5H5Z"/><path d="M11 2.5V6.5h4"/></svg>',
   external: '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11 3.5h5.5V9M16.5 3.5 9 11M14 12v4.5H3.5V6H8"/></svg>',
+  wrench: '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 3a4 4 0 0 0-3.8 5.3L3.5 13.5a1.5 1.5 0 0 0 0 2.1l.9.9a1.5 1.5 0 0 0 2.1 0l5.2-5.2A4 4 0 0 0 17 7.5l-2.3 2.3-2.3-.4-.4-2.3L14.3 4.8A4 4 0 0 0 12.5 3Z"/></svg>',
+  tick: '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5.5 10.5 3 3 6-7"/></svg>',
 };
+
+// <!-- setup: … -->: the Setup guide tasks that a lab uses. site.js hides the ones the reader marked done.
+function setupCheck(list, ctx) {
+  const { tasks, unknown } = setupKeys(list, ctx.setupTasks || []);
+  if (unknown.length) throw new Error(`unknown setup task "${unknown.join('", "')}" in <!-- setup: ${list} -->`);
+  const items = tasks.map((t) => `<li data-setup-task="${t.key}">`
+    + `<button class="setup-tick" type="button" aria-pressed="false" title="Mark as done" aria-label="Mark ${escapeHtml(plainMd(t.title))} as done">${ICONS.tick}</button>`
+    + `<span class="setup-check-text"><a href="${ctx.setupHref(t.id)}">${inlineMd(t.title)}</a><span class="setup-check-when">${inlineMd(t.when)}</span></span></li>`).join('');
+  return `<div class="setup-check" data-setup-check><div class="setup-check-head"><span class="setup-check-icon">${ICONS.wrench}</span>`
+    + `<p><strong>One-time setup</strong><span class="setup-check-count"></span><span class="setup-check-sub">The Setup guide tasks that this lab uses. Mark each one done once, and the labs stop listing it.</span></p>`
+    + `<button class="btn btn-secondary btn-sm" type="button" data-setup-open>${ICONS.wrench}<span>Setup guide</span></button></div>`
+    + `<ul class="setup-check-list">${items}</ul>`
+    + `<p class="setup-check-done" hidden>${ICONS.checkpoint}<span>You've done the one-time setup that this lab uses.</span><button class="link-btn" type="button" data-setup-open>Review</button></p></div>`;
+}
 
 function codeBlock({ code, lang, title, include, ghUrl }) {
   const label = title || LANG_LABELS[lang] || lang;
@@ -261,6 +280,14 @@ export async function renderLab(markdown, ctx) {
     // No native full screen: site.js expands videos into an in-page theater view instead (see initVideos).
     return `<figure class="figure figure-video" id="${v.id}"><div class="video-frame"><video controls controlslist="nofullscreen" playsinline preload="none"${poster} aria-label="${escapeHtml(v.title)}">`
       + `<source src="${ctx.resolveAsset(v.file)}" type="${v.type}"></video></div><figcaption>${escapeHtml(v.title)}</figcaption></figure>`;
+  });
+
+  // setup checklists, and the setup tasks that a step completes
+  src = src.replace(SETUP_RE, (_, list) => setupCheck(list, ctx));
+  src = src.replace(SETUP_DONE_RE, (_, list) => {
+    const { tasks, unknown } = setupKeys(list, ctx.setupTasks || []);
+    if (unknown.length) throw new Error(`unknown setup task "${unknown.join('", "')}" in <!-- setup-done: ${list} -->`);
+    return `<div hidden data-setup-done="${tasks.map((t) => t.key).join(' ')}"></div>`;
   });
 
   // Split into segments by track / steps markers

@@ -14,6 +14,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import matter from 'gray-matter';
+import { setupKeys } from './setup.mjs';
 
 const SENTINEL = '<!-- gh -->';
 const REGION_RE = /^<!-- gh:begin\b[^>]*-->[\s\S]*?^<!-- gh:end -->[ \t]*(?:\n|$)/gm;
@@ -23,6 +24,7 @@ const TRACKS_END_RE = /^<!--\s*\/tracks\s*-->\s*$/;
 const INCLUDE_RE = /^<!--\s*include:\s*(\S+)(?:\s+(\S+))?\s*-->\s*$/;
 const WIDGET_RE = /^<!--\s*widget:\s*([\w-]+)/;
 export const VIDEO_RE = /^<!--\s*video:\s*(\S+)\s*(?:\|\s*([^>]*?))?\s*-->[ \t]*$/;
+const SETUP_LINE_RE = /^<!--\s*setup:\s*([\w\s-]+?)\s*-->[ \t]*$/;
 const LONG_INCLUDE = 28;
 
 export const GH_TRACK_LABELS = { portal: 'Portal', cli: 'Azure CLI', rest: 'REST API', iac: 'Bicep + azd', code: 'Code' };
@@ -172,6 +174,17 @@ function widgetRegion(name, labUrl) {
   return region('widget', [`> 🎛️ **Interactive:** try the ${what} in the [web version of this lab](${labUrl}).`]);
 }
 
+// The Setup guide tasks that a lab uses, as one line of links. The site renders a checklist instead.
+function setupRegion(labDir, list, setupTasks) {
+  const { tasks } = setupKeys(list, setupTasks);
+  const guide = path.relative(labDir, path.join(path.dirname(labDir), 'SETUP.md')).split(path.sep).join('/');
+  const links = tasks.map((t) => `[${t.title}](${guide}#${t.id})`);
+  return region('setup', [
+    `🧰 **One-time setup** from the [Setup guide](${guide}), if you haven't done it yet:`,
+    ...links.map((l, i) => `${l}${i < links.length - 1 ? ' ·' : ''}`),
+  ]);
+}
+
 // GitHub can't play videos stored in the repo, so the poster links to the player on the site.
 function videoRegion(labDir, v, labUrl) {
   const enc = (f) => f.split('/').map(encodeURIComponent).join('/');
@@ -187,7 +200,7 @@ function videoRegion(labDir, v, labUrl) {
 }
 
 // Regenerates the GitHub chrome of one lab README. Pure apart from reading included files.
-export function syncLab(raw, { lab, labs, catalog, site }) {
+export function syncLab(raw, { lab, labs, catalog, site, setupTasks = [] }) {
   const { matter: fm, body } = parseLab(raw);
   const lines = stripGitHub(body).split('\n');
   if (lines[lines.length - 1] === '') lines.pop();
@@ -283,7 +296,9 @@ export function syncLab(raw, { lab, labs, catalog, site }) {
     const widget = line.match(WIDGET_RE);
     if (widget) { out.push(...widgetRegion(widget[1], siteUrl)); blankIfNext(i + 1); continue; }
     const vid = line.match(VIDEO_RE);
-    if (vid) { out.push(...videoRegion(lab.dir, videoInfo(vid[1], vid[2]), siteUrl)); blankIfNext(i + 1); }
+    if (vid) { out.push(...videoRegion(lab.dir, videoInfo(vid[1], vid[2]), siteUrl)); blankIfNext(i + 1); continue; }
+    const setup = line.match(SETUP_LINE_RE);
+    if (setup) { out.push(...setupRegion(lab.dir, setup[1], setupTasks)); blankIfNext(i + 1); }
   }
 
   // Footer: previous / all labs / next, plus learning paths.

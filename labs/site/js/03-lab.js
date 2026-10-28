@@ -39,20 +39,22 @@ function initTracks() {
   if (pref) selectTrack(pref, { persist: !!fromUrl });
 }
 
-function initCodeTabs() {
-  const pick = (label) => {
-    $$('.code-tabs').forEach((block) => {
-      const tabs = $$('.code-tab', block);
-      const t = tabs.find((x) => x.dataset.tabLabel === label);
-      if (!t) return;
-      tabs.forEach((x) => { const on = x === t; x.setAttribute('aria-selected', on); x.tabIndex = on ? 0 : -1; });
-      $$('.code-panel', block).forEach((p) => { p.hidden = p.id !== t.getAttribute('aria-controls'); });
-    });
-  };
-  $$('.code-tabs').forEach((block) => {
+// Shows the tab with this label in every code tab group, such as Bash or PowerShell.
+function pickCodeTab(label, root = document) {
+  $$('.code-tabs', root).forEach((block) => {
+    const tabs = $$('.code-tab', block);
+    const t = tabs.find((x) => x.dataset.tabLabel === label);
+    if (!t) return;
+    tabs.forEach((x) => { const on = x === t; x.setAttribute('aria-selected', on); x.tabIndex = on ? 0 : -1; });
+    $$('.code-panel', block).forEach((p) => { p.hidden = p.id !== t.getAttribute('aria-controls'); });
+  });
+}
+// Binds the code tab groups in root, such as the Setup guide panel, and applies the reader's last choice.
+function bindCodeTabs(root) {
+  $$('.code-tabs', root).forEach((block) => {
     const tabs = $$('.code-tab', block);
     tabs.forEach((t, i) => {
-      t.addEventListener('click', () => { pick(t.dataset.tabLabel); store.set('codeTab', t.dataset.tabLabel); });
+      t.addEventListener('click', () => { pickCodeTab(t.dataset.tabLabel); store.set('codeTab', t.dataset.tabLabel); });
       t.addEventListener('keydown', (e) => {
         const d = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
         if (!d) return;
@@ -62,7 +64,11 @@ function initCodeTabs() {
     });
   });
   const pref = store.get('codeTab', null);
-  if (pref) pick(pref);
+  if (pref) pickCodeTab(pref, root);
+  $$('.code-expand', root).forEach((b) => { b.dataset.label = b.dataset.label || $('span', b).textContent; });
+}
+function initCodeTabs() {
+  bindCodeTabs(document);
   document.addEventListener('click', (e) => {
     const b = e.target.closest('.code-expand');
     if (!b) return;
@@ -71,7 +77,6 @@ function initCodeTabs() {
     $('span', b).textContent = open ? 'Show less' : b.dataset.label || 'Show all';
     if (!open) block.scrollIntoView({ block: 'nearest' });
   });
-  $$('.code-expand').forEach((b) => { b.dataset.label = $('span', b).textContent; });
 }
 
 // Steps that count toward progress: outside tracks, or inside the visible track panel.

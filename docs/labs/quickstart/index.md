@@ -231,6 +231,8 @@ installs the `aigateway` CLI extension and creates the Foundry deployment for yo
 
 ### Set your variables
 
+<!-- setup-done: tools sign-in extension -->
+
 Paste the block for your shell. It installs or upgrades the `aigateway` extension, then sets the names. A random
 suffix keeps the gateway and Foundry account names globally unique.
 
@@ -277,6 +279,8 @@ Write-Host "🆔 Subscription: $SUBSCRIPTION_ID"
 ```
 
 ### Start creating the gateway
+
+<!-- setup-done: providers -->
 
 Register the resource providers, which is a one-time step for each subscription, create a resource group, and start
 creating the gateway. With `--no-wait`, Azure keeps provisioning the gateway in the background, so you can move on
@@ -531,9 +535,11 @@ If Cloud Shell timed out, set `RG`, `FOUNDRY`, and `LOCATION` again with the nam
 **What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell. It's already signed in and has
 the Azure Developer CLI (`azd`), the Azure CLI, Git, `curl`, and `jq`. Locally,
 [install azd](https://aka.ms/azd-install), the Azure CLI, and Git, and sign in with `azd auth login` and `az login`.
-The template creates the Foundry deployment for you.
+The template creates the Foundry deployment for you, and the track installs the `aigateway` CLI extension.
 
 ### Clone the template
+
+<!-- setup-done: tools sign-in clone -->
 
 The template is a small azd project in the
 [`labs/quickstart`](https://github.com/Azure/ai-gateway/tree/main/labs/quickstart) folder of the GitHub repo: an
@@ -596,11 +602,18 @@ output, so it never lands in a file or a deployment log.
 
 ### Read the URL, the alias, and the key
 
-Read the outputs, and read the key from the gateway into an environment variable, so that it never shows on screen.
+<!-- setup-done: extension -->
+
+Install the `aigateway` CLI extension, read the outputs, and read the key from the gateway into an environment
+variable, so that it never shows on screen.
 Azure RBAC is the keyless alternative to the key: grant the app the **AI Gateway Models User** role, and it sends a
 Microsoft Entra ID token instead, as [Go keyless with Microsoft Entra ID and RBAC](../11-entra-rbac/README.md) shows.
 
 ```bash title="Bash"
+# Install or upgrade the aigateway extension of the Azure CLI, which reads the key
+curl -fsSL https://aka.ms/aigateway-cli-install | sh &&
+  echo "🧩 aigateway extension $(az extension show --name aigateway --query version --output tsv) is installed"
+
 # Read the template's outputs: the gateway's runtime URL and the alias
 export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
 export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
@@ -614,6 +627,10 @@ echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not sh
 ```
 
 ```powershell title="PowerShell"
+# Install or upgrade the aigateway extension of the Azure CLI, which reads the key
+irm https://aka.ms/aigateway-cli-install-ps | iex
+if ($?) { Write-Host "🧩 aigateway extension $(az extension show --name aigateway --query version --output tsv) is installed" }
+
 # Read the template's outputs: the gateway's runtime URL, the alias, and the gateway's resource ID
 $env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
 $env:AI_GATEWAY_MODEL   = azd env get-value AI_GATEWAY_MODEL

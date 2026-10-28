@@ -30,12 +30,12 @@ Application Insights already collects.
 
 ## Before you begin
 
+<!-- setup: tools sign-in extension clone -->
+
 > [!TIP]
 > On the **Bicep + azd** track, `azd up` creates its own gateway, model, key, Application Insights, and role
-> assignment, so you can skip this section. You need only
-> [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands), and permission to create role assignments,
-> for example **Owner** on the subscription. The later sections also use Python 3.10 or later, and `curl` and `jq` or
-> PowerShell 7, which Cloud Shell has.
+> assignment, so you can skip this section. You need only the one-time setup above, and permission to create role
+> assignments, for example **Owner** on the subscription. The later sections also use Python 3.10 or later.
 
 - Complete [Monitor usage, cost, and traces](../13-monitoring/README.md) with **Configure telemetry**, so the
   gateway exports all three signals to Application Insights with an OpenTelemetry exporter.
@@ -43,10 +43,8 @@ Application Insights already collects.
   user has **AI Gateway Models User** (or **AI Gateway User**) on the gateway or on the model alias.
 - Permission to change the gateway, for example **Contributor** on its resource group, and **Log Analytics Reader**
   on the workspace behind Application Insights.
-- The Azure CLI with the [`aigateway` extension](../SETUP.md#install-the-aigateway-extension),
-  [signed in](../SETUP.md#sign-in-to-azure), Python 3.10 or later, and `curl` and `jq` (Bash) or PowerShell 7.
-- For the scripts and samples: the labs repo, [cloned](../SETUP.md#clone-the-labs-repo). Run them from the lab
-  folder, `~/ai-gateway/labs/14-otel-chargeback`.
+- Python 3.10 or later.
+- Run the scripts and samples from the lab's folder, `~/ai-gateway/labs/14-otel-chargeback`.
 
 Set these variables once. If you named the Application Insights resource differently in lab 13, change
 `$GATEWAY-insights`.
@@ -188,9 +186,8 @@ select **Metrics** for `appid` and `azp`. To automate it, declare the claims in 
 
 <!-- track: iac | Bicep + azd -->
 
-**What you need:** [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands) with the
-[`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure). This
-track doesn't use your gateway from the earlier labs: `azd up` creates a new one, so it works on its own.
+**What you need:** only the one-time setup from **Before you begin**. This track doesn't use your gateway from the
+earlier labs: `azd up` creates a new one, so it works on its own.
 
 ### Choose what to declare
 
@@ -207,19 +204,6 @@ the gateway, for the Entra calls in the next section. As in lab 13, `azure.yaml`
 identity **Monitoring Metrics Publisher** on the Data Collection Rule in a `postprovision` hook, because the rule's
 managed resource group blocks deployments.
 
-### Clone the lab
-
-The lab is a small azd project in the
-[`labs/14-otel-chargeback`](https://github.com/Azure/ai-gateway/tree/main/labs/14-otel-chargeback) folder.
-[Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder. The next
-sections run the lab's scripts from this folder.
-
-```bash title="Bash or PowerShell"
-# Move into the lab's folder, which holds the azd project and the scripts
-cd ~/ai-gateway/labs/14-otel-chargeback &&
-  echo "📂 Lab folder: ~/ai-gateway/labs/14-otel-chargeback"
-```
-
 ### Review the templates
 
 `infra/main.bicep` creates the resource group `rg-<environment name>` and calls the quick start's
@@ -235,10 +219,14 @@ the identity that runs azd. `azd` passes your object ID in `AZURE_PRINCIPAL_ID`:
 
 ### Deploy with azd up
 
-Create an azd environment named `aigw-lab14` in your current subscription, then provision everything. It takes
-about four minutes.
+Move into the lab's folder, create an azd environment named `aigw-lab14` in your current subscription, then provision
+everything. It takes about four minutes.
 
 ```bash title="Bash"
+# Move into the lab's folder, which holds the azd project
+cd ~/ai-gateway/labs/14-otel-chargeback &&
+  echo "📂 Lab folder: $(pwd)"
+
 # Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab14 --location eastus2 --subscription "$(az account show --query id --output tsv)" &&
   echo "📝 azd environment aigw-lab14 deploys to eastus2"
@@ -249,6 +237,10 @@ azd up &&
 ```
 
 ```powershell title="PowerShell"
+# Move into the lab's folder, which holds the azd project
+Set-Location ~/ai-gateway/labs/14-otel-chargeback
+if ($?) { Write-Host "📂 Lab folder: $(Get-Location)" }
+
 # Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab14 --location eastus2 --subscription (az account show --query id --output tsv)
 if ($?) { Write-Host "📝 azd environment aigw-lab14 deploys to eastus2" }

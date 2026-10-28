@@ -82,12 +82,19 @@ function initTheme() {
 
 // Toast
 let toastEl, toastTimer;
-function toast(msg, icon = IC.check) {
+// action: { label, run }, a button such as Undo. The toast then stays longer and takes clicks.
+function toast(msg, icon = IC.check, action) {
   if (!toastEl) { toastEl = h('<div class="toast" role="status" aria-live="polite"></div>'); document.body.append(toastEl); }
   toastEl.innerHTML = `${icon}<span>${escHtml(msg)}</span>`;
+  if (action) {
+    const b = h(`<button class="toast-action" type="button">${escHtml(action.label)}</button>`);
+    b.addEventListener('click', () => { toastEl.classList.remove('show'); action.run(); });
+    toastEl.append(b);
+  }
+  toastEl.classList.toggle('has-action', !!action);
   toastEl.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2200);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), action ? 6000 : 2200);
 }
 
 async function copyText(text) {

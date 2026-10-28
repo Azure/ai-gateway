@@ -34,26 +34,22 @@ baseline, prove it works with a smoke test, and wire it all into GitHub Actions.
 
 ## Before you begin
 
+<!-- setup: tools sign-in extension providers clone -->
+
 - Complete [Set gateway-wide policy baselines](../09-gateway-baselines/README.md),
   [Monitor usage, cost, and traces](../13-monitoring/README.md), and
   [Call backends with managed identities](../12-backend-identity/README.md). This lab builds on what you learned
   there, not on the resources you created: it deploys a new, separate environment.
-- The Azure CLI with the [`aigateway` extension](../SETUP.md#install-the-aigateway-extension),
-  [signed in](../SETUP.md#sign-in-to-azure) to the subscription you deploy to. The CLI installs Bicep the first time
-  you deploy. You also need `curl` and `jq` (Bash) or PowerShell 7 or later. The smoke test reads the gateway and a
-  key with the extension. The extension can't set gateway-scope policies yet, so the baseline script calls the
+- The Azure CLI installs Bicep the first time you deploy. The smoke test reads the gateway and a key with the
+  `aigateway` extension. The extension can't set gateway-scope policies yet, so the baseline script calls the
   management API with `az rest`.
 - **Owner**, or **Contributor** plus **Role Based Access Control Administrator**, on the subscription. The
   template creates two resource groups and several role assignments.
 - Quota for `gpt-6-luna` with the `GlobalStandard` SKU in the region you deploy to. The dev environment uses
   50 capacity units (50,000 tokens per minute).
-- The resource providers `Microsoft.ApiManagement`, `Microsoft.Web`, `Microsoft.CognitiveServices`,
-  `Microsoft.OperationalInsights`, and `Microsoft.Insights`,
-  [registered on the subscription](../SETUP.md#register-the-resource-providers).
 - For [Automate deployments with GitHub Actions](#automate-deployments-with-github-actions): a GitHub
   repository where you can create environments and variables, the [GitHub CLI](https://cli.github.com/) signed
   in with `gh auth login`, and permission to create an app registration in Microsoft Entra ID.
-- The labs repo, [cloned](../SETUP.md#clone-the-labs-repo).
 
 Run every command from this lab's folder, `~/ai-gateway/labs/21-enterprise-reference`, so the `infra/` paths
 resolve. Set these variables once:
