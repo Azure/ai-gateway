@@ -10,7 +10,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { initHighlighter, renderLab, escapeHtml } from './site/markdown.mjs';
-import { parseLab, stripGitHub, syncLab, syncIndex, syncSkill, findVideo } from './site/github.mjs';
+import { parseLab, stripGitHub, syncLab, syncIndex, syncSkill, findVideo, ghSlug } from './site/github.mjs';
 import { readSetupTasks, inlineMd } from './site/setup.mjs';
 import { layout, homePage, catalogPage, labPage, releaseNotesPage, setupPage, troubleshootingPage, notFoundPage } from './site/templates.mjs';
 
@@ -284,9 +284,17 @@ function checkGuideAnchors(name, html, guides) {
 function syncSources(labs, catalog, { check = false } = {}) {
   const site = catalog.site;
   const stale = [];
+  // GitHub readers get a footer link to their lab's section of TROUBLESHOOTING.md: the section that starts with a
+  // link to the lab.
+  const tsSections = new Map();
+  if (fs.existsSync(TROUBLESHOOTING)) {
+    for (const m of fs.readFileSync(TROUBLESHOOTING, 'utf8').matchAll(/^## (.+)\n\n[^\n]*?\]\((?:\.\/)?([a-z0-9-]+)\/README\.md\)/gm)) {
+      if (!tsSections.has(m[2])) tsSections.set(m[2], ghSlug(m[1]));
+    }
+  }
   for (const lab of labs) {
     const file = path.join(lab.dir, 'README.md');
-    const next = syncLab(lab.source, { lab, labs, catalog, site, setupTasks });
+    const next = syncLab(lab.source, { lab, labs, catalog, site, setupTasks, troubleshooting: tsSections.get(lab.slug) });
     if (next === lab.source) continue;
     stale.push(path.relative(ROOT, file));
     if (!check) { fs.writeFileSync(file, next); lab.source = next; }
@@ -385,20 +393,18 @@ async function renderSetup(site, known, rendered) {
   };
 }
 
-// The Troubleshooting page: one "## " section of symptom, likely cause, and fix rows per lab, plus setup and
-// deployment. Each lab's own Troubleshooting section is a link to its section here.
+// The Troubleshooting page: one "## " section of rows per lab, plus setup and deployment. A lab's section starts with a
+// link to the lab, and its table starts with a Step column: the steps where readers see each error. The build moves
+// the steps into the symptom cell, and each of those steps gets a Troubleshoot button that opens its errors.
 async function renderTroubleshooting(site, known, rendered, labs) {
   const guide = await renderGuide(TROUBLESHOOTING, 'troubleshooting', site, known, rendered);
   if (!guide) return null;
   for (const lab of labs) {
-    const id = lab.content.match(/TROUBLESHOOTING\.md#([a-z0-9-]+)/)?.[1];
-    if (!id) { warn(`${lab.slug}: doesn't link to its section in TROUBLESHOOTING.md`); continue; }
-    lab.troubleshooting = id;
-    const section = guide.html.split(/(?=<h2 id=")/).find((part) => part.startsWith(`<h2 id="${id}"`));
-    if (section && !section.includes(`href="../labs/${lab.slug}/"`)) warn(`TROUBLESHOOTING.md#${id}: doesn't link to ${lab.slug}/README.md`);
-    const own = lab.content.match(/^## Troubleshooting\n([\s\S]*?)(?=^## |(?![\s\S]))/m)?.[1] || '';
-    if (/^\|\s*-/m.test(own)) warn(`${lab.slug}: move the Troubleshooting table to TROUBLESHOOTING.md#${id}`);
+    lab.troubleshooting = null;
+    lab.tsSteps = new Map();
+    if (/^## Troubleshooting\s*$/m.test(lab.content)) warn(`${lab.slug}: remove the Troubleshooting section; the steps' Troubleshoot buttons open TROUBLESHOOTING.md`);
   }
+  const bySlug = new Map(labs.map((l) => [l.slug, l]));
   let rows = 0;
   const sections = [];
   // The first paragraph is the page's lead, in the hero.
@@ -407,17 +413,87 @@ async function renderTroubleshooting(site, known, rendered, labs) {
     const id = part.match(/^<h2 id="([^"]+)"/)?.[1];
     if (!id) return part.replace(/^\s*<p>([\s\S]*?)<\/p>\s*/, (_, p) => { lead = p; return ''; });
     const title = guide.toc.find((t) => t.id === id)?.text || id;
-    const n = (part.match(/<tr>/g) || []).length - (part.match(/<thead>/g) || []).length;
+    const slug = part.match(/^<h2[\s\S]*?<\/h2>\s*<p>(?:(?!<\/p>)[\s\S])*?href="\.\.\/labs\/([a-z0-9-]+)\/"/)?.[1];
+    const lab = slug && bySlug.get(slug);
+    if (lab) {
+      if (lab.troubleshooting) warn(`TROUBLESHOOTING.md: "${title}" and #${lab.troubleshooting} both link to ${slug}/README.md first`);
+      else lab.troubleshooting = id;
+      part = mapTsSteps(part, lab, `TROUBLESHOOTING.md#${id}`);
+    }
+    const n = (part.match(/<tr[ >]/g) || []).length - (part.match(/<thead>/g) || []).length;
     if (!n) warn(`TROUBLESHOOTING.md: section "${title}" has no table rows`);
     rows += n;
     sections.push({ id, title, rows: n, text: htmlToText(part.replace(/^<h2[\s\S]*?<\/h2>/, '')) });
     return `<section class="ts-section" data-ts="${id}">${part}</section>`;
   }).join('');
+  for (const lab of labs) if (!lab.troubleshooting) warn(`TROUBLESHOOTING.md: no section starts with a link to ${lab.slug}/README.md`);
   return {
     ...guide, html, sections, rows, lead,
     description: 'The errors you might hit in the Azure AI Gateway labs, with their likely causes and fixes: setup and deployment, and every lab.',
   };
 }
+
+// The Step cell names one or more step titles, separated by <br>. A title matches the lab's steps with that title in
+// every track, unless "(Track, Track)" after it names the tracks. "Any step" marks an error that no step owns.
+function mapTsSteps(part, lab, name) {
+  const table = part.match(/<table><thead><tr>([\s\S]*?)<\/tr><\/thead><tbody>([\s\S]*?)<\/tbody><\/table>/);
+  if (!table) return part;
+  const heads = [...table[1].matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)].map((m) => htmlToText(m[1]));
+  if (heads[0] !== 'Step') {
+    warn(`${name}: start the table with a Step column: the steps where readers see each error, or "Any step"`);
+    return part;
+  }
+  const steps = lab.steps || [];
+  const head = table[1].replace(/^<th[^>]*>[\s\S]*?<\/th>/, '');
+  const body = table[2].replace(/<tr><td[^>]*>([\s\S]*?)<\/td><td([^>]*)>([\s\S]*?)<\/td>/g, (all, cell, attrs, symptom) => {
+    const refs = cell.split(/<br\s*\/?>/).map((r) => htmlToText(r)).filter(Boolean);
+    const ids = new Set();
+    const links = [];
+    for (const ref of refs) {
+      if (ref === 'Any step') {
+        if (refs.length > 1) warn(`${name}: "Any step" can't be combined with steps: ${refs.join(' | ')}`);
+        continue;
+      }
+      const m = ref.match(/^(.*?)(?:\s+\(([^()]+)\))?$/);
+      let [title, tracks] = [m[1], m[2]?.split(/\s*,\s*/)];
+      let found = steps.filter((s) => s.title === title);
+      // A title can end in parentheses itself, such as "(optional)".
+      if (tracks && !found.length) { [title, tracks] = [ref, null]; found = steps.filter((s) => s.title === ref); }
+      if (!found.length) { warn(`${name}: no step "${title}" in ${lab.slug}/README.md`); continue; }
+      if (tracks) {
+        for (const t of tracks) if (!found.some((s) => s.label === t)) warn(`${name}: ${lab.slug}/README.md has no step "${title}" in its ${t} track`);
+        found = found.filter((s) => tracks.includes(s.label));
+        if (!found.length) continue;
+      }
+      for (const s of found) ids.add(s.id);
+      links.push(`<a href="../labs/${lab.slug}/#${found[0].anchor}">${escapeHtml(ref)}</a>`);
+    }
+    if (!refs.length) warn(`${name}: a row has no step; name the steps where readers see the error, or write "Any step"`);
+    for (const id of ids) lab.tsSteps.set(id, (lab.tsSteps.get(id) || 0) + 1);
+    const where = links.length
+      ? `<span class="ts-where"><span class="ts-where-label">${links.length > 1 ? 'Steps' : 'Step'}</span> ${links.join('<span class="ts-where-sep" aria-hidden="true"> · </span>')}</span>`
+      : '';
+    return `<tr data-steps="${[...ids].join(' ')}"><td${attrs}>${symptom}${where}</td>`;
+  });
+  return part.replace(table[0], `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`);
+}
+
+// Adds a Troubleshoot button next to Done on each step that has errors on the Troubleshooting page.
+function addStepTroubleshooting(lab, html) {
+  if (!lab.troubleshooting || !lab.tsSteps?.size) return html;
+  const byId = new Map((lab.steps || []).map((s) => [s.id, s]));
+  return html.replace(/<section class="step" data-step="([^"]+)">([\s\S]*?)<div class="step-btns">/g, (all, id, between) => {
+    const n = lab.tsSteps.get(id);
+    const step = byId.get(id);
+    if (!n || !step) return all;
+    const label = [step.label, step.title].filter(Boolean).join(' › ');
+    const errors = `${n} known error${n === 1 ? '' : 's'}`;
+    return `<section class="step" data-step="${id}">${between}<div class="step-btns">`
+      + `<button class="step-ts" type="button" data-ts-step="${id}" data-ts-label="${escapeHtml(label)}" title="Troubleshoot this step: ${errors}, with their fixes" aria-label="Troubleshoot this step: ${errors}">`
+      + `${TS_ICON}<span>Troubleshoot</span><b aria-hidden="true">${n}</b></button>`;
+  });
+}
+const TS_ICON = '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><circle cx="10" cy="10" r="3"/><path d="m4.7 4.7 3.2 3.2M12.1 12.1l3.2 3.2M15.3 4.7l-3.2 3.2M7.9 12.1l-3.2 3.2"/></svg>';
 
 export async function build({ strict = false } = {}) {
   const t0 = Date.now();
@@ -455,8 +531,8 @@ export async function build({ strict = false } = {}) {
   for (const lab of labs) {
     const ctx = makeCtx(lab, site, known);
     try {
-      const { html, toc, tracks: used } = await renderLab(lab.content, ctx);
-      Object.assign(lab, { html, toc, usedTracks: used });
+      const { html, toc, tracks: used, steps } = await renderLab(lab.content, ctx);
+      Object.assign(lab, { html, toc, usedTracks: used, steps });
       for (const t of used) if (!lab.tracks.includes(t)) warn(`${lab.slug}: track "${t}" used in the body but missing from front matter tracks`);
     } catch (e) {
       throw new Error(`${lab.slug}: ${e.message}`);
@@ -516,7 +592,8 @@ export async function build({ strict = false } = {}) {
   for (const [i, lab] of labs.entries()) {
     checkAnchors(lab, lab.html, rendered, guides);
     const rel = '../../';
-    const body = labPage({ rel, site, catalog, labs, lab, html: lab.html, toc: lab.toc, prev: labs[i - 1], next: labs[i + 1] });
+    const html = addStepTroubleshooting(lab, lab.html);
+    const body = labPage({ rel, site, catalog, labs, lab, html, toc: lab.toc, prev: labs[i - 1], next: labs[i + 1] });
     write(`labs/${lab.slug}/index.html`, layout({
       rel, site, kind: 'lab', title: lab.title, description: lab.summary, body,
       canonical: `${BASE_URL}labs/${lab.slug}/`,

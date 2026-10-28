@@ -652,11 +652,6 @@ To keep this gateway for other labs instead, skip `azd down` and raise the budge
 Keep the gateway, model, and keys from earlier labs: the next labs reuse them. `azd down` doesn't touch them,
 because the Bicep + azd track created its own gateway.
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-07-cost-budgets).
-
 ## Next steps
 
 - [Set gateway-wide policy baselines](../09-gateway-baselines/README.md): combine gateway-scoped budgets with other guardrails.

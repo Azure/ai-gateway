@@ -788,11 +788,6 @@ azd down --purge --force &&
 `azd down` doesn't touch your gateway from lab 02 or its role assignments, because the Bicep + azd track created its
 own gateway.
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-11-entra-id-and-rbac).
-
 ## Next steps
 
 - [Call backends with managed identities](../12-backend-identity/README.md): secure the outbound boundary.

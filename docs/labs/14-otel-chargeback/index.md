@@ -743,11 +743,6 @@ Keep monitoring on if you continue: the agent labs use it to show where agent ca
 clean-up steps in [Monitor usage, cost, and traces](../13-monitoring/README.md). `azd down` doesn't touch the
 gateway and monitoring from the earlier labs, because the Bicep + azd track created its own.
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-14-opentelemetry-chargeback).
-
 ## Next steps
 
 - [Enforce cost budgets with per-caller overrides](../07-cost-budgets/README.md): turn the report into budgets per

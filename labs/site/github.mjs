@@ -200,7 +200,7 @@ function videoRegion(labDir, v, labUrl) {
 }
 
 // Regenerates the GitHub chrome of one lab README. Pure apart from reading included files.
-export function syncLab(raw, { lab, labs, catalog, site, setupTasks = [] }) {
+export function syncLab(raw, { lab, labs, catalog, site, setupTasks = [], troubleshooting = null }) {
   const { matter: fm, body } = parseLab(raw);
   const lines = stripGitHub(body).split('\n');
   if (lines[lines.length - 1] === '') lines.pop();
@@ -307,6 +307,7 @@ export function syncLab(raw, { lab, labs, catalog, site, setupTasks = [] }) {
   ensureBlank();
   out.push(...region('footer', [
     '',
+    ...(troubleshooting ? [`🛟 **Hit an error?** [Troubleshooting](../TROUBLESHOOTING.md#${troubleshooting}) lists the errors of this lab, the steps where they happen, and their fixes.`, ''] : []),
     '---',
     '',
     '| ⬅️ Previous | 🏠 | Next ➡️ |',

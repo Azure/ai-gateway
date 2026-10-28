@@ -569,11 +569,6 @@ own gateway and destination, so you don't need to keep these for it.
 Keep the gateway, model, and key from lab 02: the next labs reuse them. `azd down` doesn't touch them, because the
 Bicep + azd track created its own gateway.
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-13-monitoring).
-
 ## Next steps
 
 - [Attribute tokens and cost with OpenTelemetry](../14-otel-chargeback/README.md): build a chargeback report by tenant, app, and claim.

@@ -825,11 +825,6 @@ Delete the `ai-gateway-learn` entry from `.vscode/mcp.json` and the `.venv` fold
 Keep your gateway from lab 01: the next labs reuse it. `azd down` doesn't touch it, because the Bicep + azd track
 created its own gateway.
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-04-federate-mcp-tools).
-
 ## Next steps
 
 - [Control which tools agents can call](../05-mcp-tool-controls/README.md): allow and block tools by name, and

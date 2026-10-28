@@ -442,11 +442,6 @@ gemini extensions uninstall ai-gateway
 echo "🚮 The ai-gateway extension is removed from Gemini CLI"
 ```
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-17-coding-agent-plugin).
-
 ## Next steps
 
 - [Connect agent frameworks to models and tools](../15-agent-frameworks/README.md)

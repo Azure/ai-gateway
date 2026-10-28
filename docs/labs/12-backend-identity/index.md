@@ -843,11 +843,6 @@ azd down --purge --force &&
 `azd down` doesn't touch your gateway from lab 02 or its system-assigned identity, because the Bicep + azd track
 created its own gateway.
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-12-backend-identities).
-
 ## Next steps
 
 - [Go keyless with Microsoft Entra ID and RBAC](../11-entra-rbac/README.md): remove keys on the inbound side too.

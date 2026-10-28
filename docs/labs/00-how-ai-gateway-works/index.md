@@ -223,11 +223,6 @@ is never forwarded.
 
 Nothing to clean up. This lab doesn't create resources.
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-00-how-ai-gateway-works).
-
 ## Next steps
 
 Short on time? The [5-minute quick start](../quickstart/README.md) creates a gateway with a Foundry model in the

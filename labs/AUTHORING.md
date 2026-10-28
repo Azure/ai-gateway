@@ -111,33 +111,35 @@ heading: checking the step's **Done** box then marks those tasks done in the Set
 fixes, and the site renders it at `/troubleshooting/` with a filter. It starts with **Setup and deployment**, then has
 one section per lab: `## Quick start`, then `## Lab NN: <short title>`, with the lab's short title from
 `catalog.json` and "and" instead of "&". Keep `·` and `&` out of these headings, because the site and GitHub turn
-them into different anchors. Each section starts with a link to the lab, then a table:
+them into different anchors. Each section starts with a link to the lab, then a table whose first column, **Step**,
+names the steps where readers see each error:
 
 ```markdown
 ## Lab 06: Token limits
 
 Lab 06: [Throttle tokens per caller with token limits](06-token-limits/README.md)
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| Every request returns `200`, never `429` | The limit is on a different model or alias than the one you call | … |
+| Step | Symptom | Likely cause | Fix |
+|---|---|---|---|
+| Run the burst | Every request returns `200`, never `429` | The limit is on a different model or alias than the one you call | … |
+| Publish the model (Azure CLI)<br>Deploy with azd up | … | … | … |
 ```
 
 Put the error code or the exact message in **Symptom**, so readers can filter for it. Write links relative to
-`labs/`, for example `06-token-limits/README.md#verify` or `SETUP.md#sign-in-to-azure`. A lab's own
-`## Troubleshooting` section is only a link to its section on the page:
+`labs/`, for example `06-token-limits/README.md#verify` or `SETUP.md#sign-in-to-azure`.
 
-```markdown
-## Troubleshooting
+In **Step**, write the step titles exactly as their `###` headings, separated by `<br>`. Name the step where the
+reader sees the error, which isn't always the step that causes it. A title matches the steps with that title in every
+track; to match only some tracks, add their tab labels in parentheses, such as `Make your first call (Azure CLI,
+Bicep + azd)`. Write `Any step` for an error that no step owns. **Setup and deployment** has no Step column.
 
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-06-token-limits).
-```
-
-The lab's right rail links to the same section. On the site, every link to the page opens it in a side panel,
-with the lab's own section first, except on the page itself. The build warns when a lab doesn't link to its section, when the
-link points to a missing section, when the section doesn't link back to the lab, or when a lab's Troubleshooting
-section still has a table.
+Labs don't have a `## Troubleshooting` section. On the site, each step with errors gets a **Troubleshoot** button
+next to **Done**, with the number of errors. It opens the Troubleshooting panel with only that step's errors, and
+**Show all errors** shows the rest of the lab's section. The build moves the Step column under each symptom as links
+to the steps. The lab's right rail links to the lab's section, every link to the page opens it in the panel except
+on the page itself, and the GitHub footer of each lab README links to its section. The build warns when a lab still
+has a `## Troubleshooting` section, when no section starts with a link to a lab, when a lab's table has no Step
+column, and when a step title or track label doesn't match the lab.
 
 ### azd templates
 
@@ -235,9 +237,9 @@ Use these H2 sections in this order. Keep the H1 identical to `title`.
    track tabs. Each `###` heading inside a track becomes a numbered step with a **Done** checkbox.
 5. `## Verify` – prove it works. End major tasks with a **Checkpoint** callout.
 6. `## Clean up` – always present. Say what is safe to delete and what is shared with other labs.
-7. `## Troubleshooting` – a link to the lab's section on the
-   [Troubleshooting page](#the-troubleshooting-page), which has its table of symptoms, likely causes, and fixes.
-8. `## Next steps` – 2–4 links to related labs and docs.
+7. `## Next steps` – 2–4 links to related labs and docs.
+
+Put the lab's errors on the [Troubleshooting page](#the-troubleshooting-page), mapped to their steps, not in the lab.
 
 ## Markdown conventions
 

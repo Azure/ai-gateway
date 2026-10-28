@@ -662,11 +662,6 @@ azd provision &&
 Keep the gateway and the `learn` MCP server from lab 04: the next labs reuse them. `azd down` doesn't touch them,
 because the Bicep + azd track created its own gateway.
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-19-tool-threat-protection).
-
 ## Next steps
 
 - [Govern MCP servers with Agent 365](../20-agent-365-governance/README.md)

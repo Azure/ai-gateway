@@ -7,8 +7,8 @@ license: MIT
 # Azure AI Gateway labs
 
 Hands-on labs for the Azure AI Gateway. Each lab is one Markdown file with a scenario, a diagram, step-by-step tasks
-with checkpoints, a **Verify** section, clean-up, and troubleshooting. Most labs offer several tracks (Portal, Azure
-CLI, REST, Bicep, Code), and some also ship a Jupyter notebook.
+with checkpoints, a **Verify** section, and clean-up, and the Troubleshooting page maps its errors to its steps. Most
+labs offer several tracks (Portal, Azure CLI, REST, Bicep, Code), and some also ship a Jupyter notebook.
 
 - Labs site: https://azure.github.io/ai-gateway/
 - Source: https://github.com/Azure/ai-gateway/tree/main/labs
@@ -17,8 +17,8 @@ CLI, REST, Bicep, Code), and some also ship a Jupyter notebook.
 - Overview on Microsoft Learn: https://learn.microsoft.com/azure/api-management/ai-gateway-overview
 
 Portal labels and API shapes can change as AI Gateway evolves. When a step fails, look up the error in the lab's
-section of the Troubleshooting page (the lab's **Troubleshooting** section links to it), and compare the step with the
-product docs that the lab links to, before you improvise a fix.
+section of the Troubleshooting page (its **Step** column names the steps where each error shows up), and compare the
+step with the product docs that the lab links to, before you improvise a fix.
 
 ## Where to find things
 

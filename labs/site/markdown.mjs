@@ -202,7 +202,9 @@ function createMarked(ctx) {
   return m;
 }
 
-function stepify(html, prefix) {
+// Turns each h3 into a step. Each step is collected in `steps` ({ id, anchor, title, track, label }) so the build can
+// map the Troubleshooting rows to it.
+function stepify(html, prefix, steps = [], label = '') {
   // Prefix keeps split() from skipping a heading at index 0 (zero-width matches there never split).
   const parts = `\u0000${html}`.split(/(?=<h3 id=")/);
   parts[0] = parts[0].slice(1);
@@ -215,13 +217,17 @@ function stepify(html, prefix) {
     if (!m) { out += p; continue; }
     const [, id, title, body] = m;
     const stepId = `${prefix}-${id}`;
+    steps.push({ id: stepId, anchor: id, title: headingText(title), track: prefix === 'shared' ? '' : prefix, label });
     out += `<section class="step" data-step="${stepId}"><div class="step-rail"><span class="step-num">${n}</span></div>`
       + `<div class="step-main"><div class="step-head"><h3 id="${id}">${title}</h3>`
-      + `<button class="step-check" type="button" aria-pressed="false" title="Mark step as done"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5.5 10.5 3 3 6-7"/></svg><span>Done</span></button></div>`
+      + `<div class="step-btns"><button class="step-check" type="button" aria-pressed="false" title="Mark step as done"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5.5 10.5 3 3 6-7"/></svg><span>Done</span></button></div></div>`
       + `<div class="step-body">${body}</div></div></section>`;
   }
   return out;
 }
+
+const headingText = (h) => h.replace(/<a class="anchor"[^>]*>#<\/a>/, '').replace(/<[^>]+>/g, '')
+  .replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').trim();
 
 function enhanceHtml(html) {
   let tabGroup = 0;
@@ -318,21 +324,22 @@ export async function renderLab(markdown, ctx) {
   const marked = createMarked(ctx);
   let html = '';
   const tracks = [];
+  const steps = [];
   for (const seg of segments) {
     if (seg.kind === 'md') html += marked.parse(seg.md);
-    else if (seg.kind === 'steps') html += `<div class="steps">${stepify(marked.parse(seg.md), 'shared')}</div>`;
+    else if (seg.kind === 'steps') html += `<div class="steps">${stepify(marked.parse(seg.md), 'shared', steps)}</div>`;
     else {
       const gid = `tg${tracks.length}`;
       const tabs = seg.tracks.map((t, i) => `<button role="tab" class="track-tab" data-track="${t.id}" aria-selected="${i === 0}" tabindex="${i ? -1 : 0}" id="${gid}-${t.id}-tab" aria-controls="${gid}-${t.id}">${TRACK_ICONS[t.id] || TRACK_ICONS.code}<span>${escapeHtml(t.label)}</span></button>`).join('');
       const panels = seg.tracks.map((t, i) => {
         tracks.push(t.id);
-        return `<div class="track-panel" role="tabpanel" data-track="${t.id}" id="${gid}-${t.id}" aria-labelledby="${gid}-${t.id}-tab"${i ? ' hidden' : ''}><div class="steps">${stepify(marked.parse(t.md), t.id)}</div></div>`;
+        return `<div class="track-panel" role="tabpanel" data-track="${t.id}" id="${gid}-${t.id}" aria-labelledby="${gid}-${t.id}-tab"${i ? ' hidden' : ''}><div class="steps">${stepify(marked.parse(t.md), t.id, steps, t.label)}</div></div>`;
       }).join('');
       html += `<div class="tracks" data-tracks="${seg.tracks.map((t) => t.id).join(' ')}"><div class="track-bar"><span class="track-bar-label">Choose your track</span><div class="track-tabs" role="tablist" aria-label="Lab track">${tabs}</div></div>${panels}</div>`;
     }
   }
   html = enhanceHtml(html);
-  return { html, toc: ctx.toc, tracks: [...new Set(tracks)] };
+  return { html, toc: ctx.toc, tracks: [...new Set(tracks)], steps };
 }
 
 export { ICONS };

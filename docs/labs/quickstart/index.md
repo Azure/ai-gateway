@@ -622,11 +622,6 @@ if ($?) { Write-Host "🚮 Everything that azd up created is deleted" }
 
 <!-- /tracks -->
 
-## Troubleshooting
-
-For the errors you might hit in the quick start, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#quick-start).
-
 ## Next steps
 
 - [How Azure AI Gateway works](../00-how-ai-gateway-works/README.md): a 3-minute video and a guided tour of every building block.

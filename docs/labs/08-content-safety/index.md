@@ -556,11 +556,6 @@ azd down --purge --force &&
 Keep the gateway, model, and key from lab 02: the next labs reuse them. `azd down` doesn't touch them, because
 the Bicep + azd track created its own gateway.
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-08-content-safety).
-
 ## Next steps
 
 - [Set gateway-wide policy baselines](../09-gateway-baselines/README.md): make content safety the default for

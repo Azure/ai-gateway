@@ -927,11 +927,6 @@ azd down --purge --force &&
 
 <!-- /tracks -->
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-02-first-model-call).
-
 ## Next steps
 
 - [Publish models from any provider behind stable aliases](../03-multi-provider-aliases/README.md): add other providers and retarget aliases.

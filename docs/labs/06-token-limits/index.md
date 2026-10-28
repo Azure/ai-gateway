@@ -574,11 +574,6 @@ To keep this gateway for other labs instead, skip `azd down` and raise the limit
 Keep the gateway, model, and key from lab 02: the next labs reuse them. `azd down` doesn't touch them, because
 the Bicep + azd track created its own gateway.
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-06-token-limits).
-
 ## Next steps
 
 - [Enforce cost budgets with per-key overrides](../07-cost-budgets/README.md): cap spend in dollars per caller.

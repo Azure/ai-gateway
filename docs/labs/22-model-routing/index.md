@@ -657,11 +657,6 @@ azd down --purge --force &&
 `azd down` doesn't touch the gateway, key, and `gpt-6-luna` from lab 02, because the Bicep + azd track created its
 own gateway.
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-22-priority-and-weighted-routing).
-
 ## Next steps
 
 - [Monitor usage, cost, and traces](../13-monitoring/README.md)

@@ -416,11 +416,6 @@ select **Save**.
 
 <!-- /steps -->
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-20-agent-365-governance).
-
 ## Next steps
 
 - [Protect tool calls with Agent 365 threat protection](../19-tool-threat-protection/README.md)

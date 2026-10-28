@@ -541,11 +541,6 @@ policy.
 
 Keep the gateway, model, and key. The next labs reuse them.
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-09-gateway-wide-baselines).
-
 ## Next steps
 
 - [Enforce cost budgets with per-caller overrides](../07-cost-budgets/README.md): add a spend limit to the

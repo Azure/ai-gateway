@@ -37,6 +37,18 @@ function initTracks() {
   const fromUrl = new URLSearchParams(location.search).get('track');
   const pref = fromUrl || store.get('track', null);
   if (pref) selectTrack(pref, { persist: !!fromUrl });
+  revealHash();
+  addEventListener('hashchange', () => revealHash());
+}
+// A link to a step in another track, such as a step link in Troubleshooting, shows that track first.
+function revealHash(force = false) {
+  let el;
+  try { el = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1))); } catch { return; }
+  if (!el) return;
+  const panel = el.closest('.track-panel');
+  if (panel?.hidden) selectTrack(panel.dataset.track);
+  else if (!force) return;
+  requestAnimationFrame(() => el.scrollIntoView({ block: 'start' }));
 }
 
 // Shows the tab with this label in every code tab group, such as Bash or PowerShell.

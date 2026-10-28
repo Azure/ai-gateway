@@ -919,11 +919,6 @@ azd env remove aigw-lab03 --force &&
 Deleting the provider removes the stored Anthropic key from the gateway. It doesn't revoke the key itself. If
 you created the key only for this lab, delete it in the Claude Console.
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-03-multi-provider-aliases).
-
 ## Next steps
 
 - [Route an alias across models by priority and weight](../22-model-routing/README.md): canary a new model or prefer

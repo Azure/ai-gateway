@@ -897,11 +897,6 @@ Clear the key values from your shell with `unset AI_GATEWAY_API_KEY OLD_SUPPORT_
 [Provision your AI Gateway](../01-provision-gateway/README.md#clean-up). `azd down` doesn't touch it, because the
 Bicep + azd track created its own gateway.
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-10-runtime-api-keys).
-
 ## Next steps
 
 - [Go keyless with Microsoft Entra ID and RBAC](../11-entra-rbac/README.md): replace keys with identities and

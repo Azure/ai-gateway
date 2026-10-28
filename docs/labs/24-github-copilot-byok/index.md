@@ -1602,11 +1602,6 @@ azd down --purge --force &&
 `azd down` doesn't touch the gateway, provider, and key from lab 02, because the Bicep + azd track created its own
 gateway.
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-24-github-copilot-byok).
-
 ## Next steps
 
 - [Manage runtime API keys](../10-api-keys/README.md): rotate, suspend, and revoke the keys that tools use.

@@ -368,11 +368,6 @@ usually makes at least two model calls: one that asks for a tool and one that wr
 
 Keep the gateway, the alias, and the `learn` MCP server. Other labs reuse them.
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-15-agent-frameworks).
-
 ## Next steps
 
 - [Deploy a Foundry hosted agent behind AI Gateway](../16-foundry-hosted-agent/README.md): run an Agent Framework

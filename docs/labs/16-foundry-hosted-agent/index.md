@@ -573,11 +573,6 @@ it, or run `az aigateway api-key delete -g "$RG" --gateway-name "$GATEWAY" -n ho
 
 Your gateway, its alias, and the `learn` MCP server aren't affected.
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-16-foundry-hosted-agent).
-
 ## Next steps
 
 - [Connect agent frameworks to models and tools](../15-agent-frameworks/README.md): wire other frameworks to the

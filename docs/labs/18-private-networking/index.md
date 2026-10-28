@@ -1065,11 +1065,6 @@ azd down --purge --force &&
 Keep the gateway, model, and key from the earlier labs. The next labs reuse them. `azd down` doesn't touch them,
 because the Bicep + azd track created its own gateway and Foundry resource.
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-18-private-networking).
-
 ## Next steps
 
 - [Deploy an enterprise reference architecture](../21-enterprise-reference/README.md): put the gateway, models,

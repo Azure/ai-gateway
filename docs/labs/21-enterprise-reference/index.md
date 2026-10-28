@@ -833,11 +833,6 @@ if ($?) { Write-Host "🚮 App registration github-aigw-deploy is deleted" }
 
 If you deployed prod, repeat the clean-up with the `aigw-prod` deployment's outputs.
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-21-enterprise-reference).
-
 ## Next steps
 
 - Keep backend traffic off the public internet with

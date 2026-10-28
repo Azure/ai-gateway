@@ -800,11 +800,6 @@ azd down --purge --force &&
 Keep the gateway, model, and key from lab 02: the next labs reuse them. `azd down` doesn't touch them, because
 the Bicep + azd track created its own gateway.
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-23-streaming-responses).
-
 ## Next steps
 
 - [Throttle tokens per caller with token limits](../06-token-limits/README.md): give every caller its own allowance.

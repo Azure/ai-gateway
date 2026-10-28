@@ -736,11 +736,6 @@ azd provision &&
 Keep the gateway, the `learn` MCP server, and your key from lab 04. The next labs reuse them. `azd down` doesn't
 touch them, because the Bicep + azd track created its own gateway.
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-05-tool-allow-and-block-lists).
-
 ## Next steps
 
 - [Screen prompts and responses with content safety](../08-content-safety/README.md): screen tool inputs and

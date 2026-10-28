@@ -501,11 +501,6 @@ azd down --purge --force &&
 
 <!-- /tracks -->
 
-## Troubleshooting
-
-For the errors you might hit in this lab, with their likely causes and fixes, see
-[Troubleshooting](../TROUBLESHOOTING.md#lab-01-provision-a-gateway).
-
 ## Next steps
 
 - [Publish a Foundry model and make your first call](../02-first-model-call/README.md): import a model, create a key, and call it.
