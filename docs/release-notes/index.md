@@ -40,6 +40,10 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
   runs, it prints a short status line with an emoji, such as `🚀 Gateway aigw-1a2b3c is ready` or
   `🤖 <the model's reply>`. Status lines print only when the command succeeds, and keys and tokens are never
   printed: only their length is. [Authoring](AUTHORING.md#cli-comments-and-status-lines) lists the conventions.
+- **October 28.** The [quick start](quickstart/README.md)'s Azure CLI track no longer creates a connector gateway
+  (`Microsoft.Web/connectorGateways`) with `az rest`, or registers `Microsoft.Web`. Only connector-based MCP tools
+  use the connector gateway, and the portal creates it when you first add a connector backend. A live run of the
+  track without it published the model and got a reply.
 - **October 28.** The labs no longer describe AI Gateway as a preview service or say that the gateway is free
   during the preview. [Lab 00](00-how-ai-gateway-works/README.md) and the
   [Setup guide](SETUP.md#check-your-subscription-and-permissions) point to the

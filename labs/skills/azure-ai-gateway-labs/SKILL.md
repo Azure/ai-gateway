@@ -101,7 +101,9 @@ Before you create, change, or delete Azure resources, confirm the subscription a
   `model-alias update`. `--token-counter-key` takes one value; for `[identity, ipAddress]`, use
   `model update --policies`. The track keeps `az rest` for what the extension can't do yet: gateway and workspace
   policies, telemetry exporters, MCP versions, tool rules and `failureMode`, network settings after creation, API
-  key `state`, and the connector gateway. Tracks that call `az rest` set `GATEWAY_ID` (from `az aigateway show`),
+  key `state`, and the connector gateway. Only connector-based MCP tools use the connector gateway: the CLI doesn't
+  create it, the portal creates it when you first add a connector backend, and the quick start's CLI track skips it.
+  Tracks that call `az rest` set `GATEWAY_ID` (from `az aigateway show`),
   `WS` (`https://management.azure.com$GATEWAY_ID/workspaces/default`), and `API`
   (`api-version=2025-09-01-preview`) once. A `PATCH` replaces whole arrays such as `properties.policies`, so read,
   edit, then write.

@@ -582,23 +582,18 @@ Write-Host "🆔 Subscription: $SUBSCRIPTION_ID"
 
 ### Start creating the gateway
 
-Register the resource providers, which is a one-time step for each subscription, and create a resource group. Then
-create the gateway's companion connector gateway, which the extension doesn't create, and the gateway itself. With
-`--no-wait`, Azure keeps provisioning the gateway in the background, so you can move on right away.
+Register the resource providers, which is a one-time step for each subscription, create a resource group, and start
+creating the gateway. With `--no-wait`, Azure keeps provisioning the gateway in the background, so you can move on
+right away. The portal and the Bicep template also create a companion connector gateway for connector-based MCP
+tools. The quick start doesn't use connectors, so this track skips it.
 
 ```bash title="Bash"
-# Register the resource providers for AI Gateway, its connector gateway, and Foundry (once per subscription)
-for ns in Microsoft.ApiManagement Microsoft.Web Microsoft.CognitiveServices; do az provider register --namespace "$ns" --wait && echo "🧩 $ns is registered"; done
+# Register the resource providers for AI Gateway and Foundry (once per subscription)
+for ns in Microsoft.ApiManagement Microsoft.CognitiveServices; do az provider register --namespace "$ns" --wait && echo "🧩 $ns is registered"; done
 
 # Create the resource group that holds the gateway and the Foundry account
 az group create --name "$RG" --location "$LOCATION" --output none &&
   echo "📦 Resource group $RG is ready in $LOCATION"
-
-# Create the gateway's companion connector gateway, which the aigateway extension doesn't create
-az rest --method put --output none \
-  --url "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Web/connectorGateways/$GATEWAY?api-version=2026-05-01-preview" \
-  --body "$(jq -cn --arg l "$LOCATION" '{location: $l, properties: {}}')" &&
-  echo "🔌 Connector gateway $GATEWAY is ready"
 
 # Start creating the gateway, with a system-assigned managed identity; --no-wait returns right away
 az aigateway create --resource-group "$RG" --name "$GATEWAY" --location "$LOCATION" --system-assigned true --no-wait &&
@@ -606,19 +601,12 @@ az aigateway create --resource-group "$RG" --name "$GATEWAY" --location "$LOCATI
 ```
 
 ```powershell title="PowerShell"
-# Register the resource providers for AI Gateway, its connector gateway, and Foundry (once per subscription)
-foreach ($ns in "Microsoft.ApiManagement", "Microsoft.Web", "Microsoft.CognitiveServices") { az provider register --namespace $ns --wait; if ($?) { Write-Host "🧩 $ns is registered" } }
+# Register the resource providers for AI Gateway and Foundry (once per subscription)
+foreach ($ns in "Microsoft.ApiManagement", "Microsoft.CognitiveServices") { az provider register --namespace $ns --wait; if ($?) { Write-Host "🧩 $ns is registered" } }
 
 # Create the resource group that holds the gateway and the Foundry account
 az group create --name $RG --location $LOCATION --output none
 if ($?) { Write-Host "📦 Resource group $RG is ready in $LOCATION" }
-
-# Create the gateway's companion connector gateway, which the aigateway extension doesn't create
-@{ location = $LOCATION; properties = @{} } | ConvertTo-Json -Compress | Set-Content body.json
-az rest --method put --output none --body "@body.json" `
-  --url "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Web/connectorGateways/${GATEWAY}?api-version=2026-05-01-preview"
-if ($?) { Write-Host "🔌 Connector gateway $GATEWAY is ready" }
-Remove-Item body.json
 
 # Start creating the gateway, with a system-assigned managed identity; --no-wait returns right away
 az aigateway create --resource-group $RG --name $GATEWAY --location $LOCATION --system-assigned true --no-wait

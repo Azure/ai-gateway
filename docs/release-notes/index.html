@@ -97,6 +97,10 @@ the <a href="../setup/">Setup guide</a> now has a comment that explains what it 
 runs, it prints a short status line with an emoji, such as <code>🚀 Gateway aigw-1a2b3c is ready</code> or
 <code>🤖 &lt;the model&#39;s reply&gt;</code>. Status lines print only when the command succeeds, and keys and tokens are never
 printed: only their length is. <a href="https://github.com/Azure/ai-gateway/blob/main/labs/AUTHORING.md#cli-comments-and-status-lines" target="_blank" rel="noopener">Authoring<span class="ext" aria-hidden="true">↗</span></a> lists the conventions.</li>
+<li><strong>October 28.</strong> The <a href="../labs/quickstart/">quick start</a>&#39;s Azure CLI track no longer creates a connector gateway
+(<code>Microsoft.Web/connectorGateways</code>) with <code>az rest</code>, or registers <code>Microsoft.Web</code>. Only connector-based MCP tools
+use the connector gateway, and the portal creates it when you first add a connector backend. A live run of the
+track without it published the model and got a reply.</li>
 <li><strong>October 28.</strong> The labs no longer describe AI Gateway as a preview service or say that the gateway is free
 during the preview. <a href="../labs/00-how-ai-gateway-works/">Lab 00</a> and the
 <a href="../setup/#check-your-subscription-and-permissions">Setup guide</a> point to the
