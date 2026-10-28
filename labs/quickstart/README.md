@@ -52,43 +52,11 @@ You need an Azure subscription where you can create resources and role assignmen
 **Contributor** plus **Role Based Access Control Administrator**. The gateway gets a role on your Foundry account, so
 that it can call the model with its own identity. Each track lists the tools that it needs at its start.
 
-### Find the available regions
-
-AI Gateway keeps adding regions. To list the current ones, run this in [Azure Cloud Shell](https://shell.azure.com):
-
-<details open><summary>Bash</summary> <!-- gh -->
-
-```bash title="Bash"
-regions=$(az provider show --namespace Microsoft.ApiManagement \
-  --query "resourceTypes[?resourceType=='aigateways'].locations | [0]" -o json)
-az account list-locations -o json |
-  jq -r --argjson regions "$regions" '
-    ["Display Name", "Name"],
-    (.[] | select(.displayName as $d | $regions | index($d)) | [.displayName, .name])
-    | @tsv
-  ' | column -t -s $'\t'
-```
-</details> <!-- gh -->
-
-<details><summary>PowerShell</summary> <!-- gh -->
-
-```powershell title="PowerShell"
-$regions = az provider show --namespace Microsoft.ApiManagement `
-  --query "resourceTypes[?resourceType=='aigateways'].locations | [0]" -o json | ConvertFrom-Json
-az account list-locations -o json | ConvertFrom-Json |
-  Where-Object { $regions -contains $_.displayName } |
-  Format-Table @{ Label = 'Display Name'; Expression = { $_.displayName } }, @{ Label = 'Name'; Expression = { $_.name } }
-```
-</details> <!-- gh -->
-
-Use a value from the **Name** column, such as `eastus2`, as the location in the Azure CLI and Bicep + azd tracks. The
-portal lists the regions where it can create gateways, which can be fewer. Those two tracks also create the Foundry
-account in the gateway's region, so pick a region where `gpt-6-luna` is available too. This command prints its
-deployment types in a region, and prints nothing if the model isn't available there:
-
-```bash title="Bash or PowerShell"
-az cognitiveservices model list --location eastus2 --query "[?model.name=='gpt-6-luna'].model.skus[].name" -o tsv
-```
+The Azure CLI and Bicep + azd tracks take a location: `eastus2`, or another region from
+[Find the available regions](../SETUP.md#find-the-available-regions). They also create the Foundry account in that
+region, so pick one where `gpt-6-luna` is available too. Each track includes every setup step that it needs, so you
+can paste it into Cloud Shell as it is. The [Setup guide](../SETUP.md) explains these steps, and the later labs
+link to it.
 
 ## How it works
 
@@ -768,9 +736,9 @@ azd up
 ```
 </details> <!-- gh -->
 
-For another region, use its name from [Find the available regions](#find-the-available-regions). azd saves the
-template's outputs, like the gateway URL and the alias, as environment values. The API key isn't an output, so it
-never lands in a file or a deployment log.
+For another region, use its name from [Find the available regions](../SETUP.md#find-the-available-regions).
+azd saves the template's outputs, like the gateway URL and the alias, as environment values. The API key isn't an
+output, so it never lands in a file or a deployment log.
 
 ### Read the URL, the alias, and the key
 
@@ -870,9 +838,9 @@ azd down --purge --force
 |---|---|---|
 | A subscription is disabled in **Create AI gateway** | You can't write API Management or connector gateway resources in it | Pick another subscription, or ask for **Contributor** on it. |
 | `AuthorizationFailed` on `Microsoft.Authorization/roleAssignments` | You can create resources but not role assignments | Ask for **Owner**, or **Role Based Access Control Administrator**, on the resource group. |
-| `LocationNotAvailableForResourceType` | AI Gateway isn't available in the region | Pick a region from [Find the available regions](#find-the-available-regions). |
+| `LocationNotAvailableForResourceType` | AI Gateway isn't available in the region | Pick a region from [Find the available regions](../SETUP.md#find-the-available-regions). |
 | `RequestDisallowedByAzure`: `The selected region is currently not accepting new customers` | The region has AI Gateway, but your subscription can't create new resources there | Pick another region from the list. |
-| `InvalidResourceProperties`: `The specified SKU 'GlobalStandard' for model 'gpt-6-luna 2026-09-22' is not supported in this region` | `gpt-6-luna` isn't available in the region | Pick a region where the model check in [Find the available regions](#find-the-available-regions) prints `GlobalStandard`. |
+| `InvalidResourceProperties`: `The specified SKU 'GlobalStandard' for model 'gpt-6-luna 2026-09-22' is not supported in this region` | `gpt-6-luna` isn't available in the region | Pick a region where the model check in [Find the available regions](../SETUP.md#find-the-available-regions) prints `GlobalStandard`. |
 | `InsufficientQuota` on the model deployment | The subscription has no `gpt-6-luna` capacity left in the region | Start again in another region: set `LOCATION` in the Azure CLI track, or run `azd env new` with a new name and another `--location` in the Bicep + azd track. Or free capacity in [Foundry](https://ai.azure.com). |
 | `InvalidResourceGroupLocation` from `azd up` | The resource group `rg-<environment name>` already exists in another region | Run `azd env new` with a new environment name, or delete the old resource group. |
 | `403` or `404` from the gateway in the first minute | The gateway's role on the Foundry account, or the new alias, is still taking effect | Wait a minute and call again. |

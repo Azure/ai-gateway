@@ -9,7 +9,7 @@ targetScope = 'subscription'
 @maxLength(60)
 param environmentName string
 
-@description('Region for every resource. Pick one where AI Gateway and the lab\'s Foundry models are available. List them with az provider show --namespace Microsoft.ApiManagement (lab 01, Find the available regions).')
+@description('Region for every resource. Pick one where AI Gateway and the lab\'s Foundry models are available. List them with az provider show --namespace Microsoft.ApiManagement (Setup guide, Find the available regions).')
 @metadata({ azd: { type: 'location' } })
 param location string
 

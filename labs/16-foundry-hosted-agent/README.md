@@ -62,9 +62,9 @@ model and its tools only through AI Gateway, with a key of its own.
   - Python 3.13 or later. With [uv](https://docs.astral.sh/uv/getting-started/installation/) installed, azd uses it
     to create the agent's virtual environment.
   - Git
-- For the Azure CLI track: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later,
-  signed in with `az login` to the same tenant, the `aigateway` extension
-  ([install it](../01-provision-gateway/README.md#before-you-begin)), and `jq` for the Bash snippets.
+- For the Azure CLI track: the Azure CLI with the
+  [`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure) to
+  the same tenant, and `jq` for the Bash snippets.
 
 > [!WARNING]
 > `azd up` creates a Foundry resource, and the hosted agent and its model calls are billable. Run
@@ -206,9 +206,11 @@ $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-nam
 
 ### Get the lab files
 
+[Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet. Then move into the lab's `infra` folder
+and install the Foundry extensions for azd:
+
 ```bash
-git clone https://github.com/Azure/ai-gateway.git
-cd ai-gateway/labs/16-foundry-hosted-agent/infra
+cd ~/ai-gateway/labs/16-foundry-hosted-agent/infra
 azd ext install microsoft.foundry
 ```
 

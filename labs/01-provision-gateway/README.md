@@ -58,103 +58,20 @@ way around the portal so you're ready for the rest of the labs.
 
 > [!TIP]
 > On the **Bicep + azd** track, `azd up` creates the resource group and the gateway and names them for you, so you
-> can skip the variables at the end of this section. You need [Azure Cloud Shell](https://shell.azure.com), or the
-> Azure Developer CLI (`azd`), the Azure CLI, and Git on your machine, plus the `aigateway` extension below for the
-> **Verify** steps.
+> can skip the variables at the end of this section.
 
-- An Azure subscription where you can create resources. For the gateway's pricing, see the
-  [AI Gateway documentation](https://ai.gateway.azure.com/docs). Connected services, such as Foundry inference and
-  Application Insights, are billed normally.
-- Permission to create the gateway, for example **Contributor** on the resource group, or on the subscription
-  if you create a new resource group. Creating a gateway needs write access to both API Management and
-  connector gateways.
+Do these one-time tasks from the [Setup guide](../SETUP.md) first. Every later lab reuses them.
+
+- [Check your subscription and permissions](../SETUP.md#check-your-subscription-and-permissions): for example
+  **Contributor** on the resource group, or on the subscription if you create a new resource group.
 - For the portal track: a browser and your Azure account.
-- For the CLI track and the **Verify** steps: the
-  [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
-  `az login`, the [`aigateway` extension](https://github.com/Azure/ai-gateway/tree/main/cli), and `jq` for the Bash snippets.
+- For the CLI and Bicep + azd tracks and the **Verify** steps:
+  [choose where to run commands](../SETUP.md#choose-where-to-run-commands), [sign in](../SETUP.md#sign-in-to-azure),
+  [install the `aigateway` extension](../SETUP.md#install-the-aigateway-extension), and
+  [register the resource providers](../SETUP.md#register-the-resource-providers).
+- [Find the available regions](../SETUP.md#find-the-available-regions), and pick one where the Foundry models of the
+  later labs are available too.
 - Recommended reading: [How AI Gateway works](../00-how-ai-gateway-works/README.md).
-
-Install or upgrade the `aigateway` extension, then check that the CLI loads it. The installer downloads the
-published release, verifies it, and needs no Azure sign-in. Every later lab uses the same extension.
-
-<details open><summary>Bash</summary> <!-- gh -->
-
-```bash title="Bash"
-curl -fsSL https://aka.ms/aigateway-cli-install | sh
-az aigateway version
-```
-</details> <!-- gh -->
-
-<details><summary>PowerShell</summary> <!-- gh -->
-
-```powershell title="PowerShell"
-irm https://aka.ms/aigateway-cli-install-ps | iex
-az aigateway version
-```
-</details> <!-- gh -->
-
-`az aigateway version` prints the extension version and the API version it calls, `2025-09-01-preview`. The labs
-need version `1.0.0b14` or later; run the installer again to upgrade an older one.
-
-> [!NOTE]
-> The labs use `az aigateway` commands wherever the extension covers an operation. A few operations, such as
-> gateway-wide policies, telemetry exporters, and the connector gateway, aren't in the extension yet. For those,
-> the labs call the Azure Resource Manager REST API with `az rest` and say why.
-
-### Find the available regions
-
-AI Gateway keeps adding regions. List the current ones: the first command reads the regions of the
-`Microsoft.ApiManagement/aigateways` resource type, and the second matches them to the region names that
-`--location` takes.
-
-<details open><summary>Bash</summary> <!-- gh -->
-
-```bash title="Bash"
-regions=$(az provider show --namespace Microsoft.ApiManagement \
-  --query "resourceTypes[?resourceType=='aigateways'].locations | [0]" -o json)
-az account list-locations -o json |
-  jq -r --argjson regions "$regions" '
-    ["Display Name", "Name"],
-    (.[] | select(.displayName as $d | $regions | index($d)) | [.displayName, .name])
-    | @tsv
-  ' | column -t -s $'\t'
-```
-</details> <!-- gh -->
-
-<details><summary>PowerShell</summary> <!-- gh -->
-
-```powershell title="PowerShell"
-$regions = az provider show --namespace Microsoft.ApiManagement `
-  --query "resourceTypes[?resourceType=='aigateways'].locations | [0]" -o json | ConvertFrom-Json
-az account list-locations -o json | ConvertFrom-Json |
-  Where-Object { $regions -contains $_.displayName } |
-  Format-Table @{ Label = 'Display Name'; Expression = { $_.displayName } }, @{ Label = 'Name'; Expression = { $_.name } }
-```
-</details> <!-- gh -->
-
-Expected output: one row per region, such as `East US 2   eastus2`. Use a value from the **Name** column wherever a
-lab asks for a location. The portal lists the regions where it can create gateways, which can be fewer. To use a
-region that it doesn't list, create the gateway with the Azure CLI or Bicep + azd track.
-
-Later labs also deploy Foundry models, and their templates put the Foundry account in the gateway's region, so pick a
-region where those models are available too. For example, this command prints the deployment types of
-`gpt-6-luna` in a region, and prints nothing if the model isn't available there:
-
-<details open><summary>Bash</summary> <!-- gh -->
-
-```bash title="Bash"
-az cognitiveservices model list --location eastus2 \
-  --query "[?model.name=='gpt-6-luna'].model.skus[].name" -o tsv
-```
-</details> <!-- gh -->
-
-<details><summary>PowerShell</summary> <!-- gh -->
-
-```powershell title="PowerShell"
-az cognitiveservices model list --location eastus2 `
-  --query "[?model.name=='gpt-6-luna'].model.skus[].name" -o tsv
-```
-</details> <!-- gh -->
 
 ### Set your variables
 
@@ -199,7 +116,7 @@ are the name, the region, and the resource group.
 | Property | Value |
 |---|---|
 | Resource type | `Microsoft.ApiManagement/aigateways` (API version `2025-09-01-preview`), plus `Microsoft.Web/connectorGateways` with the same name |
-| Regions | The list grows over time. List them as in [Find the available regions](#find-the-available-regions) |
+| Regions | The list grows over time. List them as in [Find the available regions](../SETUP.md#find-the-available-regions) |
 | Name | 1–24 characters: letters, digits, and hyphens. It becomes the first label of the runtime host name |
 | Runtime URL | `https://` + `properties.frontend.defaultHostname`, for example `https://<gateway>.eastus2-01.ai.gateway.azure.com` |
 | Runtime routes | Models under `/default/models/…`, MCP servers under `/default/toolservers/<server>/mcp` |
@@ -261,16 +178,8 @@ on **Home** until you finish it.
 <!-- track: cli | Azure CLI -->
 <details><summary><b>⌨️ Azure CLI</b></summary> <!-- gh -->
 
-### Register the resource providers
-
-The gateway lives in the `Microsoft.ApiManagement` resource provider and its connector gateway in
-`Microsoft.Web`. Registering is a one-time step per subscription, and it returns quickly when a provider is
-already registered.
-
-```bash
-az provider register -n Microsoft.ApiManagement --wait
-az provider register -n Microsoft.Web --wait
-```
+If you haven't yet, [register the resource providers](../SETUP.md#register-the-resource-providers) in this
+subscription: the gateway lives in `Microsoft.ApiManagement` and its connector gateway in `Microsoft.Web`.
 
 ### Create a resource group
 
@@ -356,32 +265,18 @@ az aigateway show -g $RG -n $GATEWAY `
 <!-- track: iac | Bicep + azd -->
 <details><summary><b>🏗️ Bicep + azd</b></summary> <!-- gh -->
 
-**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
-the Azure CLI with the `aigateway` extension, and Git on your machine, signed in with `azd auth login` and `az login`.
-`azd up` creates the resource group and the gateway, so you don't need the variables from **Before you begin**.
+**What you need:** the [Setup guide](../SETUP.md) tasks from **Before you begin**. `azd up` creates the resource
+group and the gateway, so you don't need the variables.
 
 ### Clone the lab
 
 The lab is a small azd project in the
-[`labs/01-provision-gateway`](https://github.com/Azure/ai-gateway/tree/main/labs/01-provision-gateway) folder of
-the GitHub repo. Clone the repo and move into that folder. If you cloned it for the quick start, move into
-`ai-gateway/labs/01-provision-gateway` instead.
+[`labs/01-provision-gateway`](https://github.com/Azure/ai-gateway/tree/main/labs/01-provision-gateway) folder.
+[Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder:
 
-<details open><summary>Bash</summary> <!-- gh -->
-
-```bash title="Bash"
-git clone https://github.com/Azure/ai-gateway.git
-cd ai-gateway/labs/01-provision-gateway
+```bash title="Bash or PowerShell"
+cd ~/ai-gateway/labs/01-provision-gateway
 ```
-</details> <!-- gh -->
-
-<details><summary>PowerShell</summary> <!-- gh -->
-
-```powershell title="PowerShell"
-git clone https://github.com/Azure/ai-gateway.git
-Set-Location ai-gateway/labs/01-provision-gateway
-```
-</details> <!-- gh -->
 
 ### Review the template
 
@@ -417,7 +312,7 @@ targetScope = 'resourceGroup'
 @maxLength(24)
 param gatewayName string
 
-@description('Region for the gateway. Pick one where AI Gateway is available. List them with az provider show --namespace Microsoft.ApiManagement (lab 01, Find the available regions).')
+@description('Region for the gateway. Pick one where AI Gateway is available. List them with az provider show --namespace Microsoft.ApiManagement (Setup guide, Find the available regions).')
 param location string = 'eastus2'
 
 @description('Tags applied to both resources.')
@@ -481,7 +376,7 @@ targetScope = 'subscription'
 @maxLength(60)
 param environmentName string
 
-@description('Region for every resource. Pick one where AI Gateway is available. List them with az provider show --namespace Microsoft.ApiManagement (lab 01, Find the available regions).')
+@description('Region for every resource. Pick one where AI Gateway is available. List them with az provider show --namespace Microsoft.ApiManagement (Setup guide, Find the available regions).')
 @metadata({ azd: { type: 'location' } })
 param location string
 
@@ -544,7 +439,7 @@ azd up
 ```
 </details> <!-- gh -->
 
-For another region, use its name from [Find the available regions](#find-the-available-regions).
+For another region, use its name from [Find the available regions](../SETUP.md#find-the-available-regions).
 
 ### Read the outputs
 
@@ -747,14 +642,14 @@ azd down --purge --force
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Your subscription is disabled in the portal's subscription picker | You lack write permission for API Management or connector gateways in that subscription | Ask for **Contributor** on the subscription or resource group, or pick another subscription. |
-| `LocationNotAvailableForResourceType` | `$LOCATION` or the template's `location` isn't a region where AI Gateway is available | Pick a region from [Find the available regions](#find-the-available-regions). The template defaults to `eastus2`. |
+| `LocationNotAvailableForResourceType` | `$LOCATION` or the template's `location` isn't a region where AI Gateway is available | Pick a region from [Find the available regions](../SETUP.md#find-the-available-regions). The template defaults to `eastus2`. |
 | `RequestDisallowedByAzure`: `The selected region is currently not accepting new customers` | The region has AI Gateway, but your subscription can't create new resources there | Pick another region from the list. |
 | The name is rejected | Gateway names are globally unique and limited to 24 characters: letters, digits, and hyphens, starting with a letter | Pick another name that follows the rules. |
 | `AIGatewaySubscriptionGatewayLimitExceeded`: `…has reached the maximum of 5 AI Gateway resources allowed in this region.` | The subscription already has five gateways in `$LOCATION` | Delete a gateway you no longer need, or create this one in another available region. |
 | `InvalidSkuName`: `Supported AI Gateway SKU names are 'Premium' and 'Consumption'.` | Your template sets another `sku.name`, such as `AIGateway` from older samples | Set `sku: { name: 'Consumption' }`, as [`infra/gateway.bicep`](infra/gateway.bicep) does. |
-| `MissingSubscriptionRegistration` | A resource provider isn't registered in the subscription | Run `az provider register -n Microsoft.ApiManagement --wait` and `az provider register -n Microsoft.Web --wait`, or ask your subscription administrator. |
+| `MissingSubscriptionRegistration` | A resource provider isn't registered in the subscription | [Register the resource providers](../SETUP.md#register-the-resource-providers), or ask your subscription administrator. |
 | `Could not resolve host` when you call the URL | Provisioning or DNS isn't finished | Run `az aigateway wait -g "$RG" -n "$GATEWAY" --created` and retry. |
-| `'aigateway' is misspelled or not recognized by the system` | The `aigateway` extension isn't installed | Run the installer from [Before you begin](#before-you-begin), then `az aigateway version`. |
+| `'aigateway' is misspelled or not recognized by the system` | The `aigateway` extension isn't installed | [Install the `aigateway` extension](../SETUP.md#install-the-aigateway-extension), then run `az aigateway version`. |
 
 ## Next steps
 

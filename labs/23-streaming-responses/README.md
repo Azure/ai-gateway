@@ -61,16 +61,17 @@ then prove that a token limit still counts every streamed token.
 > On the **Bicep + azd** track, `azd up` creates its own gateway, model, key, and the token-limited streaming alias,
 > so you can skip this section. Run that track in
 > [Put a token limit on a streaming alias](#put-a-token-limit-on-a-streaming-alias) first: it sets the variables that
-> [Stream a response](#stream-a-response) and **Verify** use. You need only [Azure Cloud Shell](https://shell.azure.com),
-> or the Azure Developer CLI (`azd`), the Azure CLI, Git, and `jq` on your machine.
+> [Stream a response](#stream-a-response) and **Verify** use. You need only
+> [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands).
 
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need a gateway, an imported
   model, a callable alias, and a runtime API key from **Access** › **Keys**.
-- For the shell steps: `curl` and `jq` for Bash, or PowerShell 7.4 or later. For the CLI track: the
-  [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with `az login`,
-  and the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)).
+- For the shell steps: `curl` and `jq` for Bash, or PowerShell 7.4 or later. For the CLI track: the Azure CLI with the
+  [`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure).
 - For the Code track: Python 3.10 or later, or Node.js 22.18 or later.
 - Permission to change the gateway, for example **Contributor** on the resource group, for the token limit steps.
+- For the scripts and samples: the labs repo, [cloned](../SETUP.md#clone-the-labs-repo). Run them from the lab
+  folder, `~/ai-gateway/labs/23-streaming-responses`.
 
 Set these variables once, from the lab folder (`labs/23-streaming-responses`). Every track and the **Verify**
 section reuse them.
@@ -623,32 +624,19 @@ arguments instead.
 <!-- track: iac | Bicep + azd -->
 <details><summary><b>🏗️ Bicep + azd</b></summary> <!-- gh -->
 
-**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
-the Azure CLI with the `aigateway` extension, Git, and `jq` on your machine, signed in with `azd auth login` and
-`az login`. This track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
+**What you need:** [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands) with the
+[`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure). This
+track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
 
 ### Clone the lab
 
 The lab is a small azd project in the
-[`labs/23-streaming-responses`](https://github.com/Azure/ai-gateway/tree/main/labs/23-streaming-responses) folder of
-the GitHub repo. Clone the repo and move into that folder. If you cloned it for the quick start, move into
-`ai-gateway/labs/23-streaming-responses` instead.
+[`labs/23-streaming-responses`](https://github.com/Azure/ai-gateway/tree/main/labs/23-streaming-responses) folder.
+[Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
 
-<details open><summary>Bash</summary> <!-- gh -->
-
-```bash title="Bash"
-git clone https://github.com/Azure/ai-gateway.git
-cd ai-gateway/labs/23-streaming-responses
+```bash title="Bash or PowerShell"
+cd ~/ai-gateway/labs/23-streaming-responses
 ```
-</details> <!-- gh -->
-
-<details><summary>PowerShell</summary> <!-- gh -->
-
-```powershell title="PowerShell"
-git clone https://github.com/Azure/ai-gateway.git
-Set-Location ai-gateway/labs/23-streaming-responses
-```
-</details> <!-- gh -->
 
 ### Review the template
 
@@ -676,7 +664,7 @@ targetScope = 'subscription'
 @maxLength(60)
 param environmentName string
 
-@description('Region for every resource. Pick one where AI Gateway and the lab\'s Foundry models are available. List them with az provider show --namespace Microsoft.ApiManagement (lab 01, Find the available regions).')
+@description('Region for every resource. Pick one where AI Gateway and the lab\'s Foundry models are available. List them with az provider show --namespace Microsoft.ApiManagement (Setup guide, Find the available regions).')
 @metadata({ azd: { type: 'location' } })
 param location string
 
@@ -754,7 +742,7 @@ azd up
 </details> <!-- gh -->
 
 For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
-regions](../01-provision-gateway/README.md#find-the-available-regions).
+regions](../SETUP.md#find-the-available-regions).
 
 ### Read the outputs and the key
 
@@ -976,8 +964,8 @@ az aigateway model-alias delete -g $RG --gateway-name $GATEWAY -n $STREAM_ALIAS 
 ### Delete everything azd created
 
 In the `ai-gateway/labs/23-streaming-responses` folder, delete the resource group with the gateway, the Foundry
-account, and both aliases. `--purge` also purges the Foundry account, which would otherwise stay soft-deleted for 48
-hours and keep counting against your quota. It takes about ten minutes.
+account, and both aliases. [`--purge`](../SETUP.md#delete-what-azd-created) also purges the soft-deleted Foundry
+account. It takes about ten minutes.
 
 ```bash
 azd down --purge --force

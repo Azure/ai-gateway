@@ -39,16 +39,15 @@ surfaces its tools, with the same key, so Copilot's tool calls get the same cont
 > [!TIP]
 > On the **Bicep + azd** track, `azd up` creates its own gateway, Foundry account, `gpt-6-astra` alias, key, and
 > `learn` MCP server, and the track sets the variables, so you can skip lab 02 and the variables below. You need
-> [Azure Cloud Shell](https://shell.azure.com), or the Azure Developer CLI (`azd`), the Azure CLI, Git, and `jq` on
-> your machine, plus quota for the model, a Copilot surface, and the practice project.
+> [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands), plus quota for the model, a Copilot
+> surface, and the practice project.
 
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need a gateway
   with a Foundry provider, and permission to change it, for example **Contributor** on the resource group.
 - Quota for `gpt-6-astra` (version `2026-09-03`) in the Foundry account behind your gateway. This lab deploys it
   with 100,000 tokens per minute (TPM), because coding agents send large prompts. Model inference is billed per use.
-- For the CLI track: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later,
-  signed in with `az login`, the `aigateway` extension
-  ([install it](../01-provision-gateway/README.md#before-you-begin)), and `jq` for the Bash snippets.
+- For the CLI track: the Azure CLI with the [`aigateway` extension](../SETUP.md#install-the-aigateway-extension),
+  [signed in](../SETUP.md#sign-in-to-azure), and `jq` for the Bash snippets.
 - At least one Copilot surface. You don't need all four:
 
   | Surface | Version tested | Needs |
@@ -57,6 +56,8 @@ surfaces its tools, with the same key, so Copilot's tool calls get the same cont
   | [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli) | 1.0.103 | Nothing else. A GitHub sign-in is optional with your own model. |
   | [GitHub Copilot SDK](https://github.com/github/copilot-sdk) | 1.0.26 (TypeScript), 1.0.22 (Python) | Node.js 22.18 or later, or Python 3.11 or later, and a clone of this repository. |
   | [GitHub Copilot app](https://docs.github.com/en/copilot/get-started/quickstart-copilot-app) | Public preview | A GitHub sign-in. A Copilot plan isn't required for your own models. |
+- For the scripts and samples: the labs repo, [cloned](../SETUP.md#clone-the-labs-repo). Run them from the lab
+  folder, `~/ai-gateway/labs/24-github-copilot-byok`.
 
 > [!IMPORTANT]
 > On Copilot Business or Copilot Enterprise, an administrator must allow custom models before VS Code and the
@@ -316,25 +317,18 @@ $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-nam
 
 <!-- track: iac | Bicep + azd -->
 
-**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
-the Azure CLI with the `aigateway` extension, Git, and `jq` on your machine, signed in with `azd auth login` and
-`az login`. This track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
+**What you need:** [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands) with the
+[`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure). This
+track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
 
 ### Clone the lab
 
 The lab is a small azd project in the
-[`labs/24-github-copilot-byok`](https://github.com/Azure/ai-gateway/tree/main/labs/24-github-copilot-byok) folder of
-the GitHub repo. Clone the repo and move into that folder. If you cloned it for the quick start, move into
-`ai-gateway/labs/24-github-copilot-byok` instead.
+[`labs/24-github-copilot-byok`](https://github.com/Azure/ai-gateway/tree/main/labs/24-github-copilot-byok) folder.
+[Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
 
-```bash title="Bash"
-git clone https://github.com/Azure/ai-gateway.git
-cd ai-gateway/labs/24-github-copilot-byok
-```
-
-```powershell title="PowerShell"
-git clone https://github.com/Azure/ai-gateway.git
-Set-Location ai-gateway/labs/24-github-copilot-byok
+```bash title="Bash or PowerShell"
+cd ~/ai-gateway/labs/24-github-copilot-byok
 ```
 
 ### Review the templates
@@ -373,7 +367,7 @@ azd up
 ```
 
 For another region, pick one where AI Gateway and the `gpt-6-luna` and `gpt-6-astra` models are available, as in [Find
-the available regions](../01-provision-gateway/README.md#find-the-available-regions). If the Foundry deployment fails
+the available regions](../SETUP.md#find-the-available-regions). If the Foundry deployment fails
 with `InsufficientQuota`, deploy `gpt-6-astra` with the Data Zone Standard SKU instead, and provision again:
 
 ```bash title="Bash"
@@ -1356,10 +1350,10 @@ az aigateway mcp delete -g $RG --gateway-name $GATEWAY -n learn --yes
 
 ### Delete everything azd created
 
-In the `ai-gateway/labs/24-github-copilot-byok` folder, delete the resource group with the gateway, the
-`gpt-6-astra` alias, the `github-copilot` key, the `learn` MCP server, and the Foundry account with its two
-deployments. `--purge` also purges the Foundry account, which would otherwise stay soft-deleted for 48 hours and keep
-counting against your quota. It takes about ten minutes.
+In the `ai-gateway/labs/24-github-copilot-byok` folder, delete the resource group with the gateway, the `gpt-6-astra`
+alias, the `github-copilot` key, the `learn` MCP server, and the Foundry account with its two deployments.
+[`--purge`](../SETUP.md#delete-what-azd-created) also purges the soft-deleted Foundry account. It takes about ten
+minutes.
 
 ```bash
 azd down --purge --force

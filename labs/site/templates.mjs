@@ -145,7 +145,7 @@ function footer(rel, site) {
       <p>Hands-on labs for the Azure AI Gateway.</p>
     </div>
     <div class="footer-cols">
-      <div><h2>Labs</h2><a href="${rel}labs/">All labs</a><a href="${rel}index.html#paths">Learning paths</a><a href="${rel}index.html#use-cases">Use cases</a><a href="${rel}release-notes/">Release notes</a><a href="${rel}skills/azure-ai-gateway-labs/SKILL.md" title="azure-ai-gateway-labs: the agent skill that teaches coding agents how to use these labs">Agent skill</a></div>
+      <div><h2>Labs</h2><a href="${rel}labs/">All labs</a><a href="${rel}index.html#paths">Learning paths</a><a href="${rel}index.html#use-cases">Use cases</a><a href="${rel}setup/">Setup guide</a><a href="${rel}release-notes/">Release notes</a><a href="${rel}skills/azure-ai-gateway-labs/SKILL.md" title="azure-ai-gateway-labs: the agent skill that teaches coding agents how to use these labs">Agent skill</a></div>
       <div><h2>Product</h2><a href="${site.portal}" target="_blank" rel="noopener">AI Gateway portal</a><a href="${site.docs}" target="_blank" rel="noopener">Documentation</a><a href="${site.learn}" target="_blank" rel="noopener">Microsoft Learn</a></div>
       <div><h2>Contribute</h2><a href="${site.repo}" target="_blank" rel="noopener">GitHub repository</a><a href="${site.repo}/blob/${site.branch}/labs/AUTHORING.md" target="_blank" rel="noopener">Authoring guide</a><a href="${site.repo}/issues/new?labels=labs" target="_blank" rel="noopener">Report an issue</a></div>
     </div>
@@ -540,6 +540,7 @@ ${html}
       <ul class="toc-list">${toc.map((t) => `<li><a href="#${t.id}" data-toc="${t.id}">${esc(t.text)}</a></li>`).join('')}</ul>
       <div class="toc-help">
         <button class="toc-tool" type="button" data-values-open>${I.sliders}<span>Your values</span></button>
+        <a class="toc-tool" href="${rel}setup/" title="Permissions, tools, sign-in, the aigateway extension, regions, the labs repo, and azd">${I.wrench}<span>Setup guide</span></a>
         <a class="toc-tool" href="${site.portal}" target="_blank" rel="noopener">${I.portal}<span>Open the portal</span></a>
         <a class="toc-tool" href="${site.docs}" target="_blank" rel="noopener">${I.book}<span>Product docs</span></a>
       </div>
@@ -569,6 +570,35 @@ export function releaseNotesPage({ rel, site, html, releases }) {
   <div class="container rn-body">
     <aside class="rn-nav" aria-label="Releases">
       <h2>Releases</h2>
+      <ol class="rn-nav-list">${nav}</ol>
+    </aside>
+    <article class="prose rn-prose" id="lab-content">
+${html}
+    </article>
+  </div>
+</main>`;
+}
+
+// ---------- Setup guide ----------
+export function setupPage({ rel, site, html, toc }) {
+  const nav = toc.map((t) => `<li><a href="#${t.id}" data-toc="${t.id}"><span>${esc(t.text)}</span></a></li>`).join('');
+  return `<main id="main" class="releases setup">
+  <section class="page-hero">
+    <div class="page-hero-bg" aria-hidden="true"></div>
+    <div class="container">
+      <nav class="breadcrumb" aria-label="Breadcrumb"><a href="${rel}index.html">Home</a><span>/</span><span aria-current="page">Setup guide</span></nav>
+      <h1>Setup guide</h1>
+      <p class="lead">The one-time tasks that every lab builds on: permissions, tools, sign-in, the <code>aigateway</code> extension, resource providers, regions, the labs repo, and the azd workflow. Each lab links here instead of repeating them.</p>
+      <div class="hero-cta">
+        <button class="btn btn-primary btn-sm" type="button" data-values-open>${I.sliders}<span>Set your values</span></button>
+        <a class="btn btn-ghost btn-sm" href="${site.repo}/blob/${site.branch}/labs/SETUP.md" target="_blank" rel="noopener">${I.github}View on GitHub</a>
+        <button class="btn btn-ghost btn-sm" type="button" data-copy-md="index.md">${I.markdown}Copy as Markdown</button>
+      </div>
+    </div>
+  </section>
+  <div class="container rn-body">
+    <aside class="rn-nav" aria-label="On this page">
+      <h2>On this page</h2>
       <ol class="rn-nav-list">${nav}</ol>
     </aside>
     <article class="prose rn-prose" id="lab-content">

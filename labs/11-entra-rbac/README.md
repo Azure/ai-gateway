@@ -62,19 +62,19 @@ is missing.
 
 > [!TIP]
 > On the **Bicep + azd** track, `azd up` creates its own gateway and model and grants you the role, so you can skip
-> this section. You need only [Azure Cloud Shell](https://shell.azure.com), or the Azure Developer CLI (`azd`), the
-> Azure CLI, and Git on your machine.
+> this section. You need only [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands).
 
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need a gateway with at least
   one model alias.
-- The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
-  `az login` to the tenant that holds the gateway, and the `aigateway` extension
-  ([install it](../01-provision-gateway/README.md#before-you-begin)).
+- The Azure CLI with the [`aigateway` extension](../SETUP.md#install-the-aigateway-extension),
+  [signed in](../SETUP.md#sign-in-to-azure) to the tenant that holds the gateway.
 - For the CLI track in Bash: [jq](https://jqlang.org/download/), which decodes the token and reads the reply.
 - Permission to **create role assignments** on the gateway: **Owner**, **User Access Administrator**, or
   **Role Based Access Control Administrator**. **Contributor** can manage the gateway but can't grant roles.
   If you don't have one of these, ask an administrator to run the role assignment step for you.
 - For the Code track, one of: Python 3.9 or later, Node.js 22.18 or later, or the .NET 8 SDK or later.
+- For the scripts and samples: the labs repo, [cloned](../SETUP.md#clone-the-labs-repo). Run them from the lab
+  folder, `~/ai-gateway/labs/11-entra-rbac`.
 
 You don't need an API key in this lab. Set these variables once. Every track and the **Verify** section reuse
 them.
@@ -354,9 +354,9 @@ az role assignment list --scope $GATEWAY_ID `
 <!-- track: iac | Bicep + azd -->
 <details><summary><b>🏗️ Bicep + azd</b></summary> <!-- gh -->
 
-**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
-the Azure CLI with the `aigateway` extension, and Git on your machine, signed in with `azd auth login` and `az login`.
-This track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
+**What you need:** [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands) with the
+[`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure). This
+track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
 
 ### Choose what to declare
 
@@ -368,25 +368,12 @@ deployment.
 ### Clone the lab
 
 The lab is a small azd project in the
-[`labs/11-entra-rbac`](https://github.com/Azure/ai-gateway/tree/main/labs/11-entra-rbac) folder of the GitHub
-repo. Clone the repo and move into that folder. If you cloned it for an earlier lab, move into
-`ai-gateway/labs/11-entra-rbac` instead.
+[`labs/11-entra-rbac`](https://github.com/Azure/ai-gateway/tree/main/labs/11-entra-rbac) folder.
+[Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
 
-<details open><summary>Bash</summary> <!-- gh -->
-
-```bash title="Bash"
-git clone https://github.com/Azure/ai-gateway.git
-cd ai-gateway/labs/11-entra-rbac
+```bash title="Bash or PowerShell"
+cd ~/ai-gateway/labs/11-entra-rbac
 ```
-</details> <!-- gh -->
-
-<details><summary>PowerShell</summary> <!-- gh -->
-
-```powershell title="PowerShell"
-git clone https://github.com/Azure/ai-gateway.git
-Set-Location ai-gateway/labs/11-entra-rbac
-```
-</details> <!-- gh -->
 
 ### Review the templates
 
@@ -411,7 +398,7 @@ targetScope = 'subscription'
 @maxLength(60)
 param environmentName string
 
-@description('Region for every resource. Pick one where AI Gateway and the lab\'s Foundry models are available. List them with az provider show --namespace Microsoft.ApiManagement (lab 01, Find the available regions).')
+@description('Region for every resource. Pick one where AI Gateway and the lab\'s Foundry models are available. List them with az provider show --namespace Microsoft.ApiManagement (Setup guide, Find the available regions).')
 @metadata({ azd: { type: 'location' } })
 param location string
 
@@ -609,7 +596,7 @@ azd up
 </details> <!-- gh -->
 
 For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
-regions](../01-provision-gateway/README.md#find-the-available-regions).
+regions](../SETUP.md#find-the-available-regions).
 
 ### Read the outputs
 
@@ -1209,8 +1196,8 @@ with the Portal or Azure CLI track.
 ### Delete everything azd created
 
 In the `ai-gateway/labs/11-entra-rbac` folder, delete the resource group with the gateway, the Foundry account, and
-your role assignment. `--purge` also purges the Foundry account, which would otherwise stay soft-deleted for 48 hours
-and keep counting against your quota. It takes about ten minutes.
+your role assignment. [`--purge`](../SETUP.md#delete-what-azd-created) also purges the soft-deleted Foundry account.
+It takes about ten minutes.
 
 ```bash
 azd down --purge --force

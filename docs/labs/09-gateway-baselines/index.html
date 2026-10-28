@@ -137,13 +137,14 @@ svg:root>.dg-root>.dg-bg{fill:var(--dg-bg)}
 <a href="../08-content-safety/">Screen prompts and responses with content safety</a>, including their
 <strong>Clean up</strong> sections. You need a gateway, an imported model, a callable alias, and a runtime API key from
 <span class="uipath"><span class="uipath-item">Access</span><span class="uipath-sep" aria-hidden="true">›</span><span class="uipath-item">Keys</span></span>.</li>
-<li>The <a href="https://learn.microsoft.com/cli/azure/install-azure-cli" target="_blank" rel="noopener">Azure CLI<span class="ext" aria-hidden="true">↗</span></a> 2.75 or later, signed in with
-<code>az login</code>, the <code>aigateway</code> extension (<a href="../01-provision-gateway/#before-you-begin">install it</a>), and
-<code>jq</code> (Bash) or PowerShell 7 or later.</li>
+<li>The Azure CLI with the <a href="../../setup/#install-the-aigateway-extension"><code>aigateway</code> extension</a>,
+<a href="../../setup/#sign-in-to-azure">signed in</a>, and <code>jq</code> (Bash) or PowerShell 7 or later.</li>
 <li>For <strong>Verify</strong>: <code>curl</code> (Bash) or PowerShell 7 or later.</li>
 <li>Permission to change the gateway, for example <strong>Contributor</strong> on the resource group.</li>
 <li>The public IP addresses or CIDR ranges your callers use. Once the IP filter is on, calls from anywhere else get
 <code>403</code>.</li>
+<li>For the scripts and samples: the labs repo, <a href="../../setup/#clone-the-labs-repo">cloned</a>. Run them from the lab
+folder, <code>~/ai-gateway/labs/09-gateway-baselines</code>.</li>
 </ul>
 <p>Set these variables once. Every track and the <strong>Verify</strong> section reuse them.</p>
 <div class="code code-tabs"><div class="code-head"><div class="code-tablist" role="tablist"><button role="tab" class="code-tab" aria-selected="true" data-tab-label="Bash" id="ct1-t0" aria-controls="ct1-p0" tabindex="0">Bash</button><button role="tab" class="code-tab" aria-selected="false" data-tab-label="PowerShell" id="ct1-t1" aria-controls="ct1-p1" tabindex="-1">PowerShell</button></div><span class="code-actions"><button class="code-btn copy-btn" type="button" title="Copy"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M13 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/></svg><span>Copy</span></button></span></div><div role="tabpanel" class="code-panel" id="ct1-p0" aria-labelledby="ct1-t0" data-lang="bash"><pre class="shiki"><code><span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">export</span><span style="--shiki-light:#24292E;--shiki-dark:#ADBAC7"> RG</span><span style="--shiki-light:#D73A49;--shiki-dark:#F47067">=</span><span style="--shiki-light:#032F62;--shiki-dark:#96D0FF">"<span class="ph" data-ph="resource-group">&lt;resource-group&gt;</span>"</span></span>
@@ -486,6 +487,7 @@ backend traffic through your virtual network.</li>
       <ul class="toc-list"><li><a href="#before-you-begin" data-toc="before-you-begin">Before you begin</a></li><li><a href="#how-it-works" data-toc="how-it-works">How it works</a></li><li><a href="#apply-the-baseline" data-toc="apply-the-baseline">Apply the baseline</a></li><li><a href="#verify" data-toc="verify">Verify</a></li><li><a href="#go-further" data-toc="go-further">Go further</a></li><li><a href="#clean-up" data-toc="clean-up">Clean up</a></li><li><a href="#troubleshooting" data-toc="troubleshooting">Troubleshooting</a></li><li><a href="#next-steps" data-toc="next-steps">Next steps</a></li></ul>
       <div class="toc-help">
         <button class="toc-tool" type="button" data-values-open><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h7M14 6h3M3 14h3M10 14h7"/><circle cx="12" cy="6" r="2"/><circle cx="8" cy="14" r="2"/></svg><span>Your values</span></button>
+        <a class="toc-tool" href="../../setup/" title="Permissions, tools, sign-in, the aigateway extension, regions, the labs repo, and azd"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 3a4 4 0 0 0-3.8 5.3L3.5 13.5a1.5 1.5 0 0 0 0 2.1l.9.9a1.5 1.5 0 0 0 2.1 0l5.2-5.2A4 4 0 0 0 17 7.5l-2.3 2.3-2.3-.4-.4-2.3L14.3 4.8A4 4 0 0 0 12.5 3Z"/></svg><span>Setup guide</span></a>
         <a class="toc-tool" href="https://ai.gateway.azure.com" target="_blank" rel="noopener"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="11" rx="2"/><path d="M7 17.5h6M10 14.5v3"/><path d="m9 7 4 2-1.7.7-.7 1.8Z"/></svg><span>Open the portal</span></a>
         <a class="toc-tool" href="https://ai.gateway.azure.com/docs" target="_blank" rel="noopener"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 4.5c2.5-1 4.5-1 6.5.5 2-1.5 4-1.5 6.5-.5v11c-2.5-1-4.5-1-6.5.5-2-1.5-4-1.5-6.5-.5Z"/><path d="M10 5v11"/></svg><span>Product docs</span></a>
       </div>
@@ -499,7 +501,7 @@ backend traffic through your virtual network.</li>
       <p>Hands-on labs for the Azure AI Gateway.</p>
     </div>
     <div class="footer-cols">
-      <div><h2>Labs</h2><a href="../../labs/">All labs</a><a href="../../index.html#paths">Learning paths</a><a href="../../index.html#use-cases">Use cases</a><a href="../../release-notes/">Release notes</a><a href="../../skills/azure-ai-gateway-labs/SKILL.md" title="azure-ai-gateway-labs: the agent skill that teaches coding agents how to use these labs">Agent skill</a></div>
+      <div><h2>Labs</h2><a href="../../labs/">All labs</a><a href="../../index.html#paths">Learning paths</a><a href="../../index.html#use-cases">Use cases</a><a href="../../setup/">Setup guide</a><a href="../../release-notes/">Release notes</a><a href="../../skills/azure-ai-gateway-labs/SKILL.md" title="azure-ai-gateway-labs: the agent skill that teaches coding agents how to use these labs">Agent skill</a></div>
       <div><h2>Product</h2><a href="https://ai.gateway.azure.com" target="_blank" rel="noopener">AI Gateway portal</a><a href="https://ai.gateway.azure.com/docs" target="_blank" rel="noopener">Documentation</a><a href="https://learn.microsoft.com/azure/api-management/ai-gateway-overview" target="_blank" rel="noopener">Microsoft Learn</a></div>
       <div><h2>Contribute</h2><a href="https://github.com/Azure/ai-gateway" target="_blank" rel="noopener">GitHub repository</a><a href="https://github.com/Azure/ai-gateway/blob/main/labs/AUTHORING.md" target="_blank" rel="noopener">Authoring guide</a><a href="https://github.com/Azure/ai-gateway/issues/new?labels=labs" target="_blank" rel="noopener">Report an issue</a></div>
     </div>

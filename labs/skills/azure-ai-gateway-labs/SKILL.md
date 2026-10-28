@@ -27,6 +27,7 @@ that the lab links to before you improvise a fix.
 | The same lab on GitHub, with navigation and inline code | `https://github.com/Azure/ai-gateway/blob/main/labs/<slug>/README.md` |
 | The lab page to share with a person | `https://azure.github.io/ai-gateway/labs/<slug>/` |
 | Files the lab uses (`infra/`, the notebook) | `labs/<slug>/` in a clone, or `https://raw.githubusercontent.com/Azure/ai-gateway/main/labs/<slug>/<path>` |
+| Shared setup: sign-in, the `aigateway` extension, resource providers, regions, the clone, and azd | The Setup guide: `https://azure.github.io/ai-gateway/setup/index.md`, or `labs/SETUP.md` in a clone |
 | Every lab in one file | `https://azure.github.io/ai-gateway/llms-full.txt` |
 | Which lab covers a product release or a new feature | `https://azure.github.io/ai-gateway/release-notes/index.md`, or `labs/RELEASE-NOTES.md` in a clone |
 
@@ -42,7 +43,9 @@ When the workspace is a clone of `Azure/ai-gateway`, read `labs/<slug>/README.md
    model, an alias, and a runtime key with lab 02's names, so labs 03 onward work on it. Then suggest the 30-minute
    essentials path.
 2. **Read the whole lab** before you run anything. **Before you begin** lists the tools, Azure roles, regions, and
-   billable resources.
+   billable resources. Labs link to the Setup guide (`../SETUP.md#<section>`) for shared tasks, such as installing
+   the `aigateway` extension or cloning the repo, instead of repeating them; read the linked section and run it
+   when the user hasn't done it yet.
 3. **Choose one track.** A track starts at `<!-- track: <id> | <label> -->`, and the group of tracks ends at
    `<!-- /tracks -->`. On GitHub, each track is a collapsible `<details>` section. Follow only the chosen track.
    Sections outside the track markers, such as **Verify** and **Clean up**, apply to every track. A track can end
@@ -81,11 +84,11 @@ Before you create, change, or delete Azure resources, confirm the subscription a
   can have at most five gateways in each region.
 - AI Gateway runs in a growing list of regions. List them with
   `az provider show --namespace Microsoft.ApiManagement --query "resourceTypes[?resourceType=='aigateways'].locations | [0]"`
-  (display names; `az account list-locations` maps them to `--location` names), as in lab 01's
+  (display names; `az account list-locations` maps them to `--location` names), as in the Setup guide's
   **Find the available regions**. The portal can offer fewer regions than the CLI and Bicep. Templates that deploy
   Foundry models need a region where those models are available too.
-- The CLI track uses the `az aigateway` extension 1.0.0b14 or later (lab 01 installs it) for gateways, providers,
-  models (`model create --deployment-config "{resourceId:…,modelName:…}"`), aliases, model policies
+- The CLI track uses the `az aigateway` extension 1.0.0b14 or later (the Setup guide installs it) for gateways,
+  providers, models (`model create --deployment-config "{resourceId:…,modelName:…}"`), aliases, model policies
   (`model policy set-token-limit`, `set-content-safety`, `remove`), API keys, and MCP servers.
   `az aigateway api-key create` needs `--display-name`, secrets come from `api-key list-secrets`, rotation uses
   `api-key regenerate --key-type primary|secondary`, and `model-alias create` fails when the alias exists, so use

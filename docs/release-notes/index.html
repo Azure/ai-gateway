@@ -80,18 +80,24 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
 <div class="table-wrap"><table><thead><tr><th>In the product</th><th>Practice it in the labs</th><th>Status</th></tr></thead><tbody><tr><td>Route an alias&#39;s traffic across backend models by priority and weight</td><td><a href="../labs/22-model-routing/">22 · Route an alias across models by priority and weight</a></td><td>🆕 New lab</td></tr><tr><td>Canary a new model version or run an A/B test with a controlled split</td><td><a href="../labs/22-model-routing/#split-traffic-8020-between-two-models">22 · Split traffic 80/20 between two models</a></td><td>🆕 New lab</td></tr><tr><td>Prefer purchased capacity with priorities</td><td><a href="../labs/22-model-routing/#prefer-one-model-by-priority">22 · Prefer one model by priority</a></td><td>🆕 New lab</td></tr><tr><td>Create and edit aliases with the <strong>Create alias</strong> wizard</td><td><a href="../labs/03-multi-provider-aliases/#give-one-backend-model-two-aliases">03 · Publish models from any provider behind stable aliases</a></td><td>✏️ Updated</td></tr><tr><td>Choose the MCP protocol versions a server supports, including 2026-07-28</td><td><a href="../labs/04-federate-mcp-tools/#choose-supported-mcp-versions">04 · Choose supported MCP versions</a></td><td>✏️ Updated</td></tr><tr><td>See supported MCP versions on the server page and in <strong>Catalog</strong></td><td><a href="../labs/04-federate-mcp-tools/#check-the-negotiated-version">04 · Check the negotiated version</a></td><td>✏️ Updated</td></tr></tbody></table></div>
 <h4 id="labs-changes"><a class="anchor" href="#labs-changes" aria-hidden="true" tabindex="-1">#</a>Labs changes</h4>
 <ul>
+<li><strong>October 28.</strong> A new <a href="../setup/">Setup guide</a> collects the tasks that every lab shares: checking your subscription
+and permissions, choosing between Cloud Shell and a local shell, signing in, installing the <code>aigateway</code> extension,
+registering the resource providers, finding the available regions, cloning the labs repo, and deploying and
+deleting a lab with azd. Each lab page links to it from the right rail, between <strong>Your values</strong> and
+<strong>Open the portal</strong>, and the labs link to its sections instead of repeating the steps, so they&#39;re shorter. Labs
+that run scripts or samples from <code>infra/</code> now say to clone the repo first. The
+<a href="../labs/quickstart/">quick start</a> keeps its steps inline, so it stays paste-ready in Cloud Shell.</li>
 <li><strong>October 28.</strong> The labs no longer describe AI Gateway as a preview service or say that the gateway is free
-during the preview. <a href="../labs/00-how-ai-gateway-works/">Lab 00</a> and
-<a href="../labs/01-provision-gateway/#before-you-begin">lab 01</a> point to the
+during the preview. <a href="../labs/00-how-ai-gateway-works/">Lab 00</a> and the
+<a href="../setup/#check-your-subscription-and-permissions">Setup guide</a> point to the
 <a href="https://ai.gateway.azure.com/docs" target="_blank" rel="noopener">AI Gateway documentation<span class="ext" aria-hidden="true">↗</span></a> for pricing, and the lab 01 video narrates the
 region step without the preview. Labs <a href="../labs/19-tool-threat-protection/">19</a> and
 <a href="../labs/20-agent-365-governance/">20</a> still mark Agent 365 as an emerging capability.</li>
 <li><strong>October 28.</strong> AI Gateway now runs in more regions, and the list keeps growing, so the labs no longer name fixed
-regions. <a href="../labs/01-provision-gateway/#find-the-available-regions">Lab 01</a> and the
-<a href="../labs/quickstart/#find-the-available-regions">quick start</a> show how to list the current ones with the Azure CLI,
-and how to check that a Foundry model is available in a region. The Bicep templates accept any region, the other
-labs link to that list, and the notebooks check <code>AIGW_LOCATION</code> against it. The portal can offer fewer regions than
-the Azure CLI and Bicep + azd tracks.</li>
+regions. The <a href="../setup/#find-the-available-regions">Setup guide</a> shows how to list the current ones with the Azure
+CLI, and how to check that a Foundry model is available in a region. The Bicep templates accept any region, the
+other labs link to that list, and the notebooks check <code>AIGW_LOCATION</code> against it. The portal can offer fewer regions
+than the Azure CLI and Bicep + azd tracks.</li>
 <li><strong>October 27.</strong> Every Bicep + azd track is now a self-contained azd template, like the quick start&#39;s: clone the
 repo, run <code>azd up</code> in the lab&#39;s folder to create a new gateway with everything the lab needs, change its settings
 with <code>azd env set</code> and <code>azd provision</code>, and remove it all with <code>azd down --purge --force</code>
@@ -106,8 +112,8 @@ Bicep + azd track. The reusable modules have descriptive names, such as lab 01&#
 <code>publish-model.bicep</code>, lab 04&#39;s <code>tool-server.bicep</code>, and lab 06&#39;s <code>limited-alias.bicep</code>, so other labs can
 compose them. Lab 05 now shows that a blocked MCP server answers <code>200</code> with the JSON-RPC error
 <code>AccessBlockedByGateway</code>.</li>
-<li><strong>October 27.</strong> The Azure CLI tracks need <code>aigateway</code> extension 1.0.0b14 or later, which
-<a href="../labs/01-provision-gateway/#before-you-begin">lab 01</a> installs. They now register models with
+<li><strong>October 27.</strong> The Azure CLI tracks need <code>aigateway</code> extension 1.0.0b14 or later, which the
+<a href="../setup/#install-the-aigateway-extension">Setup guide</a> installs. They now register models with
 <code>az aigateway model create</code>, set and remove token limits and content safety with <code>az aigateway model policy</code>
 (<a href="../labs/06-token-limits/">lab 06</a>, <a href="../labs/08-content-safety/">lab 08</a>,
 <a href="../labs/09-gateway-baselines/">lab 09</a>, <a href="../labs/24-github-copilot-byok/">lab 24</a>), and rotate the secondary
@@ -127,7 +133,7 @@ the quick start template&#39;s model and alias set <code>displayName</code>, <co
 covers <code>InvalidSkuName</code> and the limit of five gateways per subscription in each region.</li>
 <li><strong>October 23.</strong> The Azure CLI tracks, the <strong>Verify</strong> and <strong>Clean up</strong> steps, and the lab scripts now use the
 <code>aigateway</code> CLI extension for gateways, model providers, aliases, API keys, and MCP servers.
-<a href="../labs/01-provision-gateway/#before-you-begin">Lab 01</a> shows how to install it. The labs keep <code>az rest</code> only
+The <a href="../setup/#install-the-aigateway-extension">Setup guide</a> shows how to install it. The labs keep <code>az rest</code> only
 for what the extension can&#39;t do yet, such as registering models and setting policies, and say why each time.</li>
 <li><strong>October 23.</strong> <a href="../labs/18-private-networking/#prepare-the-virtual-network">Lab 18</a> now delegates the integration
 subnet to <code>Microsoft.App/environments</code>, which the service requires. A subnet delegated to
@@ -224,7 +230,7 @@ notes don&#39;t cover yet, run <code>npm run releases</code> in <code>labs/</cod
       <p>Hands-on labs for the Azure AI Gateway.</p>
     </div>
     <div class="footer-cols">
-      <div><h2>Labs</h2><a href="../labs/">All labs</a><a href="../index.html#paths">Learning paths</a><a href="../index.html#use-cases">Use cases</a><a href="../release-notes/">Release notes</a><a href="../skills/azure-ai-gateway-labs/SKILL.md" title="azure-ai-gateway-labs: the agent skill that teaches coding agents how to use these labs">Agent skill</a></div>
+      <div><h2>Labs</h2><a href="../labs/">All labs</a><a href="../index.html#paths">Learning paths</a><a href="../index.html#use-cases">Use cases</a><a href="../setup/">Setup guide</a><a href="../release-notes/">Release notes</a><a href="../skills/azure-ai-gateway-labs/SKILL.md" title="azure-ai-gateway-labs: the agent skill that teaches coding agents how to use these labs">Agent skill</a></div>
       <div><h2>Product</h2><a href="https://ai.gateway.azure.com" target="_blank" rel="noopener">AI Gateway portal</a><a href="https://ai.gateway.azure.com/docs" target="_blank" rel="noopener">Documentation</a><a href="https://learn.microsoft.com/azure/api-management/ai-gateway-overview" target="_blank" rel="noopener">Microsoft Learn</a></div>
       <div><h2>Contribute</h2><a href="https://github.com/Azure/ai-gateway" target="_blank" rel="noopener">GitHub repository</a><a href="https://github.com/Azure/ai-gateway/blob/main/labs/AUTHORING.md" target="_blank" rel="noopener">Authoring guide</a><a href="https://github.com/Azure/ai-gateway/issues/new?labels=labs" target="_blank" rel="noopener">Report an issue</a></div>
     </div>

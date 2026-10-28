@@ -32,9 +32,9 @@ Application Insights already collects.
 
 > [!TIP]
 > On the **Bicep + azd** track, `azd up` creates its own gateway, model, key, Application Insights, and role
-> assignment, so you can skip this section. You need only [Azure Cloud Shell](https://shell.azure.com), or the Azure
-> Developer CLI (`azd`), the Azure CLI, and Git on your machine, and permission to create role assignments, for
-> example **Owner** on the subscription. The later sections also use Python 3.10 or later, and `curl` and `jq` or
+> assignment, so you can skip this section. You need only
+> [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands), and permission to create role assignments,
+> for example **Owner** on the subscription. The later sections also use Python 3.10 or later, and `curl` and `jq` or
 > PowerShell 7, which Cloud Shell has.
 
 - Complete [Monitor usage, cost, and traces](../13-monitoring/README.md) with **Configure telemetry**, so the
@@ -43,9 +43,10 @@ Application Insights already collects.
   user has **AI Gateway Models User** (or **AI Gateway User**) on the gateway or on the model alias.
 - Permission to change the gateway, for example **Contributor** on its resource group, and **Log Analytics Reader**
   on the workspace behind Application Insights.
-- The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with `az login`,
-  the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)), Python 3.10 or
-  later, and `curl` and `jq` (Bash) or PowerShell 7.
+- The Azure CLI with the [`aigateway` extension](../SETUP.md#install-the-aigateway-extension),
+  [signed in](../SETUP.md#sign-in-to-azure), Python 3.10 or later, and `curl` and `jq` (Bash) or PowerShell 7.
+- For the scripts and samples: the labs repo, [cloned](../SETUP.md#clone-the-labs-repo). Run them from the lab
+  folder, `~/ai-gateway/labs/14-otel-chargeback`.
 
 Set these variables once. If you named the Application Insights resource differently in lab 13, change
 `$GATEWAY-insights`.
@@ -161,9 +162,9 @@ select **Metrics** for `appid` and `azp`. To automate it, declare the claims in 
 
 <!-- track: iac | Bicep + azd -->
 
-**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
-the Azure CLI with the `aigateway` extension, and Git on your machine, signed in with `azd auth login` and `az login`.
-This track doesn't use your gateway from the earlier labs: `azd up` creates a new one, so it works on its own.
+**What you need:** [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands) with the
+[`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure). This
+track doesn't use your gateway from the earlier labs: `azd up` creates a new one, so it works on its own.
 
 ### Choose what to declare
 
@@ -183,18 +184,12 @@ managed resource group blocks deployments.
 ### Clone the lab
 
 The lab is a small azd project in the
-[`labs/14-otel-chargeback`](https://github.com/Azure/ai-gateway/tree/main/labs/14-otel-chargeback) folder of the
-GitHub repo. Clone the repo and move into that folder. If you cloned it for an earlier lab, move into
-`ai-gateway/labs/14-otel-chargeback` instead. The next sections run the lab's scripts from this folder.
+[`labs/14-otel-chargeback`](https://github.com/Azure/ai-gateway/tree/main/labs/14-otel-chargeback) folder.
+[Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder. The next
+sections run the lab's scripts from this folder.
 
-```bash title="Bash"
-git clone https://github.com/Azure/ai-gateway.git
-cd ai-gateway/labs/14-otel-chargeback
-```
-
-```powershell title="PowerShell"
-git clone https://github.com/Azure/ai-gateway.git
-Set-Location ai-gateway/labs/14-otel-chargeback
+```bash title="Bash or PowerShell"
+cd ~/ai-gateway/labs/14-otel-chargeback
 ```
 
 ### Review the templates
@@ -226,7 +221,7 @@ azd up
 ```
 
 For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
-regions](../01-provision-gateway/README.md#find-the-available-regions).
+regions](../SETUP.md#find-the-available-regions).
 
 ### Read the outputs and the key
 
@@ -605,9 +600,9 @@ Remove-Item query.json, usage.json, prices.json, chargeback.csv -ErrorAction Sil
 ### Delete everything azd created
 
 In the same folder, delete the resource group with the gateway, the Foundry account, the Application Insights
-component, the Log Analytics workspace, and your role assignment on the gateway. Azure deletes the component's
-managed resource group with it. `--purge` also purges the Foundry account, which would otherwise stay soft-deleted
-for 48 hours and keep counting against your quota. It takes about ten minutes.
+component, the Log Analytics workspace, and your role assignment on the gateway. Azure deletes the component's managed
+resource group with it. [`--purge`](../SETUP.md#delete-what-azd-created) also purges the soft-deleted Foundry account.
+It takes about ten minutes.
 
 ```bash
 azd down --purge --force

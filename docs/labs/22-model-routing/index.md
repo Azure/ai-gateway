@@ -33,19 +33,20 @@ apps never change the model name they send.
 
 > [!TIP]
 > On the **Bicep + azd** track, `azd up` creates its own gateway, both models, the alias, and a key, so you can skip
-> this section. You need only [Azure Cloud Shell](https://shell.azure.com), or the Azure Developer CLI (`azd`), the
-> Azure CLI, Git, and `jq` on your machine.
+> this section. You need only [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands).
 
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need the
   gateway, a runtime API key, and the `gpt-6-luna` backend model. Lab 02 also gave the gateway the
   **Foundry User** role on your Foundry account, which covers the new deployment in this lab.
 - Permission to change the gateway, for example **Contributor** on its resource group, and to create deployments
   in the Foundry account.
-- The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
-  `az login`, the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)), and
-  `jq` for the Bash snippets. The PowerShell commands need PowerShell 7 or later.
+- The Azure CLI with the [`aigateway` extension](../SETUP.md#install-the-aigateway-extension),
+  [signed in](../SETUP.md#sign-in-to-azure), and `jq` for the Bash snippets. The PowerShell commands need PowerShell 7
+  or later.
 - Optional: [Publish models from any provider behind stable aliases](../03-multi-provider-aliases/README.md)
   explains aliases in more depth.
+- For the scripts and samples: the labs repo, [cloned](../SETUP.md#clone-the-labs-repo). Run them from the lab
+  folder, `~/ai-gateway/labs/22-model-routing`.
 
 Set these variables once. Every track and the **Verify** section reuse them.
 
@@ -237,25 +238,18 @@ arguments instead.
 
 <!-- track: iac | Bicep + azd -->
 
-**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
-the Azure CLI with the `aigateway` extension, Git, and `jq` on your machine, signed in with `azd auth login` and
-`az login`. This track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
+**What you need:** [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands) with the
+[`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure). This
+track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
 
 ### Clone the lab
 
 The lab is a small azd project in the
-[`labs/22-model-routing`](https://github.com/Azure/ai-gateway/tree/main/labs/22-model-routing) folder of the GitHub
-repo. Clone the repo and move into that folder. If you cloned it for the quick start, move into
-`ai-gateway/labs/22-model-routing` instead.
+[`labs/22-model-routing`](https://github.com/Azure/ai-gateway/tree/main/labs/22-model-routing) folder.
+[Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
 
-```bash title="Bash"
-git clone https://github.com/Azure/ai-gateway.git
-cd ai-gateway/labs/22-model-routing
-```
-
-```powershell title="PowerShell"
-git clone https://github.com/Azure/ai-gateway.git
-Set-Location ai-gateway/labs/22-model-routing
+```bash title="Bash or PowerShell"
+cd ~/ai-gateway/labs/22-model-routing
 ```
 
 ### Review the templates
@@ -294,7 +288,7 @@ azd up
 ```
 
 For another region, pick one where AI Gateway and the `gpt-6-luna` and `gpt-6.1-sol` models are available, as in [Find
-the available regions](../01-provision-gateway/README.md#find-the-available-regions). The parameters come from azd
+the available regions](../SETUP.md#find-the-available-regions). The parameters come from azd
 environment values, with the defaults in `infra/main.parameters.json`: `ROUTING_STRATEGY` (`weighted`),
 `ROUTING_CANDIDATE_WEIGHT` (`20`), `CANDIDATE_MODEL` (`gpt-6.1-sol`), and `CANDIDATE_MODEL_VERSION` (`2026-09-29`).
 
@@ -543,9 +537,9 @@ If an alias that the portal import created still points to `gpt-6.1-sol`, delete
 
 ### Delete everything azd created
 
-In the `ai-gateway/labs/22-model-routing` folder, delete the resource group with the gateway, the Foundry account
-and its two deployments, and the `chat` alias. `--purge` also purges the Foundry account, which would otherwise stay
-soft-deleted for 48 hours and keep counting against your quota. It takes about ten minutes.
+In the `ai-gateway/labs/22-model-routing` folder, delete the resource group with the gateway, the Foundry account and
+its two deployments, and the `chat` alias. [`--purge`](../SETUP.md#delete-what-azd-created) also purges the
+soft-deleted Foundry account. It takes about ten minutes.
 
 ```bash
 azd down --purge --force

@@ -27,18 +27,24 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
 
 #### Labs changes
 
+- **October 28.** A new [Setup guide](SETUP.md) collects the tasks that every lab shares: checking your subscription
+  and permissions, choosing between Cloud Shell and a local shell, signing in, installing the `aigateway` extension,
+  registering the resource providers, finding the available regions, cloning the labs repo, and deploying and
+  deleting a lab with azd. Each lab page links to it from the right rail, between **Your values** and
+  **Open the portal**, and the labs link to its sections instead of repeating the steps, so they're shorter. Labs
+  that run scripts or samples from `infra/` now say to clone the repo first. The
+  [quick start](quickstart/README.md) keeps its steps inline, so it stays paste-ready in Cloud Shell.
 - **October 28.** The labs no longer describe AI Gateway as a preview service or say that the gateway is free
-  during the preview. [Lab 00](00-how-ai-gateway-works/README.md) and
-  [lab 01](01-provision-gateway/README.md#before-you-begin) point to the
+  during the preview. [Lab 00](00-how-ai-gateway-works/README.md) and the
+  [Setup guide](SETUP.md#check-your-subscription-and-permissions) point to the
   [AI Gateway documentation](https://ai.gateway.azure.com/docs) for pricing, and the lab 01 video narrates the
   region step without the preview. Labs [19](19-tool-threat-protection/README.md) and
   [20](20-agent-365-governance/README.md) still mark Agent 365 as an emerging capability.
 - **October 28.** AI Gateway now runs in more regions, and the list keeps growing, so the labs no longer name fixed
-  regions. [Lab 01](01-provision-gateway/README.md#find-the-available-regions) and the
-  [quick start](quickstart/README.md#find-the-available-regions) show how to list the current ones with the Azure CLI,
-  and how to check that a Foundry model is available in a region. The Bicep templates accept any region, the other
-  labs link to that list, and the notebooks check `AIGW_LOCATION` against it. The portal can offer fewer regions than
-  the Azure CLI and Bicep + azd tracks.
+  regions. The [Setup guide](SETUP.md#find-the-available-regions) shows how to list the current ones with the Azure
+  CLI, and how to check that a Foundry model is available in a region. The Bicep templates accept any region, the
+  other labs link to that list, and the notebooks check `AIGW_LOCATION` against it. The portal can offer fewer regions
+  than the Azure CLI and Bicep + azd tracks.
 - **October 27.** Every Bicep + azd track is now a self-contained azd template, like the quick start's: clone the
   repo, run `azd up` in the lab's folder to create a new gateway with everything the lab needs, change its settings
   with `azd env set` and `azd provision`, and remove it all with `azd down --purge --force`
@@ -53,8 +59,8 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
   `publish-model.bicep`, lab 04's `tool-server.bicep`, and lab 06's `limited-alias.bicep`, so other labs can
   compose them. Lab 05 now shows that a blocked MCP server answers `200` with the JSON-RPC error
   `AccessBlockedByGateway`.
-- **October 27.** The Azure CLI tracks need `aigateway` extension 1.0.0b14 or later, which
-  [lab 01](01-provision-gateway/README.md#before-you-begin) installs. They now register models with
+- **October 27.** The Azure CLI tracks need `aigateway` extension 1.0.0b14 or later, which the
+  [Setup guide](SETUP.md#install-the-aigateway-extension) installs. They now register models with
   `az aigateway model create`, set and remove token limits and content safety with `az aigateway model policy`
   ([lab 06](06-token-limits/README.md), [lab 08](08-content-safety/README.md),
   [lab 09](09-gateway-baselines/README.md), [lab 24](24-github-copilot-byok/README.md)), and rotate the secondary
@@ -74,7 +80,7 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
   covers `InvalidSkuName` and the limit of five gateways per subscription in each region.
 - **October 23.** The Azure CLI tracks, the **Verify** and **Clean up** steps, and the lab scripts now use the
   `aigateway` CLI extension for gateways, model providers, aliases, API keys, and MCP servers.
-  [Lab 01](01-provision-gateway/README.md#before-you-begin) shows how to install it. The labs keep `az rest` only
+  The [Setup guide](SETUP.md#install-the-aigateway-extension) shows how to install it. The labs keep `az rest` only
   for what the extension can't do yet, such as registering models and setting policies, and say why each time.
 - **October 23.** [Lab 18](18-private-networking/README.md#prepare-the-virtual-network) now delegates the integration
   subnet to `Microsoft.App/environments`, which the service requires. A subnet delegated to

@@ -31,8 +31,7 @@ Learn MCP server, so agents get tools through the same front door they already u
 
 > [!TIP]
 > On the **Bicep + azd** track, `azd up` creates its own gateway, the `learn` MCP server, and a key, so you can skip
-> this section. You need only [Azure Cloud Shell](https://shell.azure.com), or the Azure Developer CLI (`azd`), the
-> Azure CLI, and Git on your machine.
+> this section. You need only [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands).
 
 - Complete [Provision your AI Gateway](../01-provision-gateway/README.md).
 - A runtime API key, for example `app-first-call` from [lab 02](../02-first-model-call/README.md). If you don't have
@@ -41,12 +40,13 @@ Learn MCP server, so agents get tools through the same front door they already u
   `az aigateway api-key create -g "$RG" --gateway-name "$GATEWAY" -n app-first-call --display-name app-first-call`
   and read its value with
   `az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n app-first-call --query primaryKey -o tsv`.
-- For the CLI track: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or
-  later, signed in with `az login`, the `aigateway` extension
-  ([install it](../01-provision-gateway/README.md#before-you-begin)), and `jq` for the Bash snippets.
+- For the CLI track: the Azure CLI with the [`aigateway` extension](../SETUP.md#install-the-aigateway-extension),
+  [signed in](../SETUP.md#sign-in-to-azure), and `jq` for the Bash snippets.
 - For the **Verify** scripts: `curl` and `jq` (Bash) or PowerShell 7 or later. The Code track also uses
   Python 3.10 or later and, optionally, VS Code.
 - Permission to change the gateway, for example **Contributor** on the resource group.
+- For the scripts and samples: the labs repo, [cloned](../SETUP.md#clone-the-labs-repo). Run them from the lab
+  folder, `~/ai-gateway/labs/04-federate-mcp-tools`.
 
 Set these variables once. Every track and the **Verify** section reuse them.
 
@@ -202,25 +202,18 @@ az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn \
 
 <!-- track: iac | Bicep + azd -->
 
-**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
-the Azure CLI with the `aigateway` extension, and Git on your machine, signed in with `azd auth login` and `az login`.
-This track doesn't use your gateway from lab 01: `azd up` creates a new one, so it works on its own.
+**What you need:** [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands) with the
+[`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure). This
+track doesn't use your gateway from lab 01: `azd up` creates a new one, so it works on its own.
 
 ### Clone the lab
 
 The lab is a small azd project in the
-[`labs/04-federate-mcp-tools`](https://github.com/Azure/ai-gateway/tree/main/labs/04-federate-mcp-tools) folder of
-the GitHub repo. Clone the repo and move into that folder. If you cloned it for an earlier lab, move into
-`ai-gateway/labs/04-federate-mcp-tools` instead.
+[`labs/04-federate-mcp-tools`](https://github.com/Azure/ai-gateway/tree/main/labs/04-federate-mcp-tools) folder.
+[Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
 
-```bash title="Bash"
-git clone https://github.com/Azure/ai-gateway.git
-cd ai-gateway/labs/04-federate-mcp-tools
-```
-
-```powershell title="PowerShell"
-git clone https://github.com/Azure/ai-gateway.git
-Set-Location ai-gateway/labs/04-federate-mcp-tools
+```bash title="Bash or PowerShell"
+cd ~/ai-gateway/labs/04-federate-mcp-tools
 ```
 
 ### Review the templates
@@ -260,7 +253,7 @@ azd up
 ```
 
 For another region, use its name from [Find the available
-regions](../01-provision-gateway/README.md#find-the-available-regions).
+regions](../SETUP.md#find-the-available-regions).
 
 ### Read the outputs and the key
 
@@ -679,7 +672,7 @@ refuses to remove the last one with "Cannot remove the last source." Delete the 
 ### Delete everything azd created
 
 In the `ai-gateway/labs/04-federate-mcp-tools` folder, delete the resource group with the gateway, the `learn` MCP
-server, and the key. `--purge` also purges soft-deleted resources, and `--force` skips the confirmation. It takes
+server, and the key. [`--purge`](../SETUP.md#delete-what-azd-created) also purges soft-deleted resources. It takes
 about ten minutes.
 
 ```bash

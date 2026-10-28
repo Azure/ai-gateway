@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { initHighlighter, renderLab, escapeHtml } from './site/markdown.mjs';
 import { parseLab, stripGitHub, syncLab, syncIndex, syncSkill, findVideo } from './site/github.mjs';
-import { layout, homePage, catalogPage, labPage, releaseNotesPage, notFoundPage } from './site/templates.mjs';
+import { layout, homePage, catalogPage, labPage, releaseNotesPage, setupPage, notFoundPage } from './site/templates.mjs';
 
 const LABS = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(LABS, '..');
@@ -23,7 +23,8 @@ const SKILL_FILE = path.join(LABS, 'skills', SKILL_NAME, 'SKILL.md');
 const BASE_URL = (process.env.LABS_SITE_URL || 'https://azure.github.io/ai-gateway/').replace(/\/?$/, '/');
 const BASE_PATH = new URL(BASE_URL).pathname;
 const RELEASE_NOTES = path.join(LABS, 'RELEASE-NOTES.md');
-const GENERATED = ['index.html', '404.html', 'labs', 'release-notes', 'assets', 'search.json', 'llms.txt', 'llms-full.txt', 'skills', 'sitemap.xml', 'robots.txt', '.nojekyll'];
+const SETUP = path.join(LABS, 'SETUP.md');
+const GENERATED = ['index.html', '404.html', 'labs', 'release-notes', 'setup', 'assets', 'search.json', 'llms.txt', 'llms-full.txt', 'skills', 'sitemap.xml', 'robots.txt', '.nojekyll'];
 const MEDIA_RE = /\.(png|jpe?g|gif|webp|svg|mp4|webm|avif)$/i;
 const REQUIRED = ['title', 'summary', 'category', 'level', 'duration', 'tracks', 'objectives'];
 
@@ -52,17 +53,22 @@ function write(rel, content) {
   fs.writeFileSync(f, content);
 }
 
-// A lab folder with a root azure.yaml is an azd template. azd can't init from a repo subfolder, so the lab clones
-// the repo and runs azd in labs/<slug>. A clone block must move into the lab folder and use the site's branch: the
-// default branch, or --branch with that name.
+// A lab folder with a root azure.yaml is an azd template. azd can't init from a repo subfolder, so the lab runs azd
+// in labs/<slug> of a clone: it either clones the repo itself or links to the setup guide's clone step. A code block
+// must move into the lab folder, and a clone block must move into it too and use the site's branch: the default
+// branch, or --branch with that name.
 function checkTemplate(lab, site) {
   if (!fs.existsSync(path.join(lab.dir, 'azure.yaml'))) return;
   const folder = `labs/${lab.slug}`;
-  const blocks = [...lab.content.matchAll(/^```[^\n]*\n([\s\S]*?)^```/gm)].map((m) => m[1])
-    .filter((b) => /\bgit clone\b/.test(b) && b.includes(site.repo));
-  if (!blocks.length) warn(`${lab.slug}: has an azd template, but no code block clones ${site.repo}`);
-  for (const b of blocks) {
-    if (!new RegExp(`\\b(?:cd|Set-Location)\\s+\\S*${folder}\\s*$`, 'm').test(b)) warn(`${lab.slug}: the template clone block doesn't move into ${folder}`);
+  const cd = new RegExp(`\\b(?:cd|Set-Location)\\s+\\S*${folder}\\s*$`, 'm');
+  const blocks = [...lab.content.matchAll(/^```[^\n]*\n([\s\S]*?)^```/gm)].map((m) => m[1]);
+  const clones = blocks.filter((b) => /\bgit clone\b/.test(b) && b.includes(site.repo));
+  if (!clones.length && !lab.content.includes('SETUP.md#clone-the-labs-repo')) {
+    warn(`${lab.slug}: has an azd template, but neither clones ${site.repo} nor links to SETUP.md#clone-the-labs-repo`);
+  }
+  if (!blocks.some((b) => cd.test(b))) warn(`${lab.slug}: has an azd template, but no code block moves into ${folder}`);
+  for (const b of clones) {
+    if (!cd.test(b)) warn(`${lab.slug}: the template clone block doesn't move into ${folder}`);
     const branch = b.match(/--branch[\s=](\S+)/);
     if (branch && branch[1] !== site.branch) warn(`${lab.slug}: the template clone block uses branch ${branch[1]}, not ${site.branch}`);
   }
@@ -180,6 +186,7 @@ function makeCtx(lab, site, knownSlugs, { labsPrefix = '../' } = {}) {
       }
       if (relLabs === 'README.md') return { url: `${labsPrefix}${h}`, external: false };
       if (relLabs === 'RELEASE-NOTES.md') return { url: `${labsPrefix}../release-notes/${h}`, external: false };
+      if (relLabs === 'SETUP.md') return { url: path.posix.normalize(`${labsPrefix}../setup/`) + h, external: false };
       if (!fs.existsSync(abs)) warn(`${lab.slug}: broken link ${href}`);
       if (relLabs.startsWith('assets/') || (abs.startsWith(lab.dir + path.sep) && MEDIA_RE.test(abs))) {
         if (abs.startsWith(lab.dir + path.sep)) media.add(path.relative(lab.dir, abs));
@@ -201,12 +208,21 @@ const htmlToText = (html) => html
   .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
   .replace(/\s+/g, ' ').trim();
 
-function checkAnchors(lab, html, allHtml) {
+function checkAnchors(lab, html, allHtml, setupHtml) {
   const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
   for (const m of html.matchAll(/href="#([^"]+)"/g)) if (!ids.has(m[1])) warn(`${lab.slug}: anchor #${m[1]} not found`);
   for (const m of html.matchAll(/href="\.\.\/(\d{2}-[a-z0-9-]+|quickstart)\/#([^"]+)"/g)) {
     const other = allHtml.get(m[1]);
     if (other && !other.includes(` id="${m[2]}"`)) warn(`${lab.slug}: anchor ../${m[1]}/#${m[2]} not found`);
+  }
+  checkSetupAnchors(lab.slug, html, setupHtml);
+}
+
+// Links into the setup guide, from any page: ../setup/#id or ../../setup/#id.
+function checkSetupAnchors(name, html, setupHtml) {
+  for (const m of html.matchAll(/href="(?:\.\.\/)+setup\/#([^"]+)"/g)) {
+    if (setupHtml == null) warn(`${name}: links to the setup guide, but labs/SETUP.md doesn't exist`);
+    else if (!setupHtml.includes(` id="${m[1]}"`)) warn(`${name}: anchor SETUP.md#${m[1]} not found`);
   }
 }
 
@@ -244,7 +260,7 @@ function syncSources(labs, catalog, { check = false } = {}) {
 
 // Renders labs/RELEASE-NOTES.md. Each "## <date>" section is one product release: an "### <title>" heading and a
 // link to https://ai.gateway.azure.com/docs/releases/YYYY-MM-DD, then what changed in the labs.
-async function renderReleaseNotes(site, known, rendered) {
+async function renderReleaseNotes(site, known, rendered, setupHtml) {
   if (!fs.existsSync(RELEASE_NOTES)) return null;
   const source = stripGitHub(fs.readFileSync(RELEASE_NOTES, 'utf8'));
   const page = { dir: LABS, slug: 'release-notes' };
@@ -260,6 +276,7 @@ async function renderReleaseNotes(site, known, rendered) {
   for (const m of html.matchAll(/href="\.\.\/labs\/(\d{2}-[a-z0-9-]+|quickstart)\/#([^"]+)"/g)) {
     if (!rendered.get(m[1])?.includes(` id="${m[2]}"`)) warn(`RELEASE-NOTES.md: anchor ${m[1]}#${m[2]} not found`);
   }
+  checkSetupAnchors('RELEASE-NOTES.md', html, setupHtml);
 
   const releases = [];
   for (const section of source.split(/^(?=## )/m).slice(1)) {
@@ -280,6 +297,30 @@ async function renderReleaseNotes(site, known, rendered) {
   return {
     source, html: sections, toc, releases,
     description: 'What changed in the Azure AI Gateway labs for each product release, and where to practice every new feature.',
+  };
+}
+
+// Renders labs/SETUP.md, the one-time tasks that the labs link to instead of repeating them, at /setup/.
+async function renderSetup(site, known, rendered) {
+  if (!fs.existsSync(SETUP)) return null;
+  const source = stripGitHub(fs.readFileSync(SETUP, 'utf8'));
+  const ctx = makeCtx({ dir: LABS, slug: 'setup' }, site, known, { labsPrefix: '../labs/' });
+  const { html, toc } = await renderLab(source, ctx);
+  for (const m of ctx.media) {
+    const dest = path.join(OUT, 'setup', m);
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.copyFileSync(path.join(LABS, m), dest);
+  }
+  const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
+  for (const m of html.matchAll(/href="#([^"]+)"/g)) if (!ids.has(m[1])) warn(`SETUP.md: anchor #${m[1]} not found`);
+  for (const m of html.matchAll(/href="\.\.\/labs\/(\d{2}-[a-z0-9-]+|quickstart)\/#([^"]+)"/g)) {
+    if (!rendered.get(m[1])?.includes(` id="${m[2]}"`)) warn(`SETUP.md: anchor ${m[1]}#${m[2]} not found`);
+  }
+  const headings = [...html.matchAll(/<h([23]) id="([^"]+)"><a class="anchor"[^>]*>#<\/a>([\s\S]*?)<\/h\1>/g)]
+    .map((m) => ({ id: m[2], text: htmlToText(m[3]), level: Number(m[1]) }));
+  return {
+    source, html, toc, headings,
+    description: 'The one-time tasks that the Azure AI Gateway labs share: permissions, tools, sign-in, the aigateway extension, resource providers, regions, the labs repo, and azd.',
   };
 }
 
@@ -339,8 +380,22 @@ export async function build({ strict = false } = {}) {
     });
   }
 
+  // Setup guide: labs/SETUP.md, rendered at /setup/. The labs link to it, so render it before checking their anchors.
+  const setup = await renderSetup(site, known, rendered);
+  if (setup) {
+    searchIndex.push({
+      slug: 'setup', page: true, url: 'setup/', num: '', title: 'Setup guide', summary: setup.description, tags: ['setup', 'prerequisites'],
+      headings: setup.headings, text: htmlToText(setup.html).slice(0, 6000),
+    });
+    write('setup/index.html', layout({
+      rel: '../', site, kind: 'setup', title: 'Setup guide', description: setup.description,
+      body: setupPage({ rel: '../', site, ...setup }), canonical: `${BASE_URL}setup/`, data: shared,
+    }));
+    write('setup/index.md', setup.source);
+  }
+
   for (const [i, lab] of labs.entries()) {
-    checkAnchors(lab, lab.html, rendered);
+    checkAnchors(lab, lab.html, rendered, setup?.html);
     const rel = '../../';
     const body = labPage({ rel, site, catalog, labs, lab, html: lab.html, toc: lab.toc, prev: labs[i - 1], next: labs[i + 1] });
     write(`labs/${lab.slug}/index.html`, layout({
@@ -354,7 +409,7 @@ export async function build({ strict = false } = {}) {
   const totals = { labs: labs.length, minutes: labs.reduce((a, l) => a + l.duration, 0) };
 
   // Release notes: labs/RELEASE-NOTES.md is the source of truth, rendered at /release-notes/
-  const notes = await renderReleaseNotes(site, known, rendered);
+  const notes = await renderReleaseNotes(site, known, rendered, setup?.html);
   if (notes) {
     write('release-notes/index.html', layout({
       rel: '../', site, kind: 'releases', title: 'Release notes', description: notes.description,
@@ -372,14 +427,14 @@ export async function build({ strict = false } = {}) {
   const llms = [`# ${site.title}`, '', `> ${site.tagline}`, '',
     'Hands-on labs for the AI Gateway tier of Azure API Management. Each lab has portal, Azure CLI, REST, Bicep, or code tracks.', '',
     `Product docs: ${site.docs}`, `Portal: ${site.portal}`, `Source: ${site.repo}/tree/${site.branch}/labs`,
-    `Agent skill: ${BASE_URL}skills/${SKILL_NAME}/SKILL.md`, ...(notes ? [`Release notes: ${BASE_URL}release-notes/index.md`] : []), '', '## Labs', '',
+    `Agent skill: ${BASE_URL}skills/${SKILL_NAME}/SKILL.md`, ...(setup ? [`Setup guide: ${BASE_URL}setup/index.md`] : []), ...(notes ? [`Release notes: ${BASE_URL}release-notes/index.md`] : []), '', '## Labs', '',
     ...labs.map((l) => `- [${l.num} ${l.title}](${BASE_URL}labs/${l.slug}/index.md): ${l.summary}`), '',
     '## Learning paths', '', ...catalog.paths.map((p) => `- ${p.title}: ${p.labs.filter((s) => known.has(s)).join(', ')}`), ''].join('\n');
   write('llms.txt', llms);
   // The agent skill, without the generated-region markers
   write(`skills/${SKILL_NAME}/SKILL.md`, fs.readFileSync(SKILL_FILE, 'utf8').replace(/^<!-- gh:(?:begin\b[^>]*|end) -->\n/gm, ''));
-  write('llms-full.txt', labs.map((l) => `<!-- ${BASE_URL}labs/${l.slug}/ -->\n${l.raw.trim()}\n`).join('\n\n'));
-  const urls = ['', 'labs/', ...(notes ? ['release-notes/'] : []), ...labs.map((l) => `labs/${l.slug}/`)];
+  write('llms-full.txt', [...(setup ? [`<!-- ${BASE_URL}setup/ -->\n${setup.source.trim()}\n`] : []), ...labs.map((l) => `<!-- ${BASE_URL}labs/${l.slug}/ -->\n${l.raw.trim()}\n`)].join('\n\n'));
+  const urls = ['', 'labs/', ...(setup ? ['setup/'] : []), ...(notes ? ['release-notes/'] : []), ...labs.map((l) => `labs/${l.slug}/`)];
   write('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `  <url><loc>${escapeHtml(BASE_URL + u)}</loc></url>`).join('\n')}\n</urlset>\n`);
   write('robots.txt', `User-agent: *\nAllow: /\nSitemap: ${BASE_URL}sitemap.xml\n`);
 

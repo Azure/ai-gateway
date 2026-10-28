@@ -58,7 +58,7 @@ recorded.
 
 > [!NOTE]
 > The AI Gateway tier runs in a growing list of regions: run the command in
-> [Find the available regions](../01-provision-gateway/README.md#find-the-available-regions) to list them. For the
+> [Find the available regions](../SETUP.md#find-the-available-regions) to list them. For the
 > gateway's pricing, see the [AI Gateway documentation](https://ai.gateway.azure.com/docs). Connected services, such
 > as Microsoft Foundry inference and Application Insights, are billed normally.
 
@@ -266,7 +266,7 @@ Nothing to clean up. This lab doesn't create resources.
 |---|---|---|
 | A model call says the model can't be found | The `model` field doesn't match an alias | Copy the alias from **Models**, or from the code sample in **Catalog** |
 | An Anthropic call fails on the OpenAI endpoint | The gateway doesn't translate between protocols | Call `/default/models/anthropic/v1/messages` with `anthropic-version: 2023-06-01` |
-| You can't create a gateway in your region | AI Gateway isn't available there yet | Pick a region from [Find the available regions](../01-provision-gateway/README.md#find-the-available-regions) |
+| You can't create a gateway in your region | AI Gateway isn't available there yet | Pick a region from [Find the available regions](../SETUP.md#find-the-available-regions) |
 | Monitoring is empty | No telemetry destination | Connect Application Insights in **Monitoring** › **Settings** |
 
 ## Next steps

@@ -59,9 +59,9 @@ developers build on top of your governance instead of around it.
   documents its plugin support: [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/plugins-finding-installing),
   [Claude Code](https://code.claude.com/docs/en/plugins), [Cursor](https://cursor.com/docs/plugins), and
   [Gemini CLI](https://geminicli.com/docs/extensions/).
-- The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with `az login`,
-  and the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)). The plugin uses
-  your Azure sign-in to read the gateway, so your account needs read access to it.
+- The Azure CLI with the [`aigateway` extension](../SETUP.md#install-the-aigateway-extension),
+  [signed in](../SETUP.md#sign-in-to-azure). The plugin uses your Azure sign-in to read the gateway, so your account
+  needs read access to it.
 - Python 3.10 or later to run the generated app. To scaffold a standalone agent, you also need the GitHub Copilot
   CLI, because the GitHub Copilot SDK uses it.
 

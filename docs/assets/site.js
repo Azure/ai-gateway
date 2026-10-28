@@ -221,9 +221,11 @@ function runSearch(q) {
   const terms = norm(q).split(/\s+/).filter(Boolean);
   const res = [];
   for (const lab of searchIndex || []) {
-    const url = `${D.rel}labs/${lab.slug}/`;
-    if (!terms.length) { res.push({ score: lab.quick ? 101 : 100 - Number(lab.num), lab, url, kind: 'lab' }); continue; }
-    const fields = { title: norm(lab.title), num: lab.num, summary: norm(lab.summary), tags: norm((lab.tags || []).join(' ')), text: norm(lab.text) };
+    // Pages (the setup guide) carry their own URL and show only when the query matches them.
+    const url = lab.url ? `${D.rel}${lab.url}` : `${D.rel}labs/${lab.slug}/`;
+    const kind = lab.page ? 'page' : 'lab';
+    if (!terms.length) { if (!lab.page) res.push({ score: lab.quick ? 101 : 100 - Number(lab.num), lab, url, kind }); continue; }
+    const fields = { title: norm(lab.title), num: lab.num || '', summary: norm(lab.summary), tags: norm((lab.tags || []).join(' ')), text: norm(lab.text) };
     let score = 0, all = true;
     for (const t of terms) {
       let s = 0;
@@ -235,7 +237,7 @@ function runSearch(q) {
       if (!s) all = false;
       score += s;
     }
-    if (all && score) res.push({ score, lab, url, kind: 'lab', snip: score < 16 * terms.length ? snippet(lab.text, terms) : '' });
+    if (all && score) res.push({ score, lab, url, kind, snip: score < 16 * terms.length ? snippet(lab.text, terms) : '' });
     for (const hd of lab.headings || []) {
       const ht = norm(hd.text);
       if (terms.length && terms.every((t) => ht.includes(t))) res.push({ score: score * 0.4 + 8 + (hd.level === 2 ? 2 : 0), lab, url: `${url}#${hd.id}`, kind: 'section', heading: hd.text });
@@ -251,17 +253,22 @@ function renderSearch(q) {
   const box = $('.search-results', searchModal);
   if (!items.length) { box.innerHTML = `<div class="search-empty">No results for “${escHtml(q)}”. Try “budget”, “MCP” or “Entra”.</div>`; return; }
   const labsHtml = items.filter((x) => x.kind === 'lab');
+  const pages = items.filter((x) => x.kind === 'page');
   const secs = items.filter((x) => x.kind === 'section');
   const row = (x, i) => `<a class="sr-item" href="${x.url}" role="option" id="sr-${i}" aria-selected="${i === 0}">
-    <span class="sr-num">${x.lab.quick ? IC.bolt : x.lab.num}</span><span class="sr-body">
+    <span class="sr-num">${x.lab.quick ? IC.bolt : x.lab.page ? IC.tools : x.lab.num}</span><span class="sr-body">
     <span class="sr-title">${hl(x.kind === 'section' ? x.heading : x.lab.title, terms)}</span>
     <span class="sr-sub">${x.kind === 'section' ? `in ${escHtml(x.lab.title)}` : escHtml(x.lab.summary)}</span>
     ${x.snip ? `<span class="sr-snippet">${hl(x.snip, terms)}</span>` : ''}</span></a>`;
   let i = 0;
-  const ordered = [...labsHtml, ...secs];
-  searchItems = ordered;
-  box.innerHTML = (labsHtml.length ? `<div class="search-group">${terms.length ? 'Labs' : 'All labs'}</div>${labsHtml.map((x) => row(x, i++)).join('')}` : '')
-    + (secs.length ? `<div class="search-group">Sections</div>${secs.map((x) => row(x, i++)).join('')}` : '');
+  // Guides go first when they match better than the best lab.
+  const guidesFirst = pages.length && (!labsHtml.length || pages[0].score > labsHtml[0].score);
+  const groups = [[terms.length ? 'Labs' : 'All labs', labsHtml], ['Guides', pages]];
+  if (guidesFirst) groups.reverse();
+  groups.push(['Sections', secs]);
+  searchItems = groups.flatMap(([, list]) => list);
+  box.innerHTML = groups.filter(([, list]) => list.length)
+    .map(([name, list]) => `<div class="search-group">${name}</div>${list.map((x) => row(x, i++)).join('')}`).join('');
 }
 function moveSel(d) {
   const els = $$('.sr-item', searchModal);

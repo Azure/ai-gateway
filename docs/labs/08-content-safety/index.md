@@ -33,16 +33,17 @@ gateway, tune it per category, and see what a blocked call looks like to a clien
 
 > [!TIP]
 > On the **Bicep + azd** track, `azd up` creates its own gateway, model, and key, so you can skip this section. You
-> need only [Azure Cloud Shell](https://shell.azure.com), or the Azure Developer CLI (`azd`), the Azure CLI, and Git
-> on your machine.
+> need only [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands).
 
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need a
   gateway, an imported model, a callable alias, and a runtime API key from **Access** › **Keys**.
-- For the CLI and REST tracks: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75
-  or later, signed in with `az login`, the `aigateway` extension
-  ([install it](../01-provision-gateway/README.md#before-you-begin)), and `jq` for the Bash snippets.
+- For the CLI and REST tracks: the Azure CLI with the
+  [`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure), and
+  `jq` for the Bash snippets.
 - For the **Verify** script: `curl` and `jq` (Bash) or PowerShell 7 or later.
 - Permission to change the gateway, for example **Contributor** on the resource group.
+- For the scripts and samples: the labs repo, [cloned](../SETUP.md#clone-the-labs-repo). Run them from the lab
+  folder, `~/ai-gateway/labs/08-content-safety`.
 
 Set these variables once. Every track and the **Verify** section reuse them.
 
@@ -220,9 +221,9 @@ Remove-Item patch.json
 
 <!-- track: iac | Bicep + azd -->
 
-**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
-the Azure CLI with the `aigateway` extension, and Git on your machine, signed in with `azd auth login` and `az login`.
-This track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
+**What you need:** [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands) with the
+[`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure). This
+track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
 
 ### Choose what to declare
 
@@ -238,18 +239,11 @@ The policy is one `contentSafety` object with a threshold for each category: `ha
 ### Clone the lab
 
 The lab is a small azd project in the
-[`labs/08-content-safety`](https://github.com/Azure/ai-gateway/tree/main/labs/08-content-safety) folder of the GitHub
-repo. Clone the repo and move into that folder. If you cloned it for the quick start, move into
-`ai-gateway/labs/08-content-safety` instead.
+[`labs/08-content-safety`](https://github.com/Azure/ai-gateway/tree/main/labs/08-content-safety) folder.
+[Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
 
-```bash title="Bash"
-git clone https://github.com/Azure/ai-gateway.git
-cd ai-gateway/labs/08-content-safety
-```
-
-```powershell title="PowerShell"
-git clone https://github.com/Azure/ai-gateway.git
-Set-Location ai-gateway/labs/08-content-safety
+```bash title="Bash or PowerShell"
+cd ~/ai-gateway/labs/08-content-safety
 ```
 
 ### Review the templates
@@ -281,7 +275,7 @@ azd up
 ```
 
 For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
-regions](../01-provision-gateway/README.md#find-the-available-regions).
+regions](../SETUP.md#find-the-available-regions).
 
 ### Read the outputs and the key
 
@@ -468,8 +462,8 @@ az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLIC
 ### Delete everything azd created
 
 In the `ai-gateway/labs/08-content-safety` folder, delete the resource group with the gateway, the Foundry account,
-and the screened alias. `--purge` also purges the Foundry account, which would otherwise stay soft-deleted for 48
-hours and keep counting against your quota. It takes about ten minutes.
+and the screened alias. [`--purge`](../SETUP.md#delete-what-azd-created) also purges the soft-deleted Foundry account.
+It takes about ten minutes.
 
 ```bash
 azd down --purge --force

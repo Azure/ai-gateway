@@ -25,7 +25,7 @@ architectures).
 
 **Jump to:** [Choose how you learn](#choose-how-you-learn) · [Learning paths](#learning-paths) · [All labs](#all-labs) ·
 [Run the notebooks](#run-the-notebooks) · [Use a coding agent](#use-the-labs-with-a-coding-agent) · [Prerequisites](#prerequisites) ·
-[Work on the labs](#work-on-the-labs-site) · [Release notes](RELEASE-NOTES.md)
+[Work on the labs](#work-on-the-labs-site) · [Setup guide](SETUP.md) · [Release notes](RELEASE-NOTES.md)
 
 ## Choose how you learn
 
@@ -177,9 +177,9 @@ every cell stays short.
    [VS Code](https://code.visualstudio.com/) with the
    [Jupyter extension](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter), or JupyterLab. The
    CLI installs Bicep the first time a notebook deploys a template.
-2. Sign in with `az login`, and select the subscription with `az account set --subscription <id>`.
-3. Clone the repository, open a notebook from its lab folder, select a Python kernel, and select **Run All**. The
-   first cell installs the packages it needs.
+2. [Sign in to Azure](SETUP.md#sign-in-to-azure) and select the subscription.
+3. [Clone the labs repo](SETUP.md#clone-the-labs-repo), open a notebook from its lab folder, select a Python kernel,
+   and select **Run All**. The first cell installs the packages it needs.
 
 The notebooks share one gateway, so run them in order: provision the gateway, publish the first model, and then
 any of the others. They use these defaults, and you can override them with environment variables before you start
@@ -218,13 +218,17 @@ through the token limits lab with the Azure CLI." Agents without skill support c
 
 ## Prerequisites
 
+The [Setup guide](SETUP.md) walks through the tasks that every lab shares: checking your subscription, choosing
+where to run commands, installing the `aigateway` extension, registering the resource providers, finding the
+available regions, and cloning this repo. Each lab links to the steps it needs and lists the rest under
+**Before you begin**.
+
 - An Azure subscription where you can create resources. AI Gateway runs in a growing list of regions:
-  [Find the available regions](01-provision-gateway/README.md#find-the-available-regions) shows how to list them.
-  Each lab lists what it needs under **Before you begin**.
+  [Find the available regions](SETUP.md#find-the-available-regions) shows how to list them.
 - For the CLI and Bicep tracks: Azure CLI 2.75.0 or later, Bicep, and `jq` for the Bash snippets. Every lab
-  creates the dedicated `Microsoft.ApiManagement/aigateways` resource type. The CLI track uses the `aigateway`
-  extension, which [lab 01](01-provision-gateway/README.md#before-you-begin) installs, and calls the Azure Resource
-  Manager REST API with `az rest` only for what the extension can't do yet.
+  creates the dedicated `Microsoft.ApiManagement/aigateways` resource type. The CLI track uses the
+  [`aigateway` extension](SETUP.md#install-the-aigateway-extension), and calls the Azure Resource Manager REST API
+  with `az rest` only for what the extension can't do yet.
 - For the Code track: Python, Node.js, or the .NET 8 SDK, depending on the sample. Each lab lists the exact
   versions under **Before you begin**.
 

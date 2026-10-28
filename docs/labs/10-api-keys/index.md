@@ -34,8 +34,7 @@ leaked notebook key. Because every key is a separate caller identity, you can al
 
 > [!TIP]
 > On the **Bicep + azd** track, `azd up` creates its own gateway, model, and keys, so you can skip this section. You
-> need only [Azure Cloud Shell](https://shell.azure.com), or the Azure Developer CLI (`azd`), the Azure CLI, and Git
-> on your machine.
+> need only [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands).
 
 - Complete [Provision your AI Gateway](../01-provision-gateway/README.md). You need the gateway, its resource
   group, and its runtime URL.
@@ -49,10 +48,11 @@ leaked notebook key. Because every key is a separate caller identity, you can al
   one below.
 - Optional, for usage and cost per key: monitoring configured in
   [Monitor usage, cost, and traces](../13-monitoring/README.md).
-- For the CLI track and the **Verify** scripts: the
-  [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with `az login`,
-  and the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)). The Bash
-  scripts use `curl`; the PowerShell scripts need PowerShell 7 or later.
+- For the CLI track and the **Verify** scripts: the Azure CLI with the
+  [`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure). The
+  Bash scripts use `curl`; the PowerShell scripts need PowerShell 7 or later.
+- For the scripts and samples: the labs repo, [cloned](../SETUP.md#clone-the-labs-repo). Run them from the lab
+  folder, `~/ai-gateway/labs/10-api-keys`.
 
 Set these variables once. Every track and the **Verify** section reuse them.
 
@@ -204,9 +204,9 @@ $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-nam
 
 <!-- track: iac | Bicep + azd -->
 
-**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
-the Azure CLI with the `aigateway` extension, and Git on your machine, signed in with `azd auth login` and `az login`.
-This track doesn't use your gateway from earlier labs: `azd up` creates a new one, so it works on its own.
+**What you need:** [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands) with the
+[`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure). This
+track doesn't use your gateway from earlier labs: `azd up` creates a new one, so it works on its own.
 
 ### Choose what to declare
 
@@ -218,18 +218,11 @@ sections.
 ### Clone the lab
 
 The lab is a small azd project in the
-[`labs/10-api-keys`](https://github.com/Azure/ai-gateway/tree/main/labs/10-api-keys) folder of the GitHub
-repo. Clone the repo and move into that folder. If you cloned it for the quick start, move into
-`ai-gateway/labs/10-api-keys` instead.
+[`labs/10-api-keys`](https://github.com/Azure/ai-gateway/tree/main/labs/10-api-keys) folder.
+[Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
 
-```bash title="Bash"
-git clone https://github.com/Azure/ai-gateway.git
-cd ai-gateway/labs/10-api-keys
-```
-
-```powershell title="PowerShell"
-git clone https://github.com/Azure/ai-gateway.git
-Set-Location ai-gateway/labs/10-api-keys
+```bash title="Bash or PowerShell"
+cd ~/ai-gateway/labs/10-api-keys
 ```
 
 ### Review the templates
@@ -261,7 +254,7 @@ azd up
 ```
 
 For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
-regions](../01-provision-gateway/README.md#find-the-available-regions).
+regions](../SETUP.md#find-the-available-regions).
 
 ### Read the outputs and the key
 
@@ -710,9 +703,9 @@ az aigateway api-key delete -g "$RG" --gateway-name "$GATEWAY" -n support-bot-v2
 
 ### Delete everything azd created
 
-In the `ai-gateway/labs/10-api-keys` folder, delete the resource group with the gateway, the Foundry account, and
-the keys. `--purge` also purges the Foundry account, which would otherwise stay soft-deleted for 48 hours and keep
-counting against your quota. It takes about ten minutes.
+In the `ai-gateway/labs/10-api-keys` folder, delete the resource group with the gateway, the Foundry account, and the
+keys. [`--purge`](../SETUP.md#delete-what-azd-created) also purges the soft-deleted Foundry account. It takes about
+ten minutes.
 
 ```bash
 azd down --purge --force

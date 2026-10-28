@@ -38,10 +38,9 @@ baseline, prove it works with a smoke test, and wire it all into GitHub Actions.
   [Monitor usage, cost, and traces](../13-monitoring/README.md), and
   [Call backends with managed identities](../12-backend-identity/README.md). This lab builds on what you learned
   there, not on the resources you created: it deploys a new, separate environment.
-- The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
-  `az login` to the subscription you deploy to, and the `aigateway` extension
-  ([install it](../01-provision-gateway/README.md#before-you-begin)). The CLI installs Bicep the first time you
-  deploy. You also need `curl` and `jq` (Bash) or PowerShell 7 or later. The smoke test reads the gateway and a
+- The Azure CLI with the [`aigateway` extension](../SETUP.md#install-the-aigateway-extension),
+  [signed in](../SETUP.md#sign-in-to-azure) to the subscription you deploy to. The CLI installs Bicep the first time
+  you deploy. You also need `curl` and `jq` (Bash) or PowerShell 7 or later. The smoke test reads the gateway and a
   key with the extension. The extension can't set gateway-scope policies yet, so the baseline script calls the
   management API with `az rest`.
 - **Owner**, or **Contributor** plus **Role Based Access Control Administrator**, on the subscription. The
@@ -49,14 +48,15 @@ baseline, prove it works with a smoke test, and wire it all into GitHub Actions.
 - Quota for `gpt-6-luna` with the `GlobalStandard` SKU in the region you deploy to. The dev environment uses
   50 capacity units (50,000 tokens per minute).
 - The resource providers `Microsoft.ApiManagement`, `Microsoft.Web`, `Microsoft.CognitiveServices`,
-  `Microsoft.OperationalInsights`, and `Microsoft.Insights` registered on the subscription. Register any missing
-  one with `az provider register --namespace <namespace>`.
+  `Microsoft.OperationalInsights`, and `Microsoft.Insights`,
+  [registered on the subscription](../SETUP.md#register-the-resource-providers).
 - For [Automate deployments with GitHub Actions](#automate-deployments-with-github-actions): a GitHub
   repository where you can create environments and variables, the [GitHub CLI](https://cli.github.com/) signed
   in with `gh auth login`, and permission to create an app registration in Microsoft Entra ID.
+- The labs repo, [cloned](../SETUP.md#clone-the-labs-repo).
 
-Run every command from this lab's folder, `labs/21-enterprise-reference`, so the `infra/` paths resolve. Set
-these variables once:
+Run every command from this lab's folder, `~/ai-gateway/labs/21-enterprise-reference`, so the `infra/` paths
+resolve. Set these variables once:
 
 ```bash title="Bash"
 export LOCATION="eastus2"            # deployment metadata, the Foundry account, and the monitoring resources
@@ -159,7 +159,7 @@ deployments leave that connection alone. The sample's exporter is still availabl
 - **Tags.** Resource groups and top-level resources get `environment` and `workload: ai-gateway`, plus the
   `tags` from the parameter file, such as `costCenter`.
 - **Regions.** `aiGatewayLocation` defaults to `eastus2`. Set it to any region where AI Gateway is available, as in
-  [Find the available regions](../01-provision-gateway/README.md#find-the-available-regions). The other resources follow the deployment's
+  [Find the available regions](../SETUP.md#find-the-available-regions). The other resources follow the deployment's
   `--location`, so pick one where the model is available.
 
 ### Environments: one template, two parameter files

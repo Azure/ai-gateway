@@ -63,24 +63,22 @@ while the internet can't.
 ## Before you begin
 
 > [!TIP]
-> On the **Bicep + azd** track, `azd up` creates its own resource group, network, gateway, and a Foundry resource
-> with `gpt-6-luna` that only this lab uses, so you can skip this section, including the variables. You need only
-> [Azure Cloud Shell](https://shell.azure.com), or the Azure Developer CLI (`azd`), the Azure CLI with the
-> `aigateway` extension, Git, and `jq` on your machine.
+> On the **Bicep + azd** track, `azd up` creates its own resource group, network, gateway, and a Foundry resource with
+> `gpt-6-luna` that only this lab uses, so you can skip this section, including the variables. You need only
+> [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands).
 
 - Complete [Provision your AI Gateway](../01-provision-gateway/README.md) and
   [Call backends with managed identities](../12-backend-identity/README.md). You need a Foundry resource with a
   chat model deployment, for example `gpt-6-luna`.
 - Private routing can only be chosen when a gateway is created, so this lab creates a **new** gateway. The
   gateway from the earlier labs stays as it is.
-- The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
-  `az login`, the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)), and
-  `jq` for the Bash snippets. Every track uses the CLI for the checks.
+- The Azure CLI with the [`aigateway` extension](../SETUP.md#install-the-aigateway-extension),
+  [signed in](../SETUP.md#sign-in-to-azure), and `jq` for the Bash snippets. Every track uses the CLI for the checks.
 - Permission to create a resource group, network resources, and a gateway, to change the Foundry resource, and
   to assign roles on it, for example **Owner**, or **Contributor** plus **Role Based Access Control
   Administrator**.
 - A region where AI Gateway and `gpt-6-luna` are available, as in
-  [Find the available regions](../01-provision-gateway/README.md#find-the-available-regions). The virtual network must be
+  [Find the available regions](../SETUP.md#find-the-available-regions). The virtual network must be
   in the gateway's subscription and region.
 
 > [!WARNING]
@@ -264,33 +262,20 @@ az network vnet subnet create -g "$RG" --vnet-name "$VNET" -n "$PE_SUBNET" --add
 <!-- track: iac | Bicep + azd -->
 <details><summary><b>🏗️ Bicep + azd</b></summary> <!-- gh -->
 
-**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
-the Azure CLI with the `aigateway` extension, Git, and `jq` on your machine, signed in with `azd auth login` and
-`az login`. This track doesn't use your gateway or Foundry resource from the earlier labs: `azd up` creates new
-ones, so it works on its own.
+**What you need:** [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands) with the
+[`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure). This
+track doesn't use your gateway or Foundry resource from the earlier labs: `azd up` creates new ones, so it works on
+its own.
 
 ### Clone the lab
 
 The lab is a small azd project in the
-[`labs/18-private-networking`](https://github.com/Azure/ai-gateway/tree/main/labs/18-private-networking) folder of
-the GitHub repo. Clone the repo and move into that folder. If you cloned it for the quick start, move into
-`ai-gateway/labs/18-private-networking` instead.
+[`labs/18-private-networking`](https://github.com/Azure/ai-gateway/tree/main/labs/18-private-networking) folder.
+[Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
 
-<details open><summary>Bash</summary> <!-- gh -->
-
-```bash title="Bash"
-git clone https://github.com/Azure/ai-gateway.git
-cd ai-gateway/labs/18-private-networking
+```bash title="Bash or PowerShell"
+cd ~/ai-gateway/labs/18-private-networking
 ```
-</details> <!-- gh -->
-
-<details><summary>PowerShell</summary> <!-- gh -->
-
-```powershell title="PowerShell"
-git clone https://github.com/Azure/ai-gateway.git
-Set-Location ai-gateway/labs/18-private-networking
-```
-</details> <!-- gh -->
 
 ### Review the templates
 
@@ -320,7 +305,7 @@ targetScope = 'subscription'
 @maxLength(60)
 param environmentName string
 
-@description('Region for every resource. Pick one where AI Gateway and the lab\'s Foundry models are available. List them with az provider show --namespace Microsoft.ApiManagement (lab 01, Find the available regions).')
+@description('Region for every resource. Pick one where AI Gateway and the lab\'s Foundry models are available. List them with az provider show --namespace Microsoft.ApiManagement (Setup guide, Find the available regions).')
 @metadata({ azd: { type: 'location' } })
 param location string
 
@@ -779,12 +764,8 @@ add it later is to create another gateway.
 <!-- track: cli | Azure CLI -->
 <details><summary><b>⌨️ Azure CLI</b></summary> <!-- gh -->
 
-### Register the resource providers
-
-```bash
-az provider register -n Microsoft.ApiManagement --wait
-az provider register -n Microsoft.Web --wait
-```
+If you haven't yet, [register the resource providers](../SETUP.md#register-the-resource-providers) in this
+subscription, including `Microsoft.Network` for this lab.
 
 ### Create the connector gateway
 
@@ -866,7 +847,7 @@ azd up
 </details> <!-- gh -->
 
 For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
-regions](../01-provision-gateway/README.md#find-the-available-regions). The Foundry resource's public access comes
+regions](../SETUP.md#find-the-available-regions). The Foundry resource's public access comes
 from the `FOUNDRY_PUBLIC_NETWORK_ACCESS` azd environment value, with the default `Enabled` in
 `infra/main.parameters.json`.
 
@@ -1439,8 +1420,8 @@ az resource delete -g $RG -n $GATEWAY --resource-type Microsoft.Web/connectorGat
 ### Delete everything azd created
 
 In the `ai-gateway/labs/18-private-networking` folder, delete the resource group with the gateway, the network, the
-private endpoint and DNS zones, and the lab's Foundry resource. `--purge` also purges the Foundry resource, which
-would otherwise stay soft-deleted for 48 hours and keep counting against your quota. It takes about ten minutes.
+private endpoint and DNS zones, and the lab's Foundry resource. [`--purge`](../SETUP.md#delete-what-azd-created) also
+purges the soft-deleted Foundry resource. It takes about ten minutes.
 
 ```bash
 azd down --purge --force

@@ -56,17 +56,16 @@ provider to it without changing a single client.
 
 > [!TIP]
 > On the **Bicep + azd** track, `azd up` creates its own gateway, model, and key, so you can skip this section. You
-> need only [Azure Cloud Shell](https://shell.azure.com), or the Azure Developer CLI (`azd`), the Azure CLI, and Git
-> on your machine, and permission to create role assignments, for example **Owner** on the subscription. To check the
-> system-assigned identity first, run the track in
-> [Create a user-assigned identity and give it access](#create-a-user-assigned-identity-and-give-it-access) up to
+> need only [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands), and permission to create role
+> assignments, for example **Owner** on the subscription. To check the system-assigned identity first, run the track
+> in [Create a user-assigned identity and give it access](#create-a-user-assigned-identity-and-give-it-access) up to
 > **Read the outputs and the key**, which sets the variables, then come back.
 
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need a
   gateway with a Foundry model provider that uses a managed identity, a model alias, and a runtime API key.
-- The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
-  `az login`, and the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)).
-  Every track uses it at least once: the portal can't change the identity of a model provider that already exists.
+- The Azure CLI with the [`aigateway` extension](../SETUP.md#install-the-aigateway-extension),
+  [signed in](../SETUP.md#sign-in-to-azure). Every track uses it at least once: the portal can't change the identity
+  of a model provider that already exists.
 - For the Bash commands: [jq](https://jqlang.org/download/), which edits the provider's settings.
 - Permissions:
   - Create a managed identity in the resource group, for example **Contributor** or
@@ -354,9 +353,9 @@ Grant the role on the Foundry account itself, the resource that the provider cal
 <!-- track: iac | Bicep + azd -->
 <details><summary><b>🏗️ Bicep + azd</b></summary> <!-- gh -->
 
-**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
-the Azure CLI with the `aigateway` extension, and Git on your machine, signed in with `azd auth login` and `az login`.
-This track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
+**What you need:** [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands) with the
+[`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure). This
+track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
 
 ### Choose what to declare
 
@@ -372,25 +371,12 @@ which gives the role assignment time to take effect.
 ### Clone the lab
 
 The lab is a small azd project in the
-[`labs/12-backend-identity`](https://github.com/Azure/ai-gateway/tree/main/labs/12-backend-identity) folder of the
-GitHub repo. Clone the repo and move into that folder. If you cloned it for an earlier lab, move into
-`ai-gateway/labs/12-backend-identity` instead.
+[`labs/12-backend-identity`](https://github.com/Azure/ai-gateway/tree/main/labs/12-backend-identity) folder.
+[Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
 
-<details open><summary>Bash</summary> <!-- gh -->
-
-```bash title="Bash"
-git clone https://github.com/Azure/ai-gateway.git
-cd ai-gateway/labs/12-backend-identity
+```bash title="Bash or PowerShell"
+cd ~/ai-gateway/labs/12-backend-identity
 ```
-</details> <!-- gh -->
-
-<details><summary>PowerShell</summary> <!-- gh -->
-
-```powershell title="PowerShell"
-git clone https://github.com/Azure/ai-gateway.git
-Set-Location ai-gateway/labs/12-backend-identity
-```
-</details> <!-- gh -->
 
 ### Review the templates
 
@@ -417,7 +403,7 @@ targetScope = 'subscription'
 @maxLength(60)
 param environmentName string
 
-@description('Region for every resource. Pick one where AI Gateway and the lab\'s Foundry models are available. List them with az provider show --namespace Microsoft.ApiManagement (lab 01, Find the available regions).')
+@description('Region for every resource. Pick one where AI Gateway and the lab\'s Foundry models are available. List them with az provider show --namespace Microsoft.ApiManagement (Setup guide, Find the available regions).')
 @metadata({ azd: { type: 'location' } })
 param location string
 
@@ -668,7 +654,7 @@ azd up
 </details> <!-- gh -->
 
 For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
-regions](../01-provision-gateway/README.md#find-the-available-regions).
+regions](../SETUP.md#find-the-available-regions).
 
 ### Read the outputs and the key
 
@@ -1137,8 +1123,8 @@ Delete the role assignment first. Deleting the identity alone leaves an orphaned
 ### Delete everything azd created
 
 In the `ai-gateway/labs/12-backend-identity` folder, delete the resource group with the gateway, the Foundry account,
-and the identity with its role assignment. `--purge` also purges the Foundry account, which would otherwise stay
-soft-deleted for 48 hours and keep counting against your quota. It takes about ten minutes.
+and the identity with its role assignment. [`--purge`](../SETUP.md#delete-what-azd-created) also purges the
+soft-deleted Foundry account. It takes about ten minutes.
 
 ```bash
 azd down --purge --force

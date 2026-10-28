@@ -9,6 +9,7 @@ on the **labs site** (`docs/`, published with GitHub Pages) and a self-contained
 labs/
 ├── catalog.json                 # categories, learning paths, use-case map
 ├── quickstart/                  # the 5-minute quick start: the only lab without a number
+├── SETUP.md                     # the Setup guide: common tasks that every lab links to
 ├── RELEASE-NOTES.md             # labs release notes, aligned with the product releases
 ├── assets/                      # shared images: screens/, diagrams/, providers/
 ├── 06-token-limits/
@@ -57,22 +58,45 @@ The Bicep + azd track deploys `quickstart/azure.yaml` and `quickstart/infra/`, w
 labs 03 onward work on its gateway. Each track ends with the first call and then its own **Clean up** step, so the lab
 has no separate call, verify, or clean up section. Teach the details in labs 00 to 02 instead.
 
+### The Setup guide
+
+[`SETUP.md`](SETUP.md) holds the tasks that every lab shares, and the site renders it at `/setup/`. Each lab's
+right rail links to it, between **Your values** and **Open the portal**. Its sections are:
+
+- Check your subscription and permissions
+- Choose where to run commands
+- Sign in to Azure
+- Install the aigateway extension
+- Register the resource providers
+- Find the available regions
+- Clone the labs repo
+- Deploy a lab with azd, and Delete what azd created
+- Troubleshooting
+
+Link to a section, such as `../SETUP.md#install-the-aigateway-extension`, instead of repeating its steps in a
+lab. Keep only what's specific to the lab: its variables, its extra resource providers, and its own checks. The build
+checks every link to a Setup guide anchor. The quick start is the exception: its tracks stay paste-ready in Cloud
+Shell, with the install, the registration, and the clone inline.
+
 ### azd templates
 
 A lab folder with an `azure.yaml` at its root (not in `infra/`) is an azd template. `azd init` can't start from a
-folder of a repo, so the lab clones the repo (the `repo` in `catalog.json`), moves into the lab folder, and runs azd
-there. The clone also gets the other labs, which the reader can use next:
+folder of a repo, so the reader clones the repo (the `repo` in `catalog.json`) once, moves into the lab folder, and
+runs azd there. The clone also gets the other labs. The track's **Clone the lab** step links to the Setup guide
+and then moves into the lab folder:
 
-```bash
-git clone https://github.com/Azure/ai-gateway.git
-cd ai-gateway/labs/<lab>
+````markdown
+[Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into this lab's folder:
+
+```bash title="Bash or PowerShell"
+cd ~/ai-gateway/labs/<lab>
 ```
+````
 
-Use the same `git clone` line in PowerShell, with `Set-Location` instead of `cd`. The clone gets the default branch,
-which must be the `branch` in `catalog.json`; otherwise add `--branch <branch>`. The build warns when a lab has a
-template but no code block clones the repo, or when a clone block doesn't move into the lab folder or uses another
-branch. The clone works once the lab is on `main`. Keep secrets out of the template's outputs, because azd
-saves them in `.azure/<environment>/.env`.
+The clone gets the default branch, which must be the `branch` in `catalog.json`. The build warns when a lab has a
+template but neither clones the repo nor links to the Setup guide's clone section, when no code block moves into the
+lab folder, or when a clone block uses another branch. The clone works once the lab is on `main`. Keep secrets out
+of the template's outputs, because azd saves them in `.azure/<environment>/.env`.
 
 Every lab's **Bicep + azd** track is a self-contained azd template, so it never needs a gateway from an earlier
 lab. Follow [lab 06](06-token-limits/) and the quick start:
@@ -141,7 +165,9 @@ Use these H2 sections in this order. Keep the H1 identical to `title`.
 
 1. `# Title` then a 2–4 sentence **scenario** paragraph: who has the problem and why the gateway solves it.
    Follow with the illustration (`![…](../assets/diagrams/x.svg)`) and, when useful, an interactive widget.
-2. `## Before you begin` – tools, permissions, and the outputs of prerequisite labs. Link prerequisites.
+2. `## Before you begin` – tools, permissions, and the outputs of prerequisite labs. Link prerequisites, and
+   link common tasks, such as installing the CLI extension or cloning the repo, to the
+   [Setup guide](#the-setup-guide).
 3. `## How it works` – the concept in under 200 words, a table of key values, and a widget or diagram.
 4. One or more task sections (for example `## Add a token limit`). Put multi-track instructions in
    track tabs. Each `###` heading inside a track becomes a numbered step with a **Done** checkbox.
@@ -278,8 +304,7 @@ Keep the video optional: every step it shows must also be written in the lab.
 - Every command must be copy-pasteable. Prefer environment variables set once at the top of a track.
 - Bash first, PowerShell as an adjacent tab where it matters.
 - Never list the AI Gateway regions, because they change. Link to
-  [Find the available regions](01-provision-gateway/README.md#find-the-available-regions), and use `eastus2` as
-  the example value.
+  [Find the available regions](SETUP.md#find-the-available-regions), and use `eastus2` as the example value.
 - Don't describe AI Gateway as a preview service or as free. Mark a capability that's still emerging with
   `status: emerging`, and link to its release note.
 - Always include clean-up instructions and point out billable resources.
@@ -300,9 +325,9 @@ Keep the video optional: every step it shows must also be written in the lab.
   Gateway names have 24 characters or fewer, and the runtime URL is `https://` plus
   `properties.frontend.defaultHostname` (`<name>.<region>-01.ai.gateway.azure.com`).
 - Policy `counterKey` values are arrays: `counterKey: [ 'identity' ]` or `[ 'ipAddress' ]`.
-- CLI tracks use the `az aigateway` extension (1.0.0b14 or later), which
-  [lab 01](01-provision-gateway/README.md#before-you-begin) installs, for gateways, providers, models, aliases,
-  model policies (`model policy set-token-limit`, `set-content-safety`, `remove`), API keys (including
+- CLI tracks use the `az aigateway` extension (1.0.0b14 or later, see
+  [Install the aigateway extension](SETUP.md#install-the-aigateway-extension)) for gateways, providers, models,
+  aliases, model policies (`model policy set-token-limit`, `set-content-safety`, `remove`), API keys (including
   `api-key regenerate --key-type secondary`), and MCP servers. Call ARM with `az rest` only for what the extension
   can't do yet: gateway and workspace policies, telemetry exporters, MCP versions, tool rules and `failureMode`,
   network settings after creation, API key `state`, and the connector gateway. Say why in one sentence. Set

@@ -141,9 +141,9 @@ also has MCP tools to discover.</li>
 documents its plugin support: <a href="https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/plugins-finding-installing" target="_blank" rel="noopener">GitHub Copilot CLI<span class="ext" aria-hidden="true">↗</span></a>,
 <a href="https://code.claude.com/docs/en/plugins" target="_blank" rel="noopener">Claude Code<span class="ext" aria-hidden="true">↗</span></a>, <a href="https://cursor.com/docs/plugins" target="_blank" rel="noopener">Cursor<span class="ext" aria-hidden="true">↗</span></a>, and
 <a href="https://geminicli.com/docs/extensions/" target="_blank" rel="noopener">Gemini CLI<span class="ext" aria-hidden="true">↗</span></a>.</li>
-<li>The <a href="https://learn.microsoft.com/cli/azure/install-azure-cli" target="_blank" rel="noopener">Azure CLI<span class="ext" aria-hidden="true">↗</span></a> 2.75 or later, signed in with <code>az login</code>,
-and the <code>aigateway</code> extension (<a href="../01-provision-gateway/#before-you-begin">install it</a>). The plugin uses
-your Azure sign-in to read the gateway, so your account needs read access to it.</li>
+<li>The Azure CLI with the <a href="../../setup/#install-the-aigateway-extension"><code>aigateway</code> extension</a>,
+<a href="../../setup/#sign-in-to-azure">signed in</a>. The plugin uses your Azure sign-in to read the gateway, so your account
+needs read access to it.</li>
 <li>Python 3.10 or later to run the generated app. To scaffold a standalone agent, you also need the GitHub Copilot
 CLI, because the GitHub Copilot SDK uses it.</li>
 </ul>
@@ -339,6 +339,7 @@ shown in <a href="../10-api-keys/">Issue and rotate runtime API keys</a>. Remove
       <ul class="toc-list"><li><a href="#before-you-begin" data-toc="before-you-begin">Before you begin</a></li><li><a href="#how-it-works" data-toc="how-it-works">How it works</a></li><li><a href="#install-the-plugin" data-toc="install-the-plugin">Install the plugin</a></li><li><a href="#discover-what-the-gateway-offers" data-toc="discover-what-the-gateway-offers">Discover what the gateway offers</a></li><li><a href="#build-an-app-with-the-gateway" data-toc="build-an-app-with-the-gateway">Build an app with the gateway</a></li><li><a href="#verify" data-toc="verify">Verify</a></li><li><a href="#go-further" data-toc="go-further">Go further</a></li><li><a href="#clean-up" data-toc="clean-up">Clean up</a></li><li><a href="#troubleshooting" data-toc="troubleshooting">Troubleshooting</a></li><li><a href="#next-steps" data-toc="next-steps">Next steps</a></li></ul>
       <div class="toc-help">
         <button class="toc-tool" type="button" data-values-open><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h7M14 6h3M3 14h3M10 14h7"/><circle cx="12" cy="6" r="2"/><circle cx="8" cy="14" r="2"/></svg><span>Your values</span></button>
+        <a class="toc-tool" href="../../setup/" title="Permissions, tools, sign-in, the aigateway extension, regions, the labs repo, and azd"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 3a4 4 0 0 0-3.8 5.3L3.5 13.5a1.5 1.5 0 0 0 0 2.1l.9.9a1.5 1.5 0 0 0 2.1 0l5.2-5.2A4 4 0 0 0 17 7.5l-2.3 2.3-2.3-.4-.4-2.3L14.3 4.8A4 4 0 0 0 12.5 3Z"/></svg><span>Setup guide</span></a>
         <a class="toc-tool" href="https://ai.gateway.azure.com" target="_blank" rel="noopener"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="11" rx="2"/><path d="M7 17.5h6M10 14.5v3"/><path d="m9 7 4 2-1.7.7-.7 1.8Z"/></svg><span>Open the portal</span></a>
         <a class="toc-tool" href="https://ai.gateway.azure.com/docs" target="_blank" rel="noopener"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 4.5c2.5-1 4.5-1 6.5.5 2-1.5 4-1.5 6.5-.5v11c-2.5-1-4.5-1-6.5.5-2-1.5-4-1.5-6.5-.5Z"/><path d="M10 5v11"/></svg><span>Product docs</span></a>
       </div>
@@ -352,7 +353,7 @@ shown in <a href="../10-api-keys/">Issue and rotate runtime API keys</a>. Remove
       <p>Hands-on labs for the Azure AI Gateway.</p>
     </div>
     <div class="footer-cols">
-      <div><h2>Labs</h2><a href="../../labs/">All labs</a><a href="../../index.html#paths">Learning paths</a><a href="../../index.html#use-cases">Use cases</a><a href="../../release-notes/">Release notes</a><a href="../../skills/azure-ai-gateway-labs/SKILL.md" title="azure-ai-gateway-labs: the agent skill that teaches coding agents how to use these labs">Agent skill</a></div>
+      <div><h2>Labs</h2><a href="../../labs/">All labs</a><a href="../../index.html#paths">Learning paths</a><a href="../../index.html#use-cases">Use cases</a><a href="../../setup/">Setup guide</a><a href="../../release-notes/">Release notes</a><a href="../../skills/azure-ai-gateway-labs/SKILL.md" title="azure-ai-gateway-labs: the agent skill that teaches coding agents how to use these labs">Agent skill</a></div>
       <div><h2>Product</h2><a href="https://ai.gateway.azure.com" target="_blank" rel="noopener">AI Gateway portal</a><a href="https://ai.gateway.azure.com/docs" target="_blank" rel="noopener">Documentation</a><a href="https://learn.microsoft.com/azure/api-management/ai-gateway-overview" target="_blank" rel="noopener">Microsoft Learn</a></div>
       <div><h2>Contribute</h2><a href="https://github.com/Azure/ai-gateway" target="_blank" rel="noopener">GitHub repository</a><a href="https://github.com/Azure/ai-gateway/blob/main/labs/AUTHORING.md" target="_blank" rel="noopener">Authoring guide</a><a href="https://github.com/Azure/ai-gateway/issues/new?labels=labs" target="_blank" rel="noopener">Report an issue</a></div>
     </div>

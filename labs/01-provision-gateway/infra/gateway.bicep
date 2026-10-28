@@ -11,7 +11,7 @@ targetScope = 'resourceGroup'
 @maxLength(24)
 param gatewayName string
 
-@description('Region for the gateway. Pick one where AI Gateway is available. List them with az provider show --namespace Microsoft.ApiManagement (lab 01, Find the available regions).')
+@description('Region for the gateway. Pick one where AI Gateway is available. List them with az provider show --namespace Microsoft.ApiManagement (Setup guide, Find the available regions).')
 param location string = 'eastus2'
 
 @description('Tags applied to both resources.')

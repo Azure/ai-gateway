@@ -62,8 +62,8 @@ the same name.
 
 > [!TIP]
 > On the **Bicep + azd** track, `azd up` creates its own gateway, Foundry model, and key, so you can skip this
-> section, except for the Anthropic key. You need only that key and [Azure Cloud Shell](https://shell.azure.com), or
-> the Azure Developer CLI (`azd`), the Azure CLI, Git, and `jq` on your machine.
+> section, except for the Anthropic key. You need only that key and
+> [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands).
 
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need the
   gateway, a runtime API key, and the Foundry alias you created there.
@@ -71,10 +71,11 @@ the same name.
   `claude-haiku-5-5` and `claude-sonnet-5-5`. To use another provider instead, see the values in
   [Add Anthropic as a custom provider](#add-anthropic-as-a-custom-provider).
 - Permission to change the gateway, for example **Contributor** on its resource group.
-- For the CLI track and the **Verify** scripts: the
-  [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
-  `az login`, the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)), and
+- For the CLI track and the **Verify** scripts: the Azure CLI with the
+  [`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure), and
   `jq` for the Bash snippets and scripts. The PowerShell scripts need PowerShell 7 or later.
+- For the scripts and samples: the labs repo, [cloned](../SETUP.md#clone-the-labs-repo). Run them from the lab
+  folder, `~/ai-gateway/labs/03-multi-provider-aliases`.
 
 Set these variables once. Every track and the **Verify** section reuse them.
 
@@ -342,9 +343,9 @@ az aigateway model-alias create -g <resource-group> --gateway-name <gateway> -n 
 <!-- track: iac | Bicep + azd -->
 <details><summary><b>🏗️ Bicep + azd</b></summary> <!-- gh -->
 
-**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
-the Azure CLI with the `aigateway` extension, Git, and `jq` on your machine, signed in with `azd auth login` and
-`az login`. This track doesn't use your gateway from earlier labs: `azd up` creates a new one, so it works on its own.
+**What you need:** [Cloud Shell or the azd tools](../SETUP.md#choose-where-to-run-commands) with the
+[`aigateway` extension](../SETUP.md#install-the-aigateway-extension), [signed in](../SETUP.md#sign-in-to-azure). This
+track doesn't use your gateway from earlier labs: `azd up` creates a new one, so it works on its own.
 
 ### Choose what to declare
 
@@ -366,24 +367,11 @@ history, the outputs, or the `az aigateway model-provider show` output.
 
 The lab is a small azd project in the
 [`labs/03-multi-provider-aliases`](https://github.com/Azure/ai-gateway/tree/main/labs/03-multi-provider-aliases)
-folder of the GitHub repo. Clone the repo and move into that folder. If you cloned it for the quick start, move
-into `ai-gateway/labs/03-multi-provider-aliases` instead.
+folder. [Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
 
-<details open><summary>Bash</summary> <!-- gh -->
-
-```bash title="Bash"
-git clone https://github.com/Azure/ai-gateway.git
-cd ai-gateway/labs/03-multi-provider-aliases
+```bash title="Bash or PowerShell"
+cd ~/ai-gateway/labs/03-multi-provider-aliases
 ```
-</details> <!-- gh -->
-
-<details><summary>PowerShell</summary> <!-- gh -->
-
-```powershell title="PowerShell"
-git clone https://github.com/Azure/ai-gateway.git
-Set-Location ai-gateway/labs/03-multi-provider-aliases
-```
-</details> <!-- gh -->
 
 ### Review the templates
 
@@ -408,7 +396,7 @@ targetScope = 'subscription'
 @maxLength(60)
 param environmentName string
 
-@description('Region for every resource. Pick one where AI Gateway and the lab\'s Foundry models are available. List them with az provider show --namespace Microsoft.ApiManagement (lab 01, Find the available regions).')
+@description('Region for every resource. Pick one where AI Gateway and the lab\'s Foundry models are available. List them with az provider show --namespace Microsoft.ApiManagement (Setup guide, Find the available regions).')
 @metadata({ azd: { type: 'location' } })
 param location string
 
@@ -659,7 +647,7 @@ azd up
 </details> <!-- gh -->
 
 For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
-regions](../01-provision-gateway/README.md#find-the-available-regions). azd keeps the key in `.azure/aigw-lab03/.env`,
+regions](../SETUP.md#find-the-available-regions). azd keeps the key in `.azure/aigw-lab03/.env`,
 which `.azure/.gitignore` keeps out of Git. If your Claude Console key can't call the default models, set `FAST_MODEL`
 and `SMART_MODEL` with `azd env set` before `azd up`.
 
@@ -1124,9 +1112,9 @@ az aigateway model-provider delete -g $RG --gateway-name $GATEWAY -n $PROVIDER -
 ### Delete everything azd created
 
 In the `ai-gateway/labs/03-multi-provider-aliases` folder, delete the resource group with the gateway, the Foundry
-account, and the Anthropic provider. `--purge` also purges the Foundry account, which would otherwise stay
-soft-deleted for 48 hours and keep counting against your quota. It takes about ten minutes. Then remove the azd
-environment, so that the Anthropic key doesn't stay in `.azure/aigw-lab03/.env`.
+account, and the Anthropic provider. [`--purge`](../SETUP.md#delete-what-azd-created) also purges the soft-deleted
+Foundry account. It takes about ten minutes. Then remove the azd environment, so that the Anthropic key doesn't stay
+in `.azure/aigw-lab03/.env`.
 
 ```bash
 azd down --purge --force
