@@ -25,14 +25,14 @@
 set -eu
 EXTENSION_NAME="aigateway"
 EXPECTED_API_VERSION="2025-09-01-preview"
-PUBLIC_WHEEL_URL="https://github.com/Azure/ai-gateway/releases/download/cli-v1.0.0b14/aigateway-1.0.0b14-py3-none-any.whl"
-EXPECTED_SHA256="1b7a576b6828e317832700617c73a7d409cc96a3c208b3fd906fa65e9daaa0c8"
+PUBLIC_WHEEL_URL="https://github.com/Azure/ai-gateway/releases/download/cli-v1.0.0b15/aigateway-1.0.0b15-py3-none-any.whl"
+EXPECTED_SHA256="8d059b7c5e006631ba843f3c4f6e41840d89c71312b13217796da16125a04a6d"
 UNINSTALL=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --help|-h)
       echo "Usage: install.sh [--uninstall|-u] [--help|-h]"
-      echo "Installs the pinned public aigateway 1.0.0b14 wheel; no source overrides."
+      echo "Installs the pinned public aigateway 1.0.0b15 wheel; no source overrides."
       exit 0
       ;;
     --uninstall|-u) UNINSTALL=1; shift ;;
