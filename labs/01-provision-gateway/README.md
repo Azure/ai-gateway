@@ -62,8 +62,9 @@ way around the portal so you're ready for the rest of the labs.
 > Azure Developer CLI (`azd`), the Azure CLI, and Git on your machine, plus the `aigateway` extension below for the
 > **Verify** steps.
 
-- An Azure subscription with access to the AI Gateway preview. The AI Gateway tier is free during public
-  preview. Connected services, such as Foundry inference and Application Insights, are billed normally.
+- An Azure subscription where you can create resources. For the gateway's pricing, see the
+  [AI Gateway documentation](https://ai.gateway.azure.com/docs). Connected services, such as Foundry inference and
+  Application Insights, are billed normally.
 - Permission to create the gateway, for example **Contributor** on the resource group, or on the subscription
   if you create a new resource group. Creating a gateway needs write access to both API Management and
   connector gateways.
@@ -102,9 +103,9 @@ need version `1.0.0b14` or later; run the installer again to upgrade an older on
 
 ### Find the available regions
 
-AI Gateway is in public preview, and the regions where you can create a gateway change as it rolls out. List the
-current ones: the first command reads the regions of the `Microsoft.ApiManagement/aigateways` resource type, and the
-second matches them to the region names that `--location` takes.
+AI Gateway keeps adding regions. List the current ones: the first command reads the regions of the
+`Microsoft.ApiManagement/aigateways` resource type, and the second matches them to the region names that
+`--location` takes.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
@@ -198,7 +199,7 @@ are the name, the region, and the resource group.
 | Property | Value |
 |---|---|
 | Resource type | `Microsoft.ApiManagement/aigateways` (API version `2025-09-01-preview`), plus `Microsoft.Web/connectorGateways` with the same name |
-| Regions (preview) | They change during the preview. List them as in [Find the available regions](#find-the-available-regions) |
+| Regions | The list grows over time. List them as in [Find the available regions](#find-the-available-regions) |
 | Name | 1–24 characters: letters, digits, and hyphens. It becomes the first label of the runtime host name |
 | Runtime URL | `https://` + `properties.frontend.defaultHostname`, for example `https://<gateway>.eastus2-01.ai.gateway.azure.com` |
 | Runtime routes | Models under `/default/models/…`, MCP servers under `/default/toolservers/<server>/mcp` |
@@ -674,8 +675,8 @@ to any page.
 
 ## Clean up
 
-The gateway is free during preview. The portal and CLI tracks of every later lab reuse it, so **keep it** until you
-finish the labs you plan to do.
+The portal and CLI tracks of every later lab reuse the gateway, so **keep it** until you finish the labs you plan to
+do.
 
 <!-- track: cli | Portal and Azure CLI -->
 <details open><summary><b>⌨️ Portal and Azure CLI</b></summary> <!-- gh -->

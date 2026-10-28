@@ -70,7 +70,7 @@ def az(*args: str, check: bool = True):
 
 
 def gateway_regions() -> list[str]:
-    """The --location names of the regions where AI Gateway is available. The list changes during the preview."""
+    """The --location names of the regions where AI Gateway is available. The list grows over time."""
     display_names = az("provider", "show", "--namespace", "Microsoft.ApiManagement", "--query",
                        "resourceTypes[?resourceType=='aigateways'].locations | [0]", check=False) or []
     locations = az("account", "list-locations", "--query", "[].{name:name, displayName:displayName}",

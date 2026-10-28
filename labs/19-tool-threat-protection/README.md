@@ -77,9 +77,9 @@ allowed calls through.
 - For the test scripts and the Bash snippets: `curl` and `jq` (Bash) or PowerShell 7 or later.
 
 > [!NOTE]
-> Agent 365 tool threat protection is an emerging capability of the AI Gateway tier preview. Labels and behavior can change; see the
-> [release note](https://ai.gateway.azure.com/docs/releases/2026-10-08-tool-threat-protection). AI Gateway itself
-> is free during the preview; Defender and Purview are licensed separately.
+> Agent 365 tool threat protection is an emerging capability of the AI Gateway tier. Labels and behavior can
+> change; see the [release note](https://ai.gateway.azure.com/docs/releases/2026-10-08-tool-threat-protection).
+> Defender and Purview are licensed separately.
 
 Set these variables once. The steps and the **Verify** section reuse them.
 

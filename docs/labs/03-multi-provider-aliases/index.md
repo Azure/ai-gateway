@@ -247,9 +247,9 @@ foreach ($model in $FAST_MODEL, $SMART_MODEL) {
 ```
 
 > [!NOTE]
-> The provider settings and model bodies mirror what the portal sends during the preview. For custom providers,
-> `supportedEndpoints` holds the provider path: `/v1/messages` for Anthropic, `/v1/chat/completions` or
-> `/v1/responses` for OpenAI-compatible endpoints. Leave out `--api-format` for custom providers. If the service rejects either
+> The provider settings and model bodies mirror what the portal sends. For custom providers, `supportedEndpoints`
+> holds the provider path: `/v1/messages` for Anthropic, `/v1/chat/completions` or `/v1/responses` for
+> OpenAI-compatible endpoints. Leave out `--api-format` for custom providers. If the service rejects either
 > command, create the provider and models with the **Portal** tab, then continue here with the aliases.
 
 ### Create the aliases

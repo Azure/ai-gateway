@@ -29,9 +29,10 @@ recorded.
 ![Azure AI Gateway architecture: clients call one gateway that routes to model providers and tool sources](../assets/diagrams/architecture.svg "Apps, agents, and coding agents call one gateway. The gateway authenticates them, applies policies, routes model calls through aliases, federates tools, and emits OpenTelemetry.")
 
 > [!NOTE]
-> The AI Gateway tier is in public preview, in a growing list of regions: run the command in
-> [Find the available regions](../01-provision-gateway/README.md#find-the-available-regions) to list them. The gateway itself is free during the preview. Connected services, such as Microsoft Foundry inference and Application Insights, are billed
-> normally.
+> The AI Gateway tier runs in a growing list of regions: run the command in
+> [Find the available regions](../01-provision-gateway/README.md#find-the-available-regions) to list them. For the
+> gateway's pricing, see the [AI Gateway documentation](https://ai.gateway.azure.com/docs). Connected services, such
+> as Microsoft Foundry inference and Application Insights, are billed normally.
 
 ## Before you begin
 

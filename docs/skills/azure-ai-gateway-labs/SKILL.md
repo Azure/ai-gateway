@@ -16,8 +16,8 @@ CLI, REST, Bicep, Code), and some also ship a Jupyter notebook.
 - AI Gateway portal: https://ai.gateway.azure.com
 - Overview on Microsoft Learn: https://learn.microsoft.com/azure/api-management/ai-gateway-overview
 
-AI Gateway is in public preview, so portal labels and API shapes can change. When a step fails, compare it with the
-product docs that the lab links to before you improvise a fix.
+Portal labels and API shapes can change as AI Gateway evolves. When a step fails, compare it with the product docs
+that the lab links to before you improvise a fix.
 
 ## Where to find things
 
@@ -79,7 +79,7 @@ Before you create, change, or delete Azure resources, confirm the subscription a
   the gateway. Put `#disable-next-line BCP081` before each `aigateways` and `connectorGateways` resource
   declaration, because Bicep has no types for them. Gateway names are at most 24 characters, and a subscription
   can have at most five gateways in each region.
-- The public preview runs in a growing list of regions. List them with
+- AI Gateway runs in a growing list of regions. List them with
   `az provider show --namespace Microsoft.ApiManagement --query "resourceTypes[?resourceType=='aigateways'].locations | [0]"`
   (display names; `az account list-locations` maps them to `--location` names), as in lab 01's
   **Find the available regions**. The portal can offer fewer regions than the CLI and Bicep. Templates that deploy

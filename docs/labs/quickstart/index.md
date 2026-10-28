@@ -33,8 +33,7 @@ that it can call the model with its own identity. Each track lists the tools tha
 
 ### Find the available regions
 
-AI Gateway is in public preview, and the regions where you can create a gateway change as it rolls out. To list the
-current ones, run this in [Azure Cloud Shell](https://shell.azure.com):
+AI Gateway keeps adding regions. To list the current ones, run this in [Azure Cloud Shell](https://shell.azure.com):
 
 ```bash title="Bash"
 regions=$(az provider show --namespace Microsoft.ApiManagement \

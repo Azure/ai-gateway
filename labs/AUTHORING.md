@@ -277,9 +277,11 @@ Keep the video optional: every step it shows must also be written in the lab.
   feature isn't documented, give the portal path and say so.
 - Every command must be copy-pasteable. Prefer environment variables set once at the top of a track.
 - Bash first, PowerShell as an adjacent tab where it matters.
-- Mark preview behavior. The AI Gateway tier is in public preview, and its regions change: never list them. Link to
+- Never list the AI Gateway regions, because they change. Link to
   [Find the available regions](01-provision-gateway/README.md#find-the-available-regions), and use `eastus2` as
   the example value.
+- Don't describe AI Gateway as a preview service or as free. Mark a capability that's still emerging with
+  `status: emerging`, and link to its release note.
 - Always include clean-up instructions and point out billable resources.
 
 ## Infrastructure as code

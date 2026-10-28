@@ -23,8 +23,14 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
 
 #### Labs changes
 
-- **October 28.** AI Gateway now runs in more regions, and the list keeps growing during the preview, so the labs no
-  longer name fixed regions. [Lab 01](01-provision-gateway/README.md#find-the-available-regions) and the
+- **October 28.** The labs no longer describe AI Gateway as a preview service or say that the gateway is free
+  during the preview. [Lab 00](00-how-ai-gateway-works/README.md) and
+  [lab 01](01-provision-gateway/README.md#before-you-begin) point to the
+  [AI Gateway documentation](https://ai.gateway.azure.com/docs) for pricing, and the lab 01 video narrates the
+  region step without the preview. Labs [19](19-tool-threat-protection/README.md) and
+  [20](20-agent-365-governance/README.md) still mark Agent 365 as an emerging capability.
+- **October 28.** AI Gateway now runs in more regions, and the list keeps growing, so the labs no longer name fixed
+  regions. [Lab 01](01-provision-gateway/README.md#find-the-available-regions) and the
   [quick start](quickstart/README.md#find-the-available-regions) show how to list the current ones with the Azure CLI,
   and how to check that a Foundry model is available in a region. The Bicep templates accept any region, the other
   labs link to that list, and the notebooks check `AIGW_LOCATION` against it. The portal can offer fewer regions than

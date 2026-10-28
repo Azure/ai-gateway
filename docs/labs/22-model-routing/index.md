@@ -144,9 +144,9 @@ A few rules keep every request answerable:
   version, for example `gpt-6.1-sol-2026-09-29`, and Foundry models also return an `x-ms-served-model` header.
 
 > [!IMPORTANT]
-> Priority sets a preference, not a guaranteed failover. In our preview tests, when the preferred backend
-> returned an error such as `429` or `404`, the gateway passed that error to the client instead of retrying a
-> lower-priority backend. Test how your gateway behaves under throttling before you rely on priority for
+> Priority sets a preference, not a guaranteed failover. In our tests, when the preferred backend returned an error
+> such as `429` or `404`, the gateway passed that error to the client instead of retrying a lower-priority
+> backend. Test how your gateway behaves under throttling before you rely on priority for
 > availability, and keep retries in your clients.
 
 ## Split traffic 80/20 between two models

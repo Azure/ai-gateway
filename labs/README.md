@@ -218,9 +218,9 @@ through the token limits lab with the Azure CLI." Agents without skill support c
 
 ## Prerequisites
 
-- An Azure subscription where you can create resources. AI Gateway is in public preview in a growing list of
-  regions: [Find the available regions](01-provision-gateway/README.md#find-the-available-regions) shows how to list
-  them. Each lab lists what it needs under **Before you begin**.
+- An Azure subscription where you can create resources. AI Gateway runs in a growing list of regions:
+  [Find the available regions](01-provision-gateway/README.md#find-the-available-regions) shows how to list them.
+  Each lab lists what it needs under **Before you begin**.
 - For the CLI and Bicep tracks: Azure CLI 2.75.0 or later, Bicep, and `jq` for the Bash snippets. Every lab
   creates the dedicated `Microsoft.ApiManagement/aigateways` resource type. The CLI track uses the `aigateway`
   extension, which [lab 01](01-provision-gateway/README.md#before-you-begin) installs, and calls the Azure Resource
@@ -229,8 +229,8 @@ through the token limits lab with the Azure CLI." Agents without skill support c
   versions under **Before you begin**.
 
 > [!NOTE]
-> The labs are written against a preview service. Portal labels and API shapes can change; each lab links to the
-> product documentation it's based on. If something doesn't match, please open an issue.
+> Portal labels and API shapes can change as AI Gateway evolves; each lab links to the product documentation it's
+> based on. If something doesn't match, please open an issue.
 
 ## Work on the labs site
 

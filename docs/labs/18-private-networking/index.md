@@ -66,8 +66,8 @@ while the internet can't.
 > dedicated Foundry resource for this lab if others depend on it, and re-enable public access when you clean up.
 
 > [!IMPORTANT]
-> This lab creates billable resources: a private endpoint and private DNS zones. The AI Gateway tier is free
-> during the preview. Follow [Clean up](#clean-up) when you finish.
+> This lab creates billable resources: a private endpoint and private DNS zones. Follow [Clean up](#clean-up) when
+> you finish.
 
 Set these variables once. The portal and Azure CLI tracks and the **Verify** section reuse them; the Bicep + azd
 track sets the ones it needs from azd's outputs. The lab puts the new gateway and the network in their own

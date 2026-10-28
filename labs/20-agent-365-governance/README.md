@@ -71,9 +71,9 @@ enforce each decision on live traffic.
   `az login`, and the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)).
 
 > [!NOTE]
-> The Agent 365 integration is an emerging preview capability. Labels and behavior can change; see the
-> [release note](https://ai.gateway.azure.com/docs/releases/2026-10-08-agent-365). AI Gateway itself is free
-> during the preview; Agent 365 is licensed separately.
+> The Agent 365 integration is an emerging capability. Labels and behavior can change; see the
+> [release note](https://ai.gateway.azure.com/docs/releases/2026-10-08-agent-365). Agent 365 is licensed
+> separately.
 
 Set these variables once. The steps and the **Verify** section reuse them.
 

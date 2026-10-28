@@ -34,8 +34,7 @@ that it can call the model with its own identity. Each track lists the tools tha
 
 ### Find the available regions
 
-AI Gateway is in public preview, and the regions where you can create a gateway change as it rolls out. To list the
-current ones, run this in [Azure Cloud Shell](https://shell.azure.com):
+AI Gateway keeps adding regions. To list the current ones, run this in [Azure Cloud Shell](https://shell.azure.com):
 
 ```bash title="Bash"
 regions=$(az provider show --namespace Microsoft.ApiManagement \
@@ -624,9 +623,10 @@ recorded.
 ![Azure AI Gateway architecture: clients call one gateway that routes to model providers and tool sources](../assets/diagrams/architecture.svg "Apps, agents, and coding agents call one gateway. The gateway authenticates them, applies policies, routes model calls through aliases, federates tools, and emits OpenTelemetry.")
 
 > [!NOTE]
-> The AI Gateway tier is in public preview, in a growing list of regions: run the command in
-> [Find the available regions](../01-provision-gateway/README.md#find-the-available-regions) to list them. The gateway itself is free during the preview. Connected services, such as Microsoft Foundry inference and Application Insights, are billed
-> normally.
+> The AI Gateway tier runs in a growing list of regions: run the command in
+> [Find the available regions](../01-provision-gateway/README.md#find-the-available-regions) to list them. For the
+> gateway's pricing, see the [AI Gateway documentation](https://ai.gateway.azure.com/docs). Connected services, such
+> as Microsoft Foundry inference and Application Insights, are billed normally.
 
 ## Before you begin
 
@@ -882,8 +882,9 @@ way around the portal so you're ready for the rest of the labs.
 > Azure Developer CLI (`azd`), the Azure CLI, and Git on your machine, plus the `aigateway` extension below for the
 > **Verify** steps.
 
-- An Azure subscription with access to the AI Gateway preview. The AI Gateway tier is free during public
-  preview. Connected services, such as Foundry inference and Application Insights, are billed normally.
+- An Azure subscription where you can create resources. For the gateway's pricing, see the
+  [AI Gateway documentation](https://ai.gateway.azure.com/docs). Connected services, such as Foundry inference and
+  Application Insights, are billed normally.
 - Permission to create the gateway, for example **Contributor** on the resource group, or on the subscription
   if you create a new resource group. Creating a gateway needs write access to both API Management and
   connector gateways.
@@ -916,9 +917,9 @@ need version `1.0.0b14` or later; run the installer again to upgrade an older on
 
 ### Find the available regions
 
-AI Gateway is in public preview, and the regions where you can create a gateway change as it rolls out. List the
-current ones: the first command reads the regions of the `Microsoft.ApiManagement/aigateways` resource type, and the
-second matches them to the region names that `--location` takes.
+AI Gateway keeps adding regions. List the current ones: the first command reads the regions of the
+`Microsoft.ApiManagement/aigateways` resource type, and the second matches them to the region names that
+`--location` takes.
 
 ```bash title="Bash"
 regions=$(az provider show --namespace Microsoft.ApiManagement \
@@ -994,7 +995,7 @@ are the name, the region, and the resource group.
 | Property | Value |
 |---|---|
 | Resource type | `Microsoft.ApiManagement/aigateways` (API version `2025-09-01-preview`), plus `Microsoft.Web/connectorGateways` with the same name |
-| Regions (preview) | They change during the preview. List them as in [Find the available regions](#find-the-available-regions) |
+| Regions | The list grows over time. List them as in [Find the available regions](#find-the-available-regions) |
 | Name | 1–24 characters: letters, digits, and hyphens. It becomes the first label of the runtime host name |
 | Runtime URL | `https://` + `properties.frontend.defaultHostname`, for example `https://<gateway>.eastus2-01.ai.gateway.azure.com` |
 | Runtime routes | Models under `/default/models/…`, MCP servers under `/default/toolservers/<server>/mcp` |
@@ -1312,8 +1313,8 @@ to any page.
 
 ## Clean up
 
-The gateway is free during preview. The portal and CLI tracks of every later lab reuse it, so **keep it** until you
-finish the labs you plan to do.
+The portal and CLI tracks of every later lab reuse the gateway, so **keep it** until you finish the labs you plan to
+do.
 
 <!-- track: cli | Portal and Azure CLI -->
 
@@ -2442,9 +2443,9 @@ foreach ($model in $FAST_MODEL, $SMART_MODEL) {
 ```
 
 > [!NOTE]
-> The provider settings and model bodies mirror what the portal sends during the preview. For custom providers,
-> `supportedEndpoints` holds the provider path: `/v1/messages` for Anthropic, `/v1/chat/completions` or
-> `/v1/responses` for OpenAI-compatible endpoints. Leave out `--api-format` for custom providers. If the service rejects either
+> The provider settings and model bodies mirror what the portal sends. For custom providers, `supportedEndpoints`
+> holds the provider path: `/v1/messages` for Anthropic, `/v1/chat/completions` or `/v1/responses` for
+> OpenAI-compatible endpoints. Leave out `--api-format` for custom providers. If the service rejects either
 > command, create the provider and models with the **Portal** tab, then continue here with the aliases.
 
 ### Create the aliases
@@ -3125,9 +3126,9 @@ A few rules keep every request answerable:
   version, for example `gpt-6.1-sol-2026-09-29`, and Foundry models also return an `x-ms-served-model` header.
 
 > [!IMPORTANT]
-> Priority sets a preference, not a guaranteed failover. In our preview tests, when the preferred backend
-> returned an error such as `429` or `404`, the gateway passed that error to the client instead of retrying a
-> lower-priority backend. Test how your gateway behaves under throttling before you rely on priority for
+> Priority sets a preference, not a guaranteed failover. In our tests, when the preferred backend returned an error
+> such as `429` or `404`, the gateway passed that error to the client instead of retrying a lower-priority
+> backend. Test how your gateway behaves under throttling before you rely on priority for
 > availability, and keep retries in your clients.
 
 ## Split traffic 80/20 between two models
@@ -13826,8 +13827,8 @@ while the internet can't.
 > dedicated Foundry resource for this lab if others depend on it, and re-enable public access when you clean up.
 
 > [!IMPORTANT]
-> This lab creates billable resources: a private endpoint and private DNS zones. The AI Gateway tier is free
-> during the preview. Follow [Clean up](#clean-up) when you finish.
+> This lab creates billable resources: a private endpoint and private DNS zones. Follow [Clean up](#clean-up) when
+> you finish.
 
 Set these variables once. The portal and Azure CLI tracks and the **Verify** section reuse them; the Bicep + azd
 track sets the ones it needs from azd's outputs. The lab puts the new gateway and the network in their own
@@ -14725,9 +14726,9 @@ allowed calls through.
 - For the test scripts and the Bash snippets: `curl` and `jq` (Bash) or PowerShell 7 or later.
 
 > [!NOTE]
-> Agent 365 tool threat protection is an emerging capability of the AI Gateway tier preview. Labels and behavior can change; see the
-> [release note](https://ai.gateway.azure.com/docs/releases/2026-10-08-tool-threat-protection). AI Gateway itself
-> is free during the preview; Defender and Purview are licensed separately.
+> Agent 365 tool threat protection is an emerging capability of the AI Gateway tier. Labels and behavior can
+> change; see the [release note](https://ai.gateway.azure.com/docs/releases/2026-10-08-tool-threat-protection).
+> Defender and Purview are licensed separately.
 
 Set these variables once. The steps and the **Verify** section reuse them.
 
@@ -15317,9 +15318,9 @@ enforce each decision on live traffic.
   `az login`, and the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)).
 
 > [!NOTE]
-> The Agent 365 integration is an emerging preview capability. Labels and behavior can change; see the
-> [release note](https://ai.gateway.azure.com/docs/releases/2026-10-08-agent-365). AI Gateway itself is free
-> during the preview; Agent 365 is licensed separately.
+> The Agent 365 integration is an emerging capability. Labels and behavior can change; see the
+> [release note](https://ai.gateway.azure.com/docs/releases/2026-10-08-agent-365). Agent 365 is licensed
+> separately.
 
 Set these variables once. The steps and the **Verify** section reuse them.
 
@@ -16319,9 +16320,8 @@ test a few more times if the charts are still empty.
 
 ## Clean up
 
-The AI Gateway tier is free during preview. The Foundry model deployment, Log Analytics, and Application
-Insights are billed normally. Delete both resource groups. Each command waits until the group is gone, which
-can take several minutes:
+The Foundry model deployment, Log Analytics, and Application Insights are billed normally. Delete both resource
+groups. Each command waits until the group is gone, which can take several minutes:
 
 ```bash title="Bash"
 az group delete -n "$RG" --yes

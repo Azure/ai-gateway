@@ -1445,9 +1445,8 @@ test a few more times if the charts are still empty.
 
 ## Clean up
 
-The AI Gateway tier is free during preview. The Foundry model deployment, Log Analytics, and Application
-Insights are billed normally. Delete both resource groups. Each command waits until the group is gone, which
-can take several minutes:
+The Foundry model deployment, Log Analytics, and Application Insights are billed normally. Delete both resource
+groups. Each command waits until the group is gone, which can take several minutes:
 
 <details open><summary>Bash</summary> <!-- gh -->
 
