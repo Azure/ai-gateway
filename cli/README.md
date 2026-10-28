@@ -4,7 +4,7 @@ Create an AI Gateway, register model providers and MCP servers, and manage
 policies, keys, identities, and networking from your terminal with `az aigateway`.
 
 > **Public preview**: commands and behavior may change before general availability.
-> Current extension release: **1.0.0b14**.
+> Current extension release: **1.0.0b15**.
 
 [Install](#install) | [Quickstart](#quickstart) | [Command reference](command-reference.md) | [AI Gateway documentation](https://aka.ms/aigateway/docs)
 
@@ -50,15 +50,15 @@ az aigateway version
 az aigateway --help
 ```
 
-`version` reports `extensionName: aigateway`, `extensionVersion: 1.0.0b14`,
+`version` reports `extensionName: aigateway`, `extensionVersion: 1.0.0b15`,
 and `apiVersion: 2025-09-01-preview`. Neither command needs an Azure login.
 
 ### Release and installer maintenance
 
 The installers pin the public GitHub Release asset
-[`aigateway-1.0.0b14-py3-none-any.whl`](https://github.com/Azure/ai-gateway/releases/download/cli-v1.0.0b14/aigateway-1.0.0b14-py3-none-any.whl)
+[`aigateway-1.0.0b15-py3-none-any.whl`](https://github.com/Azure/ai-gateway/releases/download/cli-v1.0.0b15/aigateway-1.0.0b15-py3-none-any.whl)
 and SHA-256
-`1b7a576b6828e317832700617c73a7d409cc96a3c208b3fd906fa65e9daaa0c8`.
+`8d059b7c5e006631ba843f3c4f6e41840d89c71312b13217796da16125a04a6d`.
 Customers do not need access to the build system.
 
 The AKA links are commit-pinned. Merging an installer update does **not** change
@@ -120,7 +120,8 @@ az aigateway show --resource-group "$RG" --name "$GATEWAY" --output table
 
 Creation waits for provisioning to finish. The gateway is an Azure AI Gateway
 resource (`Microsoft.ApiManagement/aigateways`); the CLI selects the
-`Consumption` SKU for you.
+`Consumption` SKU by default (or pass `--sku Consumption|Premium` on `create`
+and `update`).
 
 ### 2. Register an MCP server
 
