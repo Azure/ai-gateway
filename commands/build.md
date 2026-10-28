@@ -12,7 +12,8 @@ the **full** workflow in the bundled skill `skills/use-ai-gateway/SKILL.md` end 
 1. **Discover & select** the models and MCP tool servers in the gateway
    (Part 1 of the skill). Use `$ARGUMENTS` for the target gateway (ARM
    `gatewayResourceId` — required to list assets; a host alone is not enough, so resolve
-   or ask for the id if only a host is given) and, if present, the desired use case. Ask
+   or ask for the id if only a host is given, or use `az aigateway` with
+   `az configure --defaults group=<rg> aigateway=<name>`) and, if present, the desired use case. Ask
    the user to
    confirm the selected assets before continuing.
 2. **Retrieve a credential** — list the gateway API keys and read the secret of the

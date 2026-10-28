@@ -45,7 +45,7 @@ commands; each group and command accepts `--help`.
 | Top level | `create`, `show`, `list`, `update`, `delete`, `wait`, `version` | Manage gateways and inspect the CLI version. |
 | `model-provider` | `create`, `show`, `list`, `update`, `delete`, `sync` | Register and synchronize model providers, including importing existing Foundry deployments. |
 | `model` | `create`, `show` (`get`), `list`, `update`, `delete` | Register and manage individual models. |
-| `model-alias` | `create`, `show`, `list`, `update`, `delete` | Manage callable model aliases with priority and weight routing across registered backend models. |
+| `model-alias` | `create`, `set`, `show`, `list`, `update`, `delete` | Manage callable model aliases with priority and weight routing across registered backend models. |
 | `model policy` | `set`, `set-token-limit`, `set-content-safety`, `list`, `remove` | Configure token limits and content safety on a model. |
 | `mcp` | `create`, `show`, `list`, `update`, `delete`, `authorize` | Register MCP servers and start OAuth authorization where configured. |
 | `mcp source` | `add`, `list`, `remove` | Manage individual backend sources on an MCP registration. |
@@ -79,11 +79,15 @@ The general shape is `az aigateway [group] command [arguments]`. Replace values
 inside `<...>` with your own values; do not include the angle brackets.
 Examples below use Bash quoting and line continuation.
 
-### Set up example variables
+### Set up example variables and defaults
 
 Set these once in your shell before using the resource examples. If you followed
-the quickstart, reuse your `RG`, `GATEWAY`, and `LOCATION` values. Set the child
-resource names for the commands you use, choosing existing registrations or keys.
+the quickstart, reuse your `RG`, `GATEWAY`, and `LOCATION` values. Configure
+default `group`, `aigateway`, and `location` values with `az configure --defaults`
+so child commands do not need to repeat `--resource-group "$RG"` and
+`--gateway-name "$GATEWAY"` (explicit flags on any command override the
+configured defaults). Set the child resource names for the commands you use,
+choosing existing registrations or keys.
 
 ```bash
 SUBSCRIPTION="<subscription-id>"
@@ -97,7 +101,11 @@ KEY_NAME="<api-key-name>"
 
 az login
 az account set --subscription "$SUBSCRIPTION"
+az configure --defaults group="$RG" aigateway="$GATEWAY" location="$LOCATION"
 ```
+
+When you are finished with the session, clear the defaults with
+`az configure --defaults group='' aigateway='' location=''`.
 
 The examples are independent, not a script to run from top to bottom. Creation
 commands change Azure resources; see the [quickstart](README.md#quickstart) for
@@ -105,44 +113,40 @@ permissions, cost considerations, and cleanup.
 
 ### Select the right resource
 
-| Target | Resource selectors in these examples |
-| --- | --- |
-| Gateway | `--resource-group "$RG" --name "$GATEWAY"` |
-| MCP registration | `--resource-group "$RG" --gateway-name "$GATEWAY" --name "$MCP_NAME"` |
-| Model provider | `--resource-group "$RG" --gateway-name "$GATEWAY" --name "$PROVIDER"` |
-| API key | `--resource-group "$RG" --gateway-name "$GATEWAY" --name "$KEY_NAME"` |
-| Individual model | `--resource-group "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" --name "$MODEL"` |
-| Model alias | `--resource-group "$RG" --gateway-name "$GATEWAY" --name "$ALIAS_NAME"` |
+| Target | With `az configure --defaults` set | Explicit selectors without defaults |
+| --- | --- | --- |
+| Gateway | `--name "$GATEWAY"` | `--resource-group "$RG" --name "$GATEWAY"` |
+| MCP registration | `--name "$MCP_NAME"` | `--resource-group "$RG" --gateway-name "$GATEWAY" --name "$MCP_NAME"` |
+| Model provider | `--name "$PROVIDER"` | `--resource-group "$RG" --gateway-name "$GATEWAY" --name "$PROVIDER"` |
+| API key | `--name "$KEY_NAME"` | `--resource-group "$RG" --gateway-name "$GATEWAY" --name "$KEY_NAME"` |
+| Individual model | `--provider-name "$PROVIDER" --name "$MODEL"` | `--resource-group "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" --name "$MODEL"` |
+| Model alias | `--name "$ALIAS_NAME"` | `--resource-group "$RG" --gateway-name "$GATEWAY" --name "$ALIAS_NAME"` |
 
 `-g` is short for `--resource-group`, and `-n` for `--name`. The meaning of
 `--name` follows the resource being operated on; it is not always the gateway.
 `KEY_NAME` identifies the API-key resource, not its secret value.
 On `model` and `model policy` commands, `--model-provider` is accepted as an
-alias for `--provider-name`. List commands generally omit the child name. You
-can also set session defaults (`az configure --defaults group="$RG" aigateway="$GATEWAY"`)
-or pipe JSON output from `az cognitiveservices account`, `az aigateway`, or
+alias for `--provider-name`. List commands generally omit the child name. In
+addition to `az configure --defaults group="$RG" aigateway="$GATEWAY" location="$LOCATION"`,
+you can pipe JSON output from `az cognitiveservices account`, `az aigateway`, or
 `az aigateway model` commands into downstream `az aigateway` commands. Some
 commands accept `--ids` instead of the separate resource selectors; check that
 command's help.
 
-Create a gateway in an existing resource group (all three arguments below are
-required). Use a globally unique name for `GATEWAY`; `--sku` defaults to
-`Consumption` (`Consumption` or `Premium` are supported on `create` and `update`):
+Create a gateway in an existing resource group (use a globally unique name for
+`GATEWAY`; `--sku` defaults to `Consumption`, and `Consumption` or `Premium` are
+supported on `create` and `update`):
 
 ```bash
-az aigateway create \
-  --resource-group "$RG" --name "$GATEWAY" --location "$LOCATION"
+az aigateway create --name "$GATEWAY"
 ```
 
 Inspect an existing MCP registration or model:
 
 ```bash
-az aigateway mcp show \
-  -g "$RG" --gateway-name "$GATEWAY" -n "$MCP_NAME"
+az aigateway mcp show -n "$MCP_NAME"
 
-az aigateway model show \
-  -g "$RG" --gateway-name "$GATEWAY" \
-  --provider-name "$PROVIDER" -n "$MODEL"
+az aigateway model show --provider-name "$PROVIDER" -n "$MODEL"
 ```
 
 To override the selected subscription for one command, supply `--subscription`:
@@ -162,9 +166,7 @@ JSON file and pass `@filename`. An `endpoints.json` file should contain the
 endpoint array itself:
 
 ```bash
-az aigateway mcp create \
-  -g "$RG" --gateway-name "$GATEWAY" -n "$MCP_NAME" \
-  --endpoints @endpoints.json
+az aigateway mcp create -n "$MCP_NAME" --endpoints @endpoints.json
 ```
 
 This also avoids shell-specific JSON escaping. Do not commit files containing
@@ -172,31 +174,30 @@ credentials.
 
 ## Common model policies
 
-Use the [example variables](#set-up-example-variables) to target an existing
+Use the [example variables and defaults](#set-up-example-variables-and-defaults) to target an existing
 gateway model. The [quickstart](README.md#4-set-model-policies) shows how to set
 token limits and content safety together. To change just one policy, use the
 commands below; the other policy types are preserved.
 
-**Token limit:** allow 10,000 tokens per minute for each identity:
+**Token limit:** allow 10,000 tokens per minute for each identity and IP address:
 
 ```bash
 az aigateway model policy set-token-limit \
-  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
-  --token-limit 10000 --token-period minute --token-counter-key Identity
+  --provider-name "$PROVIDER" -n "$MODEL" \
+  --token-limit 10000 --token-period minute --token-counter-key Identity IPAddress
 ```
 
 `--token-limit` must be a positive integer. `--token-period` accepts `minute`,
-`hour`, or `day`; `--token-counter-key` accepts `Identity` or `IPAddress`.
-The defaults are `minute` and `Identity`. When updating an existing token-limit
-policy with `model policy set`, you can change `--token-period` or
-`--token-counter-key` without repeating `--token-limit`. This controls token
-usage, not the number of requests.
+`hour`, or `day`; `--token-counter-key` accepts one or more dimensions (`Identity`
+and/or `IPAddress`). The defaults are `minute` and `Identity`. Pass all desired
+token-limit flags (`--token-limit`, `--token-period`, and `--token-counter-key`)
+when updating a token limit. This controls token usage, not the number of requests.
 
 **Content safety:** set Medium severity across the four supported categories:
 
 ```bash
 az aigateway model policy set-content-safety \
-  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --provider-name "$PROVIDER" -n "$MODEL" \
   --content-safety Medium
 ```
 
@@ -210,10 +211,10 @@ Inspect the resulting configuration, or remove one or all policies:
 
 ```bash
 az aigateway model policy list \
-  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL"
+  --provider-name "$PROVIDER" -n "$MODEL"
 
 az aigateway model policy remove \
-  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --provider-name "$PROVIDER" -n "$MODEL" \
   --all --yes
 ```
 
@@ -228,28 +229,29 @@ call a stable `--routing-name` (`properties.aliasName`) that routes across 1 to
 requests first) and `weight` (`1-100`, relative traffic share within the same
 priority tier).
 
-Create an alias that splits traffic 50/50 across two registered backend models
-at `priority=0`, `weight=1`:
+Create or update an alias idempotently with `model-alias set` so traffic splits
+50/50 across two registered backend models at `priority=0`, `weight=1`:
 
 ```bash
-MODEL_A_ID="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL_A" --query id -o tsv)"
-MODEL_B_ID="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL_B" --query id -o tsv)"
+MODEL_A_ID="$(az aigateway model show --provider-name "$PROVIDER" -n "$MODEL_A" --query id -o tsv)"
+MODEL_B_ID="$(az aigateway model show --provider-name "$PROVIDER" -n "$MODEL_B" --query id -o tsv)"
 
-az aigateway model-alias create \
-  -g "$RG" --gateway-name "$GATEWAY" -n chat-production --routing-name contoso/chat \
+az aigateway model-alias set \
+  -n chat-production --routing-name contoso/chat \
   --backend-model resource-id="$MODEL_A_ID" priority=0 weight=1 \
   --backend-model resource-id="$MODEL_B_ID" priority=0 weight=1
 ```
 
-Pass `--overwrite` to `model-alias create` to replace an existing alias with the
-same name idempotently in scripts.
+`model-alias set` creates the alias when missing or updates the existing alias
+with `If-Match` when it already exists. Use `model-alias create` if you want the
+command to fail when an alias with the same name already exists.
 
 Rebalance to a 75/25 weighted split or shift a backend model to fallback
 `priority=1`:
 
 ```bash
 az aigateway model-alias update \
-  -g "$RG" --gateway-name "$GATEWAY" -n chat-production \
+  -n chat-production \
   --backend-model resource-id="$MODEL_A_ID" priority=0 weight=75 \
   --backend-model resource-id="$MODEL_B_ID" priority=0 weight=25
 ```
@@ -259,13 +261,13 @@ az aigateway model-alias update \
 Use `--output table` (or `-o table`) for a quick overview, `--output json`
 for the full result, and `--query` with `--output tsv` for individual values
 in scripts. Queries use [JMESPath](https://learn.microsoft.com/cli/azure/query-azure-cli).
-These examples reuse the [variables above](#set-up-example-variables).
+These examples reuse the [variables and defaults above](#set-up-example-variables-and-defaults).
 
 ```bash
 az aigateway list --output table
-az aigateway show -g "$RG" -n "$GATEWAY" --output json
+az aigateway show -n "$GATEWAY" --output json
 
-az aigateway show -g "$RG" -n "$GATEWAY" \
+az aigateway show -n "$GATEWAY" \
   --query properties.gatewayUrl --output tsv
 
 az aigateway version --query extensionVersion --output tsv
@@ -275,7 +277,7 @@ Query JSON field names, not the formatted table headings. For example, the
 gateway's state is `properties.provisioningState`, not `State`:
 
 ```bash
-az aigateway show -g "$RG" -n "$GATEWAY" \
+az aigateway show -n "$GATEWAY" \
   --query "{name:name,state:properties.provisioningState}" --output json
 ```
 
@@ -283,7 +285,6 @@ To list only models from one provider, use the command's filter:
 
 ```bash
 az aigateway model list \
-  -g "$RG" --gateway-name "$GATEWAY" \
   --model-provider "$PROVIDER" --output table
 ```
 
@@ -314,19 +315,19 @@ The examples select a key automatically only when exactly one is active. If
 there are several, choose a name from the list, set `KEY_NAME`, and resume at
 `list-secrets`; do not silently use the first key.
 
-**Bash** -- reuse `RG` and `GATEWAY` from the quickstart:
+**Bash** -- reuse `RG` and `GATEWAY` (and configured defaults) from the quickstart:
 
 ```bash
-AI_GATEWAY_URL="$(az aigateway show -g "$RG" -n "$GATEWAY" \
+AI_GATEWAY_URL="$(az aigateway show -n "$GATEWAY" \
   --query properties.gatewayUrl -o tsv)" || exit 1
-KEY_NAME="$(az aigateway api-key list -g "$RG" --gateway-name "$GATEWAY" \
+KEY_NAME="$(az aigateway api-key list \
   --query "[?properties.state=='active'].name" -o tsv)" || exit 1
 if [ -z "$AI_GATEWAY_URL" ] || [ -z "$KEY_NAME" ] || [[ "$KEY_NAME" == *$'\n'* ]]; then
   echo "A runtime URL and exactly one selected active API key are required." >&2
   exit 1
 fi
 AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets \
-  -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" \
+  -n "$KEY_NAME" \
   --query primaryKey -o tsv)" || exit 1
 if [ -z "$AI_GATEWAY_API_KEY" ]; then
   echo "No key value returned. Check your key-read permissions." >&2
@@ -334,19 +335,20 @@ if [ -z "$AI_GATEWAY_API_KEY" ]; then
 fi
 ```
 
-**PowerShell** -- set the same resource names in this shell:
+**PowerShell** -- set the same resource names and defaults in this shell:
 
 ```powershell
 $RG = "rg-aigateway-quickstart"
 $GATEWAY = "<your-gateway-name>"
+az configure --defaults group=$RG aigateway=$GATEWAY
 
-$AI_GATEWAY_URL = az aigateway show -g $RG -n $GATEWAY --query properties.gatewayUrl -o tsv
+$AI_GATEWAY_URL = az aigateway show -n $GATEWAY --query properties.gatewayUrl -o tsv
 if ($LASTEXITCODE -ne 0) { throw "Unable to read the gateway URL." }
-$KEY_NAMES = @(az aigateway api-key list -g $RG --gateway-name $GATEWAY --query "[?properties.state=='active'].name" -o tsv)
+$KEY_NAMES = @(az aigateway api-key list --query "[?properties.state=='active'].name" -o tsv)
 if ($LASTEXITCODE -ne 0) { throw "Unable to list API keys." }
 if (!$AI_GATEWAY_URL -or $KEY_NAMES.Count -ne 1) { throw "A runtime URL and exactly one selected active API key are required." }
 $KEY_NAME = $KEY_NAMES[0]
-$AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n $KEY_NAME --query primaryKey -o tsv
+$AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -n $KEY_NAME --query primaryKey -o tsv
 if ($LASTEXITCODE -ne 0 -or !$AI_GATEWAY_API_KEY) { throw "Unable to read the API key." }
 ```
 
@@ -365,14 +367,14 @@ operations, choose a Chat Completions model for this test or use the
 
 ```bash
 MODEL_PATH="$(az aigateway model show \
-  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --provider-name "$PROVIDER" -n "$MODEL" \
   --query "properties.supportedEndpoints[?ends_with(@, '/chat/completions')] | [0]" -o tsv)" || exit 1
 if [ -z "$MODEL_PATH" ]; then
   echo "This model does not advertise a Chat Completions endpoint." >&2
   exit 1
 fi
 BODY="$(az aigateway model show \
-  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --provider-name "$PROVIDER" -n "$MODEL" \
   --query "properties.deployment.modelName && {model:properties.deployment.modelName,messages:[{role:'user',content:'Describe the AI Gateway SKU of Azure API Management in one sentence.'}]}" -o json)" || exit 1
 if [ -z "$BODY" ] || [ "$BODY" = "null" ]; then
   echo "This model has no runtime model identifier." >&2
@@ -389,7 +391,7 @@ curl -fsS --max-time 60 "${AI_GATEWAY_URL%/}/default/models${MODEL_PATH}" \
 ```powershell
 $PROVIDER = "foundry-models"
 $MODEL = "<imported-model-name>"
-$modelInfo = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL -o json | ConvertFrom-Json -ErrorAction Stop
+$modelInfo = az aigateway model show --provider-name $PROVIDER -n $MODEL -o json | ConvertFrom-Json -ErrorAction Stop
 if ($LASTEXITCODE -ne 0) { throw "Unable to read the model." }
 $modelPath = $modelInfo.properties.supportedEndpoints |
   Where-Object { $_.EndsWith("/chat/completions") } | Select-Object -First 1
@@ -534,7 +536,9 @@ Remove-Variable AI_GATEWAY_API_KEY, request, responseHeaders
 - **Long-running operations:** where supported, `--no-wait` returns before
   provisioning finishes. Use the matching `wait` command with a condition such
   as `--created` or `--updated`; use `wait --help` for available conditions.
-- **Keys:** `api-key create` defaults `--display-name` to `--name` when omitted.
+- **Keys:** `api-key create` requires `--name` and `--display-name` (note that
+  `Microsoft.ApiManagement/aigateways` currently replaces `properties.displayName`
+  with a generated label, so identify keys by `name`, commonly `master`).
   `api-key list` and `show` return metadata, not key values.
   `list-secrets` explicitly returns credentials; keep them out of terminals
   being recorded, logs, and source control. Rotate one value at a time with
