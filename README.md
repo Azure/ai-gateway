@@ -11,7 +11,7 @@ platform teams enforce security, policy, networking, and observability.
 - **Observe AI traffic** — token usage, latency, errors, and policy outcomes in dashboards and logs.
 - **Run on a trusted platform** — the Azure API Management platform, with Private Link, virtual network integration, and managed identity.
 
-> AI Gateway is in **public preview**, available free of charge. See the **[documentation](https://aka.ms/aigateway/docs)** to get started.
+> See the **[AI Gateway documentation](https://aka.ms/aigateway/docs)** to get started.
 
 ---
 
