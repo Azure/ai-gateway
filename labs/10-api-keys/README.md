@@ -1134,17 +1134,8 @@ Bicep + azd track created its own gateway.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| A new key gets `401` | The value has a space or line break, or an MCP client sends it in `Authorization` instead of `api-key` | Copy the value again and send it as `api-key: <value>`. |
-| `400` with `Specify either an API key or an Authorization header, not both` | The client sends an `api-key` header and an `Authorization` header | Send one of them. With an OpenAI SDK, pass the key as the SDK's API key and remove the extra header. |
-| `401` right after **Rotate key** in the portal | Portal rotation replaces the primary value immediately | Give the client the value from **API key rotated successfully**. Next time, use the CLI secondary-value flow. |
-| "The key was created, but its value couldn't be retrieved." | You don't have `Microsoft.ApiManagement/aigateways/apiKeys/listSecrets/action` | Use **Rotate key** to get a new value, or ask someone with that permission, such as a Contributor, to read it. |
-| `check-key` prints `not checked` with `HTTP 404` | The gateway doesn't know the alias in `AI_GATEWAY_MODEL`, so it never checked the key | Set `AI_GATEWAY_MODEL` to an alias from **Models**, for example the one from lab 02. |
-| A key that worked gets `401`, and nobody rotated it | The key is `suspended` | Check `state` with the list command, and set it back to `active` if the suspension is over. |
-| `check-key` prints `key accepted, but the call failed` | The key works, but `AI_GATEWAY_MODEL` isn't an alias you can call, or a policy blocked the request | Set `AI_GATEWAY_MODEL` to an alias from **Models**, for example the one from lab 02. |
-| `Forbidden` from `az keyvault secret set` or `secret show` | You have no data-plane role on the vault, or the role assignment hasn't applied yet | Assign **Key Vault Secrets Officer** on the vault and wait a few minutes. |
-| Monitoring shows no caller identities | Monitoring isn't configured, or the time range has no traffic | Complete [Monitor usage, cost, and traces](../13-monitoring/README.md), send requests with each key, and widen the time range. |
+For the errors you might hit in this lab, with their likely causes and fixes, see
+[Troubleshooting](../TROUBLESHOOTING.md#lab-10-runtime-api-keys).
 
 ## Next steps
 

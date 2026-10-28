@@ -432,7 +432,8 @@ isError: false (the result was returned)
 ```
 
 A harmless question about Azure is allowed at both stages, so the result comes back as before. If you see
-`ToolEvaluationUnavailable` or `ToolEvaluationDenied` instead, see [Troubleshooting](#troubleshooting).
+`ToolEvaluationUnavailable` or `ToolEvaluationDenied` instead, see
+[Troubleshooting](../TROUBLESHOOTING.md#lab-19-tool-threat-protection).
 
 ### Call it with a runtime key only
 
@@ -570,16 +571,8 @@ because the Bicep + azd track created its own gateway.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| Every protected call returns `ToolEvaluationIdentityRequired` | The call has no bearer token, or the token isn't a delegated user token. App-only tokens and runtime keys can't be used for OBO. | Sign in with `az login` as a user, get a token for `https://azure-api.net/aigateway`, and send it as `Authorization: Bearer`. Check that the token has an `scp` claim. |
-| `tools/call` returns HTTP `401` or `403` with a bearer token | The user has no data-plane role on the MCP server, or the assignment hasn't applied yet | Assign **AI Gateway Tools User** at the MCP server or gateway scope and wait a few minutes |
-| Calls return `ToolEvaluationUnavailable` | The token exchange or the evaluation failed, timed out, returned an invalid verdict, or the evaluator was unavailable | Retry later. If it persists, confirm the Microsoft Defender or Microsoft Purview license and the Defender policy mode with your security team, and share the `correlationId`. |
-| A benign call returns `ToolEvaluationDenied` | Defender or Purview flagged the request or the result | Review the call with your security team using the `correlationId`. If the tool already ran (after-invocation stage), don't retry it automatically. |
-| You can't add a second tool threat protection policy to the server | Each MCP server can have only one tool threat protection policy | Keep the existing policy, or delete it and add a new one with the stages you want |
-| Tool calls got noticeably slower | Each enabled stage adds an evaluation round trip | Keep both stages where you need them, and use only **Before tool invocation** where results are trusted |
-| A script stops with HTTP `503` and `{"error":"App port is not ready"}` | The gateway is still starting after `azd up` or `azd provision` | Wait 30 seconds and run the script again. |
-| A policy you added in the portal vanished after `azd provision` | A Bicep deployment sends a `PUT`, which replaces the whole MCP server | Change the azd environment values and run `azd provision` instead of editing the server in the portal. |
+For the errors you might hit in this lab, with their likely causes and fixes, see
+[Troubleshooting](../TROUBLESHOOTING.md#lab-19-tool-threat-protection).
 
 ## Next steps
 

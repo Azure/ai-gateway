@@ -26,7 +26,7 @@ function runSearch(q) {
   const terms = norm(q).split(/\s+/).filter(Boolean);
   const res = [];
   for (const lab of searchIndex || []) {
-    // Pages (the setup guide) carry their own URL and show only when the query matches them.
+    // Pages (the guides) carry their own URL and show only when the query matches them.
     const url = lab.url ? `${D.rel}${lab.url}` : `${D.rel}labs/${lab.slug}/`;
     const kind = lab.page ? 'page' : 'lab';
     if (!terms.length) { if (!lab.page) res.push({ score: lab.quick ? 101 : 100 - Number(lab.num), lab, url, kind }); continue; }
@@ -47,6 +47,13 @@ function runSearch(q) {
       const ht = norm(hd.text);
       if (terms.length && terms.every((t) => ht.includes(t))) res.push({ score: score * 0.4 + 8 + (hd.level === 2 ? 2 : 0), lab, url: `${url}#${hd.id}`, kind: 'section', heading: hd.text });
     }
+    // Pages with sections (Troubleshooting) match each section's text, and open the page filtered by the query.
+    for (const sec of terms.length ? lab.sections || [] : []) {
+      const st = norm(sec.title), sx = norm(sec.text);
+      let s = 0;
+      for (const t of terms) { const k = (st.includes(t) ? 12 : 0) + (sx.includes(t) ? 4 : 0); if (!k) { s = 0; break; } s += k; }
+      if (s) res.push({ score: s + 6, lab, url: `${url}?q=${encodeURIComponent(q.trim())}#${sec.id}`, kind: 'section', heading: sec.title, snip: snippet(sec.text, terms) });
+    }
   }
   res.sort((a, b) => b.score - a.score);
   return { terms, items: res.slice(0, terms.length ? 24 : 30) };
@@ -61,7 +68,7 @@ function renderSearch(q) {
   const pages = items.filter((x) => x.kind === 'page');
   const secs = items.filter((x) => x.kind === 'section');
   const row = (x, i) => `<a class="sr-item" href="${x.url}" role="option" id="sr-${i}" aria-selected="${i === 0}">
-    <span class="sr-num">${x.lab.quick ? IC.bolt : x.lab.page ? IC.tools : x.lab.num}</span><span class="sr-body">
+    <span class="sr-num">${x.lab.quick ? IC.bolt : x.lab.page ? IC[x.lab.icon] || IC.tools : x.lab.num}</span><span class="sr-body">
     <span class="sr-title">${hl(x.kind === 'section' ? x.heading : x.lab.title, terms)}</span>
     <span class="sr-sub">${x.kind === 'section' ? `in ${escHtml(x.lab.title)}` : escHtml(x.lab.summary)}</span>
     ${x.snip ? `<span class="sr-snippet">${hl(x.snip, terms)}</span>` : ''}</span></a>`;

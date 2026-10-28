@@ -751,14 +751,8 @@ the Bicep + azd track created its own gateway.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| Ordinary prompts return `400` | A threshold is too strict for your traffic, or another content safety policy, such as a **Gateway** scope policy, also applies | Review **Policies** for every content safety policy that covers the model. Move categories from **Strict** to **Balanced** and retest with representative prompts. |
-| Nothing is ever blocked | The policy is on a different model or alias than the one you call, or a category is **Off** | Check the policy's scope and that the request `model` matches an alias of that model. |
-| `400` that mentions `content_filter`, or `finish_reason` is `content_filter` | The Foundry deployment's **Content filter** acted, not the gateway | Review the deployment's content filter in Foundry. The gateway policy is managed separately. |
-| `400` that isn't about content | The request itself is invalid, for example an unknown model alias | Read the error message, and check the request body and the alias. |
-| `ValidationError` such as `contentSafety.violenceSeverity must be one of: Low, Medium, High, None.` | A severity uses a portal label such as `Strict` or `Balanced` | Use the API values from the table in [How it works](#how-it-works): `Low`, `Medium`, `High`, or `None`. |
-| Other policies vanished after the `PATCH` | `PATCH` replaces the whole `policies` array | Always `GET`, merge, then `PATCH`, as shown in the CLI and REST tracks. |
+For the errors you might hit in this lab, with their likely causes and fixes, see
+[Troubleshooting](../TROUBLESHOOTING.md#lab-08-content-safety).
 
 ## Next steps
 

@@ -10,6 +10,7 @@ labs/
 ├── catalog.json                 # categories, learning paths, use-case map
 ├── quickstart/                  # the 5-minute quick start: the only lab without a number
 ├── SETUP.md                     # the Setup guide: common tasks that every lab links to
+├── TROUBLESHOOTING.md           # the Troubleshooting page: errors, likely causes, and fixes for every lab
 ├── RELEASE-NOTES.md             # labs release notes, aligned with the product releases
 ├── assets/                      # shared images: screens/, diagrams/, providers/
 ├── 06-token-limits/
@@ -71,12 +72,44 @@ right rail links to it, between **Your values** and **Open the portal**. Its sec
 - Find the available regions
 - Clone the labs repo
 - Deploy a lab with azd, and Delete what azd created
-- Troubleshooting
 
 Link to a section, such as `../SETUP.md#install-the-aigateway-extension`, instead of repeating its steps in a
 lab. Keep only what's specific to the lab: its variables, its extra resource providers, and its own checks. The build
 checks every link to a Setup guide anchor. The quick start is the exception: its tracks stay paste-ready in Cloud
 Shell, with the install, the registration, and the clone inline.
+
+### The Troubleshooting page
+
+[`TROUBLESHOOTING.md`](TROUBLESHOOTING.md) holds the errors that readers might hit, with their likely causes and
+fixes, and the site renders it at `/troubleshooting/` with a filter. It starts with **Setup and deployment**, then has
+one section per lab: `## Quick start`, then `## Lab NN: <short title>`, with the lab's short title from
+`catalog.json` and "and" instead of "&". Keep `·` and `&` out of these headings, because the site and GitHub turn
+them into different anchors. Each section starts with a link to the lab, then a table:
+
+```markdown
+## Lab 06: Token limits
+
+Lab 06: [Throttle tokens per caller with token limits](06-token-limits/README.md)
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Every request returns `200`, never `429` | The limit is on a different model or alias than the one you call | … |
+```
+
+Put the error code or the exact message in **Symptom**, so readers can filter for it. Write links relative to
+`labs/`, for example `06-token-limits/README.md#verify` or `SETUP.md#sign-in-to-azure`. A lab's own
+`## Troubleshooting` section is only a link to its section on the page:
+
+```markdown
+## Troubleshooting
+
+For the errors you might hit in this lab, with their likely causes and fixes, see
+[Troubleshooting](../TROUBLESHOOTING.md#lab-06-token-limits).
+```
+
+The lab's right rail links to the same section. The build warns when a lab doesn't link to its section, when the
+link points to a missing section, when the section doesn't link back to the lab, or when a lab's Troubleshooting
+section still has a table.
 
 ### azd templates
 
@@ -173,7 +206,8 @@ Use these H2 sections in this order. Keep the H1 identical to `title`.
    track tabs. Each `###` heading inside a track becomes a numbered step with a **Done** checkbox.
 5. `## Verify` – prove it works. End major tasks with a **Checkpoint** callout.
 6. `## Clean up` – always present. Say what is safe to delete and what is shared with other labs.
-7. `## Troubleshooting` – a table of symptoms, causes, and fixes.
+7. `## Troubleshooting` – a link to the lab's section on the
+   [Troubleshooting page](#the-troubleshooting-page), which has its table of symptoms, likely causes, and fixes.
 8. `## Next steps` – 2–4 links to related labs and docs.
 
 ## Markdown conventions
@@ -385,7 +419,9 @@ Follow the structure of the existing notebooks:
 3. **0. Initialize variables**: import `utils` from `../shared`, create the `Lab`, and set the lab's own names.
 4. Numbered steps that mirror the lab's sections. Each step has a short Markdown explanation and a code cell that
    deploys or reuses resources, waits for the gateway to apply them, and checks the result with `assert`.
-5. **Clean up** (delete only what the notebook created), **Troubleshooting**, and **Next steps**.
+5. **Clean up** (delete only what the notebook created), **Troubleshooting**, and **Next steps**. The
+   Troubleshooting cell lists the errors that are specific to the notebook, then links to the lab's section on the
+   [Troubleshooting page](#the-troubleshooting-page).
 
 Never print or save keys or tokens. Run the notebook from its lab folder, start to finish, against a real
 subscription before you commit it, then clear all outputs (`jupyter nbconvert --clear-output --inplace <file>`).

@@ -1138,14 +1138,8 @@ created its own gateway.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| `403` mentioning permissions on the Foundry account right after the switch | The role assignment hasn't propagated, or it's at a different scope than the Foundry account | Wait a few minutes. Check `az role assignment list --assignee "$IDENTITY_PRINCIPAL_ID" --scope "$FOUNDRY_ID" -o table`. |
-| Calls fail after the switch and the role is in place | `clientId` holds the principal (object) ID, or the identity isn't attached to the gateway | Use the identity's **Client ID**, and check that `az aigateway identity show -g "$RG" -n "$GATEWAY" --query userAssignedIdentities` lists the identity. |
-| `az aigateway identity assign` fails with an authorization error | You can't assign that identity to resources | Ask for **Managed Identity Operator** on the identity. |
-| `az aigateway identity show` reports that no identity is assigned to the gateway | The gateway has no managed identity | Enable it with `az aigateway identity assign` in [Check the system-assigned identity](#check-the-system-assigned-identity), then grant it **Foundry User**. |
-| Calls fail after you detach an identity or disable the system identity | An asset still uses that identity | Check **View access** › **Backend access** before you remove an identity, and switch those assets first. |
-| `AuthorizationFailed` on `roleAssignments` | You can't create role assignments on the Foundry account | Ask for **Role Based Access Control Administrator** on the account, or have an owner grant the role. |
+For the errors you might hit in this lab, with their likely causes and fixes, see
+[Troubleshooting](../TROUBLESHOOTING.md#lab-12-backend-identities).
 
 ## Next steps
 

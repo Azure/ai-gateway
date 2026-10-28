@@ -951,14 +951,8 @@ gateway and monitoring from the earlier labs, because the Bicep + azd track crea
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| No **Token claim attributes** section in **Settings** | The exporter is the legacy `applicationInsights` kind | Disable monitoring and configure it again, as in [Monitor usage, cost, and traces](../13-monitoring/README.md). |
-| The `entra` rows return `401` or `403` | Wrong token audience, or no **AI Gateway Models User** role yet | Get the token for `https://azure-api.net/aigateway`, check the role assignment, wait a few minutes, and get a new token. |
-| Entra callers show as **Unattributed** on **Models** | `tid` or `oid` isn't exported to **Metrics** | Select **Metrics** for both and send new traffic. Earlier requests stay unattributed. |
-| The chargeback query returns no rows | Telemetry hasn't arrived, the **Logs** signal is off, or your API reports usage under other names | Wait a few minutes, then run `OTelLogs \| where TimeGenerated > ago(1h) \| take 5` and compare the `Attributes` with the query. |
-| `Tenant` or `ClientApp` is empty for Entra rows | The claim wasn't exported to **Logs** when the request ran | Enable **Logs** for the claim and send new traffic. |
-| The Prometheus query returns `401` or `403` | Your account can't read the Azure Monitor workspace | Ask for a data read role on the Azure Monitor workspace, such as **Monitoring Data Reader**, then get a new token. |
+For the errors you might hit in this lab, with their likely causes and fixes, see
+[Troubleshooting](../TROUBLESHOOTING.md#lab-14-opentelemetry-chargeback).
 
 ## Next steps
 

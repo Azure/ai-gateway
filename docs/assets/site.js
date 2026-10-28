@@ -37,6 +37,7 @@ const IC = {
   eye: SV('<path d="M2 10s3-5.5 8-5.5S18 10 18 10s-3 5.5-8 5.5S2 10 2 10Z"/><circle cx="10" cy="10" r="2.5"/>'),
   layers: SV('<path d="M10 2.5 17.5 6.5 10 10.5 2.5 6.5Z"/><path d="m2.5 10 7.5 4 7.5-4M2.5 13.5l7.5 4 7.5-4"/>'),
   models: SV('<path d="M10 2.5 16.5 6v8L10 17.5 3.5 14V6Z"/><path d="M3.5 6 10 9.5 16.5 6M10 9.5v8"/>'),
+  lifebuoy: SV('<circle cx="10" cy="10" r="7.5"/><circle cx="10" cy="10" r="3"/><path d="m4.7 4.7 3.2 3.2M12.1 12.1l3.2 3.2M15.3 4.7l-3.2 3.2M7.9 12.1l-3.2 3.2"/>'),
   tools: SV('<path d="M12.5 3a4 4 0 0 0-3.8 5.3L3.5 13.5a1.5 1.5 0 0 0 0 2.1l.9.9a1.5 1.5 0 0 0 2.1 0l5.2-5.2A4 4 0 0 0 17 7.5l-2.3 2.3-2.3-.4-.4-2.3L14.3 4.8A4 4 0 0 0 12.5 3Z"/>'),
   sparkle: SV('<path d="M10 2.5 11.6 8.4 17.5 10l-5.9 1.6L10 17.5l-1.6-5.9L2.5 10l5.9-1.6Z"/>'),
   flag: SV('<path d="M5 17.5V3M5 3.5h9.5l-2 3.5 2 3.5H5"/>'),
@@ -221,7 +222,7 @@ function runSearch(q) {
   const terms = norm(q).split(/\s+/).filter(Boolean);
   const res = [];
   for (const lab of searchIndex || []) {
-    // Pages (the setup guide) carry their own URL and show only when the query matches them.
+    // Pages (the guides) carry their own URL and show only when the query matches them.
     const url = lab.url ? `${D.rel}${lab.url}` : `${D.rel}labs/${lab.slug}/`;
     const kind = lab.page ? 'page' : 'lab';
     if (!terms.length) { if (!lab.page) res.push({ score: lab.quick ? 101 : 100 - Number(lab.num), lab, url, kind }); continue; }
@@ -242,6 +243,13 @@ function runSearch(q) {
       const ht = norm(hd.text);
       if (terms.length && terms.every((t) => ht.includes(t))) res.push({ score: score * 0.4 + 8 + (hd.level === 2 ? 2 : 0), lab, url: `${url}#${hd.id}`, kind: 'section', heading: hd.text });
     }
+    // Pages with sections (Troubleshooting) match each section's text, and open the page filtered by the query.
+    for (const sec of terms.length ? lab.sections || [] : []) {
+      const st = norm(sec.title), sx = norm(sec.text);
+      let s = 0;
+      for (const t of terms) { const k = (st.includes(t) ? 12 : 0) + (sx.includes(t) ? 4 : 0); if (!k) { s = 0; break; } s += k; }
+      if (s) res.push({ score: s + 6, lab, url: `${url}?q=${encodeURIComponent(q.trim())}#${sec.id}`, kind: 'section', heading: sec.title, snip: snippet(sec.text, terms) });
+    }
   }
   res.sort((a, b) => b.score - a.score);
   return { terms, items: res.slice(0, terms.length ? 24 : 30) };
@@ -256,7 +264,7 @@ function renderSearch(q) {
   const pages = items.filter((x) => x.kind === 'page');
   const secs = items.filter((x) => x.kind === 'section');
   const row = (x, i) => `<a class="sr-item" href="${x.url}" role="option" id="sr-${i}" aria-selected="${i === 0}">
-    <span class="sr-num">${x.lab.quick ? IC.bolt : x.lab.page ? IC.tools : x.lab.num}</span><span class="sr-body">
+    <span class="sr-num">${x.lab.quick ? IC.bolt : x.lab.page ? IC[x.lab.icon] || IC.tools : x.lab.num}</span><span class="sr-body">
     <span class="sr-title">${hl(x.kind === 'section' ? x.heading : x.lab.title, terms)}</span>
     <span class="sr-sub">${x.kind === 'section' ? `in ${escHtml(x.lab.title)}` : escHtml(x.lab.summary)}</span>
     ${x.snip ? `<span class="sr-snippet">${hl(x.snip, terms)}</span>` : ''}</span></a>`;
@@ -516,7 +524,7 @@ function initToc() {
   const setActive = (id) => {
     if (id === current) return; current = id;
     links.forEach((a) => a.classList.toggle('active', a.dataset.toc === id));
-    const a = map.get(id); const box = $('.toc-inner');
+    const a = map.get(id); const box = $('.toc-inner') || $('.rn-nav');
     if (a && box && (a.offsetTop < box.scrollTop || a.offsetTop > box.scrollTop + box.clientHeight - 40)) box.scrollTop = a.offsetTop - box.clientHeight / 3;
   };
   const onScroll = () => {
@@ -1348,6 +1356,47 @@ WIDGETS['stream-usage'] = (el, cfg) => {
   wdTicker(el, paint, 500);
 };
 
+/* 07-troubleshooting.js */
+// Troubleshooting page: filter the error rows by code, message, or lab as you type. ?q= prefills the filter.
+function initTroubleshooting() {
+  const input = $('#ts-q');
+  if (!input) return;
+  const count = $('#ts-count'), empty = $('#ts-empty'), total = Number(count.dataset.total);
+  const sections = $$('.ts-section').map((sec) => ({
+    sec,
+    // The heading and the lab link match every row of the section, so "token limits" shows all of lab 06.
+    head: norm([...sec.children].filter((el) => !el.matches('.table-wrap')).map((el) => el.textContent).join(' ')),
+    rows: $$('tbody tr', sec).map((tr) => ({ tr, text: norm(tr.textContent) })),
+    nav: $(`.rn-nav-list a[data-toc="${sec.dataset.ts}"]`)?.closest('li'),
+  }));
+  const apply = () => {
+    const terms = norm(input.value).split(/\s+/).filter(Boolean);
+    let shown = 0;
+    for (const s of sections) {
+      let n = 0;
+      for (const r of s.rows) {
+        const ok = terms.every((t) => r.text.includes(t) || s.head.includes(t));
+        r.tr.hidden = !ok;
+        if (ok) n++;
+      }
+      s.sec.hidden = !n;
+      if (s.nav) s.nav.hidden = !n;
+      shown += n;
+    }
+    count.textContent = terms.length ? `${shown} of ${total} errors` : `${total} errors`;
+    empty.hidden = shown > 0;
+  };
+  input.addEventListener('input', apply);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Escape' && input.value) { e.preventDefault(); input.value = ''; apply(); } });
+  const q = new URLSearchParams(location.search).get('q');
+  if (q) {
+    input.value = q;
+    apply();
+    const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    if (target) requestAnimationFrame(() => target.scrollIntoView());
+  }
+}
+
 /* 99-init.js */
 // Boot. The script is loaded with `defer`, so the DOM is ready.
 function boot() {
@@ -1365,6 +1414,7 @@ function boot() {
   run('lightbox', initLightbox);
   run('videos', initVideos);
   run('catalog', initCatalog);
+  run('troubleshooting', initTroubleshooting);
   run('hero', initHero);
   run('diagrams', initDiagrams);
   run('widgets', () => renderWidgets(document));

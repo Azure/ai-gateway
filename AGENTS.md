@@ -70,7 +70,7 @@ For each product change, search the labs (`grep -il "<feature>" labs/[0-9][0-9]-
 | Status | When | What to do |
 |---|---|---|
 | ✅ Covered | A lab already teaches it as released | Nothing, beyond checking that the labels still match |
-| ✏️ Update | It extends or changes a feature that a lab teaches: a new option, a new wizard step, a renamed label | Update every affected track (portal, CLI, REST, Bicep, code, notebook), the checkpoints, troubleshooting, next steps, and the metadata (`duration`, `tags`, `objectives`) |
+| ✏️ Update | It extends or changes a feature that a lab teaches: a new option, a new wizard step, a renamed label | Update every affected track (portal, CLI, REST, Bicep, code, notebook), the checkpoints, the lab's section in `labs/TROUBLESHOOTING.md`, next steps, and the metadata (`duration`, `tags`, `objectives`) |
 | 🆕 New lab | A new use case with its own outcome and at least 15 minutes of hands-on work | Use the next free number, follow the lab anatomy in `AUTHORING.md`, and add it to `catalog.json` (`paths`, `usecases`, `shortTitles`). Add a diagram in `labs/tools/diagrams/` and, when it helps, a widget |
 | ➖ Not covered | It can't be practiced, or it's too minor for a lab | Say so in the release notes |
 
@@ -81,8 +81,9 @@ Show the user the mapping as a table and confirm it before you write, unless the
 Deploy a throwaway gateway with [lab 01's Bicep](labs/01-provision-gateway/infra/gateway.bicep), plus what the
 labs need (for example a Foundry account with the lab models), or run `azd up` in the lab's folder. Then run every new or changed step: CLI and REST
 calls, `az bicep build` and a real deployment of each changed template, scripts, code samples, and notebooks.
-Use the real outputs and error messages in the checkpoints and troubleshooting tables. Check portal steps in the
-live portal at <https://ai.gateway.azure.com> and capture new screenshots into `labs/assets/screens/`.
+Use the real outputs and error messages in the checkpoints and in the lab's section of
+[`labs/TROUBLESHOOTING.md`](labs/TROUBLESHOOTING.md). Check portal steps in the live portal at
+<https://ai.gateway.azure.com> and capture new screenshots into `labs/assets/screens/`.
 
 ### 4. Write the release notes
 

@@ -1131,14 +1131,8 @@ you created the key only for this lab, delete it in the Claude Console.
 
 ## Troubleshooting
 
-| Symptom | Cause | Fix |
-|---|---|---|
-| The wizard discovers no models, or times out | The base endpoint URL includes `/v1`, the header name is wrong, or the provider doesn't serve `/v1/models` | Use `https://api.anthropic.com` and `x-api-key`. If the provider can't list models, add them with **Individual model**. |
-| `401` from the gateway | The `api-key` header is missing or holds the Anthropic key instead of a gateway runtime key | Send a runtime key from **Access** › **Keys** in the `api-key` header. |
-| An authentication error from Anthropic in the response body | The stored provider key is wrong or expired, or **Include Bearer** is selected for Anthropic | Update the provider's API key and clear **Authentication scheme**. |
-| `400` that mentions `anthropic-version` | The request doesn't send the `anthropic-version` header | Add `anthropic-version: 2023-06-01`. |
-| `404` or a "model not found" error | The `model` value doesn't exactly match an alias, or you called the OpenAI route for an Anthropic model | Copy the alias from **Models**, and call `/default/models/anthropic/v1/messages`. |
-| "Callable aliases must be unique" | Another alias in the gateway already uses that name | Pick a different alias, or retarget the existing one. |
+For the errors you might hit in this lab, with their likely causes and fixes, see
+[Troubleshooting](../TROUBLESHOOTING.md#lab-03-multi-provider-aliases).
 
 ## Next steps
 

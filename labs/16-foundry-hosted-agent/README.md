@@ -634,18 +634,8 @@ Your gateway, its alias, and the `learn` MCP server aren't affected.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| `400` "Specify either an API key or an Authorization header, not both" | The code sends the key as the SDK's API key and also in an `api-key` header | Pass the key only as the SDK's `api_key`, and remove the `api-key` default header from the model client. |
-| `401` from the MCP endpoint | The key went in `Authorization: Bearer` | The MCP endpoint takes keys only in the `api-key` header, as in `main.py`. |
-| `401` from the model endpoint | The key is wrong, suspended, or deleted | Check `hosted-agent` in **Access** › **Keys**, load the value again, run `azd env set AI_GATEWAY_API_KEY`, then `azd deploy`. |
-| `404` from the model endpoint | `AI_GATEWAY_MODEL` doesn't match an alias | Copy the alias exactly from the model's **Aliases** tab, run `azd env set AI_GATEWAY_MODEL`, then `azd deploy`. |
-| `429` "Token limit is exceeded" | A token limit on the alias, such as the one from this lab | Wait for the time in the message, or remove the policy. |
-| `429` from tool calls | A request rate limit on the `learn` server, for example from [Control which tools agents can call](../05-mcp-tool-controls/README.md) | Wait for the `Retry-After` time, or remove the policy from the MCP server. |
-| `RuntimeError: Set AI_GATEWAY_URL` | An azd environment value is missing | Run `azd env set` for the missing value, then `azd ai agent run` or `azd deploy`. |
-| The hosted agent still uses an old value | Foundry reads environment variables when the agent version is created | Run `azd deploy` after every `azd env set`. |
-| `[CodeError] [tool.poetry] section not found` during deployment | A `pyproject.toml` without a lock file was added to `src/gateway-agent` | Keep `requirements.txt` as the dependency file, or commit a `uv.lock` next to `pyproject.toml`. |
-| `azd ai agent run` can't download packages, with a certificate error | A proxy on your network inspects TLS traffic | Set `UV_SYSTEM_CERTS=true` (`UV_NATIVE_TLS=true` in older uv versions) so uv trusts your system certificates, then run it again. |
+For the errors you might hit in this lab, with their likely causes and fixes, see
+[Troubleshooting](../TROUBLESHOOTING.md#lab-16-foundry-hosted-agent).
 
 ## Next steps
 

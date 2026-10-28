@@ -1435,17 +1435,8 @@ because the Bicep + azd track created its own gateway and Foundry resource.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| The create dialog flags the subnet, or the create request fails with a subnet error | The subnet is in another subscription or region, smaller than `/27`, not delegated to `Microsoft.App/environments`, used by another gateway or resource, or its NSG lacks the 443 rules | Fix each item. The NSG needs outbound TCP 443 allow rules to the `Storage` and `AzureKeyVault` service tags. |
-| The create request fails with `AIGatewaySubnetNotDelegated`: "Virtual network integration with subnet ID '…' requires the subnet to be delegated to 'Microsoft.App/environments'." | The subnet isn't delegated, or it's delegated to another service, such as `Microsoft.Web/serverFarms` | Delegate the subnet to `Microsoft.App/environments`, then create the gateway again. |
-| The portal's subnet check shows a warning: "Subnet delegated to Microsoft.Web/serverFarms" | The portal check still expects the old delegation | Expected. Keep `Microsoft.App/environments` and continue. |
-| "Virtual network integration for Azure AI Gateway can only be configured during creation." | You tried to add, change, or remove private routing on an existing gateway | Create a new gateway with private routing. |
-| Model calls through the new gateway fail after you turn off Foundry public access | The gateway resolves Foundry to its public IP: the zones aren't linked to the integrated virtual network, the private endpoint has no DNS zone group, or the gateway was created without private routing | Check the `A` records and zone links, and confirm that `properties.backend.subnet.id` points to the integration subnet. |
-| The gateway from the earlier labs, or another app, now gets `403` from Foundry | It reaches Foundry over the internet, and Foundry's public access is disabled | Expected. Use a dedicated Foundry resource for this lab, or re-enable public access when you finish. |
-| The first call after the import returns `401` or `403` from the backend | The **Foundry User** role assignment hasn't propagated yet | Wait a few minutes, and confirm that the role is assigned to the new gateway's principal ID on the Foundry resource. |
-| **Public network access** › **Disabled** is greyed out, or a `PATCH` to `Disabled` doesn't stick | Private frontend access isn't available for AI Gateway yet | Expected. Protect the public endpoint with keys or Microsoft Entra ID and an `ipFilter` policy. |
-| Deleting the resource group or the virtual network fails because the subnet is in use | The service is still releasing the gateway's integration subnet | Wait a few minutes after the gateway is gone, then delete again. |
+For the errors you might hit in this lab, with their likely causes and fixes, see
+[Troubleshooting](../TROUBLESHOOTING.md#lab-18-private-networking).
 
 ## Next steps
 

@@ -230,11 +230,5 @@ for 48 hours and keep counting against your quota. `--force` skips the confirmat
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| `'aigateway' is misspelled or not recognized by the system` | The `aigateway` extension isn't installed | [Install the extension](#install-the-aigateway-extension), then run `az aigateway version`. |
-| `MissingSubscriptionRegistration`, or `The subscription is not registered to use namespace` | A resource provider isn't registered in the subscription | [Register the resource providers](#register-the-resource-providers), or ask your subscription administrator. |
-| `LocationNotAvailableForResourceType` | The location isn't a region where AI Gateway is available | Pick a region from [Find the available regions](#find-the-available-regions). |
-| `RequestDisallowedByAzure`: `The selected region is currently not accepting new customers` | The region has AI Gateway, but your subscription can't create new resources there | Pick another region from the list. |
-| `InvalidResourceGroupLocation` from `azd up` | The resource group `rg-<environment name>` already exists in another region | Run `azd env new` with a new environment name, or delete the old resource group. |
-| Your subscription is disabled in the portal's subscription picker | You lack write permission for API Management or connector gateways in that subscription | Ask for **Contributor** on the subscription or resource group, or pick another subscription. |
+For sign-in, extension, resource provider, region, and azd errors, with their likely causes and fixes, see
+[Troubleshooting](TROUBLESHOOTING.md#setup-and-deployment).

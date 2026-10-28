@@ -685,15 +685,8 @@ the Bicep + azd track created its own gateway.
 
 ## Troubleshooting
 
-| Symptom | Cause | Fix |
-|---|---|---|
-| `IndexError: list index out of range` in Python, or `Cannot read properties of undefined` in TypeScript | The code reads `choices[0]` on the prompt filter chunk or the usage chunk, which have no choices | Skip chunks whose `choices` array is empty, as the samples do. |
-| The whole reply appears at once | curl runs without `-N`, PowerShell uses `Invoke-RestMethod`, or a proxy buffers the response | Use `curl -N`, read the stream with `HttpClient` as `stream-chat.ps1` does, and turn off response buffering in your proxy. |
-| No usage chunk at the end of the stream | The client didn't set `stream_options.include_usage` | Set it when your app needs the numbers. The gateway counts the tokens for its limits either way. |
-| `400` with `The 'stream_options' parameter is only allowed when 'stream' is enabled.` | The request sets `stream_options` without `"stream": true` | Send both, or neither. |
-| `429` JSON response instead of a stream | A token limit on the alias, the model, or the gateway is exhausted | Wait for `Retry-After` seconds. The limit is checked before the stream starts, so no partial reply is lost. |
-| The SDK sample never shows a `429` | The OpenAI SDKs retry `429` responses automatically and honor `Retry-After` | That's the behavior you want in an app. To see each `429`, create the client with `max_retries=0` (Python) or `maxRetries: 0` (TypeScript). |
-| Every request in the burst returns `200` | The policy isn't active yet, or the burst used another alias | Check that `STREAM_ALIAS` matches the alias with the limit, wait a minute, and run the burst again. |
+For the errors you might hit in this lab, with their likely causes and fixes, see
+[Troubleshooting](../TROUBLESHOOTING.md#lab-23-streaming-responses).
 
 ## Next steps
 

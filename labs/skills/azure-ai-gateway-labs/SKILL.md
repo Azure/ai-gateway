@@ -16,8 +16,9 @@ CLI, REST, Bicep, Code), and some also ship a Jupyter notebook.
 - AI Gateway portal: https://ai.gateway.azure.com
 - Overview on Microsoft Learn: https://learn.microsoft.com/azure/api-management/ai-gateway-overview
 
-Portal labels and API shapes can change as AI Gateway evolves. When a step fails, compare it with the product docs
-that the lab links to before you improvise a fix.
+Portal labels and API shapes can change as AI Gateway evolves. When a step fails, look up the error in the lab's
+section of the Troubleshooting page (the lab's **Troubleshooting** section links to it), and compare the step with the
+product docs that the lab links to, before you improvise a fix.
 
 ## Where to find things
 
@@ -28,6 +29,7 @@ that the lab links to before you improvise a fix.
 | The lab page to share with a person | `https://azure.github.io/ai-gateway/labs/<slug>/` |
 | Files the lab uses (`infra/`, the notebook) | `labs/<slug>/` in a clone, or `https://raw.githubusercontent.com/Azure/ai-gateway/main/labs/<slug>/<path>` |
 | Shared setup: sign-in, the `aigateway` extension, resource providers, regions, the clone, and azd | The Setup guide: `https://azure.github.io/ai-gateway/setup/index.md`, or `labs/SETUP.md` in a clone |
+| Errors, likely causes, and fixes, for setup and deployment and for each lab | The Troubleshooting page: `https://azure.github.io/ai-gateway/troubleshooting/index.md`, or `labs/TROUBLESHOOTING.md` in a clone. Each lab has a `## Lab NN: <short title>` section |
 | Every lab in one file | `https://azure.github.io/ai-gateway/llms-full.txt` |
 | Which lab covers a product release or a new feature | `https://azure.github.io/ai-gateway/release-notes/index.md`, or `labs/RELEASE-NOTES.md` in a clone |
 

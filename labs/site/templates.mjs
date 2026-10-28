@@ -53,6 +53,7 @@ export const I = {
   rest: TRACK_ICONS.rest.replace('<svg ', '<svg class="i" '),
   checkpoint: P('<circle cx="10" cy="10" r="7.5"/><path d="m6.5 10.2 2.3 2.3 4.7-4.8"/>'),
   broom: P('<path d="m13 3-4.5 7.5M5 10.5h7l1.5 7h-10Z"/><path d="M7 13.5v4M10 13.5v4"/>'),
+  lifebuoy: P('<circle cx="10" cy="10" r="7.5"/><circle cx="10" cy="10" r="3"/><path d="m4.7 4.7 3.2 3.2M12.1 12.1l3.2 3.2M15.3 4.7l-3.2 3.2M7.9 12.1l-3.2 3.2"/>'),
   wrench: P('<path d="M12.5 3a4 4 0 0 0-3.8 5.3L3.5 13.5a1.5 1.5 0 0 0 0 2.1l.9.9a1.5 1.5 0 0 0 2.1 0l5.2-5.2A4 4 0 0 0 17 7.5l-2.3 2.3-2.3-.4-.4-2.3L14.3 4.8A4 4 0 0 0 12.5 3Z"/>'),
 };
 
@@ -145,7 +146,7 @@ function footer(rel, site) {
       <p>Hands-on labs for the Azure AI Gateway.</p>
     </div>
     <div class="footer-cols">
-      <div><h2>Labs</h2><a href="${rel}labs/">All labs</a><a href="${rel}index.html#paths">Learning paths</a><a href="${rel}index.html#use-cases">Use cases</a><a href="${rel}setup/">Setup guide</a><a href="${rel}release-notes/">Release notes</a><a href="${rel}skills/azure-ai-gateway-labs/SKILL.md" title="azure-ai-gateway-labs: the agent skill that teaches coding agents how to use these labs">Agent skill</a></div>
+      <div><h2>Labs</h2><a href="${rel}labs/">All labs</a><a href="${rel}index.html#paths">Learning paths</a><a href="${rel}index.html#use-cases">Use cases</a><a href="${rel}setup/">Setup guide</a><a href="${rel}troubleshooting/">Troubleshooting</a><a href="${rel}release-notes/">Release notes</a><a href="${rel}skills/azure-ai-gateway-labs/SKILL.md" title="azure-ai-gateway-labs: the agent skill that teaches coding agents how to use these labs">Agent skill</a></div>
       <div><h2>Product</h2><a href="${site.portal}" target="_blank" rel="noopener">AI Gateway portal</a><a href="${site.docs}" target="_blank" rel="noopener">Documentation</a><a href="${site.learn}" target="_blank" rel="noopener">Microsoft Learn</a></div>
       <div><h2>Contribute</h2><a href="${site.repo}" target="_blank" rel="noopener">GitHub repository</a><a href="${site.repo}/blob/${site.branch}/labs/AUTHORING.md" target="_blank" rel="noopener">Authoring guide</a><a href="${site.repo}/issues/new?labels=labs" target="_blank" rel="noopener">Report an issue</a></div>
     </div>
@@ -353,7 +354,7 @@ ${quick ? `
       <li>${I.checkpoint}<span><strong>Checkpoints</strong> after every task</span></li>
       <li>${I.sliders}<span><strong>Your values</strong> fill every command</span></li>
       <li>${I.play}<span><strong>Interactive simulators</strong> for limits, budgets, and tools</span></li>
-      <li>${I.broom}<span><strong>Clean-up</strong> and troubleshooting in every lab</span></li>
+      <li>${I.broom}<span><strong>Clean-up</strong> and troubleshooting for every lab</span></li>
     </ul>
   </div></section>
 
@@ -541,6 +542,7 @@ ${html}
       <div class="toc-help">
         <button class="toc-tool" type="button" data-values-open>${I.sliders}<span>Your values</span></button>
         <a class="toc-tool" href="${rel}setup/" title="Permissions, tools, sign-in, the aigateway extension, regions, the labs repo, and azd">${I.wrench}<span>Setup guide</span></a>
+        ${lab.troubleshooting ? `<a class="toc-tool" href="${rel}troubleshooting/#${lab.troubleshooting}" title="The errors you might hit in this lab, with their likely causes and fixes">${I.lifebuoy}<span>Troubleshooting</span></a>` : ''}
         <a class="toc-tool" href="${site.portal}" target="_blank" rel="noopener">${I.portal}<span>Open the portal</span></a>
         <a class="toc-tool" href="${site.docs}" target="_blank" rel="noopener">${I.book}<span>Product docs</span></a>
       </div>
@@ -579,19 +581,19 @@ ${html}
 </main>`;
 }
 
-// ---------- Setup guide ----------
-export function setupPage({ rel, site, html, toc }) {
-  const nav = toc.map((t) => `<li><a href="#${t.id}" data-toc="${t.id}"><span>${esc(t.text)}</span></a></li>`).join('');
-  return `<main id="main" class="releases setup">
+// ---------- Guides: Setup guide and Troubleshooting ----------
+function guidePage({ rel, site, cls, title, lead, file, cta = '', html, toc, navLabel = (t) => esc(t.text), before = '' }) {
+  const nav = toc.map((t) => `<li><a href="#${t.id}" data-toc="${t.id}"><span>${navLabel(t)}</span></a></li>`).join('');
+  return `<main id="main" class="releases ${cls}">
   <section class="page-hero">
     <div class="page-hero-bg" aria-hidden="true"></div>
     <div class="container">
-      <nav class="breadcrumb" aria-label="Breadcrumb"><a href="${rel}index.html">Home</a><span>/</span><span aria-current="page">Setup guide</span></nav>
-      <h1>Setup guide</h1>
-      <p class="lead">The one-time tasks that every lab builds on: permissions, tools, sign-in, the <code>aigateway</code> extension, resource providers, regions, the labs repo, and the azd workflow. Each lab links here instead of repeating them.</p>
+      <nav class="breadcrumb" aria-label="Breadcrumb"><a href="${rel}index.html">Home</a><span>/</span><span aria-current="page">${title}</span></nav>
+      <h1>${title}</h1>
+      <p class="lead">${lead}</p>
       <div class="hero-cta">
-        <button class="btn btn-primary btn-sm" type="button" data-values-open>${I.sliders}<span>Set your values</span></button>
-        <a class="btn btn-ghost btn-sm" href="${site.repo}/blob/${site.branch}/labs/SETUP.md" target="_blank" rel="noopener">${I.github}View on GitHub</a>
+        ${cta}
+        <a class="btn btn-ghost btn-sm" href="${site.repo}/blob/${site.branch}/labs/${file}" target="_blank" rel="noopener">${I.github}View on GitHub</a>
         <button class="btn btn-ghost btn-sm" type="button" data-copy-md="index.md">${I.markdown}Copy as Markdown</button>
       </div>
     </div>
@@ -602,10 +604,35 @@ export function setupPage({ rel, site, html, toc }) {
       <ol class="rn-nav-list">${nav}</ol>
     </aside>
     <article class="prose rn-prose" id="lab-content">
-${html}
+${before}${html}
     </article>
   </div>
 </main>`;
+}
+
+export function setupPage({ rel, site, html, toc }) {
+  return guidePage({
+    rel, site, cls: 'setup', title: 'Setup guide', file: 'SETUP.md', html, toc,
+    lead: 'The one-time tasks that every lab builds on: permissions, tools, sign-in, the <code>aigateway</code> extension, resource providers, regions, the labs repo, and the azd workflow. Each lab links here instead of repeating them.',
+    cta: `<button class="btn btn-primary btn-sm" type="button" data-values-open>${I.sliders}<span>Set your values</span></button>`,
+  });
+}
+
+export function troubleshootingPage({ rel, site, html, toc, rows, lead }) {
+  const filter = `<div class="ts-filter" role="search">
+      <label class="ts-filter-box">${I.search}<span class="sr-only">Filter the errors</span><input id="ts-q" type="search" placeholder="Filter by error code or message" autocomplete="off" spellcheck="false" aria-describedby="ts-count"></label>
+      <span class="ts-count" id="ts-count" aria-live="polite" data-total="${rows}">${rows} errors</span>
+    </div>
+    <p class="ts-empty" id="ts-empty" hidden>No errors match your filter. Try an error code such as <code>429</code>, or a word from the message.</p>
+`;
+  return guidePage({
+    rel, site, cls: 'troubleshooting', title: 'Troubleshooting', file: 'TROUBLESHOOTING.md', html, toc, before: filter,
+    lead,
+    navLabel: (t) => {
+      const m = t.text.match(/^Lab (\d{2}): (.+)$/);
+      return m ? `<b class="rn-nav-num">${m[1]}</b>${esc(m[2])}` : esc(t.text);
+    },
+  });
 }
 
 export function notFoundPage({ rel }) {

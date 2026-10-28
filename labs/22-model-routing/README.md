@@ -973,16 +973,8 @@ own gateway.
 
 ## Troubleshooting
 
-| Symptom | Cause | Fix |
-|---|---|---|
-| "Select models with at least one common API format." | The selected backend models don't share an interface, for example an Anthropic Messages model and an OpenAI Chat Completions model | Put models that share an interface in the same alias. |
-| "Weight must be a whole number from 1 to 100.", `Each target's weight must be a whole number from 1 to 100.`, or `weight must be between 1 and 100.` | A weight is `0`, negative, or above `100` | To stop traffic to a model, raise its priority number or remove it. |
-| "Priority must be a whole number from 0 to 100.", `Each target's priority must be a whole number from 0 to 100.`, or `priority must be between 0 and 100.` | A priority is outside `0` to `100` | Use `0` for the preferred tier and higher numbers for the others. |
-| "Each backend model can appear only once." or `backendModels must not contain duplicate model identities.` | The same backend model is listed twice | Combine the entries and adjust the weight. |
-| `This model alias already exists; use model-alias update.` | You ran `az aigateway model-alias create` for an alias that exists | Run `az aigateway model-alias update` with the same arguments. |
-| All requests go to one model | The models have different priorities, so only the lowest number receives traffic | Give the models the same priority to split by weight. |
-| `404` with `DeploymentNotFound` | The candidate backend model points to a Foundry deployment that doesn't exist | Create the deployment, or fix `deployment.resourceId` on the backend model. |
-| `429` from the preferred model | The preferred deployment is out of capacity, and the gateway returns the error | Retry in the client, add capacity, or spread traffic with weights at the same priority. |
+For the errors you might hit in this lab, with their likely causes and fixes, see
+[Troubleshooting](../TROUBLESHOOTING.md#lab-22-priority-and-weighted-routing).
 
 ## Next steps
 

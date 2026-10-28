@@ -190,7 +190,7 @@ function initToc() {
   const setActive = (id) => {
     if (id === current) return; current = id;
     links.forEach((a) => a.classList.toggle('active', a.dataset.toc === id));
-    const a = map.get(id); const box = $('.toc-inner');
+    const a = map.get(id); const box = $('.toc-inner') || $('.rn-nav');
     if (a && box && (a.offsetTop < box.scrollTop || a.offsetTop > box.scrollTop + box.clientHeight - 40)) box.scrollTop = a.offsetTop - box.clientHeight / 3;
   };
   const onScroll = () => {

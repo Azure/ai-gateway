@@ -25,7 +25,8 @@ architectures).
 
 **Jump to:** [Choose how you learn](#choose-how-you-learn) · [Learning paths](#learning-paths) · [All labs](#all-labs) ·
 [Run the notebooks](#run-the-notebooks) · [Use a coding agent](#use-the-labs-with-a-coding-agent) · [Prerequisites](#prerequisites) ·
-[Work on the labs](#work-on-the-labs-site) · [Setup guide](SETUP.md) · [Release notes](RELEASE-NOTES.md)
+[Work on the labs](#work-on-the-labs-site) · [Setup guide](SETUP.md) · [Troubleshooting](TROUBLESHOOTING.md) ·
+[Release notes](RELEASE-NOTES.md)
 
 ## Choose how you learn
 
@@ -40,7 +41,8 @@ Every lab is one Markdown file, so you get the same steps whichever way you foll
 | 🏗️ | **`infra/` folders** | Running a lab with one `azd up`, or reusing its Bicep modules, scripts, and samples in your own pipelines. |
 
 Every lab follows the same structure: a scenario, a diagram of how it works, step-by-step tasks with checkpoints,
-a **Verify** section, **Go further** ideas, clean-up, and troubleshooting. Most labs offer several tracks:
+a **Verify** section, **Go further** ideas, and clean-up. The [Troubleshooting](TROUBLESHOOTING.md) page lists the
+errors you might hit in each lab, with their likely causes and fixes. Most labs offer several tracks:
 
 | Track | What you use |
 |---|---|
@@ -221,7 +223,7 @@ through the token limits lab with the Azure CLI." Agents without skill support c
 The [Setup guide](SETUP.md) walks through the tasks that every lab shares: checking your subscription, choosing
 where to run commands, installing the `aigateway` extension, registering the resource providers, finding the
 available regions, and cloning this repo. Each lab links to the steps it needs and lists the rest under
-**Before you begin**.
+**Before you begin**. When a step fails, look up the error on the [Troubleshooting](TROUBLESHOOTING.md) page.
 
 - An Azure subscription where you can create resources. AI Gateway runs in a growing list of regions:
   [Find the available regions](SETUP.md#find-the-available-regions) shows how to list them.

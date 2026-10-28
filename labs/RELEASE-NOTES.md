@@ -34,6 +34,11 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
   **Open the portal**, and the labs link to its sections instead of repeating the steps, so they're shorter. Labs
   that run scripts or samples from `infra/` now say to clone the repo first. The
   [quick start](quickstart/README.md) keeps its steps inline, so it stays paste-ready in Cloud Shell.
+- **October 28.** A new [Troubleshooting](TROUBLESHOOTING.md) page collects the errors from every lab, with their
+  likely causes and fixes, in one section per lab, plus
+  [Setup and deployment](TROUBLESHOOTING.md#setup-and-deployment).
+  On the site, you can filter it by an error code or a word from the message, and site search finds each lab's
+  section. Each lab's **Troubleshooting** section and its right rail link to its section on the page.
 - **October 28.** The labs no longer describe AI Gateway as a preview service or say that the gateway is free
   during the preview. [Lab 00](00-how-ai-gateway-works/README.md) and the
   [Setup guide](SETUP.md#check-your-subscription-and-permissions) point to the

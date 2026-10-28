@@ -960,7 +960,7 @@ az rest --url "$WS/telemetryExporters?$API" --query "value[].{name:name, kind:pr
 </details> <!-- gh -->
 
 The exporter that the portal and the Bicep + azd track create has kind `OpenTelemetry`. Kind `applicationInsights` is the legacy exporter
-from [Troubleshooting](#troubleshooting).
+from [Troubleshooting](../TROUBLESHOOTING.md#lab-13-monitoring).
 
 <!-- /steps -->
 
@@ -1023,14 +1023,8 @@ Bicep + azd track created its own gateway.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| "Enable all telemetry signals" on the dashboard | Metrics, logs, or traces is turned off | Select **Open Monitoring settings** and set all three endpoints, or disable monitoring and configure it again with Application Insights. |
-| "This legacy exporter no longer activates OTLP signals" in **Settings** | The exporter has kind `applicationInsights`, for example from the sample's Bicep or a setup before 2026-08-28 | Select **Settings** › **General** › **Disable monitoring**, then **Configure telemetry** again with the same Application Insights resource. |
-| **Assign Monitoring Metrics Publisher role** fails | You can't create role assignments on the destination | Ask an **Owner** to grant the role on the Data Collection Rule, or to run the setup. |
-| **Discover OTLP endpoints** fails with "Could not resolve the Data Collection Rule" | OTLP support was just enabled and Azure is still provisioning it | Wait a few minutes, then select **Retry**. |
-| "Model token and estimated cost data are incomplete until you add a Prometheus access token" | The portal can't read the metrics workspace with your session | Paste a token from `az account get-access-token --resource https://prometheus.monitor.azure.com --query accessToken -o tsv` into **Prometheus access token**. |
-| Dashboard and queries are empty | No traffic in the selected range, or ingestion is still catching up | Widen the time range, wait a few minutes, and run the traffic script again. |
+For the errors you might hit in this lab, with their likely causes and fixes, see
+[Troubleshooting](../TROUBLESHOOTING.md#lab-13-monitoring).
 
 ## Next steps
 

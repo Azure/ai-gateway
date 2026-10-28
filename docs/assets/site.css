@@ -1226,7 +1226,7 @@ p.ws-usage b { color: var(--fg); font-variant-numeric: tabular-nums; }
 
 .releases .hero-cta { margin-top: 20px; }
 .rn-body { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 56px; padding: 40px 0 96px; }
-.rn-nav { position: sticky; top: calc(var(--topbar-h) + 28px); align-self: start; }
+.rn-nav { position: sticky; top: calc(var(--topbar-h) + 28px); align-self: start; max-height: calc(100vh - var(--topbar-h) - 56px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .rn-nav h2 { margin: 0 0 10px; color: var(--fg-3); font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
 .rn-nav-list { margin: 0; padding: 0; border-left: 1px solid var(--stroke); list-style: none; }
 .rn-nav-list a { display: grid; gap: 1px; margin-left: -1px; padding: 7px 0 7px 14px; border-left: 2px solid transparent; color: var(--fg-3); font-size: 13.5px; line-height: 1.35; }
@@ -1256,9 +1256,44 @@ p.ws-usage b { color: var(--fg); font-variant-numeric: tabular-nums; }
 .release-extra { margin-top: 16px; padding-top: 8px; border-top: 1px solid var(--stroke); }
 .release-extra > h2 { margin-top: 24px; font-size: 20px; }
 
+/* Troubleshooting page: a filter, one section of symptom, cause, and fix rows per lab. */
+.rn-nav-num { display: inline-block; min-width: 22px; margin-right: 6px; color: var(--fg-4); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.rn-nav-list a.active .rn-nav-num { color: var(--brand-fg); }
+.rn-nav-list li[hidden] { display: none; }
+.ts-filter { position: sticky; top: calc(var(--topbar-h) + 12px); z-index: 5; display: flex; align-items: center; gap: 12px; margin: 0 0 8px; padding: 8px 8px 8px 14px; border: 1px solid var(--stroke); border-radius: var(--radius); background: color-mix(in srgb, var(--bg) 94%, transparent); box-shadow: var(--shadow-s); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.ts-filter:focus-within { border-color: var(--brand-bg-2); box-shadow: var(--shadow), 0 0 0 3px color-mix(in srgb, var(--brand) 18%, transparent); }
+.ts-filter-box { display: flex; flex: 1; align-items: center; gap: 10px; min-width: 0; color: var(--fg-3); }
+.ts-filter-box .i { flex: none; width: 18px; height: 18px; }
+.ts-filter input { flex: 1; min-width: 0; padding: 6px 0; border: 0; outline: 0; background: transparent; color: var(--fg); font: inherit; font-size: 15px; }
+.ts-filter input::placeholder { color: var(--fg-4); }
+.ts-count { flex: none; padding: 3px 10px; border-radius: 999px; background: var(--bg-2); color: var(--fg-3); font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ts-empty { margin: 24px 0; padding: 20px; border: 1px dashed var(--stroke); border-radius: var(--radius); color: var(--fg-3); text-align: center; }
+.ts-section[hidden], .ts-section tr[hidden] { display: none; }
+.ts-section > h2 { margin-top: 48px; }
+.ts-section > h2 + p { margin: -6px 0 14px; color: var(--fg-3); font-size: 14px; }
+.ts-section table { font-size: 14px; }
+.ts-section th:first-child, .ts-section td:first-child { width: 34%; }
+.ts-section td:first-child code { overflow-wrap: anywhere; }
+
 @media (max-width: 900px) {
   .rn-body { grid-template-columns: minmax(0, 1fr); gap: 0; padding-top: 24px; }
   .rn-nav { display: none; }
+  .ts-filter { top: calc(var(--topbar-h) + 8px); }
+  .ts-section th:first-child, .ts-section td:first-child { width: auto; }
+}
+@media (max-width: 700px) {
+  /* One card per error: the symptom, then the labeled cause and fix. */
+  .ts-section .table-wrap { overflow: visible; border: 0; border-radius: 0; }
+  .ts-section table, .ts-section tbody, .ts-section tr, .ts-section td { display: block; }
+  .ts-section thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .ts-section tr { margin: 0 0 12px; padding: 14px 16px; border: 1px solid var(--stroke); border-radius: var(--radius); }
+  .ts-section tbody tr:hover { background: none; }
+  .ts-section td, .ts-section tr:last-child td { padding: 0; border: 0; }
+  .ts-section td + td { margin-top: 10px; }
+  .ts-section td:first-child { color: var(--fg); font-weight: 600; }
+  .ts-section td:nth-child(2)::before, .ts-section td:nth-child(3)::before { display: block; margin-bottom: 2px; color: var(--fg-4); font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+  .ts-section td:nth-child(2)::before { content: "Likely cause"; }
+  .ts-section td:nth-child(3)::before { content: "Fix"; }
   .release { margin-left: 5px; padding-left: 24px; }
   .release > h2::before { left: -33px; }
   .release > h3:first-of-type { font-size: 21px; }

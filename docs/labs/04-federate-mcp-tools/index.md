@@ -412,7 +412,7 @@ Remove-Item body.json
 
 Unlike the portal, the API doesn't ask the backends which versions they support. If you list a version that a
 backend can't speak, the `PATCH` succeeds and clients that negotiate that version fail. See
-[Troubleshooting](#troubleshooting).
+[Troubleshooting](../TROUBLESHOOTING.md#lab-04-federate-mcp-tools).
 
 <!-- track: iac | Bicep + azd -->
 
@@ -695,22 +695,8 @@ created its own gateway.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| `401` from the MCP endpoint | The key is missing, revoked, or sent in the wrong header | Send a runtime key from **Access** › **Keys** in the `api-key` header. |
-| `404` from the MCP endpoint | Wrong server name in the URL, or the server is still provisioning | List the servers with `az aigateway mcp list -g "$RG" --gateway-name "$GATEWAY" -o table` and use the exact name in `/default/toolservers/<server-name>/mcp`. |
-| `406` or an error about the `Accept` header | The client doesn't accept both JSON and SSE | Send `Accept: application/json, text/event-stream`, or use an MCP SDK. |
-| `tools/list` returns an empty `tools` array | The registration is reachable but no backend returned tools | Check each backend's URL with `az aigateway mcp source list -g "$RG" --gateway-name "$GATEWAY" -n <server-name> -o table`, and check its authentication. |
-| The whole server fails when one backend is down | That backend is **Required** | Turn **Required** off for backends that are nice-to-have, or fix the backend. |
-| Backends or policies disappeared after a Bicep deployment | A Bicep deployment sends a `PUT`, which replaces an existing registration with the same name | Change existing servers with `az aigateway mcp update` or `az aigateway mcp source add` and `remove`, as in the CLI track, or deploy to a new name. |
-| `mcp create` fails with "This MCP registration already exists; use mcp update." | A server with that name already exists | Change it with `az aigateway mcp update` or the `mcp source` commands, or choose another name. |
-| `mcp source remove` fails with "Cannot remove the last source." | An MCP server needs at least one backend | Keep at least one backend, or delete the server with `az aigateway mcp delete`. |
-| `400` with `Unsupported MCP-Protocol-Version` | The client sent an `MCP-Protocol-Version` header that isn't in **Supported MCP versions** | Add the version to the list if every backend supports it, or let the client negotiate a listed version. |
-| `404` with "Federation tools/list failed: required endpoint '…' returned error: Backend selected protocol version '…' instead of '…'" | **Supported MCP versions** includes a version that this backend doesn't support, and the client negotiated it | Keep only versions that every backend supports. In the portal, edit and save each backend to recheck it. |
-| `400` with JSON-RPC error `-32603`, "The request cannot be completed using the requested protocol version." | A `2026-07-28` request reached a backend that doesn't support `2026-07-28` | Remove `2026-07-28` from **Supported MCP versions** until every backend supports it. |
-| `400` with JSON-RPC error `-32602`, "Required MCP request metadata is missing or malformed." | A `2026-07-28` request lacks the `Mcp-Method` or `Mcp-Name` header, or `params._meta` | Use an MCP SDK that implements `2026-07-28` instead of hand-written requests. |
-| The portal shows "Backend isn't compatible with all configured MCP versions." | The backend doesn't report support for every selected version | Return to **Basic info** and change **Supported MCP versions**, or update the backend. |
-| Creating a server fails with `502 Bad Gateway`, or a Bicep deployment keeps running | Another MCP server in the gateway already uses the same display name | Choose a unique display name, for example with the Bicep `displayName` parameter. |
+For the errors you might hit in this lab, with their likely causes and fixes, see
+[Troubleshooting](../TROUBLESHOOTING.md#lab-04-federate-mcp-tools).
 
 ## Next steps
 

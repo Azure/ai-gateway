@@ -14,6 +14,7 @@ function boot() {
   run('lightbox', initLightbox);
   run('videos', initVideos);
   run('catalog', initCatalog);
+  run('troubleshooting', initTroubleshooting);
   run('hero', initHero);
   run('diagrams', initDiagrams);
   run('widgets', () => renderWidgets(document));

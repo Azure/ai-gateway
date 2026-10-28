@@ -339,14 +339,8 @@ Keep the gateway, the alias, and the `learn` MCP server. Other labs reuse them.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| `401` from the model or MCP endpoint | The key is missing, wrong, or revoked, or the header isn't sent | Check `AI_GATEWAY_API_KEY` in `.env` and that the key exists under **Access** › **Keys**. A value set in your shell overrides `.env`. |
-| `404` from the MCP endpoint | `AI_GATEWAY_MCP_SERVER` doesn't match an MCP server name | Copy the name from **MCP servers**, or the endpoint from the server's page. |
-| A `4xx` error that mentions the model | `AI_GATEWAY_MODEL` isn't a callable alias | Copy the alias exactly from the model's **Aliases** tab. |
-| The agent answers without citing any URL | The MCP server publishes no tools, or tool controls block them | Run `list_tools.py` from [Federate MCP tools behind one endpoint](../04-federate-mcp-tools/README.md) and check the server's tool controls. |
-| `429` responses | A token limit or rate limit on the alias, MCP server, or gateway | Expected when a policy applies. Wait for `Retry-After`, or raise the limit. |
-| `ModuleNotFoundError` | The virtual environment isn't active | Activate `.venv` and run `pip install -r requirements.txt` again. |
+For the errors you might hit in this lab, with their likely causes and fixes, see
+[Troubleshooting](../TROUBLESHOOTING.md#lab-15-agent-frameworks).
 
 ## Next steps
 

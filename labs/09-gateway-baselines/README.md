@@ -687,16 +687,8 @@ Keep the gateway, model, and key. The next labs reuse them.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| Every call returns `403` | Your public IP address changed (new network, VPN, or hotspot), or your network reaches the gateway from a different address than the one `api.ipify.org` reported | Check `curl -s https://api.ipify.org` again and update the IP filter. If you use a proxy or split-tunnel VPN, ask your network team for the egress ranges. Management calls still work, so you can always fix the list. |
-| Teammates, pipelines, or hosted agents get `403` | Their egress addresses aren't on the allow list | Add their CIDR ranges, or remove the IP filter until you know them. |
-| Ordinary prompts return `400` | Content safety blocked them, from the baseline or from a stricter asset policy | Review every **Content safety** policy that covers the asset in **Policies**, and retest with representative prompts. |
-| `429` much earlier than the baseline allows | A tighter token or request rate limit on the model, alias, or MCP server applies | Review **Policies** for every limit that covers the asset. The lowest applicable limit wins. |
-| The `PATCH` returns a validation error about `counterKey` or `scope` | `counterKey` is a string such as `"Identity"` instead of an array, or the shape differs from what the API version expects | Use `"counterKey": ["identity"]`. If it still fails, create that policy once in the portal at **Gateway** scope, read the shape with the `GET`, and use it in your script or policy file. |
-| `Set ALLOWED_CIDRS ...` or `Use CIDR notation ...` from the script | `ALLOWED_CIDRS` is empty, or an entry has no prefix length | Set it to comma-separated CIDR ranges, for example `"$MY_IP/32"`. |
-| Other Gateway scope policies vanished after the REST call | `PATCH` replaces the whole `policies` array | Always `GET`, merge, then `PATCH`, as shown in the REST track and the script. |
-| `jq: command not found` | `jq` isn't installed | Install `jq`, or use the PowerShell commands. |
+For the errors you might hit in this lab, with their likely causes and fixes, see
+[Troubleshooting](../TROUBLESHOOTING.md#lab-09-gateway-wide-baselines).
 
 ## Next steps
 

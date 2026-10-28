@@ -390,18 +390,8 @@ gemini extensions uninstall ai-gateway
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| `/ai-gateway:discover` isn't recognized | The plugin isn't installed or the client hasn't reloaded it | Repeat the install for your agent, then restart it. Check with `copilot plugin list` in GitHub Copilot CLI or `gemini extensions list` in Gemini CLI. |
-| The plugin can't list models, or Azure returns `401` or `403` | `az` is signed in to another tenant or subscription, or your account can't read the gateway | Run `az account show`, then `az account set --subscription <subscription-id>`. Ask for read access to the gateway. |
-| The plugin stops at the credential step | Your account can't list key secrets on the gateway | Create or get a key as in **Before you begin**, and tell the agent to read it from `AI_GATEWAY_API_KEY`. |
-| `404 Resource not found` from the gateway | The URL is missing the `/default/` segment | Use `<gateway URL>/default/models/openai/v1` or `<gateway URL>/default/toolservers/<name>/mcp`. |
-| `unknown_model` | The model name isn't one the gateway publishes, the client uses another protocol than the model supports, or a GitHub Copilot SDK older than 1.0.0 drops the key header | Use the name that discover reported or your alias. Pin `github-copilot-sdk>=1.0.0`. |
-| `401` from the gateway | The key is missing or deleted, or an MCP call sends it as a bearer token. The MCP endpoint reads keys only from the `api-key` header. | Send the key in the `api-key` header. Create a new key if you deleted it. |
-| `400` "Specify either an API key or an Authorization header, not both" | The client sends the key in `api-key` and also an `Authorization` header, as SDKs do when you pass a placeholder key | Send only one. For the model endpoint, pass the runtime key as the SDK's API key and drop the extra `api-key` header. |
-| `KeyError: 'AI_GATEWAY_API_KEY'` | `.env` wasn't loaded, often because PowerShell saved it with a byte order mark | Export the variable in your shell, or save `.env` as UTF-8 without a byte order mark. |
-| `429` | A token limit or the backend's quota | The wiring works. See [Throttle tokens per caller with token limits](../06-token-limits/README.md). |
-| A tool server shows `0` tools | The server exposes no tools, or tool availability hides them | Check the server's tools in the portal, or see [Federate MCP tools behind one endpoint](../04-federate-mcp-tools/README.md). |
+For the errors you might hit in this lab, with their likely causes and fixes, see
+[Troubleshooting](../TROUBLESHOOTING.md#lab-17-coding-agent-plugin).
 
 ## Next steps
 

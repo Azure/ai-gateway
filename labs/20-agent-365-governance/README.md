@@ -531,14 +531,8 @@ select **Save**.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| The gateway's MCP servers don't appear under **Agents** › **Tools** | Consent isn't granted, or the instance is on an API Management v1 tier | Have a tenant administrator turn on **Azure API Management service and AI Gateway** under **Agents** › **Settings** › **Gateways**. Use a v2 tier or the AI Gateway tier. |
-| The server's **Tools** tab can't list its tools | The server doesn't have a static list of allowed tools, for example it uses **Allow all tools** | In the AI Gateway portal, choose **Select exact tools** on the server's **Tools** step. Otherwise, block tools in the AI Gateway portal. |
-| You can't block individual tools | The instance is on an API Management v2 tier | Tool-level blocking needs the AI Gateway tier. Block the whole server instead. |
-| A blocked tool still runs for some agents | Those agents call the MCP server directly, not through the gateway | Point every agent at the gateway's MCP endpoint and restrict direct access to the backend |
-| An agent keeps retrying a blocked tool | The agent ignores `isError` | Check `result.isError` and the `ToolNotAvailable` denial code, and stop retrying that tool |
-| Calls still fail after you unblock | Another control blocks them, such as the gateway's **Blocked tools**, **MCP server access**, or a policy | Check the server's **Basic info** and **Tools** steps and its policies in the AI Gateway portal |
+For the errors you might hit in this lab, with their likely causes and fixes, see
+[Troubleshooting](../TROUBLESHOOTING.md#lab-20-agent-365-governance).
 
 ## Next steps
 

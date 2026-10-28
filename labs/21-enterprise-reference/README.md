@@ -1504,14 +1504,8 @@ If you deployed prod, repeat the clean-up with the `aigw-prod` deployment's outp
 
 ## Troubleshooting
 
-| Symptom | Cause | Fix |
-|---|---|---|
-| The deployment fails with `InsufficientQuota`, or the model or version isn't available | The region has no `GlobalStandard` quota for `gpt-6-luna`, or doesn't offer that version | Lower `modelCapacity`, request quota, or change `modelName`, `modelVersion`, or `--location` in your parameter file and command. |
-| The gateway's `provisioningState` ends in `Failed` | Azure hit an activation or managed identity conflict, often after a gateway with the same name was deleted moments before | Delete the failed gateway and its connector gateway, wait about three minutes for the identity to be cleaned up, and deploy again. |
-| The smoke test prints `Waiting for the model route` until it fails with `401`, `403`, or `404` | The new Foundry User role assignment or the model route hasn't propagated yet | Wait a few minutes and run the smoke test again. If it still fails, run the backend identity checks in [Verify](#verify). |
-| **Settings** in **Monitoring** shows "This legacy exporter no longer activates OTLP signals" | You deployed with `enableLegacyAppInsightsExporter` set to `true` | Select **Settings** › **General** › **Disable monitoring**, then **Configure telemetry** again with the same Application Insights resource. |
-| `apply-baselines` fails with a validation error from the `PATCH` | A field in `baselines.json` doesn't match the current API contract, for example `counterKey` as a string instead of an array such as `["identity"]` | Create the policy once in the portal at **Gateway** scope, read the workspace with `az rest`, and copy that shape into `baselines.json`. |
-| `azure/login` fails with `AADSTS70021: No matching federated identity record found` | The token subject doesn't match a federated credential | Check that the subject is exactly `repo:<github-org>/<github-repo>:environment:<name>` and that the GitHub environment name matches the job's `environment:`. |
+For the errors you might hit in this lab, with their likely causes and fixes, see
+[Troubleshooting](../TROUBLESHOOTING.md#lab-21-enterprise-reference).
 
 ## Next steps
 

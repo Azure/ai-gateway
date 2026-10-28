@@ -834,20 +834,8 @@ azd down --purge --force
 
 ## Troubleshooting
 
-| Symptom | Cause | Fix |
-|---|---|---|
-| A subscription is disabled in **Create AI gateway** | You can't write API Management or connector gateway resources in it | Pick another subscription, or ask for **Contributor** on it. |
-| `AuthorizationFailed` on `Microsoft.Authorization/roleAssignments` | You can create resources but not role assignments | Ask for **Owner**, or **Role Based Access Control Administrator**, on the resource group. |
-| `LocationNotAvailableForResourceType` | AI Gateway isn't available in the region | Pick a region from [Find the available regions](../SETUP.md#find-the-available-regions). |
-| `RequestDisallowedByAzure`: `The selected region is currently not accepting new customers` | The region has AI Gateway, but your subscription can't create new resources there | Pick another region from the list. |
-| `InvalidResourceProperties`: `The specified SKU 'GlobalStandard' for model 'gpt-6-luna 2026-09-22' is not supported in this region` | `gpt-6-luna` isn't available in the region | Pick a region where the model check in [Find the available regions](../SETUP.md#find-the-available-regions) prints `GlobalStandard`. |
-| `InsufficientQuota` on the model deployment | The subscription has no `gpt-6-luna` capacity left in the region | Start again in another region: set `LOCATION` in the Azure CLI track, or run `azd env new` with a new name and another `--location` in the Bicep + azd track. Or free capacity in [Foundry](https://ai.azure.com). |
-| `InvalidResourceGroupLocation` from `azd up` | The resource group `rg-<environment name>` already exists in another region | Run `azd env new` with a new environment name, or delete the old resource group. |
-| `403` or `404` from the gateway in the first minute | The gateway's role on the Foundry account, or the new alias, is still taking effect | Wait a minute and call again. |
-| `403` from the backend that doesn't go away | The gateway's managed identity has no role on the Foundry account | Assign it **Foundry User** on the account, as in the Azure CLI track's **Deploy the model in Foundry** step, and wait a few minutes. |
-| `401` | The key is missing, wrong, or in the wrong header | Send it in the `api-key` header, or as `Authorization: Bearer <key>`. In the portal, copy it again from **Access** › **Keys**. |
-| `400` that mentions authentication | The request has both an `api-key` and an `Authorization` header | Send only one of them. |
-| `The subscription is not registered to use namespace` | A resource provider isn't registered yet | Run the `az provider register` loop from **Start creating the gateway**, then try again. |
+For the errors you might hit in the quick start, with their likely causes and fixes, see
+[Troubleshooting](../TROUBLESHOOTING.md#quick-start).
 
 ## Next steps
 

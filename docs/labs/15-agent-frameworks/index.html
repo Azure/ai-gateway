@@ -69,7 +69,7 @@
         <span class="meta-pill"><span class="level-dots" aria-hidden="true"><i class="on"></i><i class="on"></i><i></i></span>Intermediate</span>
         <span class="meta-pill"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M10 5.5V10l3 2"/></svg>30 min</span>
         <span class="meta-pill meta-tracks"><span class="track-chips"><span class="track-chip" title="Code"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><path d="m7 6-4 4 4 4M13 6l4 4-4 4"/></svg><span>Code</span></span></span></span>
-        <span class="meta-updated">Updated <time datetime="2026-10-22">Oct 22, 2026</time></span>
+        <span class="meta-updated">Updated <time datetime="2026-10-28">Oct 28, 2026</time></span>
       </div>
       <div class="lab-actions">
         <button class="btn btn-secondary btn-sm" type="button" data-values-open><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h7M14 6h3M3 14h3M10 14h7"/><circle cx="12" cy="6" r="2"/><circle cx="8" cy="14" r="2"/></svg>Your values</button>
@@ -497,7 +497,8 @@ the same endpoints, and confirm the endpoint formats and authentication they sup
 </ul>
 <p>Keep the gateway, the alias, and the <code>learn</code> MCP server. Other labs reuse them.</p>
 <h2 id="troubleshooting"><a class="anchor" href="#troubleshooting" aria-hidden="true" tabindex="-1">#</a>Troubleshooting</h2>
-<div class="table-wrap"><table><thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead><tbody><tr><td><code>401</code> from the model or MCP endpoint</td><td>The key is missing, wrong, or revoked, or the header isn&#39;t sent</td><td>Check <code>AI_GATEWAY_API_KEY</code> in <code>.env</code> and that the key exists under <span class="uipath"><span class="uipath-item">Access</span><span class="uipath-sep" aria-hidden="true">›</span><span class="uipath-item">Keys</span></span>. A value set in your shell overrides <code>.env</code>.</td></tr><tr><td><code>404</code> from the MCP endpoint</td><td><code>AI_GATEWAY_MCP_SERVER</code> doesn&#39;t match an MCP server name</td><td>Copy the name from <strong>MCP servers</strong>, or the endpoint from the server&#39;s page.</td></tr><tr><td>A <code>4xx</code> error that mentions the model</td><td><code>AI_GATEWAY_MODEL</code> isn&#39;t a callable alias</td><td>Copy the alias exactly from the model&#39;s <strong>Aliases</strong> tab.</td></tr><tr><td>The agent answers without citing any URL</td><td>The MCP server publishes no tools, or tool controls block them</td><td>Run <code>list_tools.py</code> from <a href="../04-federate-mcp-tools/">Federate MCP tools behind one endpoint</a> and check the server&#39;s tool controls.</td></tr><tr><td><code>429</code> responses</td><td>A token limit or rate limit on the alias, MCP server, or gateway</td><td>Expected when a policy applies. Wait for <code>Retry-After</code>, or raise the limit.</td></tr><tr><td><code>ModuleNotFoundError</code></td><td>The virtual environment isn&#39;t active</td><td>Activate <code>.venv</code> and run <code>pip install -r requirements.txt</code> again.</td></tr></tbody></table></div>
+<p>For the errors you might hit in this lab, with their likely causes and fixes, see
+<a href="../../troubleshooting/#lab-15-agent-frameworks">Troubleshooting</a>.</p>
 <h2 id="next-steps"><a class="anchor" href="#next-steps" aria-hidden="true" tabindex="-1">#</a>Next steps</h2>
 <ul>
 <li><a href="../16-foundry-hosted-agent/">Deploy a Foundry hosted agent behind AI Gateway</a>: run an Agent Framework
@@ -532,6 +533,7 @@ estimated cost.</li>
       <div class="toc-help">
         <button class="toc-tool" type="button" data-values-open><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h7M14 6h3M3 14h3M10 14h7"/><circle cx="12" cy="6" r="2"/><circle cx="8" cy="14" r="2"/></svg><span>Your values</span></button>
         <a class="toc-tool" href="../../setup/" title="Permissions, tools, sign-in, the aigateway extension, regions, the labs repo, and azd"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 3a4 4 0 0 0-3.8 5.3L3.5 13.5a1.5 1.5 0 0 0 0 2.1l.9.9a1.5 1.5 0 0 0 2.1 0l5.2-5.2A4 4 0 0 0 17 7.5l-2.3 2.3-2.3-.4-.4-2.3L14.3 4.8A4 4 0 0 0 12.5 3Z"/></svg><span>Setup guide</span></a>
+        <a class="toc-tool" href="../../troubleshooting/#lab-15-agent-frameworks" title="The errors you might hit in this lab, with their likely causes and fixes"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><circle cx="10" cy="10" r="3"/><path d="m4.7 4.7 3.2 3.2M12.1 12.1l3.2 3.2M15.3 4.7l-3.2 3.2M7.9 12.1l-3.2 3.2"/></svg><span>Troubleshooting</span></a>
         <a class="toc-tool" href="https://ai.gateway.azure.com" target="_blank" rel="noopener"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="11" rx="2"/><path d="M7 17.5h6M10 14.5v3"/><path d="m9 7 4 2-1.7.7-.7 1.8Z"/></svg><span>Open the portal</span></a>
         <a class="toc-tool" href="https://ai.gateway.azure.com/docs" target="_blank" rel="noopener"><svg class="i" viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 4.5c2.5-1 4.5-1 6.5.5 2-1.5 4-1.5 6.5-.5v11c-2.5-1-4.5-1-6.5.5-2-1.5-4-1.5-6.5-.5Z"/><path d="M10 5v11"/></svg><span>Product docs</span></a>
       </div>
@@ -545,7 +547,7 @@ estimated cost.</li>
       <p>Hands-on labs for the Azure AI Gateway.</p>
     </div>
     <div class="footer-cols">
-      <div><h2>Labs</h2><a href="../../labs/">All labs</a><a href="../../index.html#paths">Learning paths</a><a href="../../index.html#use-cases">Use cases</a><a href="../../setup/">Setup guide</a><a href="../../release-notes/">Release notes</a><a href="../../skills/azure-ai-gateway-labs/SKILL.md" title="azure-ai-gateway-labs: the agent skill that teaches coding agents how to use these labs">Agent skill</a></div>
+      <div><h2>Labs</h2><a href="../../labs/">All labs</a><a href="../../index.html#paths">Learning paths</a><a href="../../index.html#use-cases">Use cases</a><a href="../../setup/">Setup guide</a><a href="../../troubleshooting/">Troubleshooting</a><a href="../../release-notes/">Release notes</a><a href="../../skills/azure-ai-gateway-labs/SKILL.md" title="azure-ai-gateway-labs: the agent skill that teaches coding agents how to use these labs">Agent skill</a></div>
       <div><h2>Product</h2><a href="https://ai.gateway.azure.com" target="_blank" rel="noopener">AI Gateway portal</a><a href="https://ai.gateway.azure.com/docs" target="_blank" rel="noopener">Documentation</a><a href="https://learn.microsoft.com/azure/api-management/ai-gateway-overview" target="_blank" rel="noopener">Microsoft Learn</a></div>
       <div><h2>Contribute</h2><a href="https://github.com/Azure/ai-gateway" target="_blank" rel="noopener">GitHub repository</a><a href="https://github.com/Azure/ai-gateway/blob/main/labs/AUTHORING.md" target="_blank" rel="noopener">Authoring guide</a><a href="https://github.com/Azure/ai-gateway/issues/new?labels=labs" target="_blank" rel="noopener">Report an issue</a></div>
     </div>

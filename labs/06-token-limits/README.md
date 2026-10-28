@@ -742,14 +742,8 @@ the Bicep + azd track created its own gateway.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| Every request returns `200`, never `429` | The limit is on a different model or alias than the one you call, or the window reset between requests | Check that the request `model` matches an alias of the limited model. Run the burst without pauses. |
-| `429` on the very first request | Another token limit with a lower allowance applies, for example a **Gateway** scope policy, or the counter is shared because **Counter dimensions** is empty | Review **Policies** for every limit that covers the model. Pick **Caller identity** for per-caller counters. |
-| `403` with `LlmCostQuotaExceeded` | A **Cost limit** blocked the call, not the token limit | See [Enforce cost budgets](../07-cost-budgets/README.md). |
-| `429` without a gateway token limit | The backend deployment ran out of TPM | Raise the deployment's capacity in Foundry, or lower per-caller gateway limits so their sum fits. |
-| Other policies vanished after the REST call | `PATCH` replaces the whole `policies` array | Always `GET`, merge, then `PATCH`, as shown in the REST track. |
-| `ValidationError` with target `counterKey` | `counterKey` is a string such as `"Identity"`, uses another value, or is missing | Send an array with `identity`, `ipAddress`, or both, for example `"counterKey": ["identity"]`. |
+For the errors you might hit in this lab, with their likely causes and fixes, see
+[Troubleshooting](../TROUBLESHOOTING.md#lab-06-token-limits).
 
 ## Next steps
 

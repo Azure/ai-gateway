@@ -1939,22 +1939,8 @@ gateway.
 
 ## Troubleshooting
 
-| Symptom | Cause | Fix |
-|---|---|---|
-| `HTTP 401` or "Authentication failed with provider" | The key is wrong, suspended, or deleted, or the new key isn't active yet | Check the key's state in **Access** › **Keys**, wait a minute after you create it, and paste it again. |
-| `400` on every request from a custom client | The request sends both `Authorization` and `api-key` | Send one of them. Copilot sends `Authorization: Bearer` only. |
-| `404`, or a "model not found" error | The model name isn't an alias on the gateway, for example the portal import's `<foundry-account-name>/gpt-6-astra` | Publish the `gpt-6-astra` alias, or set the model ID to the alias that exists. |
-| The model doesn't appear in VS Code or the app | The gateway has no `/models` list to discover, or VS Code hasn't reloaded the file | Add `gpt-6-astra` by hand, then run **Developer: Reload Window** in VS Code. |
-| The model is missing from the picker in Agent mode | `toolCalling` is missing or `false` | Set `"toolCalling": true` on the model. |
-| VS Code or the app doesn't offer your own models at all | Your Copilot Business or Enterprise organization hasn't allowed custom models | Ask an administrator to enable them. |
-| Replies are empty or cut off, or tool calls fail | The surface uses Chat Completions with a reasoning model | Set the API to Responses: `apiType` in VS Code, `COPILOT_PROVIDER_WIRE_API=responses` for the CLI, `wireApi` in the SDK. |
-| `429 Too Many Requests` | Copilot used the key's 100,000 tokens for this minute | Wait for the `Retry-After` interval, or raise the token limit. |
-| The CLI's first interactive prompt doesn't respond | A slow first connection | Press <kbd>Ctrl</kbd>+<kbd>C</kbd> and send the prompt again. |
-| Two **GPT-6 Astra** entries in VS Code's model picker | Copilot's built-in model and yours share a name | Give yours a distinct `name`, such as `GPT-6 Astra (AI Gateway)`. |
-| The MCP server doesn't start, or returns `401` | The key is sent as a bearer token, or `${AI_GATEWAY_API_KEY}` is empty where the CLI or the app runs | Send the key in the `api-key` header. Export `AI_GATEWAY_API_KEY` in the terminal, or make it available to the app and reopen it. |
-| `copilot -p` doesn't use the Learn tools, or says they were denied | One-shot mode can't ask for approval | Add `--allow-tool='ai-gateway-learn'`. |
-| A task with the Learn tools hits `429` or uses many tokens | Each Learn result is 25 to 50 KB | Ask for fewer lookups, publish fewer tools, or raise the token limit. |
-| VS Code lists MCP servers that you didn't add | VS Code discovers servers configured in other apps | Set `chat.mcp.discovery.enabled` to `false`. |
+For the errors you might hit in this lab, with their likely causes and fixes, see
+[Troubleshooting](../TROUBLESHOOTING.md#lab-24-github-copilot-byok).
 
 ## Next steps
 

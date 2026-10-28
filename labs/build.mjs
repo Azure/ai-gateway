@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { initHighlighter, renderLab, escapeHtml } from './site/markdown.mjs';
 import { parseLab, stripGitHub, syncLab, syncIndex, syncSkill, findVideo } from './site/github.mjs';
-import { layout, homePage, catalogPage, labPage, releaseNotesPage, setupPage, notFoundPage } from './site/templates.mjs';
+import { layout, homePage, catalogPage, labPage, releaseNotesPage, setupPage, troubleshootingPage, notFoundPage } from './site/templates.mjs';
 
 const LABS = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(LABS, '..');
@@ -24,7 +24,8 @@ const BASE_URL = (process.env.LABS_SITE_URL || 'https://azure.github.io/ai-gatew
 const BASE_PATH = new URL(BASE_URL).pathname;
 const RELEASE_NOTES = path.join(LABS, 'RELEASE-NOTES.md');
 const SETUP = path.join(LABS, 'SETUP.md');
-const GENERATED = ['index.html', '404.html', 'labs', 'release-notes', 'setup', 'assets', 'search.json', 'llms.txt', 'llms-full.txt', 'skills', 'sitemap.xml', 'robots.txt', '.nojekyll'];
+const TROUBLESHOOTING = path.join(LABS, 'TROUBLESHOOTING.md');
+const GENERATED = ['index.html', '404.html', 'labs', 'release-notes', 'setup', 'troubleshooting', 'assets', 'search.json', 'llms.txt', 'llms-full.txt', 'skills', 'sitemap.xml', 'robots.txt', '.nojekyll'];
 const MEDIA_RE = /\.(png|jpe?g|gif|webp|svg|mp4|webm|avif)$/i;
 const REQUIRED = ['title', 'summary', 'category', 'level', 'duration', 'tracks', 'objectives'];
 
@@ -187,6 +188,7 @@ function makeCtx(lab, site, knownSlugs, { labsPrefix = '../' } = {}) {
       if (relLabs === 'README.md') return { url: `${labsPrefix}${h}`, external: false };
       if (relLabs === 'RELEASE-NOTES.md') return { url: `${labsPrefix}../release-notes/${h}`, external: false };
       if (relLabs === 'SETUP.md') return { url: path.posix.normalize(`${labsPrefix}../setup/`) + h, external: false };
+      if (relLabs === 'TROUBLESHOOTING.md') return { url: path.posix.normalize(`${labsPrefix}../troubleshooting/`) + h, external: false };
       if (!fs.existsSync(abs)) warn(`${lab.slug}: broken link ${href}`);
       if (relLabs.startsWith('assets/') || (abs.startsWith(lab.dir + path.sep) && MEDIA_RE.test(abs))) {
         if (abs.startsWith(lab.dir + path.sep)) media.add(path.relative(lab.dir, abs));
@@ -208,21 +210,23 @@ const htmlToText = (html) => html
   .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
   .replace(/\s+/g, ' ').trim();
 
-function checkAnchors(lab, html, allHtml, setupHtml) {
+function checkAnchors(lab, html, allHtml, guides) {
   const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
   for (const m of html.matchAll(/href="#([^"]+)"/g)) if (!ids.has(m[1])) warn(`${lab.slug}: anchor #${m[1]} not found`);
   for (const m of html.matchAll(/href="\.\.\/(\d{2}-[a-z0-9-]+|quickstart)\/#([^"]+)"/g)) {
     const other = allHtml.get(m[1]);
     if (other && !other.includes(` id="${m[2]}"`)) warn(`${lab.slug}: anchor ../${m[1]}/#${m[2]} not found`);
   }
-  checkSetupAnchors(lab.slug, html, setupHtml);
+  checkGuideAnchors(lab.slug, html, guides);
 }
 
-// Links into the setup guide, from any page: ../setup/#id or ../../setup/#id.
-function checkSetupAnchors(name, html, setupHtml) {
-  for (const m of html.matchAll(/href="(?:\.\.\/)+setup\/#([^"]+)"/g)) {
-    if (setupHtml == null) warn(`${name}: links to the setup guide, but labs/SETUP.md doesn't exist`);
-    else if (!setupHtml.includes(` id="${m[1]}"`)) warn(`${name}: anchor SETUP.md#${m[1]} not found`);
+// Links into the guides, from any page: ../setup/#id or ../../troubleshooting/#id.
+const GUIDE_FILES = { setup: 'SETUP.md', troubleshooting: 'TROUBLESHOOTING.md' };
+function checkGuideAnchors(name, html, guides) {
+  for (const m of html.matchAll(/href="(?:\.\.\/)+(setup|troubleshooting)\/#([^"]+)"/g)) {
+    const file = GUIDE_FILES[m[1]];
+    if (guides[m[1]] == null) warn(`${name}: links to ${file}, but labs/${file} doesn't exist`);
+    else if (!guides[m[1]].includes(` id="${m[2]}"`)) warn(`${name}: anchor ${file}#${m[2]} not found`);
   }
 }
 
@@ -260,7 +264,7 @@ function syncSources(labs, catalog, { check = false } = {}) {
 
 // Renders labs/RELEASE-NOTES.md. Each "## <date>" section is one product release: an "### <title>" heading and a
 // link to https://ai.gateway.azure.com/docs/releases/YYYY-MM-DD, then what changed in the labs.
-async function renderReleaseNotes(site, known, rendered, setupHtml) {
+async function renderReleaseNotes(site, known, rendered, guides) {
   if (!fs.existsSync(RELEASE_NOTES)) return null;
   const source = stripGitHub(fs.readFileSync(RELEASE_NOTES, 'utf8'));
   const page = { dir: LABS, slug: 'release-notes' };
@@ -276,7 +280,7 @@ async function renderReleaseNotes(site, known, rendered, setupHtml) {
   for (const m of html.matchAll(/href="\.\.\/labs\/(\d{2}-[a-z0-9-]+|quickstart)\/#([^"]+)"/g)) {
     if (!rendered.get(m[1])?.includes(` id="${m[2]}"`)) warn(`RELEASE-NOTES.md: anchor ${m[1]}#${m[2]} not found`);
   }
-  checkSetupAnchors('RELEASE-NOTES.md', html, setupHtml);
+  checkGuideAnchors('RELEASE-NOTES.md', html, guides);
 
   const releases = [];
   for (const section of source.split(/^(?=## )/m).slice(1)) {
@@ -300,27 +304,68 @@ async function renderReleaseNotes(site, known, rendered, setupHtml) {
   };
 }
 
-// Renders labs/SETUP.md, the one-time tasks that the labs link to instead of repeating them, at /setup/.
-async function renderSetup(site, known, rendered) {
-  if (!fs.existsSync(SETUP)) return null;
-  const source = stripGitHub(fs.readFileSync(SETUP, 'utf8'));
-  const ctx = makeCtx({ dir: LABS, slug: 'setup' }, site, known, { labsPrefix: '../labs/' });
+// Renders a guide page: labs/SETUP.md at /setup/, or labs/TROUBLESHOOTING.md at /troubleshooting/.
+async function renderGuide(file, slug, site, known, rendered) {
+  if (!fs.existsSync(file)) return null;
+  const name = path.basename(file);
+  const source = stripGitHub(fs.readFileSync(file, 'utf8'));
+  const ctx = makeCtx({ dir: LABS, slug }, site, known, { labsPrefix: '../labs/' });
   const { html, toc } = await renderLab(source, ctx);
   for (const m of ctx.media) {
-    const dest = path.join(OUT, 'setup', m);
+    const dest = path.join(OUT, slug, m);
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.copyFileSync(path.join(LABS, m), dest);
   }
   const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
-  for (const m of html.matchAll(/href="#([^"]+)"/g)) if (!ids.has(m[1])) warn(`SETUP.md: anchor #${m[1]} not found`);
+  for (const m of html.matchAll(/href="#([^"]+)"/g)) if (!ids.has(m[1])) warn(`${name}: anchor #${m[1]} not found`);
   for (const m of html.matchAll(/href="\.\.\/labs\/(\d{2}-[a-z0-9-]+|quickstart)\/#([^"]+)"/g)) {
-    if (!rendered.get(m[1])?.includes(` id="${m[2]}"`)) warn(`SETUP.md: anchor ${m[1]}#${m[2]} not found`);
+    if (!rendered.get(m[1])?.includes(` id="${m[2]}"`)) warn(`${name}: anchor ${m[1]}#${m[2]} not found`);
   }
   const headings = [...html.matchAll(/<h([23]) id="([^"]+)"><a class="anchor"[^>]*>#<\/a>([\s\S]*?)<\/h\1>/g)]
     .map((m) => ({ id: m[2], text: htmlToText(m[3]), level: Number(m[1]) }));
-  return {
-    source, html, toc, headings,
+  return { source, html, toc, headings };
+}
+
+// The Setup guide: the one-time tasks that the labs link to instead of repeating them.
+async function renderSetup(site, known, rendered) {
+  const guide = await renderGuide(SETUP, 'setup', site, known, rendered);
+  return guide && {
+    ...guide,
     description: 'The one-time tasks that the Azure AI Gateway labs share: permissions, tools, sign-in, the aigateway extension, resource providers, regions, the labs repo, and azd.',
+  };
+}
+
+// The Troubleshooting page: one "## " section of symptom, likely cause, and fix rows per lab, plus setup and
+// deployment. Each lab's own Troubleshooting section is a link to its section here.
+async function renderTroubleshooting(site, known, rendered, labs) {
+  const guide = await renderGuide(TROUBLESHOOTING, 'troubleshooting', site, known, rendered);
+  if (!guide) return null;
+  for (const lab of labs) {
+    const id = lab.content.match(/TROUBLESHOOTING\.md#([a-z0-9-]+)/)?.[1];
+    if (!id) { warn(`${lab.slug}: doesn't link to its section in TROUBLESHOOTING.md`); continue; }
+    lab.troubleshooting = id;
+    const section = guide.html.split(/(?=<h2 id=")/).find((part) => part.startsWith(`<h2 id="${id}"`));
+    if (section && !section.includes(`href="../labs/${lab.slug}/"`)) warn(`TROUBLESHOOTING.md#${id}: doesn't link to ${lab.slug}/README.md`);
+    const own = lab.content.match(/^## Troubleshooting\n([\s\S]*?)(?=^## |(?![\s\S]))/m)?.[1] || '';
+    if (/^\|\s*-/m.test(own)) warn(`${lab.slug}: move the Troubleshooting table to TROUBLESHOOTING.md#${id}`);
+  }
+  let rows = 0;
+  const sections = [];
+  // The first paragraph is the page's lead, in the hero.
+  let lead = '';
+  const html = guide.html.split(/(?=<h2 id=")/).map((part) => {
+    const id = part.match(/^<h2 id="([^"]+)"/)?.[1];
+    if (!id) return part.replace(/^\s*<p>([\s\S]*?)<\/p>\s*/, (_, p) => { lead = p; return ''; });
+    const title = guide.toc.find((t) => t.id === id)?.text || id;
+    const n = (part.match(/<tr>/g) || []).length - (part.match(/<thead>/g) || []).length;
+    if (!n) warn(`TROUBLESHOOTING.md: section "${title}" has no table rows`);
+    rows += n;
+    sections.push({ id, title, text: htmlToText(part.replace(/^<h2[\s\S]*?<\/h2>/, '')) });
+    return `<section class="ts-section" data-ts="${id}">${part}</section>`;
+  }).join('');
+  return {
+    ...guide, html, sections, rows, lead,
+    description: 'The errors you might hit in the Azure AI Gateway labs, with their likely causes and fixes: setup and deployment, and every lab.',
   };
 }
 
@@ -380,8 +425,13 @@ export async function build({ strict = false } = {}) {
     });
   }
 
-  // Setup guide: labs/SETUP.md, rendered at /setup/. The labs link to it, so render it before checking their anchors.
+  // Guides: labs/SETUP.md at /setup/ and labs/TROUBLESHOOTING.md at /troubleshooting/. The labs link to them, so
+  // render them before checking the labs' anchors.
   const setup = await renderSetup(site, known, rendered);
+  const trouble = await renderTroubleshooting(site, known, rendered, labs);
+  const guides = { setup: setup?.html, troubleshooting: trouble?.html };
+  if (setup) checkGuideAnchors('SETUP.md', setup.html, guides);
+  if (trouble) checkGuideAnchors('TROUBLESHOOTING.md', trouble.html, guides);
   if (setup) {
     searchIndex.push({
       slug: 'setup', page: true, url: 'setup/', num: '', title: 'Setup guide', summary: setup.description, tags: ['setup', 'prerequisites'],
@@ -393,9 +443,22 @@ export async function build({ strict = false } = {}) {
     }));
     write('setup/index.md', setup.source);
   }
+  if (trouble) {
+    searchIndex.push({
+      slug: 'troubleshooting', page: true, url: 'troubleshooting/', num: '', icon: 'lifebuoy', title: 'Troubleshooting',
+      summary: trouble.description, tags: ['troubleshooting', 'errors', 'fix'],
+      headings: [], text: htmlToText(trouble.lead),
+      sections: trouble.sections.map((x) => ({ ...x, text: x.text.slice(0, 8000) })),
+    });
+    write('troubleshooting/index.html', layout({
+      rel: '../', site, kind: 'troubleshooting', title: 'Troubleshooting', description: trouble.description,
+      body: troubleshootingPage({ rel: '../', site, ...trouble }), canonical: `${BASE_URL}troubleshooting/`, data: shared,
+    }));
+    write('troubleshooting/index.md', trouble.source);
+  }
 
   for (const [i, lab] of labs.entries()) {
-    checkAnchors(lab, lab.html, rendered, setup?.html);
+    checkAnchors(lab, lab.html, rendered, guides);
     const rel = '../../';
     const body = labPage({ rel, site, catalog, labs, lab, html: lab.html, toc: lab.toc, prev: labs[i - 1], next: labs[i + 1] });
     write(`labs/${lab.slug}/index.html`, layout({
@@ -409,7 +472,7 @@ export async function build({ strict = false } = {}) {
   const totals = { labs: labs.length, minutes: labs.reduce((a, l) => a + l.duration, 0) };
 
   // Release notes: labs/RELEASE-NOTES.md is the source of truth, rendered at /release-notes/
-  const notes = await renderReleaseNotes(site, known, rendered, setup?.html);
+  const notes = await renderReleaseNotes(site, known, rendered, guides);
   if (notes) {
     write('release-notes/index.html', layout({
       rel: '../', site, kind: 'releases', title: 'Release notes', description: notes.description,
@@ -427,14 +490,15 @@ export async function build({ strict = false } = {}) {
   const llms = [`# ${site.title}`, '', `> ${site.tagline}`, '',
     'Hands-on labs for the AI Gateway tier of Azure API Management. Each lab has portal, Azure CLI, REST, Bicep, or code tracks.', '',
     `Product docs: ${site.docs}`, `Portal: ${site.portal}`, `Source: ${site.repo}/tree/${site.branch}/labs`,
-    `Agent skill: ${BASE_URL}skills/${SKILL_NAME}/SKILL.md`, ...(setup ? [`Setup guide: ${BASE_URL}setup/index.md`] : []), ...(notes ? [`Release notes: ${BASE_URL}release-notes/index.md`] : []), '', '## Labs', '',
+    `Agent skill: ${BASE_URL}skills/${SKILL_NAME}/SKILL.md`, ...(setup ? [`Setup guide: ${BASE_URL}setup/index.md`] : []), ...(trouble ? [`Troubleshooting: ${BASE_URL}troubleshooting/index.md`] : []), ...(notes ? [`Release notes: ${BASE_URL}release-notes/index.md`] : []), '', '## Labs', '',
     ...labs.map((l) => `- [${l.num} ${l.title}](${BASE_URL}labs/${l.slug}/index.md): ${l.summary}`), '',
     '## Learning paths', '', ...catalog.paths.map((p) => `- ${p.title}: ${p.labs.filter((s) => known.has(s)).join(', ')}`), ''].join('\n');
   write('llms.txt', llms);
   // The agent skill, without the generated-region markers
   write(`skills/${SKILL_NAME}/SKILL.md`, fs.readFileSync(SKILL_FILE, 'utf8').replace(/^<!-- gh:(?:begin\b[^>]*|end) -->\n/gm, ''));
-  write('llms-full.txt', [...(setup ? [`<!-- ${BASE_URL}setup/ -->\n${setup.source.trim()}\n`] : []), ...labs.map((l) => `<!-- ${BASE_URL}labs/${l.slug}/ -->\n${l.raw.trim()}\n`)].join('\n\n'));
-  const urls = ['', 'labs/', ...(setup ? ['setup/'] : []), ...(notes ? ['release-notes/'] : []), ...labs.map((l) => `labs/${l.slug}/`)];
+  write('llms-full.txt', [...(setup ? [`<!-- ${BASE_URL}setup/ -->\n${setup.source.trim()}\n`] : []), ...labs.map((l) => `<!-- ${BASE_URL}labs/${l.slug}/ -->\n${l.raw.trim()}\n`),
+    ...(trouble ? [`<!-- ${BASE_URL}troubleshooting/ -->\n${trouble.source.trim()}\n`] : [])].join('\n\n'));
+  const urls = ['', 'labs/', ...(setup ? ['setup/'] : []), ...(trouble ? ['troubleshooting/'] : []), ...(notes ? ['release-notes/'] : []), ...labs.map((l) => `labs/${l.slug}/`)];
   write('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `  <url><loc>${escapeHtml(BASE_URL + u)}</loc></url>`).join('\n')}\n</urlset>\n`);
   write('robots.txt', `User-agent: *\nAllow: /\nSitemap: ${BASE_URL}sitemap.xml\n`);
 

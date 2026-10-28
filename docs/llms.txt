@@ -9,6 +9,7 @@ Portal: https://ai.gateway.azure.com
 Source: https://github.com/Azure/ai-gateway/tree/main/labs
 Agent skill: https://azure.github.io/ai-gateway/skills/azure-ai-gateway-labs/SKILL.md
 Setup guide: https://azure.github.io/ai-gateway/setup/index.md
+Troubleshooting: https://azure.github.io/ai-gateway/troubleshooting/index.md
 Release notes: https://azure.github.io/ai-gateway/release-notes/index.md
 
 ## Labs
