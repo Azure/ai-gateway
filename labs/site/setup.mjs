@@ -2,7 +2,7 @@
 //
 // A lab lists the tasks it needs with <!-- setup: tools sign-in extension clone -->. The site renders a checklist
 // that hides the tasks the reader already marked done, and GitHub gets a generated line of links (see github.mjs).
-// A step that does a task itself, as in the quick start, carries <!-- setup-done: extension -->: marking the step
+// A step that does a task itself can carry <!-- setup-done: extension -->: marking the step
 // done marks the task done too. Titles and "when you need it" text come from the task table at the top of SETUP.md.
 import fs from 'node:fs';
 

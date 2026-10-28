@@ -52,10 +52,10 @@ prereqs:                        # lab folder names, rendered as links
 
 `quickstart/` is the only lab without a number. It sets `order: -1`, so it comes before lab 00 everywhere, and the
 site shows a ⚡ instead of a number and "Quick start" instead of "Lab NN". The home page's hero and its **Start here**
-band link to it. Keep it to five minutes and self-contained, with no notebook: a portal track, an
-Azure CLI track that runs in Cloud Shell, and a Bicep + azd track. Each track starts with the tools that it needs.
-The Bicep + azd track deploys `quickstart/azure.yaml` and `quickstart/infra/`, which it clones from GitHub
-(see [azd templates](#azd-templates)). It uses lab 02's names (`foundry-models`, `gpt-6-luna`, `app-first-call`), so
+band link to it. Keep it to five minutes, with no notebook: a portal track, an Azure CLI track that runs in
+Cloud Shell, and a Bicep + azd track. Like every lab, its **Before you begin** starts with the **One-time setup**
+card, and the later labs reuse that setup. The Bicep + azd track moves into `quickstart/` in the clone and deploys
+its `azure.yaml` and `infra/` (see [azd templates](#azd-templates)). It uses lab 02's names (`foundry-models`, `gpt-6-luna`, `app-first-call`), so
 labs 03 onward work on its gateway. Each track ends with the first call and then its own **Clean up** step, so the lab
 has no separate call, verify, or clean up section. Teach the details in labs 00 to 02 instead.
 
@@ -102,9 +102,8 @@ link to each task. Don't repeat those tasks as bullets, links, or steps in the l
 no **Clone the lab** step. Keep only what's specific to the lab, such as Python for a Code track, a sign-in as a user,
 or its extra resource providers. The build fails on an unknown key, and checks every link to a Setup guide anchor.
 
-The quick start is the exception: its tracks stay paste-ready in Cloud Shell, with the install, the registration,
-and the clone inline. A step that does a setup task carries `<!-- setup-done: keys -->` on its own line, right
-after its `###` heading, and checking the step's **Done** box marks those tasks done in the Setup guide too.
+If a step must do a setup task inline, put `<!-- setup-done: keys -->` on its own line, right after its `###`
+heading: checking the step's **Done** box then marks those tasks done in the Setup guide too. No lab needs it today.
 
 ### The Troubleshooting page
 

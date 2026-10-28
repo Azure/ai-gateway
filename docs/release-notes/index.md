@@ -28,15 +28,14 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
   registering the resource providers, finding the available regions, cloning the labs repo, and deploying and
   deleting a lab with azd. Each lab page links to it from the right rail, between **Your values** and
   **Open the portal**, and the labs link to its sections instead of repeating the steps, so they're shorter. Labs
-  that run scripts or samples from `infra/` now say to clone the repo first. The
-  [quick start](quickstart/README.md) keeps its steps inline, so it stays paste-ready in Cloud Shell.
+  that run scripts or samples from `infra/` now say to clone the repo first.
 - **October 28.** On the site, the [Setup guide](SETUP.md) now opens in a panel next to the lab, like
   **Your values**, from the right rail, the lab's header, or any link to one of its tasks. Mark a task **Done** in
   the panel or on the guide's page, and the labs stop listing it. Each lab's **Before you begin** starts with a
   **One-time setup** card that lists only the tasks it needs and that you haven't done yet, so the labs no longer
   repeat tool lists, sign-in, or a **Clone the lab** step: the **Bicep + azd** tracks start by moving into the lab's
-  folder. Checking a [quick start](quickstart/README.md) step that installs the extension, registers the providers,
-  or clones the repo marks those tasks done too.
+  folder. The [quick start](quickstart/README.md) uses the card too, so its tracks no longer install the extension,
+  register the providers, or clone the repo, and every later lab reuses that setup.
 - **October 28.** A new [Troubleshooting](TROUBLESHOOTING.md) page collects the errors from every lab, with their
   likely causes and fixes, in one section per lab, plus
   [Setup and deployment](TROUBLESHOOTING.md#setup-and-deployment).
@@ -88,7 +87,7 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
   [Lab 02](02-first-model-call/README.md#register-the-deployment) also shows the one-step
   `az aigateway model create --foundry-resource-id`. The labs keep `az rest` for gateway policies, cost limits,
   telemetry exporters, MCP versions, API key state, and the connector gateway.
-- **October 27.** The [quick start](quickstart/README.md#clone-the-template)'s Bicep + azd track now gets its
+- **October 27.** The [quick start](quickstart/README.md#review-the-template)'s Bicep + azd track now gets its
   template by cloning the repo and moving into `labs/quickstart`, instead of downloading each file. The clone also
   gets the other labs, and the track no longer lists the template's files.
 - **October 26.** The Bicep templates now follow the AI Gateway [reference sample](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway/blob/main/infra/ai-gateway/main.bicep): they

@@ -27,15 +27,16 @@ commands into Azure Cloud Shell, or clone a Bicep template and deploy it with on
 
 ## Before you begin
 
-You need an Azure subscription where you can create resources and role assignments, for example **Owner**, or
-**Contributor** plus **Role Based Access Control Administrator**. The gateway gets a role on your Foundry account, so
-that it can call the model with its own identity. Each track lists the tools that it needs at its start.
+<!-- setup: permissions tools sign-in extension providers regions clone -->
 
-The Azure CLI and Bicep + azd tracks take a location: `eastus2`, or another region from
-[Find the available regions](../SETUP.md#find-the-available-regions). They also create the Foundry account in that
-region, so pick one where `gpt-6-luna` is available too. Each track includes every setup step that it needs, so you
-can paste it into Cloud Shell as it is. The [Setup guide](../SETUP.md) explains these steps, and the later labs
-link to it.
+Every later lab reuses this one-time setup. On the portal track, you need only
+**Check your subscription and permissions**.
+
+- Permissions to create resources and role assignments, for example **Owner**, or **Contributor** plus
+  **Role Based Access Control Administrator**. The gateway gets a role on your Foundry account, so that it can call
+  the model with its own identity.
+- A region where `gpt-6-luna` is available too, because the Azure CLI and Bicep + azd tracks create the Foundry
+  account in the gateway's region. The examples use `eastus2`.
 
 ## How it works
 
@@ -225,22 +226,15 @@ az cognitiveservices account purge --name "$FOUNDRY" --resource-group rg-aigw-qu
 
 <!-- track: cli | Azure CLI -->
 
-**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell. It's already signed in and has
-the Azure CLI, `curl`, and `jq`. A local Azure CLI 2.75 or later, signed in with `az login`, works too. The track
-installs the `aigateway` CLI extension and creates the Foundry deployment for you.
+**What you need:** only the one-time setup from **Before you begin**. The track creates the Foundry deployment for
+you.
 
 ### Set your variables
 
-<!-- setup-done: tools sign-in extension -->
-
-Paste the block for your shell. It installs or upgrades the `aigateway` extension, then sets the names. A random
-suffix keeps the gateway and Foundry account names globally unique.
+Paste the block for your shell. It sets the names, and a random suffix keeps the gateway and Foundry account names
+globally unique.
 
 ```bash title="Bash"
-# Install or upgrade the aigateway extension of the Azure CLI
-curl -fsSL https://aka.ms/aigateway-cli-install | sh &&
-  echo "🧩 aigateway extension $(az extension show --name aigateway --query version --output tsv) is installed"
-
 # Name the resources: the random suffix keeps the gateway and Foundry account names globally unique
 export RG="rg-aigw-quickstart"
 export LOCATION="eastus2"                     # or another region from Find the available regions
@@ -258,10 +252,6 @@ echo "🆔 Subscription: $SUBSCRIPTION_ID"
 ```
 
 ```powershell title="PowerShell"
-# Install or upgrade the aigateway extension of the Azure CLI
-irm https://aka.ms/aigateway-cli-install-ps | iex
-if ($?) { Write-Host "🧩 aigateway extension $(az extension show --name aigateway --query version --output tsv) is installed" }
-
 # Name the resources: the random suffix keeps the gateway and Foundry account names globally unique
 $RG         = "rg-aigw-quickstart"
 $LOCATION   = "eastus2"                       # or another region from Find the available regions
@@ -280,17 +270,11 @@ Write-Host "🆔 Subscription: $SUBSCRIPTION_ID"
 
 ### Start creating the gateway
 
-<!-- setup-done: providers -->
-
-Register the resource providers, which is a one-time step for each subscription, create a resource group, and start
-creating the gateway. With `--no-wait`, Azure keeps provisioning the gateway in the background, so you can move on
-right away. The portal and the Bicep template also create a companion connector gateway for connector-based MCP
-tools. The quick start doesn't use connectors, so this track skips it.
+Create a resource group, and start creating the gateway. With `--no-wait`, Azure keeps provisioning the gateway in the
+background, so you can move on right away. The portal and the Bicep template also create a companion connector gateway
+for connector-based MCP tools. The quick start doesn't use connectors, so this track skips it.
 
 ```bash title="Bash"
-# Register the resource providers for AI Gateway and Foundry (once per subscription)
-for ns in Microsoft.ApiManagement Microsoft.CognitiveServices; do az provider register --namespace "$ns" --wait && echo "🧩 $ns is registered"; done
-
 # Create the resource group that holds the gateway and the Foundry account
 az group create --name "$RG" --location "$LOCATION" --output none &&
   echo "📦 Resource group $RG is ready in $LOCATION"
@@ -301,9 +285,6 @@ az aigateway create --resource-group "$RG" --name "$GATEWAY" --location "$LOCATI
 ```
 
 ```powershell title="PowerShell"
-# Register the resource providers for AI Gateway and Foundry (once per subscription)
-foreach ($ns in "Microsoft.ApiManagement", "Microsoft.CognitiveServices") { az provider register --namespace $ns --wait; if ($?) { Write-Host "🧩 $ns is registered" } }
-
 # Create the resource group that holds the gateway and the Foundry account
 az group create --name $RG --location $LOCATION --output none
 if ($?) { Write-Host "📦 Resource group $RG is ready in $LOCATION" }
@@ -532,51 +513,28 @@ If Cloud Shell timed out, set `RG`, `FOUNDRY`, and `LOCATION` again with the nam
 
 <!-- track: iac | Bicep + azd -->
 
-**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell. It's already signed in and has
-the Azure Developer CLI (`azd`), the Azure CLI, Git, `curl`, and `jq`. Locally,
-[install azd](https://aka.ms/azd-install), the Azure CLI, and Git, and sign in with `azd auth login` and `az login`.
-The template creates the Foundry deployment for you, and the track installs the `aigateway` CLI extension.
+**What you need:** only the one-time setup from **Before you begin**. The template creates the Foundry deployment for
+you.
 
-### Clone the template
-
-<!-- setup-done: tools sign-in clone -->
+### Review the template
 
 The template is a small azd project in the
-[`labs/quickstart`](https://github.com/Azure/ai-gateway/tree/main/labs/quickstart) folder of the GitHub repo: an
-`azure.yaml` and a Bicep file for each scope. Clone the repo, then move into that folder. The clone also gets the
-other labs, which you can use next.
-
-```bash title="Bash"
-# Clone the labs repo, which has the quick start's azd template and the other labs
-git clone https://github.com/Azure/ai-gateway.git &&
-  echo "📂 The labs are in $(pwd)/ai-gateway"
-
-# Move into the quick start's template
-cd ai-gateway/labs/quickstart &&
-  echo "📂 Template folder: $(pwd)"
-```
-
-```powershell title="PowerShell"
-# Clone the labs repo, which has the quick start's azd template and the other labs
-git clone https://github.com/Azure/ai-gateway.git
-if ($?) { Write-Host "📂 The labs are in $(Join-Path (Get-Location) ai-gateway)" }
-
-# Move into the quick start's template
-Set-Location ai-gateway/labs/quickstart
-if ($?) { Write-Host "📂 Template folder: $(Get-Location)" }
-```
-
-`infra/main.bicep` creates the resource group `rg-<environment name>` and passes unique names to
-`infra/resources.bicep`, which creates the building blocks in the same order as the other tracks:
+[`labs/quickstart`](https://github.com/Azure/ai-gateway/tree/main/labs/quickstart) folder of the repo: an `azure.yaml`
+and a Bicep file for each scope. `infra/main.bicep` creates the resource group `rg-<environment name>` and passes
+unique names to `infra/resources.bicep`, which creates the building blocks in the same order as the other tracks:
 
 <!-- include: infra/resources.bicep -->
 
 ### Deploy with azd up
 
-Create an azd environment named `aigw-quickstart` in your current subscription, so that azd doesn't prompt you. Then
-provision everything with one command. It takes about three minutes.
+Move into the quick start's folder, create an azd environment named `aigw-quickstart` in your current subscription,
+so that azd doesn't prompt you, then provision everything with one command. It takes about three minutes.
 
 ```bash title="Bash"
+# Move into the quick start's folder, which holds the azd project
+cd ~/ai-gateway/labs/quickstart &&
+  echo "📂 Template folder: $(pwd)"
+
 # Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-quickstart --location eastus2 --subscription "$(az account show --query id --output tsv)" &&
   echo "📝 azd environment aigw-quickstart deploys to eastus2"
@@ -587,6 +545,10 @@ azd up &&
 ```
 
 ```powershell title="PowerShell"
+# Move into the quick start's folder, which holds the azd project
+Set-Location ~/ai-gateway/labs/quickstart
+if ($?) { Write-Host "📂 Template folder: $(Get-Location)" }
+
 # Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-quickstart --location eastus2 --subscription (az account show --query id --output tsv)
 if ($?) { Write-Host "📝 azd environment aigw-quickstart deploys to eastus2" }
@@ -602,18 +564,11 @@ output, so it never lands in a file or a deployment log.
 
 ### Read the URL, the alias, and the key
 
-<!-- setup-done: extension -->
-
-Install the `aigateway` CLI extension, read the outputs, and read the key from the gateway into an environment
-variable, so that it never shows on screen.
+Read the outputs, and read the key from the gateway into an environment variable, so that it never shows on screen.
 Azure RBAC is the keyless alternative to the key: grant the app the **AI Gateway Models User** role, and it sends a
 Microsoft Entra ID token instead, as [Go keyless with Microsoft Entra ID and RBAC](../11-entra-rbac/README.md) shows.
 
 ```bash title="Bash"
-# Install or upgrade the aigateway extension of the Azure CLI, which reads the key
-curl -fsSL https://aka.ms/aigateway-cli-install | sh &&
-  echo "🧩 aigateway extension $(az extension show --name aigateway --query version --output tsv) is installed"
-
 # Read the template's outputs: the gateway's runtime URL and the alias
 export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
 export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
@@ -627,10 +582,6 @@ echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not sh
 ```
 
 ```powershell title="PowerShell"
-# Install or upgrade the aigateway extension of the Azure CLI, which reads the key
-irm https://aka.ms/aigateway-cli-install-ps | iex
-if ($?) { Write-Host "🧩 aigateway extension $(az extension show --name aigateway --query version --output tsv) is installed" }
-
 # Read the template's outputs: the gateway's runtime URL, the alias, and the gateway's resource ID
 $env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
 $env:AI_GATEWAY_MODEL   = azd env get-value AI_GATEWAY_MODEL

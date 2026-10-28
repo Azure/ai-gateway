@@ -85,15 +85,14 @@ and permissions, choosing between Cloud Shell and a local shell, signing in, ins
 registering the resource providers, finding the available regions, cloning the labs repo, and deploying and
 deleting a lab with azd. Each lab page links to it from the right rail, between <strong>Your values</strong> and
 <strong>Open the portal</strong>, and the labs link to its sections instead of repeating the steps, so they&#39;re shorter. Labs
-that run scripts or samples from <code>infra/</code> now say to clone the repo first. The
-<a href="../labs/quickstart/">quick start</a> keeps its steps inline, so it stays paste-ready in Cloud Shell.</li>
+that run scripts or samples from <code>infra/</code> now say to clone the repo first.</li>
 <li><strong>October 28.</strong> On the site, the <a href="../setup/">Setup guide</a> now opens in a panel next to the lab, like
 <strong>Your values</strong>, from the right rail, the lab&#39;s header, or any link to one of its tasks. Mark a task <strong>Done</strong> in
 the panel or on the guide&#39;s page, and the labs stop listing it. Each lab&#39;s <strong>Before you begin</strong> starts with a
 <strong>One-time setup</strong> card that lists only the tasks it needs and that you haven&#39;t done yet, so the labs no longer
 repeat tool lists, sign-in, or a <strong>Clone the lab</strong> step: the <strong>Bicep + azd</strong> tracks start by moving into the lab&#39;s
-folder. Checking a <a href="../labs/quickstart/">quick start</a> step that installs the extension, registers the providers,
-or clones the repo marks those tasks done too.</li>
+folder. The <a href="../labs/quickstart/">quick start</a> uses the card too, so its tracks no longer install the extension,
+register the providers, or clone the repo, and every later lab reuses that setup.</li>
 <li><strong>October 28.</strong> A new <a href="../troubleshooting/">Troubleshooting</a> page collects the errors from every lab, with their
 likely causes and fixes, in one section per lab, plus
 <a href="../troubleshooting/#setup-and-deployment">Setup and deployment</a>.
@@ -145,7 +144,7 @@ key value with <code>az aigateway api-key regenerate --key-type secondary</code>
 <a href="../labs/02-first-model-call/#register-the-deployment">Lab 02</a> also shows the one-step
 <code>az aigateway model create --foundry-resource-id</code>. The labs keep <code>az rest</code> for gateway policies, cost limits,
 telemetry exporters, MCP versions, API key state, and the connector gateway.</li>
-<li><strong>October 27.</strong> The <a href="../labs/quickstart/#clone-the-template">quick start</a>&#39;s Bicep + azd track now gets its
+<li><strong>October 27.</strong> The <a href="../labs/quickstart/#review-the-template">quick start</a>&#39;s Bicep + azd track now gets its
 template by cloning the repo and moving into <code>labs/quickstart</code>, instead of downloading each file. The clone also
 gets the other labs, and the track no longer lists the template&#39;s files.</li>
 <li><strong>October 26.</strong> The Bicep templates now follow the AI Gateway <a href="https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway/blob/main/infra/ai-gateway/main.bicep" target="_blank" rel="noopener">reference sample<span class="ext" aria-hidden="true">↗</span></a>: they
