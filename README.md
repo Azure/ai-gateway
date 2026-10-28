@@ -56,19 +56,19 @@ directly from Git — no manual file downloads. Pick the tab for your agent:
 **Claude Code / GitHub Copilot CLI** (plugin marketplace protocol):
 
 ```
-/plugin marketplace add Azure/ai-gateway
-/plugin install ai-gateway@azure
+/plugin marketplace add Azure/aigateway
+/plugin install aigateway@azure
 ```
 
 **Cursor** — add this repository as a team marketplace from **Dashboard → Plugins →
-Add Marketplace → Import from Repo** (`https://github.com/Azure/ai-gateway`), then
+Add Marketplace → Import from Repo** (`https://github.com/Azure/aigateway`), then
 install **ai-gateway** from **Customize**. For local testing, symlink the repo into
 `~/.cursor/plugins/local/ai-gateway` and reload the window.
 
 **Gemini CLI**:
 
 ```
-gemini extensions install https://github.com/Azure/ai-gateway
+gemini extensions install https://github.com/Azure/aigateway
 ```
 
 ### Usage

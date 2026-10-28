@@ -56,7 +56,7 @@ and `apiVersion: 2025-09-01-preview`. Neither command needs an Azure login.
 ### Release and installer maintenance
 
 The installers pin the public GitHub Release asset
-[`aigateway-1.0.0b15-py3-none-any.whl`](https://github.com/Azure/ai-gateway/releases/download/cli-v1.0.0b15/aigateway-1.0.0b15-py3-none-any.whl)
+[`aigateway-1.0.0b15-py3-none-any.whl`](https://github.com/Azure/aigateway/releases/download/cli-v1.0.0b15/aigateway-1.0.0b15-py3-none-any.whl)
 and SHA-256
 `8d059b7c5e006631ba843f3c4f6e41840d89c71312b13217796da16125a04a6d`.
 Customers do not need access to the build system.
