@@ -22,11 +22,11 @@ CLI = Path(__file__).resolve().parents[1]
 VERSION = "1.0.0b15"
 SHA256 = "8d059b7c5e006631ba843f3c4f6e41840d89c71312b13217796da16125a04a6d"
 URL = (
-    "https://github.com/Azure/ai-gateway/releases/download/"
+    "https://github.com/Azure/aigateway/releases/download/"
     f"cli-v{VERSION}/aigateway-{VERSION}-py3-none-any.whl"
 )
 OLD_URL = (
-    "https://github.com/Azure/ai-gateway/releases/download/"
+    "https://github.com/Azure/aigateway/releases/download/"
     "cli-v1.0.0b6/aigateway-1.0.0b6-py3-none-any.whl"
 )
 OLD_SHA256 = "77a604d0f301f330602f430f22130b99af904dc627f44d3d035bf61c6354fe76"
