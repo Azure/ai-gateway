@@ -124,6 +124,7 @@ function loadTs() {
       });
       $$('img[src], source[src]', box).forEach((el) => { el.src = new URL(el.getAttribute('src'), TS_URL).href; });
       applyValues(box);
+      watchScrollRegions(box);
       return {
         row,
         // The section's title and lab link match every row, so "token limits" shows all of lab 06.

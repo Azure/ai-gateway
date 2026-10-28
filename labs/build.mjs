@@ -220,7 +220,8 @@ function makeCtx(lab, site, knownSlugs, { labsPrefix = '../' } = {}) {
       const abs = path.resolve(lab.dir, href);
       if (!abs.startsWith(path.join(LABS, 'assets', 'diagrams') + path.sep) || !fs.existsSync(abs)) return null;
       const svg = fs.readFileSync(abs, 'utf8').replace(/<\?xml[^>]*>\s*/, '').replace(/<!--[\s\S]*?-->/g, '');
-      return prefixSvgIds(svg);
+      // The wrapping <figure role="img" aria-label> names the diagram, so the inner SVG is presentational.
+      return prefixSvgIds(svg).replace(/<svg\b([^>]*)>/, (m, attrs) => `<svg${attrs.replace(/\s(role|aria-labelledby|aria-label)="[^"]*"/g, '')} aria-hidden="true" focusable="false">`);
     },
     resolveLink(href) {
       if (/^(https?:|mailto:)/.test(href)) return { url: href, external: !href.startsWith(BASE_URL) };
@@ -489,8 +490,8 @@ function addStepTroubleshooting(lab, html) {
     const label = [step.label, step.title].filter(Boolean).join(' › ');
     const errors = `${n} known error${n === 1 ? '' : 's'}`;
     return `<section class="step" data-step="${id}">${between}<div class="step-btns">`
-      + `<button class="step-ts" type="button" data-ts-step="${id}" data-ts-label="${escapeHtml(label)}" title="Troubleshoot this step: ${errors}, with their fixes" aria-label="Troubleshoot this step: ${errors}">`
-      + `${TS_ICON}<span>Troubleshoot</span><b aria-hidden="true">${n}</b></button>`;
+      + `<button class="step-ts" type="button" data-ts-step="${id}" data-ts-label="${escapeHtml(label)}" title="Troubleshoot this step: ${errors}, with their fixes">`
+      + `${TS_ICON}<span>Troubleshoot</span> <b>${n}</b><span class="sr-only"> known error${n === 1 ? '' : 's'} in this step</span></button>`;
   });
 }
 const TS_ICON = '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><circle cx="10" cy="10" r="3"/><path d="m4.7 4.7 3.2 3.2M12.1 12.1l3.2 3.2M15.3 4.7l-3.2 3.2M7.9 12.1l-3.2 3.2"/></svg>';

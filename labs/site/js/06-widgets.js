@@ -242,6 +242,7 @@ WIDGETS['tool-patterns'] = (el, cfg) => {
     $('[data-r="list"]', el).textContent = s.mode === 'server'
       ? 'HTTP 403\n// The MCP server is blocked.\n// No tools are reachable.'
       : `{\n  "tools": [${vis.map((r) => `\n    { "name": "${r.t}" }`).join(',')}${vis.length ? '\n  ' : ''}]\n}`;
+    syncScroller($('[data-r="list"]', el));
     $$('[data-k]', el).forEach((i) => { i.disabled = s.mode === 'server' || (i.dataset.k === 'allow' && s.mode === 'all'); });
   }
   wdBindSeg(el, (seg, v) => { s.mode = v[0]; evalAll(); });
@@ -293,13 +294,13 @@ WIDGETS['stream-usage'] = (el, cfg) => {
   const fmt = (n) => n.toLocaleString('en-US');
   const controls = wdGroup('Client sets <code>stream_options.include_usage</code>', wdSeg('usage', [['off', 'Not set'], ['on', 'true']], 'off'));
   const body = `<div class="wd-body"><div class="wd-pane"><p class="wd-pane-title"><span>Client receives</span><span class="ws-status" data-r="status"></span></p>
-    <code class="ws-req" data-r="req"></code><pre class="ws-sse" data-r="sse" tabindex="0" aria-label="Server-sent events the client receives"></pre>
+    <code class="ws-req" data-r="req"></code><pre class="ws-sse" data-r="sse" tabindex="0" role="region" aria-label="Server-sent events the client receives"></pre>
     <div class="ws-reply"><span class="ws-label">Reply so far</span><p data-r="reply"></p></div><p class="ws-usage" data-r="usage" aria-live="polite"></p></div>
     <div class="wd-pane"><p class="wd-pane-title"><span>Gateway counts</span><button class="link-btn" type="button" data-burst>Send until throttled</button></p>
     <div class="ws-limit"><div class="ws-limit-head"><code>${escHtml(alias)}</code><span>Token limit: ${fmt(LIMIT)} per minute</span></div>
     <div class="wd-meter"><span class="wd-meter-bar"><span></span></span><b data-r="used"></b></div>
     <div class="wd-window"><span>Window</span><span class="wd-window-bar"><span></span></span><b data-r="left"></b></div></div>
-    <div class="wd-log" aria-live="polite"></div></div></div>`;
+    <div class="wd-log" role="log" aria-label="Responses" tabindex="0"></div></div></div>`;
   const foot = `<span>${IC.info}Simulated: one minute runs in ${WIN} seconds. Token counts are illustrative.</span><span class="ws-actions"><button class="btn btn-ghost btn-sm" type="button" data-reset>${IC.reset}Reset</button><button class="btn btn-primary btn-sm" type="button" data-send>${IC.play}Send a streaming request</button></span>`;
   el.innerHTML = wdShell({ icon: 'stream', title: 'Stream a reply and watch the gateway count it', desc: 'The client sees chunks as they arrive, and a usage chunk only when it asks for one. The gateway counts every stream either way, and a full token limit returns a JSON 429 before any stream starts.', controls, body, foot });
   const r = (k) => $(`[data-r="${k}"]`, el);

@@ -195,6 +195,7 @@ function loadSetupSections() {
       $$('img[src], source[src]', box).forEach((el) => { el.src = new URL(el.getAttribute('src'), SETUP_URL).href; });
       applyValues(box);
       bindCodeTabs(box);
+      watchScrollRegions(box);
     });
   }).catch(() => {
     setupLoad = null;

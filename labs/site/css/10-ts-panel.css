@@ -62,7 +62,7 @@
   border: 1px solid var(--warning-stroke); background: var(--warning-bg); color: var(--fg); font-size: 13px; font-weight: 600;
 }
 .ts-step-kicker {
-  flex: none; padding: 0 8px; border-radius: 999px; background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--warning);
+  flex: none; padding: 0 8px; border-radius: 999px; background: color-mix(in srgb, var(--warning) 12%, transparent); color: color-mix(in srgb, var(--warning) 80%, var(--fg));
   font-size: 10.5px; font-weight: 700; letter-spacing: .06em; line-height: 20px; text-transform: uppercase;
 }
 .ts-step-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

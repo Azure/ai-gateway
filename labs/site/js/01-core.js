@@ -5,7 +5,7 @@ const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
 const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
-const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.dataset.motion === 'off';
 
 const SV = (d) => `<svg class="i" viewBox="0 0 20 20" aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -71,18 +71,88 @@ function labRatio(slug) {
 // Theme
 function initTheme() {
   const root = document.documentElement;
+  const sync = () => $$('[data-theme-toggle]').forEach((b) => b.setAttribute('aria-pressed', root.dataset.theme === 'dark'));
   $$('[data-theme-toggle]').forEach((b) => b.addEventListener('click', () => {
     const t = root.dataset.theme === 'dark' ? 'light' : 'dark';
     root.dataset.theme = t;
     try { localStorage.setItem('aigw-theme', t); } catch { /* ignore */ }
+    sync();
     document.dispatchEvent(new CustomEvent('aigw:theme', { detail: t }));
   }));
+  sync();
   $$('[data-kbd]').forEach((k) => { k.textContent = isMac ? '⌘K' : 'Ctrl K'; });
+  initMotion();
+}
+
+// Pause animations: the looping diagrams, the hero, and the widgets stop (WCAG 2.2.2). The head script applies the
+// saved choice before first paint and defaults to paused when the OS asks for reduced motion.
+function initMotion() {
+  const root = document.documentElement;
+  const sync = () => $$('[data-motion-toggle]').forEach((b) => {
+    const off = root.dataset.motion === 'off';
+    b.setAttribute('aria-pressed', off);
+    b.title = off ? 'Animations paused. Select to play them' : 'Pause animations';
+  });
+  $$('[data-motion-toggle]').forEach((b) => b.addEventListener('click', () => {
+    root.dataset.motion = root.dataset.motion === 'off' ? 'on' : 'off';
+    store.set('motion', root.dataset.motion);
+    reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches || root.dataset.motion === 'off';
+    sync();
+    document.dispatchEvent(new CustomEvent('aigw:motion'));
+    toast(root.dataset.motion === 'off' ? 'Animations paused' : 'Animations playing');
+  }));
+  sync();
 }
 
 // Toast
 let toastEl, toastTimer;
 // action: { label, run }, a button such as Undo. The toast then stays longer and takes clicks.
+// Scroll containers with nothing focusable inside get a tab stop and a name while they overflow,
+// so keyboard users can scroll them (WCAG 2.1.1). Panels call this again after they inject content.
+const SCROLLERS = 'pre, .table-wrap, .figure-svg, .wd-pipe';
+const FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]:not([data-scroll-stop])';
+let scrollRO;
+function scrollLabel(el) {
+  if (el.matches('pre')) {
+    const t = (el.closest('.code')?.querySelector('.code-tab[aria-selected="true"], .code-title')
+      || el.closest('.wd-pane')?.querySelector('.wd-pane-title'))?.textContent.trim();
+    return t ? `Code: ${t}` : 'Code';
+  }
+  if (el.matches('.table-wrap')) {
+    const head = [...el.querySelectorAll('th')].slice(0, 3).map((th) => th.textContent.trim()).filter(Boolean).join(', ');
+    return head ? `Table: ${head}` : 'Table';
+  }
+  return 'Scrollable content';
+}
+function syncScroller(el) {
+  const cs = getComputedStyle(el);
+  const scrolls = (/(auto|scroll)/.test(cs.overflowX) && el.scrollWidth > el.clientWidth + 1)
+    || (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1);
+  const need = scrolls && !el.querySelector(FOCUSABLE);
+  if (need && !el.hasAttribute('data-scroll-stop')) {
+    if (el.hasAttribute('tabindex')) return;
+    el.setAttribute('data-scroll-stop', '');
+    el.tabIndex = 0;
+    // A diagram figure already has role="img" and a name.
+    if (!el.hasAttribute('role')) { el.setAttribute('role', 'region'); el.setAttribute('aria-label', scrollLabel(el)); el.dataset.scrollRole = ''; }
+  } else if (!need && el.hasAttribute('data-scroll-stop')) {
+    el.removeAttribute('data-scroll-stop'); el.removeAttribute('tabindex');
+    if ('scrollRole' in el.dataset) { el.removeAttribute('role'); el.removeAttribute('aria-label'); delete el.dataset.scrollRole; }
+  }
+}
+function watchScrollRegions(root = document) {
+  if (!('ResizeObserver' in window)) return;
+  scrollRO = scrollRO || new ResizeObserver((ents) => ents.forEach((e) => syncScroller(e.target)));
+  $$(SCROLLERS, root).filter((el) => !el.matches('pre.mermaid')).forEach((el) => scrollRO.observe(el));
+}
+
+// Screen-reader-only status messages (WCAG 4.1.3) for feedback that is shown in place, like a copy button's label.
+let announcer;
+function announce(msg) {
+  if (!announcer) { announcer = h('<div class="sr-only" role="status" aria-live="polite"></div>'); document.body.append(announcer); }
+  announcer.textContent = '';
+  setTimeout(() => { announcer.textContent = msg; }, 50);
+}
 function toast(msg, icon = IC.check, action) {
   if (!toastEl) { toastEl = h('<div class="toast" role="status" aria-live="polite"></div>'); document.body.append(toastEl); }
   toastEl.innerHTML = `${icon}<span>${escHtml(msg)}</span>`;
@@ -189,6 +259,7 @@ function initCopy() {
     const label = $('span', btn);
     btn.classList.add('copied');
     if (label) label.textContent = ok ? 'Copied' : 'Failed';
+    announce(ok ? 'Copied to clipboard' : 'Copy failed');
     setTimeout(() => { btn.classList.remove('copied'); if (label) label.textContent = 'Copy'; }, 1600);
   });
   $$('[data-copy-md]').forEach((b) => b.addEventListener('click', async () => {

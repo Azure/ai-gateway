@@ -78,6 +78,9 @@ h2:hover > .anchor, h3:hover > .anchor, h4:hover > .anchor, .anchor:focus { opac
 .video-holder { border-radius: var(--radius-l); border: 1px solid var(--stroke); background: var(--bg-elev); }
 @media (hover: none) { .video-expand { opacity: 1; } }
 .figure-video { scroll-margin-top: calc(var(--topbar-h) + 24px); }
+.prose .transcript { margin: 12px 0 0; text-align: left; }
+.prose .transcript > p { font-size: 14.5px; color: var(--fg-2); }
+.prose .transcript-dl { font-size: 13.5px; }
 .figure figcaption { margin-top: 10px; font-size: 13.5px; color: var(--fg-3); text-align: center; line-height: 1.5; }
 .zoom { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: var(--radius-l); }
 .zoom:hover img { box-shadow: var(--shadow-l); }
@@ -101,7 +104,7 @@ h2:hover > .anchor, h3:hover > .anchor, h4:hover > .anchor, .anchor:focus { opac
   position: relative; z-index: 1; width: 32px; height: 32px; margin-top: 2px; display: grid; place-items: center; border-radius: 50%;
   background: var(--bg-elev); border: 1.5px solid var(--stroke-strong); color: var(--fg-2); font: 650 13.5px var(--font); transition: background .25s, border-color .25s, color .25s;
 }
-.step.done .step-num { background: var(--success); border-color: var(--success); color: transparent; }
+.step.done .step-num { background: var(--success-solid); border-color: var(--success-solid); color: transparent; }
 .step.done .step-num::after {
   content: ""; position: absolute; inset: 0; background: #fff;
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 10.3 2.7 2.7 5.3-5.6'/%3E%3C/svg%3E") center/18px no-repeat;
@@ -136,7 +139,7 @@ h2:hover > .anchor, h3:hover > .anchor, h4:hover > .anchor, .anchor:focus { opac
 }
 .track-tab svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .track-tab:hover { color: var(--fg); }
-.track-tab[aria-selected="true"] { background: var(--bg-elev); color: var(--brand-fg); box-shadow: var(--shadow-s); }
+.track-tab[aria-selected="true"] { background: var(--bg-elev); color: var(--brand-fg); box-shadow: var(--shadow-s), inset 0 0 0 1px var(--brand); }
 .track-panel[hidden] { display: none; }
 .track-panel { animation: fade .2s ease-out; }
 

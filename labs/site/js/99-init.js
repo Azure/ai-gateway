@@ -20,6 +20,7 @@ function boot() {
   run('hero', initHero);
   run('diagrams', initDiagrams);
   run('widgets', () => renderWidgets(document));
+  run('scrollRegions', () => watchScrollRegions(document));
   run('labLinks', updateLabLinks);
   run('mermaid', () => { initMermaid(); });
   addEventListener('storage', (e) => {

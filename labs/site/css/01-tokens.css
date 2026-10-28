@@ -8,14 +8,16 @@
   --ease: cubic-bezier(.2, .8, .2, 1);
   --grad: linear-gradient(90deg, #0faeff 0%, #7e5be8 55%, #bb45ea 100%);
   --grad-soft: linear-gradient(135deg, rgba(59, 213, 255, .14), rgba(126, 91, 232, .14) 55%, rgba(187, 69, 234, .12));
+  /* Fill behind white text: every stop keeps 4.5:1 or more with white. */
+  --grad-solid: linear-gradient(90deg, #0b6ec2 0%, #6a3fd6 55%, #9b2bc7 100%);
 
   --bg: #ffffff; --bg-2: #fafafa; --bg-3: #f5f5f5; --bg-4: #ebebeb; --bg-elev: #ffffff; --bg-glass: rgba(255, 255, 255, .82);
-  --fg: #242424; --fg-2: #424242; --fg-3: #616161; --fg-4: #8a8a8a;
+  --fg: #242424; --fg-2: #424242; --fg-3: #616161; --fg-4: #696969;
   --stroke: #e0e0e0; --stroke-2: #ebebeb; --stroke-strong: #d1d1d1;
   --brand: #0f6cbd; --brand-hover: #115ea3; --brand-press: #0f548c; --brand-fg: #0f6cbd; --brand-bg: #ebf3fc; --brand-bg-2: #cfe4fa;
-  --on-brand: #ffffff;
+  --on-brand: #ffffff; --brand-solid: #0f6cbd; --brand-solid-hover: #115ea3;
   --violet: #7e5be8; --violet-fg: #5637c9; --violet-bg: #f4f0ff;
-  --success: #107c10; --success-bg: #f1faf1; --success-stroke: #9fd89f;
+  --success: #107c10; --success-solid: #107c10; --success-bg: #f1faf1; --success-stroke: #9fd89f;
   --warning: #bc4b09; --warning-bg: #fff9f5; --warning-stroke: #fdcfb4;
   --danger: #c50f1f; --danger-bg: #fdf3f4; --danger-stroke: #eeacb2;
   --important: #5637c9; --important-bg: #f6f3ff; --important-stroke: #cdbff7;
@@ -25,7 +27,7 @@
   --shadow-l: 0 16px 40px rgba(17, 24, 39, .14), 0 0 2px rgba(0, 0, 0, .1);
   --focus: 0 0 0 2px var(--bg), 0 0 0 4px var(--brand);
 
-  --cat-violet: #7e5be8; --cat-azure: #0f6cbd; --cat-cyan: #0a88b5; --cat-magenta: #c2147c;
+  --cat-violet: #7e5be8; --cat-azure: #0f6cbd; --cat-cyan: #07789f; --cat-magenta: #c2147c;
   --cat-green: #107c10; --cat-amber: #b35c00; --cat-slate: #546478;
 
   --dg-bg: #ffffff; --dg-surface: #ffffff; --dg-surface-2: #f7f7f9; --dg-stroke: #d6d6dc; --dg-text: #242424; --dg-muted: #616161;
@@ -38,11 +40,12 @@
 
 [data-theme="dark"] {
   --bg: #151518; --bg-2: #1a1a1e; --bg-3: #212126; --bg-4: #2a2a30; --bg-elev: #1f1f24; --bg-glass: rgba(21, 21, 24, .8);
-  --fg: #f3f3f5; --fg-2: #d4d4d9; --fg-3: #a9a9b2; --fg-4: #84848d;
+  --fg: #f3f3f5; --fg-2: #d4d4d9; --fg-3: #a9a9b2; --fg-4: #94949d;
   --stroke: #2e2e35; --stroke-2: #26262c; --stroke-strong: #3b3b44;
   --brand: #2f8be0; --brand-hover: #479ef5; --brand-press: #62abf5; --brand-fg: #62abf5; --brand-bg: rgba(71, 158, 245, .12); --brand-bg-2: rgba(71, 158, 245, .24);
+  --brand-solid: #115ea3; --brand-solid-hover: #0f6cbd;
   --violet: #a58bff; --violet-fg: #b9a5ff; --violet-bg: rgba(142, 91, 255, .14);
-  --success: #54b054; --success-bg: rgba(84, 176, 84, .1); --success-stroke: rgba(84, 176, 84, .4);
+  --success: #54b054; --success-solid: #107c10; --success-bg: rgba(84, 176, 84, .1); --success-stroke: rgba(84, 176, 84, .4);
   --warning: #f2a35e; --warning-bg: rgba(242, 163, 94, .09); --warning-stroke: rgba(242, 163, 94, .38);
   --danger: #f1707b; --danger-bg: rgba(241, 112, 123, .09); --danger-stroke: rgba(241, 112, 123, .4);
   --important: #b9a5ff; --important-bg: rgba(142, 91, 255, .1); --important-stroke: rgba(165, 139, 255, .4);
@@ -94,7 +97,7 @@ kbd {
 .sr-num .i { width: 16px; height: 16px; }
 .muted { color: var(--fg-3); }
 .container { width: min(1240px, 100% - 48px); margin-inline: auto; }
-.skip-link { position: absolute; left: 12px; top: -48px; z-index: 100; padding: 8px 14px; background: var(--brand); color: var(--on-brand); border-radius: var(--radius); }
+.skip-link { position: absolute; left: 12px; top: -48px; z-index: 100; padding: 8px 14px; background: var(--brand-solid); color: var(--on-brand); border-radius: var(--radius); }
 .skip-link:focus { top: 8px; }
 .eyebrow { margin: 0 0 10px; font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--brand-fg); }
 .grad-text { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
@@ -110,8 +113,8 @@ kbd {
 }
 .btn .i { width: 18px; height: 18px; }
 .btn:active { transform: translateY(1px); }
-.btn-primary { background: var(--brand); color: var(--on-brand); }
-.btn-primary:hover { background: var(--brand-hover); color: var(--on-brand); }
+.btn-primary { background: var(--brand-solid); color: var(--on-brand); }
+.btn-primary:hover { background: var(--brand-solid-hover); color: var(--on-brand); }
 .btn-secondary { background: var(--bg-elev); color: var(--fg); border-color: var(--stroke-strong); }
 .btn-secondary:hover { background: var(--bg-3); border-color: var(--fg-4); }
 .btn-ghost { background: transparent; color: var(--fg-2); }

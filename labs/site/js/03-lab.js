@@ -86,6 +86,7 @@ function initCodeTabs() {
     if (!b) return;
     const block = b.closest('.code');
     const open = block.classList.toggle('expanded');
+    b.setAttribute('aria-expanded', open);
     $('span', b).textContent = open ? 'Show less' : b.dataset.label || 'Show all';
     if (!open) block.scrollIntoView({ block: 'nearest' });
   });
@@ -239,7 +240,10 @@ function initLightbox() {
       document.body.append(box);
       const close = () => { box.hidden = true; document.body.style.overflow = ''; box.lastFocus?.focus?.(); };
       box.addEventListener('click', close);
-      box.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' || ev.key === 'Tab') { ev.preventDefault(); close(); } });
+      // The Close button is the only control, so Tab keeps focus on it.
+      box.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape') { ev.preventDefault(); close(); } else if (ev.key === 'Tab') { ev.preventDefault(); $('.lightbox-close', box).focus(); }
+      });
     }
     $('img', box).src = img.currentSrc || img.src;
     $('img', box).alt = img.alt;
@@ -325,15 +329,23 @@ function initNav() {
   const toggle = $('.nav-toggle');
   if (!toggle) return;
   const scrim = $('.sidebar-scrim');
+  // While the drawer is open, the page behind it is inert so focus stays in the topbar and the drawer (WCAG 2.4.3, 2.4.11).
+  const behind = () => $$('body > .skip-link, #main, .lab-layout > .toc, body > .footer');
   const set = (open) => {
     document.body.classList.toggle('nav-open', open);
     toggle.setAttribute('aria-expanded', open);
+    toggle.setAttribute('aria-label', open ? 'Close lab navigation' : 'Open lab navigation');
     if (scrim) scrim.hidden = !open;
-    if (open) centerSidebar();
+    behind().forEach((el) => { el.inert = open; });
+    if (open) {
+      centerSidebar();
+      setTimeout(() => ($('.sidebar-inner a[aria-current]') || $('.sidebar-inner a'))?.focus({ preventScroll: true }), 30);
+    }
   };
   toggle.addEventListener('click', () => set(!document.body.classList.contains('nav-open')));
   $$('[data-nav-close]').forEach((x) => x.addEventListener('click', () => set(false)));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.body.classList.contains('nav-open')) { set(false); toggle.focus(); } });
+  matchMedia('(min-width: 901px)').addEventListener('change', (e) => { if (e.matches && document.body.classList.contains('nav-open')) set(false); });
 }
 function centerSidebar() {
   const inner = $('.sidebar-inner'); const cur = $('.sidebar-inner a[aria-current]');

@@ -49,6 +49,11 @@ const phToken = (k) => `AIGWPH${k.replace(/-/g, 'X')}AIGWEND`;
 const PH_TOKEN_RE = /AIGWPH([A-Za-z]+)AIGWEND/g;
 
 let highlighter;
+// Theme colors under 4.5:1 on the code background, replaced with the nearest passing shade (WCAG 1.4.3).
+const CODE_COLORS = {
+  'github-light': { '#6a737d': '#636c76', '#d73a49': '#c62a39', '#e36209': '#b85000', '#22863a': '#1a7f37' },
+  'github-dark-dimmed': { '#768390': '#8b98a5' },
+};
 export async function initHighlighter() {
   highlighter = await createHighlighter({ themes: ['github-light', 'github-dark-dimmed'], langs: LANGS });
 }
@@ -77,7 +82,7 @@ function parseInfo(info = '') {
 export function highlight(code, lang) {
   const tokenised = code.replace(PH_RE, (_, k) => phToken(k));
   let html = highlighter.codeToHtml(tokenised, {
-    lang, themes: { light: 'github-light', dark: 'github-dark-dimmed' }, defaultColor: false,
+    lang, themes: { light: 'github-light', dark: 'github-dark-dimmed' }, defaultColor: false, colorReplacements: CODE_COLORS,
   });
   html = html.replace(PH_TOKEN_RE, (_, k) => {
     const key = k.replace(/X/g, '-');
@@ -114,6 +119,25 @@ function setupCheck(list, ctx) {
     + `<p class="setup-check-done" hidden>${ICONS.checkpoint}<span>You've done the one-time setup that this lab uses.</span><button class="link-btn" type="button" data-setup-open>Review</button></p></div>`;
 }
 
+// A WebVTT file as a readable transcript: one paragraph per run of cues, split where the narration pauses.
+function vttTranscript(vtt) {
+  const secs = (t) => t.split(':').reduce((acc, x) => acc * 60 + parseFloat(x), 0);
+  const paras = [];
+  let last = -1;
+  for (const block of vtt.replace(/\r/g, '').split(/\n{2,}/)) {
+    const lines = block.split('\n');
+    const at = lines.findIndex((l) => l.includes('-->'));
+    if (at < 0) continue;
+    const [start, end] = lines[at].split('-->').map((x) => secs(x.trim().split(/\s/)[0]));
+    const text = lines.slice(at + 1).join(' ').replace(/<[^>]+>/g, '').trim();
+    if (!text) continue;
+    if (!paras.length || start - last > 0.8) paras.push([]);
+    paras[paras.length - 1].push(text);
+    last = end;
+  }
+  return paras.map((p) => `<p>${escapeHtml(p.join(' '))}</p>`).join('');
+}
+
 function codeBlock({ code, lang, title, include, ghUrl }) {
   const label = title || LANG_LABELS[lang] || lang;
   const head = `<div class="code-head"><span class="code-title">${include ? ICONS.file : ''}${escapeHtml(label)}</span>`
@@ -123,7 +147,7 @@ function codeBlock({ code, lang, title, include, ghUrl }) {
   const collapsible = include && lines > 28;
   const group = title && !include ? ' data-group="1"' : '';
   return `<div class="code${collapsible ? ' code-collapsible' : ''}" data-lang="${lang}"${group}>${head}${highlight(code, lang)}`
-    + `${collapsible ? `<button class="code-expand" type="button"><span>Show all ${lines} lines</span></button>` : ''}</div>`;
+    + `${collapsible ? `<button class="code-expand" type="button" aria-expanded="false"><span>Show all ${lines} lines</span></button>` : ''}</div>`;
 }
 
 const ALERTS = { NOTE: 'Note', TIP: 'Tip', IMPORTANT: 'Important', WARNING: 'Warning', CAUTION: 'Caution' };
@@ -282,10 +306,14 @@ export async function renderLab(markdown, ctx) {
     const v = videoInfo(file, title);
     const has = (f) => fs.existsSync(path.resolve(ctx.labDir, f));
     const poster = has(v.poster) ? ` poster="${ctx.resolveAsset(v.poster)}"` : '';
-    if (has(v.captions)) ctx.resolveAsset(v.captions); // published for download; captions are burned into the video
+    // Captions are burned into the video, so the caption track is off by default; it lets viewers restyle them.
+    const vtt = has(v.captions) ? ctx.resolveAsset(v.captions) : '';
+    const track = vtt ? `<track kind="captions" srclang="en" label="English" src="${vtt}">` : '';
+    const transcript = vtt ? vttTranscript(fs.readFileSync(path.resolve(ctx.labDir, v.captions), 'utf8')) : '';
     // No native full screen: site.js expands videos into an in-page theater view instead (see initVideos).
     return `<figure class="figure figure-video" id="${v.id}"><div class="video-frame"><video controls controlslist="nofullscreen" playsinline preload="none"${poster} aria-label="${escapeHtml(v.title)}">`
-      + `<source src="${ctx.resolveAsset(v.file)}" type="${v.type}"></video></div><figcaption>${escapeHtml(v.title)}</figcaption></figure>`;
+      + `<source src="${ctx.resolveAsset(v.file)}" type="${v.type}">${track}</video></div><figcaption>${escapeHtml(v.title)}</figcaption>`
+      + `${transcript ? `<details class="transcript"><summary>Transcript</summary>${transcript}<p class="transcript-dl"><a href="${vtt}" download>Download the captions (WebVTT)</a></p></details>` : ''}</figure>`;
   });
 
   // setup checklists, and the setup tasks that a step completes

@@ -128,9 +128,8 @@ function closeSearch() {
 }
 function initSearch() {
   $$('[data-search-open]').forEach((b) => b.addEventListener('click', openSearch));
+  // Only a modified shortcut: single-character shortcuts break speech input (WCAG 2.1.4).
   document.addEventListener('keydown', (e) => {
-    const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
     if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey)) { e.preventDefault(); openSearch(); }
-    else if (e.key === '/' && !typing) { e.preventDefault(); openSearch(); }
   });
 }

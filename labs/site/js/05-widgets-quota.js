@@ -20,7 +20,16 @@ const wdField = (label, input, cls = '') => `<label class="wd-field ${cls}"><spa
 const wdGroup = (label, inner) => `<div class="wd-field"><span>${label}</span>${inner}</div>`;
 const wdSelect = (name, opts, sel) => `<select data-k="${name}">${opts.map(([v, l]) => `<option value="${v}"${String(v) === String(sel) ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
 const wdRand = (a, b) => a + Math.random() * (b - a);
-const wdNow = () => performance.now();
+// The simulated clock stops while animations are paused (WCAG 2.2.2), so countdowns freeze and resume where they left off.
+let wdPausedAt = null, wdPausedFor = 0;
+const wdNow = () => (wdPausedAt ?? performance.now()) - wdPausedFor;
+function wdSyncClock() {
+  const off = document.documentElement.dataset.motion === 'off';
+  if (off && wdPausedAt === null) wdPausedAt = performance.now();
+  else if (!off && wdPausedAt !== null) { wdPausedFor += performance.now() - wdPausedAt; wdPausedAt = null; }
+}
+wdSyncClock();
+document.addEventListener('aigw:motion', wdSyncClock);
 function wdBindSeg(root, onChange) {
   $$('.wd-seg', root).forEach((g) => g.addEventListener('click', (e) => {
     const b = e.target.closest('button');
@@ -30,12 +39,13 @@ function wdBindSeg(root, onChange) {
     onChange(g.dataset.seg, $$('button[aria-pressed="true"]', g).map((x) => x.dataset.v));
   }));
 }
-// Runs fn on an interval only while the element is on-screen and the tab is visible.
+// Runs fn on an interval only while the element is on-screen, the tab is visible, and animations aren't paused.
 function wdTicker(el, fn, ms = 250) {
   let vis = false, id = null;
-  const sync = () => { const on = vis && !document.hidden; if (on && !id) id = setInterval(fn, ms); if (!on && id) { clearInterval(id); id = null; } };
+  const sync = () => { const on = vis && !document.hidden && wdPausedAt === null; if (on && !id) id = setInterval(fn, ms); if (!on && id) { clearInterval(id); id = null; } };
   new IntersectionObserver(([e]) => { vis = e.isIntersecting; sync(); }).observe(el);
   document.addEventListener('visibilitychange', sync);
+  document.addEventListener('aigw:motion', () => { sync(); fn(); });
 }
 
 const QUOTA_CALLERS = [
@@ -89,7 +99,7 @@ function quotaWidget(el, cfg, mode) {
     <div class="wd-caller" data-caller="${c.id}"><div><div class="wd-caller-name"><span class="wd-avatar" style="--av:${c.av}" aria-hidden="true">${c.name.split(' ').map((w) => w[0]).join('')}</span>${c.name}<span class="wd-tag ov" data-r="ov" hidden>Override</span></div><div class="wd-caller-id" data-r="cid"></div></div>
     <button class="btn btn-secondary btn-sm" type="button" data-send="${c.id}">${IC.play}Send</button>
     <div class="wd-meter"><span class="wd-meter-bar"><span></span></span><span data-r="mval"></span></div></div>`).join('')}</div></div>
-    <div class="wd-pane"><p class="wd-pane-title"><span>Gateway responses</span><button class="link-btn" type="button" data-burst>Burst from App A ×5</button></p><div class="wd-log" aria-live="polite"></div></div></div>`;
+    <div class="wd-pane"><p class="wd-pane-title"><span>Gateway responses</span><button class="link-btn" type="button" data-burst>Burst from App A ×5</button></p><div class="wd-log" role="log" aria-label="Gateway responses" tabindex="0"></div></div></div>`;
   const foot = `<span>${IC.info}Simulated time: one ${M.rolling ? 'rolling window' : 'renewal period'} (${periodName().toLowerCase()}) runs in 20 seconds. Values are illustrative.</span><button class="btn btn-ghost btn-sm" type="button" data-reset>${IC.reset}Reset</button>`;
   el.innerHTML = wdShell({ icon: M.icon, title: M.title, desc: M.desc, controls, body, foot });
   const logEl = $('.wd-log', el);

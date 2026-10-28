@@ -36,7 +36,7 @@
 .setup-tick svg, .setup-tick .i { width: 14px; height: 14px; stroke-width: 2.2; }
 .setup-tick:hover { border-color: var(--success); color: var(--success); }
 .setup-tick:active { transform: scale(.92); }
-.setup-tick[aria-pressed="true"] { background: var(--success); border-color: var(--success); color: #fff; }
+.setup-tick[aria-pressed="true"] { background: var(--success-solid); border-color: var(--success-solid); color: #fff; }
 
 /* Badges and pills: "3 left", "4 of 7 done" */
 .setup-badge {

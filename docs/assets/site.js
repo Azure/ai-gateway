@@ -8,7 +8,7 @@ const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
 const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
-const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.dataset.motion === 'off';
 
 const SV = (d) => `<svg class="i" viewBox="0 0 20 20" aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -74,18 +74,88 @@ function labRatio(slug) {
 // Theme
 function initTheme() {
   const root = document.documentElement;
+  const sync = () => $$('[data-theme-toggle]').forEach((b) => b.setAttribute('aria-pressed', root.dataset.theme === 'dark'));
   $$('[data-theme-toggle]').forEach((b) => b.addEventListener('click', () => {
     const t = root.dataset.theme === 'dark' ? 'light' : 'dark';
     root.dataset.theme = t;
     try { localStorage.setItem('aigw-theme', t); } catch { /* ignore */ }
+    sync();
     document.dispatchEvent(new CustomEvent('aigw:theme', { detail: t }));
   }));
+  sync();
   $$('[data-kbd]').forEach((k) => { k.textContent = isMac ? '⌘K' : 'Ctrl K'; });
+  initMotion();
+}
+
+// Pause animations: the looping diagrams, the hero, and the widgets stop (WCAG 2.2.2). The head script applies the
+// saved choice before first paint and defaults to paused when the OS asks for reduced motion.
+function initMotion() {
+  const root = document.documentElement;
+  const sync = () => $$('[data-motion-toggle]').forEach((b) => {
+    const off = root.dataset.motion === 'off';
+    b.setAttribute('aria-pressed', off);
+    b.title = off ? 'Animations paused. Select to play them' : 'Pause animations';
+  });
+  $$('[data-motion-toggle]').forEach((b) => b.addEventListener('click', () => {
+    root.dataset.motion = root.dataset.motion === 'off' ? 'on' : 'off';
+    store.set('motion', root.dataset.motion);
+    reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches || root.dataset.motion === 'off';
+    sync();
+    document.dispatchEvent(new CustomEvent('aigw:motion'));
+    toast(root.dataset.motion === 'off' ? 'Animations paused' : 'Animations playing');
+  }));
+  sync();
 }
 
 // Toast
 let toastEl, toastTimer;
 // action: { label, run }, a button such as Undo. The toast then stays longer and takes clicks.
+// Scroll containers with nothing focusable inside get a tab stop and a name while they overflow,
+// so keyboard users can scroll them (WCAG 2.1.1). Panels call this again after they inject content.
+const SCROLLERS = 'pre, .table-wrap, .figure-svg, .wd-pipe';
+const FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]:not([data-scroll-stop])';
+let scrollRO;
+function scrollLabel(el) {
+  if (el.matches('pre')) {
+    const t = (el.closest('.code')?.querySelector('.code-tab[aria-selected="true"], .code-title')
+      || el.closest('.wd-pane')?.querySelector('.wd-pane-title'))?.textContent.trim();
+    return t ? `Code: ${t}` : 'Code';
+  }
+  if (el.matches('.table-wrap')) {
+    const head = [...el.querySelectorAll('th')].slice(0, 3).map((th) => th.textContent.trim()).filter(Boolean).join(', ');
+    return head ? `Table: ${head}` : 'Table';
+  }
+  return 'Scrollable content';
+}
+function syncScroller(el) {
+  const cs = getComputedStyle(el);
+  const scrolls = (/(auto|scroll)/.test(cs.overflowX) && el.scrollWidth > el.clientWidth + 1)
+    || (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1);
+  const need = scrolls && !el.querySelector(FOCUSABLE);
+  if (need && !el.hasAttribute('data-scroll-stop')) {
+    if (el.hasAttribute('tabindex')) return;
+    el.setAttribute('data-scroll-stop', '');
+    el.tabIndex = 0;
+    // A diagram figure already has role="img" and a name.
+    if (!el.hasAttribute('role')) { el.setAttribute('role', 'region'); el.setAttribute('aria-label', scrollLabel(el)); el.dataset.scrollRole = ''; }
+  } else if (!need && el.hasAttribute('data-scroll-stop')) {
+    el.removeAttribute('data-scroll-stop'); el.removeAttribute('tabindex');
+    if ('scrollRole' in el.dataset) { el.removeAttribute('role'); el.removeAttribute('aria-label'); delete el.dataset.scrollRole; }
+  }
+}
+function watchScrollRegions(root = document) {
+  if (!('ResizeObserver' in window)) return;
+  scrollRO = scrollRO || new ResizeObserver((ents) => ents.forEach((e) => syncScroller(e.target)));
+  $$(SCROLLERS, root).filter((el) => !el.matches('pre.mermaid')).forEach((el) => scrollRO.observe(el));
+}
+
+// Screen-reader-only status messages (WCAG 4.1.3) for feedback that is shown in place, like a copy button's label.
+let announcer;
+function announce(msg) {
+  if (!announcer) { announcer = h('<div class="sr-only" role="status" aria-live="polite"></div>'); document.body.append(announcer); }
+  announcer.textContent = '';
+  setTimeout(() => { announcer.textContent = msg; }, 50);
+}
 function toast(msg, icon = IC.check, action) {
   if (!toastEl) { toastEl = h('<div class="toast" role="status" aria-live="polite"></div>'); document.body.append(toastEl); }
   toastEl.innerHTML = `${icon}<span>${escHtml(msg)}</span>`;
@@ -192,6 +262,7 @@ function initCopy() {
     const label = $('span', btn);
     btn.classList.add('copied');
     if (label) label.textContent = ok ? 'Copied' : 'Failed';
+    announce(ok ? 'Copied to clipboard' : 'Copy failed');
     setTimeout(() => { btn.classList.remove('copied'); if (label) label.textContent = 'Copy'; }, 1600);
   });
   $$('[data-copy-md]').forEach((b) => b.addEventListener('click', async () => {
@@ -335,10 +406,9 @@ function closeSearch() {
 }
 function initSearch() {
   $$('[data-search-open]').forEach((b) => b.addEventListener('click', openSearch));
+  // Only a modified shortcut: single-character shortcuts break speech input (WCAG 2.1.4).
   document.addEventListener('keydown', (e) => {
-    const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
     if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey)) { e.preventDefault(); openSearch(); }
-    else if (e.key === '/' && !typing) { e.preventDefault(); openSearch(); }
   });
 }
 
@@ -431,6 +501,7 @@ function initCodeTabs() {
     if (!b) return;
     const block = b.closest('.code');
     const open = block.classList.toggle('expanded');
+    b.setAttribute('aria-expanded', open);
     $('span', b).textContent = open ? 'Show less' : b.dataset.label || 'Show all';
     if (!open) block.scrollIntoView({ block: 'nearest' });
   });
@@ -584,7 +655,10 @@ function initLightbox() {
       document.body.append(box);
       const close = () => { box.hidden = true; document.body.style.overflow = ''; box.lastFocus?.focus?.(); };
       box.addEventListener('click', close);
-      box.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' || ev.key === 'Tab') { ev.preventDefault(); close(); } });
+      // The Close button is the only control, so Tab keeps focus on it.
+      box.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape') { ev.preventDefault(); close(); } else if (ev.key === 'Tab') { ev.preventDefault(); $('.lightbox-close', box).focus(); }
+      });
     }
     $('img', box).src = img.currentSrc || img.src;
     $('img', box).alt = img.alt;
@@ -670,15 +744,23 @@ function initNav() {
   const toggle = $('.nav-toggle');
   if (!toggle) return;
   const scrim = $('.sidebar-scrim');
+  // While the drawer is open, the page behind it is inert so focus stays in the topbar and the drawer (WCAG 2.4.3, 2.4.11).
+  const behind = () => $$('body > .skip-link, #main, .lab-layout > .toc, body > .footer');
   const set = (open) => {
     document.body.classList.toggle('nav-open', open);
     toggle.setAttribute('aria-expanded', open);
+    toggle.setAttribute('aria-label', open ? 'Close lab navigation' : 'Open lab navigation');
     if (scrim) scrim.hidden = !open;
-    if (open) centerSidebar();
+    behind().forEach((el) => { el.inert = open; });
+    if (open) {
+      centerSidebar();
+      setTimeout(() => ($('.sidebar-inner a[aria-current]') || $('.sidebar-inner a'))?.focus({ preventScroll: true }), 30);
+    }
   };
   toggle.addEventListener('click', () => set(!document.body.classList.contains('nav-open')));
   $$('[data-nav-close]').forEach((x) => x.addEventListener('click', () => set(false)));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.body.classList.contains('nav-open')) { set(false); toggle.focus(); } });
+  matchMedia('(min-width: 901px)').addEventListener('change', (e) => { if (e.matches && document.body.classList.contains('nav-open')) set(false); });
 }
 function centerSidebar() {
   const inner = $('.sidebar-inner'); const cur = $('.sidebar-inner a[aria-current]');
@@ -801,7 +883,16 @@ const wdField = (label, input, cls = '') => `<label class="wd-field ${cls}"><spa
 const wdGroup = (label, inner) => `<div class="wd-field"><span>${label}</span>${inner}</div>`;
 const wdSelect = (name, opts, sel) => `<select data-k="${name}">${opts.map(([v, l]) => `<option value="${v}"${String(v) === String(sel) ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
 const wdRand = (a, b) => a + Math.random() * (b - a);
-const wdNow = () => performance.now();
+// The simulated clock stops while animations are paused (WCAG 2.2.2), so countdowns freeze and resume where they left off.
+let wdPausedAt = null, wdPausedFor = 0;
+const wdNow = () => (wdPausedAt ?? performance.now()) - wdPausedFor;
+function wdSyncClock() {
+  const off = document.documentElement.dataset.motion === 'off';
+  if (off && wdPausedAt === null) wdPausedAt = performance.now();
+  else if (!off && wdPausedAt !== null) { wdPausedFor += performance.now() - wdPausedAt; wdPausedAt = null; }
+}
+wdSyncClock();
+document.addEventListener('aigw:motion', wdSyncClock);
 function wdBindSeg(root, onChange) {
   $$('.wd-seg', root).forEach((g) => g.addEventListener('click', (e) => {
     const b = e.target.closest('button');
@@ -811,12 +902,13 @@ function wdBindSeg(root, onChange) {
     onChange(g.dataset.seg, $$('button[aria-pressed="true"]', g).map((x) => x.dataset.v));
   }));
 }
-// Runs fn on an interval only while the element is on-screen and the tab is visible.
+// Runs fn on an interval only while the element is on-screen, the tab is visible, and animations aren't paused.
 function wdTicker(el, fn, ms = 250) {
   let vis = false, id = null;
-  const sync = () => { const on = vis && !document.hidden; if (on && !id) id = setInterval(fn, ms); if (!on && id) { clearInterval(id); id = null; } };
+  const sync = () => { const on = vis && !document.hidden && wdPausedAt === null; if (on && !id) id = setInterval(fn, ms); if (!on && id) { clearInterval(id); id = null; } };
   new IntersectionObserver(([e]) => { vis = e.isIntersecting; sync(); }).observe(el);
   document.addEventListener('visibilitychange', sync);
+  document.addEventListener('aigw:motion', () => { sync(); fn(); });
 }
 
 const QUOTA_CALLERS = [
@@ -870,7 +962,7 @@ function quotaWidget(el, cfg, mode) {
     <div class="wd-caller" data-caller="${c.id}"><div><div class="wd-caller-name"><span class="wd-avatar" style="--av:${c.av}" aria-hidden="true">${c.name.split(' ').map((w) => w[0]).join('')}</span>${c.name}<span class="wd-tag ov" data-r="ov" hidden>Override</span></div><div class="wd-caller-id" data-r="cid"></div></div>
     <button class="btn btn-secondary btn-sm" type="button" data-send="${c.id}">${IC.play}Send</button>
     <div class="wd-meter"><span class="wd-meter-bar"><span></span></span><span data-r="mval"></span></div></div>`).join('')}</div></div>
-    <div class="wd-pane"><p class="wd-pane-title"><span>Gateway responses</span><button class="link-btn" type="button" data-burst>Burst from App A ×5</button></p><div class="wd-log" aria-live="polite"></div></div></div>`;
+    <div class="wd-pane"><p class="wd-pane-title"><span>Gateway responses</span><button class="link-btn" type="button" data-burst>Burst from App A ×5</button></p><div class="wd-log" role="log" aria-label="Gateway responses" tabindex="0"></div></div></div>`;
   const foot = `<span>${IC.info}Simulated time: one ${M.rolling ? 'rolling window' : 'renewal period'} (${periodName().toLowerCase()}) runs in 20 seconds. Values are illustrative.</span><button class="btn btn-ghost btn-sm" type="button" data-reset>${IC.reset}Reset</button>`;
   el.innerHTML = wdShell({ icon: M.icon, title: M.title, desc: M.desc, controls, body, foot });
   const logEl = $('.wd-log', el);
@@ -1242,6 +1334,7 @@ WIDGETS['tool-patterns'] = (el, cfg) => {
     $('[data-r="list"]', el).textContent = s.mode === 'server'
       ? 'HTTP 403\n// The MCP server is blocked.\n// No tools are reachable.'
       : `{\n  "tools": [${vis.map((r) => `\n    { "name": "${r.t}" }`).join(',')}${vis.length ? '\n  ' : ''}]\n}`;
+    syncScroller($('[data-r="list"]', el));
     $$('[data-k]', el).forEach((i) => { i.disabled = s.mode === 'server' || (i.dataset.k === 'allow' && s.mode === 'all'); });
   }
   wdBindSeg(el, (seg, v) => { s.mode = v[0]; evalAll(); });
@@ -1293,13 +1386,13 @@ WIDGETS['stream-usage'] = (el, cfg) => {
   const fmt = (n) => n.toLocaleString('en-US');
   const controls = wdGroup('Client sets <code>stream_options.include_usage</code>', wdSeg('usage', [['off', 'Not set'], ['on', 'true']], 'off'));
   const body = `<div class="wd-body"><div class="wd-pane"><p class="wd-pane-title"><span>Client receives</span><span class="ws-status" data-r="status"></span></p>
-    <code class="ws-req" data-r="req"></code><pre class="ws-sse" data-r="sse" tabindex="0" aria-label="Server-sent events the client receives"></pre>
+    <code class="ws-req" data-r="req"></code><pre class="ws-sse" data-r="sse" tabindex="0" role="region" aria-label="Server-sent events the client receives"></pre>
     <div class="ws-reply"><span class="ws-label">Reply so far</span><p data-r="reply"></p></div><p class="ws-usage" data-r="usage" aria-live="polite"></p></div>
     <div class="wd-pane"><p class="wd-pane-title"><span>Gateway counts</span><button class="link-btn" type="button" data-burst>Send until throttled</button></p>
     <div class="ws-limit"><div class="ws-limit-head"><code>${escHtml(alias)}</code><span>Token limit: ${fmt(LIMIT)} per minute</span></div>
     <div class="wd-meter"><span class="wd-meter-bar"><span></span></span><b data-r="used"></b></div>
     <div class="wd-window"><span>Window</span><span class="wd-window-bar"><span></span></span><b data-r="left"></b></div></div>
-    <div class="wd-log" aria-live="polite"></div></div></div>`;
+    <div class="wd-log" role="log" aria-label="Responses" tabindex="0"></div></div></div>`;
   const foot = `<span>${IC.info}Simulated: one minute runs in ${WIN} seconds. Token counts are illustrative.</span><span class="ws-actions"><button class="btn btn-ghost btn-sm" type="button" data-reset>${IC.reset}Reset</button><button class="btn btn-primary btn-sm" type="button" data-send>${IC.play}Send a streaming request</button></span>`;
   el.innerHTML = wdShell({ icon: 'stream', title: 'Stream a reply and watch the gateway count it', desc: 'The client sees chunks as they arrive, and a usage chunk only when it asks for one. The gateway counts every stream either way, and a full token limit returns a JSON 429 before any stream starts.', controls, body, foot });
   const r = (k) => $(`[data-r="${k}"]`, el);
@@ -1623,6 +1716,7 @@ function loadSetupSections() {
       $$('img[src], source[src]', box).forEach((el) => { el.src = new URL(el.getAttribute('src'), SETUP_URL).href; });
       applyValues(box);
       bindCodeTabs(box);
+      watchScrollRegions(box);
     });
   }).catch(() => {
     setupLoad = null;
@@ -1845,6 +1939,7 @@ function loadTs() {
       });
       $$('img[src], source[src]', box).forEach((el) => { el.src = new URL(el.getAttribute('src'), TS_URL).href; });
       applyValues(box);
+      watchScrollRegions(box);
       return {
         row,
         // The section's title and lab link match every row, so "token limits" shows all of lab 06.
@@ -1987,6 +2082,7 @@ function boot() {
   run('hero', initHero);
   run('diagrams', initDiagrams);
   run('widgets', () => renderWidgets(document));
+  run('scrollRegions', () => watchScrollRegions(document));
   run('labLinks', updateLabLinks);
   run('mermaid', () => { initMermaid(); });
   addEventListener('storage', (e) => {
