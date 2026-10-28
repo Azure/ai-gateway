@@ -79,7 +79,7 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
   the Copilot CLI, the Copilot SDK (Python and TypeScript), and the GitHub Copilot app with bring your own key
   (BYOK). It includes portal, Azure CLI, and Bicep tracks, and shows how one suspended key cuts off every Copilot
   surface.
-- **October 22.** New [5-minute quick start](quickstart/README.md): learn the five building blocks, create a gateway
+- **October 22.** New [5-minute quick start](quickstart/README.md): learn the building blocks, create a gateway
   with a Foundry `gpt-6-luna` model, an alias, and a runtime key, and make your first call. Follow it in the AI
   Gateway portal, with a screenshot for every step; paste its Azure CLI commands (Bash or PowerShell) into Cloud
   Shell; or download its Bicep template and deploy it with one `azd up`. There's nothing to clone. The
