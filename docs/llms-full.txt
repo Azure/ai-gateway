@@ -355,7 +355,7 @@ Every call that goes through AI Gateway uses the same building blocks. In this q
 | **Model provider** | A connection to a backend. The gateway signs in to it with its own managed identity, so your apps never hold a backend key | Your Foundry account. The Azure CLI and Bicep tracks name the provider `foundry-models` |
 | **Model** | A backend deployment that the gateway can route to | The Foundry deployment `gpt-6-luna` |
 | **Alias** | The name that apps send in the `model` field. The gateway routes the alias to one or more models | `<foundry-account-name>/gpt-6-luna` in the portal, `gpt-6-luna` in the Azure CLI and Bicep tracks |
-| **Runtime API key** | Identifies the app that calls the gateway, for limits, cost, and monitoring | `app-first-call` |
+| **Runtime API key** | Identifies the app that calls the gateway, for limits, cost, and monitoring. Azure RBAC with Microsoft Entra ID tokens is the keyless alternative | `app-first-call` |
 
 Your app calls the OpenAI-compatible base URL `<gateway URL>/default/models/openai/v1`, so any OpenAI SDK works with
 a different base URL and the runtime key. For the full tour, watch the 3-minute video in
@@ -445,6 +445,10 @@ echo "✅ Create the gateway in $RG, and import gpt-6-luna from $FOUNDRY"
    ![The Aliases tab of Models with the alias aigwb92bd1/gpt-6-luna, its backend model gpt-6-luna, and its provider](../assets/screens/quickstart-07-alias.webp "Each alias is named after the Foundry account and the deployment, and routes to the backend model gpt-6-luna.")
 
 ### Create a runtime API key
+
+A key is the quickest way to start. Azure RBAC is the keyless alternative: grant the app the
+**AI Gateway Models User** role in **Access** › **Entra ID**, and it sends a Microsoft Entra ID token instead of a
+key. [Go keyless with Microsoft Entra ID and RBAC](../11-entra-rbac/README.md) shows how.
 
 1. Select **Access**, then the **Keys** tab, then **Create API key**.
 
@@ -726,7 +730,9 @@ Remove-Item foundry.json
 ### Create a runtime API key
 
 Create a key for your app. Then read the key, the gateway URL, and the alias into environment variables, so that
-the key never shows on screen.
+the key never shows on screen. Azure RBAC is the keyless alternative: grant the app the **AI Gateway Models User**
+role, and it sends a Microsoft Entra ID token instead of a key, as
+[Go keyless with Microsoft Entra ID and RBAC](../11-entra-rbac/README.md) shows.
 
 ```bash title="Bash"
 # Create a runtime API key for your app
@@ -899,6 +905,8 @@ output, so it never lands in a file or a deployment log.
 ### Read the URL, the alias, and the key
 
 Read the outputs, and read the key from the gateway into an environment variable, so that it never shows on screen.
+Azure RBAC is the keyless alternative to the key: grant the app the **AI Gateway Models User** role, and it sends a
+Microsoft Entra ID token instead, as [Go keyless with Microsoft Entra ID and RBAC](../11-entra-rbac/README.md) shows.
 
 ```bash title="Bash"
 # Read the template's outputs: the gateway's runtime URL and the alias
@@ -998,6 +1006,7 @@ For the errors you might hit in the quick start, with their likely causes and fi
 - [Provision your AI Gateway](../01-provision-gateway/README.md) and [Publish a Foundry model and make your first call](../02-first-model-call/README.md): the same setup in depth, with Bicep, the Responses API, and more SDKs.
 - [Publish models from any provider behind stable aliases](../03-multi-provider-aliases/README.md): put models from several providers behind names your apps keep.
 - [Throttle tokens per caller with token limits](../06-token-limits/README.md): give every app its own allowance.
+- [Go keyless with Microsoft Entra ID and RBAC](../11-entra-rbac/README.md): replace the API key with Entra ID tokens and Azure RBAC roles.
 
 
 <!-- https://azure.github.io/ai-gateway/labs/00-how-ai-gateway-works/ -->

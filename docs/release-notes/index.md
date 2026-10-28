@@ -44,6 +44,9 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
   (`Microsoft.Web/connectorGateways`) with `az rest`, or registers `Microsoft.Web`. Only connector-based MCP tools
   use the connector gateway, and the portal creates it when you first add a connector backend. A live run of the
   track without it published the model and got a reply.
+- **October 28.** The [quick start](quickstart/README.md) now names Azure RBAC as the keyless alternative to the
+  runtime API key, in every track and in **How it works**, and links to
+  [Go keyless with Microsoft Entra ID and RBAC](11-entra-rbac/README.md) from its next steps.
 - **October 28.** The labs no longer describe AI Gateway as a preview service or say that the gateway is free
   during the preview. [Lab 00](00-how-ai-gateway-works/README.md) and the
   [Setup guide](SETUP.md#check-your-subscription-and-permissions) point to the
