@@ -1,4 +1,4 @@
-// The five building blocks of the quick start, the same ones that the portal and Azure CLI tracks create:
+// The building blocks of the quick start, the same ones that the portal and Azure CLI tracks create:
 // a gateway, a Foundry model deployment, a model provider that signs in with the gateway's managed identity,
 // an alias that apps send in the "model" field, and a runtime API key.
 targetScope = 'resourceGroup'
