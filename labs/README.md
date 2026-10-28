@@ -213,7 +213,7 @@ Install it as a personal skill for GitHub Copilot:
 mkdir -p ~/.copilot/skills/azure-ai-gateway-labs
 curl -fsSL https://azure.github.io/ai-gateway/skills/azure-ai-gateway-labs/SKILL.md \
   -o ~/.copilot/skills/azure-ai-gateway-labs/SKILL.md &&
-  echo "🧩 The azure-ai-gateway-labs skill is installed in ~/.copilot/skills"
+  echo "📦 The azure-ai-gateway-labs skill is installed in ~/.copilot/skills"
 ```
 
 To share it with a project, save it to `.github/skills/azure-ai-gateway-labs/SKILL.md` in that repository instead,
@@ -251,7 +251,7 @@ them, and the site ignores them.
 ```bash
 # Install the site's dependencies, once
 cd labs
-npm install && echo "🧩 The labs site's dependencies are installed"
+npm install && echo "📦 The labs site's dependencies are installed"
 
 # Then run the command that you need
 npm run dev        # build, watch, and serve at http://localhost:4173/ai-gateway/

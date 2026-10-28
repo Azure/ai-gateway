@@ -216,7 +216,7 @@ export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$(azd env 
 echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 
 # Show the tools that the learn MCP server publishes and the tools it blocks
-echo "🛠️ Tool controls on the learn MCP server:"
+echo "🔧 Tool controls on the learn MCP server:"
 az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn --query "properties.{allowList:allowList,blocked:blocked}"
 ```
 
@@ -235,7 +235,7 @@ $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/a
 Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 
 # Show the tools that the learn MCP server publishes and the tools it blocks
-Write-Host "🛠️ Tool controls on the learn MCP server:"
+Write-Host "🔧 Tool controls on the learn MCP server:"
 az aigateway mcp show -g $RG --gateway-name $GATEWAY -n learn --query "properties.{allowList:allowList,blocked:blocked}"
 ```
 
@@ -257,13 +257,13 @@ includes a copy, so run it from this lab's folder. It lists the tools and calls 
 
 ```bash title="Bash"
 # List the tools that the learn MCP server publishes, then call the allowed search tool
-echo "🛠️ Tools on the learn MCP server, and a call to learn_microsoft_docs_search:"
+echo "🔧 Tools on the learn MCP server, and a call to learn_microsoft_docs_search:"
 ./infra/list-tools.sh learn learn_microsoft_docs_search "What is AI Gateway?"
 ```
 
 ```powershell title="PowerShell"
 # List the tools that the learn MCP server publishes, then call the allowed search tool
-Write-Host "🛠️ Tools on the learn MCP server, and a call to learn_microsoft_docs_search:"
+Write-Host "🔧 Tools on the learn MCP server, and a call to learn_microsoft_docs_search:"
 ./infra/list-tools.ps1 -Server learn -Tool learn_microsoft_docs_search -Query "What is AI Gateway?"
 ```
 
@@ -367,7 +367,7 @@ azd provision &&
   echo "🔌 The learn MCP server is active"
 
 # List the tools again, to confirm that clients can connect
-echo "🛠️ Tools on the learn MCP server:"
+echo "🔧 Tools on the learn MCP server:"
 ./infra/list-tools.sh learn
 ```
 
@@ -381,7 +381,7 @@ azd provision
 if ($?) { Write-Host "🔌 The learn MCP server is active" }
 
 # List the tools again, to confirm that clients can connect
-Write-Host "🛠️ Tools on the learn MCP server:"
+Write-Host "🔧 Tools on the learn MCP server:"
 ./infra/list-tools.ps1 -Server learn
 ```
 
@@ -437,7 +437,7 @@ The command is the same in Bash and PowerShell.
 
 ```bash
 # Read the policies on the learn MCP server, so that you can keep the ones you don't change
-echo "🛡️ Policies on the learn MCP server:"
+echo "🔐 Policies on the learn MCP server:"
 az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn --query properties.policies
 ```
 
@@ -456,7 +456,7 @@ az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn -o json | jq -
 # Replace the server's whole policies array with the file, show the result, and delete the file
 az aigateway mcp update -g "$RG" --gateway-name "$GATEWAY" -n learn --policies @policies.json \
   --query properties.policies &&
-  echo "🛡️ Request rate limit of 5 calls per 30 seconds is on learn"
+  echo "🔐 Request rate limit of 5 calls per 30 seconds is on learn"
 rm policies.json
 ```
 
@@ -475,7 +475,7 @@ if ($?) { Write-Host "📄 policies.json has the merged policies" }
 # Replace the server's whole policies array with the file, show the result, and delete the file
 az aigateway mcp update -g $RG --gateway-name $GATEWAY -n learn --policies "@policies.json" `
   --query properties.policies
-if ($?) { Write-Host "🛡️ Request rate limit of 5 calls per 30 seconds is on learn" }
+if ($?) { Write-Host "🔐 Request rate limit of 5 calls per 30 seconds is on learn" }
 Remove-Item policies.json
 ```
 
@@ -510,7 +510,7 @@ with `callsPerPeriod`, `periodSeconds`, and `counterKey`. The command is the sam
 
 ```bash
 # Read the policies on the learn MCP server that azd up created
-echo "🛡️ Policies on the learn MCP server:"
+echo "🔐 Policies on the learn MCP server:"
 az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn --query properties.policies
 ```
 
@@ -531,7 +531,7 @@ azd env set REQUEST_RATE_LIMIT_COUNTER_KEY '["ipAddress"]' &&
 
 # Provision again, which updates the learn MCP server's request rate limit
 azd provision &&
-  echo "🛡️ The request rate limit on learn counts calls per client IP address"
+  echo "🔐 The request rate limit on learn counts calls per client IP address"
 ```
 
 ```powershell title="PowerShell"
@@ -541,7 +541,7 @@ if ($?) { Write-Host "📝 REQUEST_RATE_LIMIT_COUNTER_KEY is set to ipAddress" }
 
 # Provision again, which updates the learn MCP server's request rate limit
 azd provision
-if ($?) { Write-Host "🛡️ The request rate limit on learn counts calls per client IP address" }
+if ($?) { Write-Host "🔐 The request rate limit on learn counts calls per client IP address" }
 ```
 
 Use `'["identity","ipAddress"]'` for both. Set it back to `'["identity"]'` before **Verify**.
@@ -679,7 +679,7 @@ az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn -o json \
 # Replace the server's whole policies array with the file, show the result, and delete the file
 az aigateway mcp update -g "$RG" --gateway-name "$GATEWAY" -n learn --policies @policies.json \
   --query properties.policies &&
-  echo "🧹 Request rate limit is removed from learn"
+  echo "🚮 Request rate limit is removed from learn"
 rm policies.json
 ```
 
@@ -696,7 +696,7 @@ if ($?) { Write-Host "📄 policies.json has every policy except the request rat
 # Replace the server's whole policies array with the file, show the result, and delete the file
 az aigateway mcp update -g $RG --gateway-name $GATEWAY -n learn --policies "@policies.json" `
   --query properties.policies
-if ($?) { Write-Host "🧹 Request rate limit is removed from learn" }
+if ($?) { Write-Host "🚮 Request rate limit is removed from learn" }
 Remove-Item policies.json
 ```
 
@@ -714,7 +714,7 @@ about ten minutes.
 ```bash
 # Delete everything that azd up created, and purge the soft-deleted resources
 azd down --purge --force &&
-  echo "🧹 Everything that azd up created is deleted"
+  echo "🚮 Everything that azd up created is deleted"
 ```
 
 To keep this gateway for other labs instead, skip `azd down`. Open the catalog and remove the limit:

@@ -53,6 +53,21 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
 - **October 28.** The [quick start](quickstart/README.md) now names Azure RBAC as the keyless alternative to the
   runtime API key, in every track and in **How it works**, and links to
   [Go keyless with Microsoft Entra ID and RBAC](11-entra-rbac/README.md) from its next steps.
+- **October 28.** The [quick start](quickstart/README.md#publish-the-model)'s Azure CLI track now publishes the model
+  with one import: `az aigateway model-provider create --foundry-resource-id` grants the gateway's managed identity
+  the **Foundry User** role on the Foundry account, adds a model provider that signs in with that identity, and adds
+  a model for each deployment. It replaces the role assignment, the provider JSON, and `az aigateway model create`.
+  The track still adds the alias, because the import doesn't. Labs
+  [02](02-first-model-call/README.md#create-the-foundry-provider) and
+  [18](18-private-networking/README.md#publish-the-deployment-and-an-alias) now pass the provider's Foundry settings
+  in the Azure CLI shorthand instead of building JSON with `jq` or a file.
+- **October 28.** The Bash snippets now paste cleanly into zsh on macOS. Their status lines use only emoji that zsh
+  draws, such as 🔐 instead of 🛡️ and 🔖 instead of 🏷️, and JSON values that contain a URL stay on one line, so
+  oh-my-zsh's URL quoting can't escape them. The [Setup guide](SETUP.md#choose-where-to-run-commands) turns on
+  `interactive_comments`, so zsh accepts the pasted comments, and
+  [Troubleshooting](TROUBLESHOOTING.md#setup-and-deployment) lists the paste errors. `npm run check` flags other
+  emoji, and URL lines that zsh could change. [Authoring](AUTHORING.md#cli-comments-and-status-lines) lists the
+  emoji.
 - **October 28.** The labs no longer describe AI Gateway as a preview service or say that the gateway is free
   during the preview. [Lab 00](00-how-ai-gateway-works/README.md) and the
   [Setup guide](SETUP.md#check-your-subscription-and-permissions) point to the

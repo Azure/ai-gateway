@@ -175,7 +175,7 @@ az role assignment create \
   --assignee-principal-type User \
   --role "dce03f8d-857f-4e40-a90d-67770fa6ecd2" \
   --scope "$GATEWAY_ID/workspaces/default/toolServers/$MCP_SERVER" --output none &&
-  echo "🛡️ You have the AI Gateway Tools User role on the $MCP_SERVER MCP server"
+  echo "🔐 You have the AI Gateway Tools User role on the $MCP_SERVER MCP server"
 ```
 
 ```powershell
@@ -185,7 +185,7 @@ az role assignment create `
   --assignee-principal-type User `
   --role "dce03f8d-857f-4e40-a90d-67770fa6ecd2" `
   --scope "$GATEWAY_ID/workspaces/default/toolServers/$MCP_SERVER" --output none
-if ($?) { Write-Host "🛡️ You have the AI Gateway Tools User role on the $MCP_SERVER MCP server" }
+if ($?) { Write-Host "🔐 You have the AI Gateway Tools User role on the $MCP_SERVER MCP server" }
 ```
 
 If you already have **AI Gateway User** or **AI Gateway Tools User** at the gateway scope, skip this step. Role
@@ -464,7 +464,7 @@ export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_I
 echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 
 # List your roles on the MCP server: expect AI Gateway Tools User
-echo "🛡️ Your roles on the $MCP_SERVER MCP server:"
+echo "🔐 Your roles on the $MCP_SERVER MCP server:"
 az role assignment list --assignee "$(az ad signed-in-user show --query id -o tsv)" \
   --scope "$GATEWAY_ID/workspaces/default/toolServers/$MCP_SERVER" --query "[].roleDefinitionName" -o tsv
 ```
@@ -488,14 +488,14 @@ $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/a
 Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 
 # List your roles on the MCP server: expect AI Gateway Tools User
-Write-Host "🛡️ Your roles on the $MCP_SERVER MCP server:"
+Write-Host "🔐 Your roles on the $MCP_SERVER MCP server:"
 az role assignment list --assignee (az ad signed-in-user show --query id -o tsv) `
   --scope "$GATEWAY_ID/workspaces/default/toolServers/$MCP_SERVER" --query "[].roleDefinitionName" -o tsv
 ```
 </details> <!-- gh -->
 
 > **Checkpoint**
-> `azd up` ended with `SUCCESS`, and the role listing under `🛡️ Your roles on the learn MCP server:` printed
+> `azd up` ended with `SUCCESS`, and the role listing under `🔐 Your roles on the learn MCP server:` printed
 > `AI Gateway Tools User`. Role assignments can take several minutes to apply.
 
 </details> <!-- gh -->
@@ -644,18 +644,18 @@ On GitHub, open [infra/call-protected-tool.sh](infra/call-protected-tool.sh) or
 chmod +x infra/call-protected-tool.sh
 
 # Call the server's search tool with your delegated user token: the script prints each MCP step and the result
-echo "🛠️ Tool call on $MCP_SERVER with your user token:"
+echo "🔧 Tool call on $MCP_SERVER with your user token:"
 ./infra/call-protected-tool.sh token "$MCP_SERVER"
 ```
 
 ```powershell
 # Call the server's search tool with your delegated user token: the script prints each MCP step and the result
-Write-Host "🛠️ Tool call on $MCP_SERVER with your user token:"
+Write-Host "🔧 Tool call on $MCP_SERVER with your user token:"
 ./infra/call-protected-tool.ps1 -Auth token -Server $MCP_SERVER
 ```
 
 ```text title="Expected output"
-🛠️ Tool call on learn with your user token:
+🔧 Tool call on learn with your user token:
 Delegated token for the signed-in user (scp: ...)
 MCP endpoint: https://<gateway>.eastus2-01.ai.gateway.azure.com/default/toolservers/learn/mcp
 tools/list: HTTP 200, <n> tools (discovery isn't evaluated)
@@ -730,7 +730,7 @@ azd env set TOOL_THREAT_POST_INVOCATION true &&
 
 # Deploy again: the template adds a toolThreatProtection policy to the learn MCP server
 azd provision &&
-  echo "🛡️ Tool threat protection is on for the learn MCP server, before and after each tool call"
+  echo "🔐 Tool threat protection is on for the learn MCP server, before and after each tool call"
 ```
 </details> <!-- gh -->
 
@@ -745,7 +745,7 @@ if ($?) { Write-Host "📝 TOOL_THREAT_POST_INVOCATION: true" }
 
 # Deploy again: the template adds a toolThreatProtection policy to the learn MCP server
 azd provision
-if ($?) { Write-Host "🛡️ Tool threat protection is on for the learn MCP server, before and after each tool call" }
+if ($?) { Write-Host "🔐 Tool threat protection is on for the learn MCP server, before and after each tool call" }
 ```
 </details> <!-- gh -->
 
@@ -761,13 +761,13 @@ also read it with `az aigateway mcp show`:
 
 ```bash
 # Read the MCP server's policies: expect one toolThreatProtection entry with both stages on
-echo "🛡️ Policies on the $MCP_SERVER MCP server:"
+echo "🔐 Policies on the $MCP_SERVER MCP server:"
 az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n "$MCP_SERVER" --query properties.policies
 ```
 
 ```powershell
 # Read the MCP server's policies: expect one toolThreatProtection entry with both stages on
-Write-Host "🛡️ Policies on the $MCP_SERVER MCP server:"
+Write-Host "🔐 Policies on the $MCP_SERVER MCP server:"
 az aigateway mcp show -g $RG --gateway-name $GATEWAY -n $MCP_SERVER --query properties.policies
 ```
 
@@ -843,18 +843,18 @@ round trip.
 
 ```bash
 # Call the protected tool again with your delegated user token: both stages evaluate the call
-echo "🛠️ Tool call on $MCP_SERVER with your user token:"
+echo "🔧 Tool call on $MCP_SERVER with your user token:"
 ./infra/call-protected-tool.sh token "$MCP_SERVER"
 ```
 
 ```powershell
 # Call the protected tool again with your delegated user token: both stages evaluate the call
-Write-Host "🛠️ Tool call on $MCP_SERVER with your user token:"
+Write-Host "🔧 Tool call on $MCP_SERVER with your user token:"
 ./infra/call-protected-tool.ps1 -Auth token -Server $MCP_SERVER
 ```
 
 ```text title="Expected output"
-🛠️ Tool call on learn with your user token:
+🔧 Tool call on learn with your user token:
 ...
 tools/list: HTTP 200, <n> tools (discovery isn't evaluated)
 tools/call: learn_microsoft_docs_search with query: What is Azure API Management?
@@ -942,7 +942,7 @@ steps. Find your calls by time and compare the allowed call with the key-only ca
   # Replace the server's whole policy array with the file's, print the new array, then delete the file
   az aigateway mcp update -g "$RG" --gateway-name "$GATEWAY" -n "$MCP_SERVER" --policies @policies.json \
     --query properties.policies &&
-    echo "🛡️ Tool threat protection is on for the $MCP_SERVER MCP server, before and after each tool call"
+    echo "🔐 Tool threat protection is on for the $MCP_SERVER MCP server, before and after each tool call"
   rm policies.json
   ```
   </details> <!-- gh -->
@@ -960,7 +960,7 @@ steps. Find your calls by time and compare the allowed call with the key-only ca
   # Replace the server's whole policy array with the file's, print the new array, then delete the file
   az aigateway mcp update -g $RG --gateway-name $GATEWAY -n $MCP_SERVER --policies "@policies.json" `
     --query properties.policies
-  if ($?) { Write-Host "🛡️ Tool threat protection is on for the $MCP_SERVER MCP server, before and after each tool call" }
+  if ($?) { Write-Host "🔐 Tool threat protection is on for the $MCP_SERVER MCP server, before and after each tool call" }
   Remove-Item policies.json
   ```
   </details> <!-- gh -->
@@ -988,7 +988,7 @@ az role assignment delete \
   --assignee "$(az ad signed-in-user show --query id -o tsv)" \
   --role "dce03f8d-857f-4e40-a90d-67770fa6ecd2" \
   --scope "$GATEWAY_ID/workspaces/default/toolServers/$MCP_SERVER" &&
-  echo "🧹 Your AI Gateway Tools User role on the $MCP_SERVER MCP server is removed"
+  echo "🚮 Your AI Gateway Tools User role on the $MCP_SERVER MCP server is removed"
 ```
 
 ```powershell
@@ -997,7 +997,7 @@ az role assignment delete `
   --assignee (az ad signed-in-user show --query id -o tsv) `
   --role "dce03f8d-857f-4e40-a90d-67770fa6ecd2" `
   --scope "$GATEWAY_ID/workspaces/default/toolServers/$MCP_SERVER"
-if ($?) { Write-Host "🧹 Your AI Gateway Tools User role on the $MCP_SERVER MCP server is removed" }
+if ($?) { Write-Host "🚮 Your AI Gateway Tools User role on the $MCP_SERVER MCP server is removed" }
 ```
 
 </details> <!-- gh -->
@@ -1013,7 +1013,7 @@ resources. It takes about ten minutes.
 ```bash
 # Delete everything that azd up created, and purge the soft-deleted resources
 azd down --purge --force &&
-  echo "🧹 Everything that azd up created is deleted"
+  echo "🚮 Everything that azd up created is deleted"
 ```
 
 To keep this gateway for other labs instead, skip `azd down` and remove the policy:
@@ -1026,7 +1026,7 @@ azd env set TOOL_THREAT_POST_INVOCATION false &&
 
 # Deploy again, which removes the toolThreatProtection policy from the learn MCP server
 azd provision &&
-  echo "🧹 The tool threat protection policy is removed from the learn MCP server"
+  echo "🚮 The tool threat protection policy is removed from the learn MCP server"
 ```
 
 </details> <!-- gh -->

@@ -113,11 +113,11 @@ cd infra &&
 # Create a virtual environment in .venv and activate it, so that the packages stay out of your global Python
 python3 -m venv .venv
 source .venv/bin/activate &&
-  echo "🧩 Virtual environment .venv is active"
+  echo "📦 Virtual environment .venv is active"
 
 # Install the pinned packages for Agent Framework, the OpenAI Agents SDK, LangChain, and LangGraph
 pip install -r requirements.txt &&
-  echo "🧩 The packages in requirements.txt are installed"
+  echo "📦 The packages in requirements.txt are installed"
 ```
 </details> <!-- gh -->
 
@@ -131,11 +131,11 @@ if ($?) { Write-Host "📂 Samples folder: $(Get-Location)" }
 # Create a virtual environment in .venv and activate it, so that the packages stay out of your global Python
 python -m venv .venv
 .venv\Scripts\Activate.ps1
-if ($?) { Write-Host "🧩 Virtual environment .venv is active" }
+if ($?) { Write-Host "📦 Virtual environment .venv is active" }
 
 # Install the pinned packages for Agent Framework, the OpenAI Agents SDK, LangChain, and LangGraph
 pip install -r requirements.txt
-if ($?) { Write-Host "🧩 The packages in requirements.txt are installed" }
+if ($?) { Write-Host "📦 The packages in requirements.txt are installed" }
 ```
 </details> <!-- gh -->
 

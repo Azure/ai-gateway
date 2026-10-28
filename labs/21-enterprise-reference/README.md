@@ -99,7 +99,7 @@ echo "📝 Deployment $ENV_NAME in $LOCATION"
 # Read your own object ID: main.bicepparam reads it to give you data-plane access to the Foundry account,
 # the alias, and the MCP server
 export AZURE_PRINCIPAL_ID="$(az ad signed-in-user show --query id -o tsv)"
-echo "🪪 Your principal ID: $AZURE_PRINCIPAL_ID"
+echo "👤 Your principal ID: $AZURE_PRINCIPAL_ID"
 
 # Show the subscription that you deploy to, so that you can check it before you go on
 echo "🆔 Subscription that you deploy to:"
@@ -118,7 +118,7 @@ Write-Host "📝 Deployment $env:ENV_NAME in $env:LOCATION"
 # Read your own object ID: main.bicepparam reads it to give you data-plane access to the Foundry account,
 # the alias, and the MCP server
 $env:AZURE_PRINCIPAL_ID = az ad signed-in-user show --query id -o tsv
-Write-Host "🪪 Your principal ID: $env:AZURE_PRINCIPAL_ID"
+Write-Host "👤 Your principal ID: $env:AZURE_PRINCIPAL_ID"
 
 # Show the subscription that you deploy to, so that you can check it before you go on
 Write-Host "🆔 Subscription that you deploy to:"
@@ -873,7 +873,7 @@ export FOUNDRY_NAME="$(out FOUNDRY_MODELS_NAME)"
 export FOUNDRY_ID="$(out FOUNDRY_MODELS_RESOURCE_ID)"
 echo "📝 Gateway $GATEWAY in $RG"
 echo "🌐 Runtime URL: $AI_GATEWAY_URL"
-echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+echo "🔖 Model alias: $AI_GATEWAY_MODEL"
 echo "🏭 Foundry account $FOUNDRY_NAME in $FOUNDRY_RG"
 ```
 </details> <!-- gh -->
@@ -897,7 +897,7 @@ $env:FOUNDRY_NAME            = $outputs.FOUNDRY_MODELS_NAME.value
 $env:FOUNDRY_ID              = $outputs.FOUNDRY_MODELS_RESOURCE_ID.value
 Write-Host "📝 Gateway $env:GATEWAY in $env:RG"
 Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
-Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🔖 Model alias: $env:AI_GATEWAY_MODEL"
 Write-Host "🏭 Foundry account $env:FOUNDRY_NAME in $env:FOUNDRY_RG"
 ```
 </details> <!-- gh -->
@@ -907,7 +907,7 @@ Expected output:
 ```text
 📝 Gateway aigw-<token> in rg-aigw-dev-<token>-gateway
 🌐 Runtime URL: https://aigw-<token>.eastus2-01.ai.gateway.azure.com
-🏷️ Model alias: chat
+🔖 Model alias: chat
 🏭 Foundry account aimodels-<token> in rg-aigw-dev-<token>-foundrymodels
 ```
 
@@ -931,7 +931,7 @@ Print the merged policy array without changing anything:
 ```bash title="Bash"
 # Print the merged policy array without changing anything: with DRY_RUN=1, the script stops before it writes
 DRY_RUN=1 ./infra/scripts/apply-baselines.sh &&
-  echo "🛡️ Baseline preview finished: the policies on $GATEWAY are unchanged"
+  echo "🔐 Baseline preview finished: the policies on $GATEWAY are unchanged"
 ```
 </details> <!-- gh -->
 
@@ -940,7 +940,7 @@ DRY_RUN=1 ./infra/scripts/apply-baselines.sh &&
 ```powershell title="PowerShell"
 # Print the merged policy array without changing anything: with -DryRun, the script stops before it writes
 ./infra/scripts/apply-baselines.ps1 -DryRun
-if ($?) { Write-Host "🛡️ Baseline preview finished: the policies on $env:GATEWAY are unchanged" }
+if ($?) { Write-Host "🔐 Baseline preview finished: the policies on $env:GATEWAY are unchanged" }
 ```
 </details> <!-- gh -->
 
@@ -954,7 +954,7 @@ Gateway scope policies the gateway already has.
 ```bash title="Bash"
 # Merge baselines.json into the gateway's Gateway scope policies, write them back, and list the policy types
 ./infra/scripts/apply-baselines.sh &&
-  echo "🛡️ Gateway baseline is applied to $GATEWAY"
+  echo "🔐 Gateway baseline is applied to $GATEWAY"
 ```
 </details> <!-- gh -->
 
@@ -963,7 +963,7 @@ Gateway scope policies the gateway already has.
 ```powershell title="PowerShell"
 # Merge baselines.json into the gateway's Gateway scope policies, write them back, and list the policy types
 ./infra/scripts/apply-baselines.ps1
-if ($?) { Write-Host "🛡️ Gateway baseline is applied to $env:GATEWAY" }
+if ($?) { Write-Host "🔐 Gateway baseline is applied to $env:GATEWAY" }
 ```
 </details> <!-- gh -->
 
@@ -1040,7 +1040,7 @@ Expected output (end):
 Applied. Current gateway-scope policy types:
 requestRateLimit
 costLimit
-🛡️ Gateway baseline is applied to aigw-<token>
+🔐 Gateway baseline is applied to aigw-<token>
 ```
 
 Run it again whenever `baselines.json` changes. It's idempotent: a second run gives the same array.
@@ -1090,11 +1090,11 @@ Create an app registration and its service principal:
 ```bash title="Bash"
 # Create the app registration that GitHub Actions signs in as, and keep its application (client) ID
 export APP_ID="$(az ad app create --display-name "github-aigw-deploy" --query appId -o tsv)"
-echo "🪪 App registration github-aigw-deploy: $APP_ID"
+echo "👤 App registration github-aigw-deploy: $APP_ID"
 
 # Create its service principal, the identity that gets the role assignments on your subscription
 export SP_ID="$(az ad sp create --id "$APP_ID" --query id -o tsv)"
-echo "🪪 Service principal: $SP_ID"
+echo "👤 Service principal: $SP_ID"
 ```
 </details> <!-- gh -->
 
@@ -1103,11 +1103,11 @@ echo "🪪 Service principal: $SP_ID"
 ```powershell title="PowerShell"
 # Create the app registration that GitHub Actions signs in as, and keep its application (client) ID
 $env:APP_ID = az ad app create --display-name "github-aigw-deploy" --query appId -o tsv
-if ($?) { Write-Host "🪪 App registration github-aigw-deploy: $env:APP_ID" }
+if ($?) { Write-Host "👤 App registration github-aigw-deploy: $env:APP_ID" }
 
 # Create its service principal, the identity that gets the role assignments on your subscription
 $env:SP_ID  = az ad sp create --id $env:APP_ID --query id -o tsv
-if ($?) { Write-Host "🪪 Service principal: $env:SP_ID" }
+if ($?) { Write-Host "👤 Service principal: $env:SP_ID" }
 ```
 </details> <!-- gh -->
 
@@ -1128,12 +1128,12 @@ for ENV in dev prod; do
   "issuer": "https://token.actions.githubusercontent.com",
   "subject": "repo:$GITHUB_REPO:environment:$ENV",
   "description": "GitHub Actions deployments to the $ENV environment",
-  "audiences": ["api://AzureADTokenExchange"]
+  "audiences": [ "api://AzureADTokenExchange" ]
 }
 EOF
   # Add the credential to the app registration, then delete the file
   az ad app federated-credential create --id "$APP_ID" --parameters "credential-$ENV.json" -o none &&
-    echo "🪪 Federated credential github-$ENV trusts the $ENV environment of $GITHUB_REPO"
+    echo "👤 Federated credential github-$ENV trusts the $ENV environment of $GITHUB_REPO"
   rm "credential-$ENV.json"
 done
 ```
@@ -1155,7 +1155,7 @@ foreach ($envName in "dev", "prod") {
   } | ConvertTo-Json | Set-Content -Path $file
   # Add the credential to the app registration, then delete the file
   az ad app federated-credential create --id $env:APP_ID --parameters $file -o none
-  if ($?) { Write-Host "🪪 Federated credential github-$envName trusts the $envName environment of $env:GITHUB_REPO" }
+  if ($?) { Write-Host "👤 Federated credential github-$envName trusts the $envName environment of $env:GITHUB_REPO" }
   Remove-Item $file
 }
 ```
@@ -1175,7 +1175,7 @@ echo "🆔 Subscription: $SUBSCRIPTION_ID"
 for ROLE in "Contributor" "Role Based Access Control Administrator"; do
   az role assignment create --assignee-object-id "$SP_ID" --assignee-principal-type ServicePrincipal \
     --role "$ROLE" --scope "/subscriptions/$SUBSCRIPTION_ID" -o none &&
-    echo "🛡️ The deployment identity has the $ROLE role on the subscription"
+    echo "🔐 The deployment identity has the $ROLE role on the subscription"
 done
 ```
 </details> <!-- gh -->
@@ -1192,7 +1192,7 @@ Write-Host "🆔 Subscription: $env:SUBSCRIPTION_ID"
 foreach ($role in "Contributor", "Role Based Access Control Administrator") {
   az role assignment create --assignee-object-id $env:SP_ID --assignee-principal-type ServicePrincipal `
     --role $role --scope "/subscriptions/$($env:SUBSCRIPTION_ID)" -o none
-  if ($?) { Write-Host "🛡️ The deployment identity has the $role role on the subscription" }
+  if ($?) { Write-Host "🔐 The deployment identity has the $role role on the subscription" }
 }
 ```
 </details> <!-- gh -->
@@ -1466,14 +1466,14 @@ The dev parameters gave you **AI Gateway Models User** on the alias, so you can 
 # Get a Microsoft Entra token for AI Gateway, for your own identity
 export AI_GATEWAY_TOKEN="$(az account get-access-token \
   --resource https://azure-api.net/aigateway --query accessToken -o tsv)"
-echo "🪪 Token acquired: in AI_GATEWAY_TOKEN (${#AI_GATEWAY_TOKEN} characters, not shown)"
+echo "👤 Token acquired: in AI_GATEWAY_TOKEN (${#AI_GATEWAY_TOKEN} characters, not shown)"
 
 # Call the alias with the token instead of a key: your AI Gateway Models User role on the alias lets you in
 curl -sS "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions" \
   -H "Authorization: Bearer $AI_GATEWAY_TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"model\":\"$AI_GATEWAY_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hello in five words.\"}]}" \
-  | jq -r 'if .choices then "🤖 \(.choices[0].message.content)" else "⚠️ \(.error.message // .)" end'
+  | jq -r 'if .choices then "🤖 \(.choices[0].message.content)" else "🚨 \(.error.message // .)" end'
 ```
 </details> <!-- gh -->
 
@@ -1483,7 +1483,7 @@ curl -sS "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions" \
 # Get a Microsoft Entra token for AI Gateway, for your own identity
 $env:AI_GATEWAY_TOKEN = az account get-access-token `
   --resource https://azure-api.net/aigateway --query accessToken -o tsv
-Write-Host "🪪 Token acquired: in AI_GATEWAY_TOKEN ($($env:AI_GATEWAY_TOKEN.Length) characters, not shown)"
+Write-Host "👤 Token acquired: in AI_GATEWAY_TOKEN ($($env:AI_GATEWAY_TOKEN.Length) characters, not shown)"
 
 # Build the request: the alias in model, and one user message
 $body = @{
@@ -1514,7 +1514,7 @@ echo "🔑 disableLocalAuth on the Foundry account:"
 az cognitiveservices account show -g "$FOUNDRY_RG" -n "$FOUNDRY_NAME" --query properties.disableLocalAuth
 
 # List the roles that the gateway's managed identity has on the Foundry account
-echo "🛡️ Roles of the gateway's identity on the Foundry account:"
+echo "🔐 Roles of the gateway's identity on the Foundry account:"
 az role assignment list --scope "$FOUNDRY_ID" --assignee "$AI_GATEWAY_PRINCIPAL_ID" \
   --query "[].roleDefinitionName" -o tsv
 ```
@@ -1528,7 +1528,7 @@ Write-Host "🔑 disableLocalAuth on the Foundry account:"
 az cognitiveservices account show -g $env:FOUNDRY_RG -n $env:FOUNDRY_NAME --query properties.disableLocalAuth
 
 # List the roles that the gateway's managed identity has on the Foundry account
-Write-Host "🛡️ Roles of the gateway's identity on the Foundry account:"
+Write-Host "🔐 Roles of the gateway's identity on the Foundry account:"
 az role assignment list --scope $env:FOUNDRY_ID --assignee $env:AI_GATEWAY_PRINCIPAL_ID `
   --query "[].roleDefinitionName" -o tsv
 ```
@@ -1539,7 +1539,7 @@ Expected output:
 ```text
 🔑 disableLocalAuth on the Foundry account:
 true
-🛡️ Roles of the gateway's identity on the Foundry account:
+🔐 Roles of the gateway's identity on the Foundry account:
 Foundry User
 ```
 
@@ -1583,11 +1583,11 @@ groups. Each command waits until the group is gone, which can take several minut
 ```bash title="Bash"
 # Delete the gateway's resource group, with the gateway, its keys, and the monitoring resources
 az group delete -n "$RG" --yes &&
-  echo "🧹 Resource group $RG is deleted"
+  echo "🚮 Resource group $RG is deleted"
 
 # Delete the resource group with the Foundry account and its model deployment
 az group delete -n "$FOUNDRY_RG" --yes &&
-  echo "🧹 Resource group $FOUNDRY_RG is deleted"
+  echo "🚮 Resource group $FOUNDRY_RG is deleted"
 ```
 </details> <!-- gh -->
 
@@ -1596,11 +1596,11 @@ az group delete -n "$FOUNDRY_RG" --yes &&
 ```powershell title="PowerShell"
 # Delete the gateway's resource group, with the gateway, its keys, and the monitoring resources
 az group delete -n $env:RG --yes
-if ($?) { Write-Host "🧹 Resource group $env:RG is deleted" }
+if ($?) { Write-Host "🚮 Resource group $env:RG is deleted" }
 
 # Delete the resource group with the Foundry account and its model deployment
 az group delete -n $env:FOUNDRY_RG --yes
-if ($?) { Write-Host "🧹 Resource group $env:FOUNDRY_RG is deleted" }
+if ($?) { Write-Host "🚮 Resource group $env:FOUNDRY_RG is deleted" }
 ```
 </details> <!-- gh -->
 
@@ -1612,7 +1612,7 @@ it. Purging is permanent.
 ```bash title="Bash"
 # Purge the deleted Foundry account, so that you can reuse its name right away
 az cognitiveservices account purge -g "$FOUNDRY_RG" -n "$FOUNDRY_NAME" -l "$LOCATION" &&
-  echo "🧹 Foundry account $FOUNDRY_NAME is purged"
+  echo "🚮 Foundry account $FOUNDRY_NAME is purged"
 ```
 </details> <!-- gh -->
 
@@ -1621,7 +1621,7 @@ az cognitiveservices account purge -g "$FOUNDRY_RG" -n "$FOUNDRY_NAME" -l "$LOCA
 ```powershell title="PowerShell"
 # Purge the deleted Foundry account, so that you can reuse its name right away
 az cognitiveservices account purge -g $env:FOUNDRY_RG -n $env:FOUNDRY_NAME -l $env:LOCATION
-if ($?) { Write-Host "🧹 Foundry account $env:FOUNDRY_NAME is purged" }
+if ($?) { Write-Host "🚮 Foundry account $env:FOUNDRY_NAME is purged" }
 ```
 </details> <!-- gh -->
 
@@ -1633,11 +1633,11 @@ delete the `dev` and `prod` environments in **Settings** › **Environments**:
 ```bash title="Bash"
 # Remove the deployment identity's role assignments on the subscription
 az role assignment delete --assignee "$SP_ID" --scope "/subscriptions/$SUBSCRIPTION_ID" &&
-  echo "🧹 The deployment identity's role assignments are deleted"
+  echo "🚮 The deployment identity's role assignments are deleted"
 
 # Delete the app registration, with its federated credentials
 az ad app delete --id "$APP_ID" &&
-  echo "🧹 App registration github-aigw-deploy is deleted"
+  echo "🚮 App registration github-aigw-deploy is deleted"
 ```
 </details> <!-- gh -->
 
@@ -1646,11 +1646,11 @@ az ad app delete --id "$APP_ID" &&
 ```powershell title="PowerShell"
 # Remove the deployment identity's role assignments on the subscription
 az role assignment delete --assignee $env:SP_ID --scope "/subscriptions/$($env:SUBSCRIPTION_ID)"
-if ($?) { Write-Host "🧹 The deployment identity's role assignments are deleted" }
+if ($?) { Write-Host "🚮 The deployment identity's role assignments are deleted" }
 
 # Delete the app registration, with its federated credentials
 az ad app delete --id $env:APP_ID
-if ($?) { Write-Host "🧹 App registration github-aigw-deploy is deleted" }
+if ($?) { Write-Host "🚮 App registration github-aigw-deploy is deleted" }
 ```
 </details> <!-- gh -->
 

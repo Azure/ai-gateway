@@ -108,7 +108,7 @@ echo "🌐 Runtime URL: $AI_GATEWAY_URL"
 # Read the alias that apps send in the model field: for Foundry imports, it matches the deployment's model name
 export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" \
   -n "$MODEL" --query properties.deployment.modelName -o tsv)"
-echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+echo "🔖 Model alias: $AI_GATEWAY_MODEL"
 
 # Paste the app-dev runtime key from Access › Keys, without showing it: don't commit it or write it to a file
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
@@ -138,7 +138,7 @@ Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
 # Read the alias that apps send in the model field: for Foundry imports, it matches the deployment's model name
 $env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER `
   -n $MODEL --query properties.deployment.modelName -o tsv
-Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🔖 Model alias: $env:AI_GATEWAY_MODEL"
 
 # Paste the app-dev runtime key from Access › Keys, without showing it: don't commit it or write it to a file
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
@@ -270,7 +270,7 @@ URL="https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/provider
 echo "🆔 Subscription: $SUB"
 
 # Read the model's current policies, so that you know what the merge must keep
-echo "🛡️ Policies on $MODEL:"
+echo "🔐 Policies on $MODEL:"
 az rest --method get --url "$URL" --query properties.policies
 ```
 
@@ -301,7 +301,7 @@ POLICIES="$(az rest --method get --url "$URL" | jq -c \
 
 # Send the merged array back: a PATCH replaces the whole policies array
 az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}" --output none &&
-  echo "🛡️ Cost limit of \$$BUDGET per $PERIOD for each caller is on $MODEL"
+  echo "🔐 Cost limit of \$$BUDGET per $PERIOD for each caller is on $MODEL"
 ```
 </details> <!-- gh -->
 
@@ -336,7 +336,7 @@ if ($cost) {
 $body = @{ properties = @{ policies = $policies } } | ConvertTo-Json -Depth 10 -Compress
 $body | Set-Content -Path patch.json
 az rest --method patch --url $URL --body '@patch.json' --output none
-if ($?) { Write-Host "🛡️ Cost limit of `$$BUDGET per $PERIOD for each caller is on $MODEL" }
+if ($?) { Write-Host "🔐 Cost limit of `$$BUDGET per $PERIOD for each caller is on $MODEL" }
 Remove-Item patch.json
 ```
 </details> <!-- gh -->
@@ -686,7 +686,7 @@ export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_I
   --query primaryKey --output tsv)"
 echo "🌐 Runtime URL: $AI_GATEWAY_URL"
 echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
-echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+echo "🔖 Model alias: $AI_GATEWAY_MODEL"
 ```
 </details> <!-- gh -->
 
@@ -713,12 +713,12 @@ $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/a
   --query primaryKey --output tsv
 Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
 Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
-Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🔖 Model alias: $env:AI_GATEWAY_MODEL"
 ```
 </details> <!-- gh -->
 
 > **Checkpoint**
-> `azd up` ended with `SUCCESS`, and the last command printed `🏷️ Model alias: gpt-6-luna-budget`.
+> `azd up` ended with `SUCCESS`, and the last command printed `🔖 Model alias: gpt-6-luna-budget`.
 > `az rest --url "$WS/aliases/$AI_GATEWAY_MODEL?$API" --query properties.policies` returns one `costLimit` entry
 > with `"amount": 5.0`, `"period": "day"`, `"counterKey": ["identity"]`, and two `overrides`: `"amount": 50.0`
 > with the `apiKeyResourceId` of `support-bot`, and `"amount": 20.0` with your `oid` and `tid` claims.
@@ -761,7 +761,7 @@ azd env set COST_LIMIT_AMOUNT 0.001 &&
 
 # Deploy the change: only the budgeted alias changes, and it keeps its policy id and the spend so far
 azd provision &&
-  echo "🛡️ Default budget on $AI_GATEWAY_MODEL is now \$0.001 for each caller"
+  echo "🔐 Default budget on $AI_GATEWAY_MODEL is now \$0.001 for each caller"
 ```
 </details> <!-- gh -->
 
@@ -774,7 +774,7 @@ if ($?) { Write-Host "📝 COST_LIMIT_AMOUNT is 0.001" }
 
 # Deploy the change: only the budgeted alias changes, and it keeps its policy id and the spend so far
 azd provision
-if ($?) { Write-Host "🛡️ Default budget on $env:AI_GATEWAY_MODEL is now `$0.001 for each caller" }
+if ($?) { Write-Host "🔐 Default budget on $env:AI_GATEWAY_MODEL is now `$0.001 for each caller" }
 ```
 </details> <!-- gh -->
 
@@ -935,7 +935,7 @@ POLICIES="$(az rest --method get --url "$URL" | jq -c '[(.properties.policies //
 
 # Send the array back without the cost limit: a PATCH replaces the whole policies array
 az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}" --output none &&
-  echo "🧹 Cost limit is removed from $MODEL"
+  echo "🚮 Cost limit is removed from $MODEL"
 ```
 
 To keep the policy instead, run the merge again with a production budget, for example `BUDGET=100`.
@@ -953,7 +953,7 @@ account. It takes about ten minutes.
 ```bash
 # Delete everything that azd up created, and purge the Foundry account
 azd down --purge --force &&
-  echo "🧹 Everything that azd up created is deleted"
+  echo "🚮 Everything that azd up created is deleted"
 ```
 
 To keep this gateway for other labs instead, skip `azd down` and raise the budget to a production value:

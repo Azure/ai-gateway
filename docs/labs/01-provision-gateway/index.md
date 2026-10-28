@@ -316,7 +316,7 @@ echo "📝 Gateway $GATEWAY in $RG ($LOCATION)"
 
 # Print the gateway's runtime URL and the principal ID of its managed identity
 echo "🌐 Runtime URL: $(azd env get-value AI_GATEWAY_URL)"
-echo "🪪 Gateway identity: $(azd env get-value AI_GATEWAY_PRINCIPAL_ID)"
+echo "👤 Gateway identity: $(azd env get-value AI_GATEWAY_PRINCIPAL_ID)"
 ```
 
 ```powershell title="PowerShell"
@@ -328,12 +328,12 @@ Write-Host "📝 Gateway $GATEWAY in $RG ($LOCATION)"
 
 # Print the gateway's runtime URL and the principal ID of its managed identity
 Write-Host "🌐 Runtime URL: $(azd env get-value AI_GATEWAY_URL)"
-Write-Host "🪪 Gateway identity: $(azd env get-value AI_GATEWAY_PRINCIPAL_ID)"
+Write-Host "👤 Gateway identity: $(azd env get-value AI_GATEWAY_PRINCIPAL_ID)"
 ```
 
 > **Checkpoint**
 > `azd up` ended with `SUCCESS`. The commands print a runtime URL like
-> `🌐 Runtime URL: https://aigw-<suffix>.eastus2-01.ai.gateway.azure.com`, and `🪪 Gateway identity:` with a
+> `🌐 Runtime URL: https://aigw-<suffix>.eastus2-01.ai.gateway.azure.com`, and `👤 Gateway identity:` with a
 > principal ID GUID.
 
 <!-- /tracks -->
@@ -447,13 +447,13 @@ and everything else in the group. The command asks for confirmation.
 ```bash title="Bash"
 # Delete the resource group, with the gateway, its connector gateway, and everything else in it, after you confirm
 az group delete --name "$RG" &&
-  echo "🧹 Resource group $RG is deleted"
+  echo "🚮 Resource group $RG is deleted"
 ```
 
 ```powershell title="PowerShell"
 # Delete the resource group, with the gateway, its connector gateway, and everything else in it, after you confirm
 az group delete --name $RG
-if ($?) { Write-Host "🧹 Resource group $RG is deleted" }
+if ($?) { Write-Host "🚮 Resource group $RG is deleted" }
 ```
 
 ### Delete only the gateway
@@ -464,21 +464,21 @@ also deletes everything you published on it.
 ```bash title="Bash"
 # Delete the AI gateway, with everything that you published on it
 az aigateway delete -g "$RG" -n "$GATEWAY" --yes &&
-  echo "🧹 Gateway $GATEWAY is deleted"
+  echo "🚮 Gateway $GATEWAY is deleted"
 
 # Delete its companion connector gateway, which has the same name
 az resource delete -g "$RG" -n "$GATEWAY" --resource-type Microsoft.Web/connectorGateways --api-version 2026-05-01-preview &&
-  echo "🧹 Connector gateway $GATEWAY is deleted"
+  echo "🚮 Connector gateway $GATEWAY is deleted"
 ```
 
 ```powershell title="PowerShell"
 # Delete the AI gateway, with everything that you published on it
 az aigateway delete -g $RG -n $GATEWAY --yes
-if ($?) { Write-Host "🧹 Gateway $GATEWAY is deleted" }
+if ($?) { Write-Host "🚮 Gateway $GATEWAY is deleted" }
 
 # Delete its companion connector gateway, which has the same name
 az resource delete -g $RG -n $GATEWAY --resource-type Microsoft.Web/connectorGateways --api-version 2026-05-01-preview
-if ($?) { Write-Host "🧹 Connector gateway $GATEWAY is deleted" }
+if ($?) { Write-Host "🚮 Connector gateway $GATEWAY is deleted" }
 ```
 
 <!-- track: iac | Bicep + azd -->
@@ -496,7 +496,7 @@ connector gateway. It takes up to ten minutes.
 ```bash
 # Delete everything that azd up created, without asking you to confirm
 azd down --purge --force &&
-  echo "🧹 Everything that azd up created is deleted"
+  echo "🚮 Everything that azd up created is deleted"
 ```
 
 <!-- /tracks -->

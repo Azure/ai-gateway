@@ -68,11 +68,11 @@ echo "🌐 Runtime URL: $AI_GATEWAY_URL"
 # Read the alias that apps send in the model field: for Foundry imports, it matches the deployment's model name
 export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" \
   -n "$MODEL" --query properties.deployment.modelName -o tsv)"
-echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+echo "🔖 Model alias: $AI_GATEWAY_MODEL"
 
 # Read your object ID in Microsoft Entra ID, so that you can grant yourself a role
 export MY_OBJECT_ID="$(az ad signed-in-user show --query id -o tsv)"
-echo "🪪 Your object ID: $MY_OBJECT_ID"
+echo "👤 Your object ID: $MY_OBJECT_ID"
 
 # Remove any API key from your shell, to prove that nothing in this lab uses one
 unset AI_GATEWAY_API_KEY
@@ -95,11 +95,11 @@ Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
 # Read the alias that apps send in the model field: for Foundry imports, it matches the deployment's model name
 $env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER `
   -n $MODEL --query properties.deployment.modelName -o tsv
-Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🔖 Model alias: $env:AI_GATEWAY_MODEL"
 
 # Read your object ID in Microsoft Entra ID, so that you can grant yourself a role
 $MY_OBJECT_ID = az ad signed-in-user show --query id -o tsv
-Write-Host "🪪 Your object ID: $MY_OBJECT_ID"
+Write-Host "👤 Your object ID: $MY_OBJECT_ID"
 
 # Remove any API key from your session, to prove that nothing in this lab uses one
 Remove-Item Env:AI_GATEWAY_API_KEY -ErrorAction SilentlyContinue
@@ -193,7 +193,7 @@ az role assignment create \
   --assignee-principal-type User \
   --role "a6b68e3d-a1f0-4c60-8678-237c050cf4ea" \
   --scope "$GATEWAY_ID" --output none &&
-  echo "🛡️ You have the AI Gateway Models User role on $GATEWAY"
+  echo "🔐 You have the AI Gateway Models User role on $GATEWAY"
 ```
 
 ```powershell title="PowerShell"
@@ -203,7 +203,7 @@ az role assignment create `
   --assignee-principal-type User `
   --role "a6b68e3d-a1f0-4c60-8678-237c050cf4ea" `
   --scope $GATEWAY_ID --output none
-if ($?) { Write-Host "🛡️ You have the AI Gateway Models User role on $GATEWAY" }
+if ($?) { Write-Host "🔐 You have the AI Gateway Models User role on $GATEWAY" }
 ```
 
 ### Use the helper for other roles and scopes
@@ -214,37 +214,37 @@ a model alias, or an MCP server, and defaults to the signed-in user:
 ```bash title="Bash"
 # Give yourself the AI Gateway Models User role on the whole gateway
 ./infra/assign-roles.sh models &&
-  echo "🛡️ You have the AI Gateway Models User role on $GATEWAY"
+  echo "🔐 You have the AI Gateway Models User role on $GATEWAY"
 
 # Or grant the same role on one model alias only, so that calls to other aliases return 403
 ./infra/assign-roles.sh models "alias:$AI_GATEWAY_MODEL" &&
-  echo "🛡️ You have the AI Gateway Models User role on the alias $AI_GATEWAY_MODEL"
+  echo "🔐 You have the AI Gateway Models User role on the alias $AI_GATEWAY_MODEL"
 
 # Or grant AI Gateway Tools User on one MCP server, which lets you list and call its tools, but not models
 ./infra/assign-roles.sh tools "mcp:<mcp-server-name>" &&
-  echo "🛡️ You have the AI Gateway Tools User role on the MCP server"
+  echo "🔐 You have the AI Gateway Tools User role on the MCP server"
 
 # Or give an Entra group AI Gateway User (models and tools) on the gateway, so that membership controls access
 ./infra/assign-roles.sh user gateway <group-object-id> Group &&
-  echo "🛡️ The group has the AI Gateway User role on $GATEWAY"
+  echo "🔐 The group has the AI Gateway User role on $GATEWAY"
 ```
 
 ```powershell title="PowerShell"
 # Give yourself the AI Gateway Models User role on the whole gateway
 ./infra/assign-roles.ps1 -Role models
-if ($?) { Write-Host "🛡️ You have the AI Gateway Models User role on $GATEWAY" }
+if ($?) { Write-Host "🔐 You have the AI Gateway Models User role on $GATEWAY" }
 
 # Or grant the same role on one model alias only, so that calls to other aliases return 403
 ./infra/assign-roles.ps1 -Role models -Scope "alias:$env:AI_GATEWAY_MODEL"
-if ($?) { Write-Host "🛡️ You have the AI Gateway Models User role on the alias $env:AI_GATEWAY_MODEL" }
+if ($?) { Write-Host "🔐 You have the AI Gateway Models User role on the alias $env:AI_GATEWAY_MODEL" }
 
 # Or grant AI Gateway Tools User on one MCP server, which lets you list and call its tools, but not models
 ./infra/assign-roles.ps1 -Role tools -Scope "mcp:<mcp-server-name>"
-if ($?) { Write-Host "🛡️ You have the AI Gateway Tools User role on the MCP server" }
+if ($?) { Write-Host "🔐 You have the AI Gateway Tools User role on the MCP server" }
 
 # Or give an Entra group AI Gateway User (models and tools) on the gateway, so that membership controls access
 ./infra/assign-roles.ps1 -Role user -PrincipalId <group-object-id> -PrincipalType Group
-if ($?) { Write-Host "🛡️ The group has the AI Gateway User role on $GATEWAY" }
+if ($?) { Write-Host "🔐 The group has the AI Gateway User role on $GATEWAY" }
 ```
 
 <!-- include: infra/assign-roles.sh -->
@@ -258,14 +258,14 @@ from `az identity show -g <resource-group> -n <identity-name> --query principalI
 
 ```bash title="Bash"
 # List your role assignments on the gateway, with each role's name and scope
-echo "🛡️ Your role assignments on $GATEWAY:"
+echo "🔐 Your role assignments on $GATEWAY:"
 az role assignment list --scope "$GATEWAY_ID" \
   --query "[?principalId=='$MY_OBJECT_ID'].{Role:roleDefinitionName, Scope:scope}" -o table
 ```
 
 ```powershell title="PowerShell"
 # List your role assignments on the gateway, with each role's name and scope
-Write-Host "🛡️ Your role assignments on ${GATEWAY}:"
+Write-Host "🔐 Your role assignments on ${GATEWAY}:"
 az role assignment list --scope $GATEWAY_ID `
   --query "[?principalId=='$MY_OBJECT_ID'].{Role:roleDefinitionName, Scope:scope}" -o table
 ```
@@ -355,18 +355,18 @@ export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
 export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
 echo "📝 Gateway $GATEWAY in $RG"
 echo "🌐 Runtime URL: $AI_GATEWAY_URL"
-echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+echo "🔖 Model alias: $AI_GATEWAY_MODEL"
 
 # Read your object ID in Microsoft Entra ID
 export MY_OBJECT_ID="$(az ad signed-in-user show --query id -o tsv)"
-echo "🪪 Your object ID: $MY_OBJECT_ID"
+echo "👤 Your object ID: $MY_OBJECT_ID"
 
 # Remove any API key from your shell, to prove that nothing in this lab uses one
 unset AI_GATEWAY_API_KEY
 echo "🔑 AI_GATEWAY_API_KEY is unset, so every call in this lab is keyless"
 
 # List your role assignments on the gateway, including the one that azd up created
-echo "🛡️ Your role assignments on $GATEWAY:"
+echo "🔐 Your role assignments on $GATEWAY:"
 az role assignment list --scope "$GATEWAY_ID" \
   --query "[?principalId=='$MY_OBJECT_ID'].{Role:roleDefinitionName, Scope:scope}" -o table
 ```
@@ -382,18 +382,18 @@ $env:AI_GATEWAY_URL   = azd env get-value AI_GATEWAY_URL
 $env:AI_GATEWAY_MODEL = azd env get-value AI_GATEWAY_MODEL
 Write-Host "📝 Gateway $GATEWAY in $RG"
 Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
-Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🔖 Model alias: $env:AI_GATEWAY_MODEL"
 
 # Read your object ID in Microsoft Entra ID
 $MY_OBJECT_ID         = az ad signed-in-user show --query id -o tsv
-Write-Host "🪪 Your object ID: $MY_OBJECT_ID"
+Write-Host "👤 Your object ID: $MY_OBJECT_ID"
 
 # Remove any API key from your session, to prove that nothing in this lab uses one
 Remove-Item Env:AI_GATEWAY_API_KEY -ErrorAction SilentlyContinue
 Write-Host "🔑 AI_GATEWAY_API_KEY is removed, so every call in this lab is keyless"
 
 # List your role assignments on the gateway, including the one that azd up created
-Write-Host "🛡️ Your role assignments on ${GATEWAY}:"
+Write-Host "🔐 Your role assignments on ${GATEWAY}:"
 az role assignment list --scope $GATEWAY_ID `
   --query "[?principalId=='$MY_OBJECT_ID'].{Role:roleDefinitionName, Scope:scope}" -o table
 ```
@@ -415,7 +415,7 @@ azd env set DATA_PLANE_ROLE_SCOPE alias &&
 
 # Deploy the templates again, which adds the role assignment on the alias
 azd provision &&
-  echo "🛡️ You also have the role on the alias $AI_GATEWAY_MODEL"
+  echo "🔐 You also have the role on the alias $AI_GATEWAY_MODEL"
 ```
 
 ```powershell title="PowerShell"
@@ -425,7 +425,7 @@ if ($?) { Write-Host "📝 DATA_PLANE_ROLE_SCOPE is alias" }
 
 # Deploy the templates again, which adds the role assignment on the alias
 azd provision
-if ($?) { Write-Host "🛡️ You also have the role on the alias $env:AI_GATEWAY_MODEL" }
+if ($?) { Write-Host "🔐 You also have the role on the alias $env:AI_GATEWAY_MODEL" }
 ```
 
 A Bicep deployment only adds or updates resources, so you now hold the role on the gateway **and** on the alias.
@@ -473,14 +473,14 @@ The Azure CLI can issue a token for the AI Gateway audience with your sign-in:
 # Get an access token for the AI Gateway audience, with your Azure CLI sign-in
 export AI_GATEWAY_TOKEN="$(az account get-access-token \
   --resource https://azure-api.net/aigateway --query accessToken -o tsv)"
-echo "🪪 Token acquired: in AI_GATEWAY_TOKEN (${#AI_GATEWAY_TOKEN} characters, not shown)"
+echo "👤 Token acquired: in AI_GATEWAY_TOKEN (${#AI_GATEWAY_TOKEN} characters, not shown)"
 ```
 
 ```powershell title="PowerShell"
 # Get an access token for the AI Gateway audience, with your Azure CLI sign-in
 $env:AI_GATEWAY_TOKEN = az account get-access-token `
   --resource https://azure-api.net/aigateway --query accessToken -o tsv
-Write-Host "🪪 Token acquired: in AI_GATEWAY_TOKEN ($($env:AI_GATEWAY_TOKEN.Length) characters, not shown)"
+Write-Host "👤 Token acquired: in AI_GATEWAY_TOKEN ($($env:AI_GATEWAY_TOKEN.Length) characters, not shown)"
 ```
 
 Access tokens are short-lived, typically about an hour. Run the command again when you get a `401`.
@@ -491,7 +491,7 @@ Decode the token's payload (the middle segment) to see what the gateway checks:
 
 ```bash title="Bash"
 # Decode the token's payload, its middle segment, and show the claims that the gateway checks
-echo "🪪 Token claims:"
+echo "👤 Token claims:"
 jq -R 'split(".")[1] | gsub("-";"+") | gsub("_";"/") | @base64d | fromjson
   | {aud, tid, oid, scp, appid}' <<< "$AI_GATEWAY_TOKEN"
 ```
@@ -502,7 +502,7 @@ $payload = ($env:AI_GATEWAY_TOKEN -split '\.')[1].Replace('-', '+').Replace('_',
 $payload = $payload.PadRight($payload.Length + (4 - $payload.Length % 4) % 4, '=')
 
 # Decode the payload, and show the claims that the gateway checks
-Write-Host "🪪 Token claims:"
+Write-Host "👤 Token claims:"
 [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($payload)) |
   ConvertFrom-Json | Select-Object aud, tid, oid, scp, appid
 ```
@@ -518,7 +518,7 @@ curl -sS "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions" \
   -H "Authorization: Bearer $AI_GATEWAY_TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"model\":\"$AI_GATEWAY_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hello in five words.\"}]}" \
-  | jq -r 'if .choices then "🤖 \(.choices[0].message.content)" else "⚠️ \(.error.message // .)" end'
+  | jq -r 'if .choices then "🤖 \(.choices[0].message.content)" else "🚨 \(.error.message // .)" end'
 ```
 
 ```powershell title="PowerShell"
@@ -556,11 +556,11 @@ echo "📂 Sample folder: infra"
 
 # Create a virtual environment for the packages, and activate it
 python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
-echo "🧩 The virtual environment .venv is active"
+echo "📦 The virtual environment .venv is active"
 
 # Install the OpenAI and Azure Identity packages that the sample uses
 pip install -r requirements.txt
-echo "🧩 The OpenAI and Azure Identity packages are installed"
+echo "📦 The OpenAI and Azure Identity packages are installed"
 ```
 
 ```bash title="TypeScript"
@@ -570,7 +570,7 @@ echo "📂 Sample folder: infra"
 
 # Install the OpenAI and Azure Identity packages that the sample uses
 npm install
-echo "🧩 The OpenAI and Azure Identity packages are installed"
+echo "📦 The OpenAI and Azure Identity packages are installed"
 ```
 
 ```bash title="C#"
@@ -580,7 +580,7 @@ echo "📂 Sample folder: infra"
 
 # Restore the Azure Identity package that the sample uses
 dotnet restore
-echo "🧩 The Azure Identity package is restored"
+echo "📦 The Azure Identity package is restored"
 ```
 
 ### Review the sample
@@ -697,7 +697,7 @@ Remove your assignment, wait a few minutes, get a fresh token, and repeat the cu
 # Delete your AI Gateway Models User role assignment (a6b68e3d-…) on the gateway
 az role assignment delete --assignee "$MY_OBJECT_ID" \
   --role "a6b68e3d-a1f0-4c60-8678-237c050cf4ea" --scope "$GATEWAY_ID" &&
-  echo "🧹 Your AI Gateway Models User role assignment on $GATEWAY is deleted"
+  echo "🚮 Your AI Gateway Models User role assignment on $GATEWAY is deleted"
 ```
 
 The gateway now answers `403`: you're authenticated, but no role allows you to invoke the model. In the
@@ -752,14 +752,14 @@ Select **Access** › **Entra ID**, find your assignment, and remove it.
 # Delete your AI Gateway Models User role assignment (a6b68e3d-…) on the gateway
 az role assignment delete --assignee "$MY_OBJECT_ID" \
   --role "a6b68e3d-a1f0-4c60-8678-237c050cf4ea" --scope "$GATEWAY_ID" &&
-  echo "🧹 Your AI Gateway Models User role assignment on $GATEWAY is deleted"
+  echo "🚮 Your AI Gateway Models User role assignment on $GATEWAY is deleted"
 ```
 
 ```powershell title="PowerShell"
 # Delete your AI Gateway Models User role assignment (a6b68e3d-…) on the gateway
 az role assignment delete --assignee $MY_OBJECT_ID `
   --role "a6b68e3d-a1f0-4c60-8678-237c050cf4ea" --scope $GATEWAY_ID
-if ($?) { Write-Host "🧹 Your AI Gateway Models User role assignment on $GATEWAY is deleted" }
+if ($?) { Write-Host "🚮 Your AI Gateway Models User role assignment on $GATEWAY is deleted" }
 ```
 
 <!-- track: code | Code -->
@@ -780,7 +780,7 @@ It takes about ten minutes.
 ```bash
 # Delete everything that azd up created, and purge the Foundry account
 azd down --purge --force &&
-  echo "🧹 Everything that azd up created is deleted"
+  echo "🚮 Everything that azd up created is deleted"
 ```
 
 <!-- /tracks -->

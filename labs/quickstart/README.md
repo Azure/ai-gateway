@@ -119,7 +119,7 @@ az cognitiveservices account create --resource-group "$RG" --name "$FOUNDRY" --l
 az cognitiveservices account deployment create --resource-group "$RG" --name "$FOUNDRY" \
   --deployment-name gpt-6-luna --model-name gpt-6-luna --model-version 2026-09-22 --model-format OpenAI \
   --sku-name GlobalStandard --sku-capacity 10 --output none &&
-  echo "🧠 Model deployment gpt-6-luna is ready"
+  echo "✨ Model deployment gpt-6-luna is ready"
 echo "✅ Create the gateway in $RG, and import gpt-6-luna from $FOUNDRY"
 ```
 
@@ -247,11 +247,11 @@ echo "🏭 Foundry account: $FOUNDRY"
 
 # Delete the resource group, with everything in it
 az group delete --name rg-aigw-quickstart --yes &&
-  echo "🧹 Resource group rg-aigw-quickstart is deleted"
+  echo "🚮 Resource group rg-aigw-quickstart is deleted"
 
 # Purge the deleted Foundry account, so that it stops counting against your quota
 az cognitiveservices account purge --name "$FOUNDRY" --resource-group rg-aigw-quickstart --location eastus2 &&
-  echo "🧹 Foundry account $FOUNDRY is purged"
+  echo "🚮 Foundry account $FOUNDRY is purged"
 ```
 
 > **Checkpoint:** after you refresh the page, **All gateways** no longer lists your gateway.
@@ -342,66 +342,52 @@ if ($?) { Write-Host "⏳ Gateway $GATEWAY is provisioning in the background" }
 
 ### Deploy the model in Foundry
 
-While the gateway provisions, create a Foundry account with a `gpt-6-luna` deployment. Then give the gateway's
-managed identity the **Foundry User** role on the account. The gateway calls the model with this identity, so your
-apps never hold a Foundry key.
+While the gateway provisions, create a Foundry account with a `gpt-6-luna` deployment.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-# Create the Foundry account, with a custom subdomain so that the gateway can sign in with Microsoft Entra ID
-az cognitiveservices account create --resource-group "$RG" --name "$FOUNDRY" --location "$LOCATION" \
-  --kind AIServices --sku S0 --custom-domain "$FOUNDRY" --yes --output none &&
+# Create the Foundry account, with a custom subdomain so that the gateway can sign in with Microsoft Entra ID,
+# and keep its resource ID for the import in the next step
+export FOUNDRY_ID="$(az cognitiveservices account create --resource-group "$RG" --name "$FOUNDRY" --location "$LOCATION" \
+  --kind AIServices --sku S0 --custom-domain "$FOUNDRY" --yes --query id --output tsv)" &&
   echo "🏭 Foundry account $FOUNDRY is ready"
 
 # Deploy gpt-6-luna with 10,000 tokens per minute of Global Standard capacity
 az cognitiveservices account deployment create --resource-group "$RG" --name "$FOUNDRY" \
   --deployment-name "$DEPLOYMENT" --model-name gpt-6-luna --model-version 2026-09-22 --model-format OpenAI \
   --sku-name GlobalStandard --sku-capacity 10 --output none &&
-  echo "🧠 Model deployment $DEPLOYMENT is ready"
-
-# Read the Foundry account's resource ID and the principal ID of the gateway's managed identity
-export FOUNDRY_ID="$(az cognitiveservices account show --resource-group "$RG" --name "$FOUNDRY" --query id --output tsv)"
-PRINCIPAL_ID="$(az aigateway show --resource-group "$RG" --name "$GATEWAY" --query identity.principalId --output tsv)"
-echo "🪪 Gateway identity: $PRINCIPAL_ID"
-
-# Give the gateway's identity the Foundry User role on the account, so that it can call the model
-az role assignment create --assignee-object-id "$PRINCIPAL_ID" --assignee-principal-type ServicePrincipal \
-  --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope "$FOUNDRY_ID" --output none &&
-  echo "🛡️ The gateway's identity has the Foundry User role on $FOUNDRY"
+  echo "✨ Model deployment $DEPLOYMENT is ready"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-# Create the Foundry account, with a custom subdomain so that the gateway can sign in with Microsoft Entra ID
-az cognitiveservices account create --resource-group $RG --name $FOUNDRY --location $LOCATION `
-  --kind AIServices --sku S0 --custom-domain $FOUNDRY --yes --output none
+# Create the Foundry account, with a custom subdomain so that the gateway can sign in with Microsoft Entra ID,
+# and keep its resource ID for the import in the next step
+$FOUNDRY_ID = az cognitiveservices account create --resource-group $RG --name $FOUNDRY --location $LOCATION `
+  --kind AIServices --sku S0 --custom-domain $FOUNDRY --yes --query id --output tsv
 if ($?) { Write-Host "🏭 Foundry account $FOUNDRY is ready" }
 
 # Deploy gpt-6-luna with 10,000 tokens per minute of Global Standard capacity
 az cognitiveservices account deployment create --resource-group $RG --name $FOUNDRY `
   --deployment-name $DEPLOYMENT --model-name gpt-6-luna --model-version 2026-09-22 --model-format OpenAI `
   --sku-name GlobalStandard --sku-capacity 10 --output none
-if ($?) { Write-Host "🧠 Model deployment $DEPLOYMENT is ready" }
-
-# Read the Foundry account's resource ID and the principal ID of the gateway's managed identity
-$FOUNDRY_ID   = az cognitiveservices account show --resource-group $RG --name $FOUNDRY --query id --output tsv
-$PRINCIPAL_ID = az aigateway show --resource-group $RG --name $GATEWAY --query identity.principalId --output tsv
-Write-Host "🪪 Gateway identity: $PRINCIPAL_ID"
-
-# Give the gateway's identity the Foundry User role on the account, so that it can call the model
-az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principal-type ServicePrincipal `
-  --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope $FOUNDRY_ID --output none
-if ($?) { Write-Host "🛡️ The gateway's identity has the Foundry User role on $FOUNDRY" }
+if ($?) { Write-Host "✨ Model deployment $DEPLOYMENT is ready" }
 ```
 </details> <!-- gh -->
 
 ### Publish the model
 
-Wait for the gateway, then publish the deployment in three steps: a provider that points at the Foundry account and
-signs in with the managed identity, a model for the deployment, and an alias that apps send in the `model` field.
+Wait for the gateway, then publish the deployment with two commands:
+
+- `az aigateway model-provider create --foundry-resource-id` imports the Foundry account. It gives the gateway's
+  managed identity the **Foundry User** role on the account, adds a model provider that signs in with that identity,
+  and adds a model for each deployment. The gateway calls the model with this identity, so your apps never hold a
+  Foundry key.
+- `az aigateway model-alias create` adds the alias that apps send in the `model` field. The import doesn't add
+  aliases.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
@@ -410,24 +396,16 @@ signs in with the managed identity, a model for the deployment, and an alias tha
 az aigateway wait --resource-group "$RG" --name "$GATEWAY" --created &&
   echo "🚀 Gateway $GATEWAY is ready"
 
-# Add a model provider that points at the Foundry account and signs in with the gateway's managed identity
-az aigateway model-provider create --resource-group "$RG" --gateway-name "$GATEWAY" --name "$PROVIDER" --output none \
-  --kind Foundry --display-name "Foundry models" \
-  --foundry "$(jq -cn --arg e "https://$FOUNDRY.cognitiveservices.azure.com/" --arg id "$FOUNDRY_ID" '{endpoint: $e,
-      resourceIds: [$id], authentication: {kind: "ManagedIdentity", managedIdentity: {resource: "https://cognitiveservices.azure.com/"}}}')" &&
-  echo "🔌 Model provider $PROVIDER points at $FOUNDRY"
-
-# Add a model for the deployment, with the endpoints that apps can call
-az aigateway model create --resource-group "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" --name "$DEPLOYMENT" \
-  --api-format OpenAIChatCompletions --supported-endpoints /openai/v1/chat/completions /openai/v1/responses \
-  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$DEPLOYMENT,modelName:$DEPLOYMENT}" --output none &&
-  echo "🧠 Model $DEPLOYMENT is published through $PROVIDER"
+# Import the Foundry account: role for the gateway's identity, a model provider, and a model for each deployment
+MODELS="$(az aigateway model-provider create --resource-group "$RG" --gateway-name "$GATEWAY" --name "$PROVIDER" \
+  --foundry-resource-id "$FOUNDRY_ID" --query "join(', ', models[].name)" --output tsv)" &&
+  echo "🔌 Model provider $PROVIDER imported $MODELS from $FOUNDRY"
 
 # Add the alias that apps send in the model field
 ALIAS="$(az aigateway model-alias create --resource-group "$RG" --gateway-name "$GATEWAY" --name "$DEPLOYMENT" --only-show-errors \
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT" \
   --query properties.aliasName --output tsv)" &&
-  echo "🏷️ Alias $ALIAS is ready"
+  echo "🔖 Alias $ALIAS is ready"
 ```
 </details> <!-- gh -->
 
@@ -438,27 +416,16 @@ ALIAS="$(az aigateway model-alias create --resource-group "$RG" --gateway-name "
 az aigateway wait --resource-group $RG --name $GATEWAY --created
 if ($?) { Write-Host "🚀 Gateway $GATEWAY is ready" }
 
-# Add a model provider that points at the Foundry account and signs in with the gateway's managed identity
-@{ endpoint       = "https://$FOUNDRY.cognitiveservices.azure.com/"
-   resourceIds    = @($FOUNDRY_ID)
-   authentication = @{ kind = "ManagedIdentity"; managedIdentity = @{ resource = "https://cognitiveservices.azure.com/" } } } |
-  ConvertTo-Json -Depth 10 -Compress | Set-Content foundry.json
-az aigateway model-provider create --resource-group $RG --gateway-name $GATEWAY --name $PROVIDER --output none `
-  --kind Foundry --display-name "Foundry models" --foundry "@foundry.json"
-if ($?) { Write-Host "🔌 Model provider $PROVIDER points at $FOUNDRY" }
-
-# Add a model for the deployment, with the endpoints that apps can call
-az aigateway model create --resource-group $RG --gateway-name $GATEWAY --provider-name $PROVIDER --name $DEPLOYMENT `
-  --api-format OpenAIChatCompletions --supported-endpoints /openai/v1/chat/completions /openai/v1/responses `
-  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$DEPLOYMENT,modelName:$DEPLOYMENT}" --output none
-if ($?) { Write-Host "🧠 Model $DEPLOYMENT is published through $PROVIDER" }
+# Import the Foundry account: role for the gateway's identity, a model provider, and a model for each deployment
+$MODELS = az aigateway model-provider create --resource-group $RG --gateway-name $GATEWAY --name $PROVIDER `
+  --foundry-resource-id $FOUNDRY_ID --query "models[].name" --output tsv
+if ($?) { Write-Host "🔌 Model provider $PROVIDER imported $($MODELS -join ', ') from $FOUNDRY" }
 
 # Add the alias that apps send in the model field
 $ALIAS = az aigateway model-alias create --resource-group $RG --gateway-name $GATEWAY --name $DEPLOYMENT --only-show-errors `
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT" `
   --query properties.aliasName --output tsv
-if ($?) { Write-Host "🏷️ Alias $ALIAS is ready" }
-Remove-Item foundry.json
+if ($?) { Write-Host "🔖 Alias $ALIAS is ready" }
 ```
 </details> <!-- gh -->
 
@@ -484,7 +451,7 @@ export AI_GATEWAY_URL="https://$(az aigateway show --resource-group "$RG" --name
 export AI_GATEWAY_MODEL="$DEPLOYMENT"
 echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 echo "🌐 Runtime URL: $AI_GATEWAY_URL"
-echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+echo "🔖 Model alias: $AI_GATEWAY_MODEL"
 ```
 </details> <!-- gh -->
 
@@ -503,11 +470,11 @@ $env:AI_GATEWAY_URL     = "https://" + (az aigateway show --resource-group $RG -
 $env:AI_GATEWAY_MODEL   = $DEPLOYMENT
 Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
-Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🔖 Model alias: $env:AI_GATEWAY_MODEL"
 ```
 </details> <!-- gh -->
 
-> **Checkpoint:** the commands printed `🏷️ Alias gpt-6-luna is ready` and your gateway's runtime URL, for example
+> **Checkpoint:** the commands printed `🔖 Alias gpt-6-luna is ready` and your gateway's runtime URL, for example
 > `🌐 Runtime URL: https://aigw-abc123.eastus2-01.ai.gateway.azure.com`.
 
 ### Make your first call
@@ -522,7 +489,7 @@ Send a Chat Completions request to the gateway's OpenAI-compatible base URL, the
 curl -sS "$AI_GATEWAY_URL/default/models/openai/v1/chat/completions" \
   -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
   -d "{\"model\":\"$AI_GATEWAY_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"In one sentence, what does an AI gateway do?\"}]}" \
-  | jq -r 'if .choices then "🤖 \(.choices[0].message.content)" else "⚠️ \(.error.message // .)" end'
+  | jq -r 'if .choices then "🤖 \(.choices[0].message.content)" else "🚨 \(.error.message // .)" end'
 ```
 </details> <!-- gh -->
 
@@ -561,11 +528,11 @@ deleted Foundry accounts stay soft-deleted for 48 hours and keep counting agains
 ```bash title="Bash"
 # Delete the resource group, with the gateway and the Foundry account in it
 az group delete --name "$RG" --yes &&
-  echo "🧹 Resource group $RG is deleted"
+  echo "🚮 Resource group $RG is deleted"
 
 # Purge the deleted Foundry account, so that it stops counting against your quota
 az cognitiveservices account purge --name "$FOUNDRY" --resource-group "$RG" --location "$LOCATION" &&
-  echo "🧹 Foundry account $FOUNDRY is purged"
+  echo "🚮 Foundry account $FOUNDRY is purged"
 ```
 </details> <!-- gh -->
 
@@ -574,11 +541,11 @@ az cognitiveservices account purge --name "$FOUNDRY" --resource-group "$RG" --lo
 ```powershell title="PowerShell"
 # Delete the resource group, with the gateway and the Foundry account in it
 az group delete --name $RG --yes
-if ($?) { Write-Host "🧹 Resource group $RG is deleted" }
+if ($?) { Write-Host "🚮 Resource group $RG is deleted" }
 
 # Purge the deleted Foundry account, so that it stops counting against your quota
 az cognitiveservices account purge --name $FOUNDRY --resource-group $RG --location $LOCATION
-if ($?) { Write-Host "🧹 Foundry account $FOUNDRY is purged" }
+if ($?) { Write-Host "🚮 Foundry account $FOUNDRY is purged" }
 ```
 </details> <!-- gh -->
 
@@ -857,7 +824,7 @@ export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
 export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$(azd env get-value AI_GATEWAY_ID)/apiKeys/app-first-call" \
   --query primaryKey --output tsv)"
 echo "🌐 Runtime URL: $AI_GATEWAY_URL"
-echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+echo "🔖 Model alias: $AI_GATEWAY_MODEL"
 echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 ```
 </details> <!-- gh -->
@@ -874,7 +841,7 @@ $GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
 $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" `
   --query primaryKey --output tsv
 Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
-Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🔖 Model alias: $env:AI_GATEWAY_MODEL"
 Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 ```
 </details> <!-- gh -->
@@ -894,7 +861,7 @@ Send a Chat Completions request to the gateway's OpenAI-compatible base URL, the
 curl -sS "$AI_GATEWAY_URL/default/models/openai/v1/chat/completions" \
   -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
   -d "{\"model\":\"$AI_GATEWAY_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"In one sentence, what does an AI gateway do?\"}]}" \
-  | jq -r 'if .choices then "🤖 \(.choices[0].message.content)" else "⚠️ \(.error.message // .)" end'
+  | jq -r 'if .choices then "🤖 \(.choices[0].message.content)" else "🚨 \(.error.message // .)" end'
 ```
 </details> <!-- gh -->
 
@@ -933,7 +900,7 @@ takes about ten minutes.
 ```bash title="Bash"
 # Delete everything that azd up created, and purge the Foundry account
 azd down --purge --force &&
-  echo "🧹 Everything that azd up created is deleted"
+  echo "🚮 Everything that azd up created is deleted"
 ```
 </details> <!-- gh -->
 
@@ -942,7 +909,7 @@ azd down --purge --force &&
 ```powershell title="PowerShell"
 # Delete everything that azd up created, and purge the Foundry account
 azd down --purge --force
-if ($?) { Write-Host "🧹 Everything that azd up created is deleted" }
+if ($?) { Write-Host "🚮 Everything that azd up created is deleted" }
 ```
 </details> <!-- gh -->
 

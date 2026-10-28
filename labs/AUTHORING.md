@@ -302,7 +302,7 @@ short status line with an emoji, so that readers see at a glance what happened. 
 - **Values:** after a read into a variable, print it with a label, such as `echo "🌐 Runtime URL: $AI_GATEWAY_URL"`.
   When the command's own output is the point (a table, a JSON body, headers, a stream), print a labeled header
   line before it instead.
-- **Model replies:** format them with `jq -r 'if .choices then "🤖 \(…)" else "⚠️ \(.error.message // .)" end'`
+- **Model replies:** format them with `jq -r 'if .choices then "🤖 \(…)" else "🚨 \(.error.message // .)" end'`
   in Bash and `if ($?) { Write-Host "🤖 $($reply.choices[0].message.content)" }` in PowerShell. Label a failure
   that a policy causes on purpose, such as a 429, with 🚦.
 - **Secrets:** never print a key or a token. Print its length:
@@ -312,23 +312,34 @@ short status line with an emoji, so that readers see at a glance what happened. 
   `echo "<emoji> …"` with no variables on the next line. `&&` works in Bash and in PowerShell 7, which the labs
   need.
 - **Pitfalls:** no `!` in Bash echo strings, and write `"${VAR}:"` instead of `"$VAR:"` in PowerShell strings.
-- Use the same emoji for the same kind of thing:
+- **Paste-safe Bash:** readers paste blocks into macOS zsh, often with oh-my-zsh. When a paste arrives line by line,
+  its `url-quote-magic` backslash-escapes `}`, `]`, `)`, `*`, `?`, and the other glob characters that follow a URL
+  on a line that continues an open quote or heredoc, so a JSON value or a jq filter breaks. Keep such a value on one
+  line, or put a comma or a space right after the URL. Prefer the Azure CLI shorthand syntax, such as
+  `--foundry "{endpoint:'$FOUNDRY_ENDPOINT',resourceIds:[$FOUNDRY_ID]}"`, over JSON that jq builds, because the
+  same value works in Bash and PowerShell.
+- Use the same emoji for the same kind of thing, and only the ones in this table. zsh 5.9, the macOS default, draws
+  newer emoji such as 🧠 and 🪪 as `<0001f9e0>`, and miscounts the width of emoji with a variation selector, such as
+  🛡️ and ⚠️, so a pasted block shows garbled. Every emoji here is one code point that zsh draws two cells wide:
 
   | Emoji | Use | Emoji | Use |
   |---|---|---|---|
-  | 🧩 | Extension, SDK, or resource provider | 🔑 | API key, never its value |
-  | 📝 | Variables, settings, or an azd environment | 🪪 | Identity, sign-in, or token |
-  | 📦 | Resource group | 🛡️ | Policy, role assignment, or guardrail |
-  | 🏭 | Foundry account | 🌐 | URL or endpoint |
-  | 🧠 | Model or deployment | 🆔 | Resource or subscription ID |
-  | 🚀 | Gateway ready, deployment done, or app started | 📍 | Region |
-  | ⏳ | Waiting or provisioning in the background | 🤖 | Model or agent reply |
-  | 🔌 | Model provider, connector gateway, backend, or MCP server | 🚦 | Expected 429, 403, or 400 from a policy |
-  | 🏷️ | Alias | 📊 | Metrics, logs, queries, or a listing |
-  | 🛠️ | MCP tools | 🔒 | Private networking or DNS |
-  | 📂 | Folder or clone | 📄 | File written |
-  | 🧹 | Delete or purge | ✅ | Success or a summary |
-  | ⚠️ | An unexpected error | 💡 | A tip |
+  | 📦 | Resource group, extension, SDK, or resource provider | 🔑 | API key, never its value |
+  | 📝 | Variables, settings, or an azd environment | 👤 | Identity, sign-in, or token |
+  | 🏭 | Foundry account | 🔐 | Policy, role assignment, or guardrail |
+  | ✨ | Model or deployment | 🌐 | URL or endpoint |
+  | 🚀 | Gateway ready, deployment done, or app started | 🆔 | Resource or subscription ID |
+  | ⏳ | Waiting or provisioning in the background | 📍 | Region |
+  | 🔌 | Model provider, connector gateway, backend, or MCP server | 🤖 | Model or agent reply |
+  | 🔖 | Alias | 🚦 | Expected 429, 403, or 400 from a policy |
+  | 🔧 | MCP tools | 📊 | Metrics, logs, queries, or a listing |
+  | 📂 | Folder or clone | 🔒 | Private networking or DNS |
+  | 🚮 | Delete or purge | 📄 | File written |
+  | 🚨 | An unexpected error | ✅ | Success or a summary |
+  | 💡 | A tip | | |
+
+  `npm run check` warns about any other emoji in a Bash or PowerShell block, and about a line that continues a quote
+  or heredoc with a glob character after a URL. Keep this table and `SHELL_EMOJI` in `build.mjs` in step.
 
 ### Callouts and checkpoints
 

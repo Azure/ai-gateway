@@ -106,7 +106,7 @@ echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not sh
 export AI_GATEWAY_URL="https://<gateway>.<region>-01.ai.gateway.azure.com"
 export AI_GATEWAY_MODEL="<model-alias>"    # the alias from lab 02
 echo "🌐 Runtime URL: $AI_GATEWAY_URL"
-echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+echo "🔖 Model alias: $AI_GATEWAY_MODEL"
 ```
 
 ```powershell title="PowerShell"
@@ -118,7 +118,7 @@ Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) c
 $env:AI_GATEWAY_URL = "https://<gateway>.<region>-01.ai.gateway.azure.com"
 $env:AI_GATEWAY_MODEL = "<model-alias>"    # the alias from lab 02
 Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
-Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🔖 Model alias: $env:AI_GATEWAY_MODEL"
 ```
 
 <!-- track: cli | Azure CLI -->
@@ -197,7 +197,7 @@ cd ~/ai-gateway/labs/16-foundry-hosted-agent/infra &&
 
 # Install the Foundry extensions for azd, which add the azd ai agent commands
 azd ext install microsoft.foundry &&
-  echo "🧩 The Foundry extensions for azd are installed"
+  echo "📦 The Foundry extensions for azd are installed"
 ```
 
 `microsoft.foundry` installs the Foundry extensions for azd, including `azure.ai.agents`, which adds the
@@ -438,7 +438,7 @@ other policies:
 # Find the alias's resource name from the name that apps send
 ALIAS_NAME="$(az aigateway model-alias list -g "$RG" --gateway-name "$GATEWAY" \
   --query "[?properties.aliasName=='$AI_GATEWAY_MODEL'].name | [0]" -o tsv)"
-echo "🏷️ Alias resource name: $ALIAS_NAME"
+echo "🔖 Alias resource name: $ALIAS_NAME"
 
 # Write the alias's other policies, plus a limit of 1,000 tokens per minute counted per caller identity, to a file
 az aigateway model-alias show -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS_NAME" -o json \
@@ -447,14 +447,14 @@ az aigateway model-alias show -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS_NAME
 # Replace the alias's whole policy array with the file's, and print the new array
 az aigateway model-alias update -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS_NAME" --policies @policies.json \
   --query properties.policies &&
-  echo "🛡️ Token limit of 1,000 tokens per minute per caller identity is on $AI_GATEWAY_MODEL"
+  echo "🔐 Token limit of 1,000 tokens per minute per caller identity is on $AI_GATEWAY_MODEL"
 ```
 
 ```powershell title="PowerShell"
 # Find the alias's resource name from the name that apps send
 $ALIAS_NAME = az aigateway model-alias list -g $RG --gateway-name $GATEWAY `
   --query "[?properties.aliasName=='$($env:AI_GATEWAY_MODEL)'].name | [0]" -o tsv
-Write-Host "🏷️ Alias resource name: $ALIAS_NAME"
+Write-Host "🔖 Alias resource name: $ALIAS_NAME"
 
 # Write the alias's other policies, plus a limit of 1,000 tokens per minute counted per caller identity, to a file
 $alias = az aigateway model-alias show -g $RG --gateway-name $GATEWAY -n $ALIAS_NAME -o json | ConvertFrom-Json
@@ -466,7 +466,7 @@ ConvertTo-Json -InputObject $p -Depth 10 -Compress | Set-Content policies.json
 # Replace the alias's whole policy array with the file's, and print the new array
 az aigateway model-alias update -g $RG --gateway-name $GATEWAY -n $ALIAS_NAME --policies "@policies.json" `
   --query properties.policies
-if ($?) { Write-Host "🛡️ Token limit of 1,000 tokens per minute per caller identity is on $env:AI_GATEWAY_MODEL" }
+if ($?) { Write-Host "🔐 Token limit of 1,000 tokens per minute per caller identity is on $env:AI_GATEWAY_MODEL" }
 ```
 
 <!-- /tracks -->
@@ -508,7 +508,7 @@ az aigateway model-alias show -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS_NAME
 # Replace the alias's whole policy array with the file's, then delete the file
 az aigateway model-alias update -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS_NAME" --policies @policies.json \
   --query properties.policies &&
-  echo "🧹 The token limit is removed from $AI_GATEWAY_MODEL"
+  echo "🚮 The token limit is removed from $AI_GATEWAY_MODEL"
 rm policies.json
 ```
 
@@ -522,12 +522,12 @@ ConvertTo-Json -InputObject $p -Depth 10 -Compress | Set-Content policies.json
 # Replace the alias's whole policy array with the file's, then delete the file
 az aigateway model-alias update -g $RG --gateway-name $GATEWAY -n $ALIAS_NAME --policies "@policies.json" `
   --query properties.policies
-if ($?) { Write-Host "🧹 The token limit is removed from $env:AI_GATEWAY_MODEL" }
+if ($?) { Write-Host "🚮 The token limit is removed from $env:AI_GATEWAY_MODEL" }
 Remove-Item policies.json
 ```
 
 If your alias had its own token limit before this lab, the CLI commands remove it too: add it back with the count
-it had. When the alias has no policies left, the update prints no policies, only the 🧹 line.
+it had. When the alias has no policies left, the update prints no policies, only the 🚮 line.
 
 <!-- /steps -->
 
@@ -564,7 +564,7 @@ you can reuse its name:
 ```bash
 # Delete the resource group with the Foundry resource and the hosted agent, and purge the soft-deleted resource
 azd down --purge &&
-  echo "🧹 The Foundry resource group and the hosted agent are deleted"
+  echo "🚮 The Foundry resource group and the hosted agent are deleted"
 ```
 
 Then delete the `hosted-agent` key: in **Access** › **Keys**, select **…** (**More actions**) on its row and delete

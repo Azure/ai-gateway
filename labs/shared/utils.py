@@ -185,10 +185,10 @@ class Lab:
         for _ in range(30):   # the soft-deleted account takes a few seconds to appear
             if self.arm("GET", deleted, api_version=COGNITIVE_API):
                 self.arm("DELETE", deleted, api_version=COGNITIVE_API)
-                print(f"🧹 Purged {self.foundry_account}")
+                print(f"🚮 Purged {self.foundry_account}")
                 return
             time.sleep(10)
-        print(f"⚠️ {self.foundry_account} isn't in the soft-deleted list yet. Purge it later in the Azure portal.")
+        print(f"🚨 {self.foundry_account} isn't in the soft-deleted list yet. Purge it later in the Azure portal.")
 
     def register_providers(self, *namespaces: str):
         """Register resource providers once per subscription. Registration takes a minute or two."""

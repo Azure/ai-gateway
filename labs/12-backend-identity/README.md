@@ -97,7 +97,7 @@ export FOUNDRY_RG="<foundry-resource-group>"      # resource group of the Foundr
 export FOUNDRY_ACCOUNT="<foundry-account-name>"   # the account name, not a project or deployment name
 export IDENTITY="id-aigateway-backends"           # the user-assigned identity to create
 echo "📝 Gateway $GATEWAY in $RG, with provider $PROVIDER and Foundry account $FOUNDRY_ACCOUNT"
-echo "🪪 Identity to create: $IDENTITY"
+echo "👤 Identity to create: $IDENTITY"
 
 # Read the Foundry account's resource ID and the gateway's runtime URL, and set the alias that you call
 export FOUNDRY_ID="$(az cognitiveservices account show -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --query id -o tsv)"
@@ -105,7 +105,7 @@ export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --quer
 export AI_GATEWAY_MODEL="<model-name>"            # the alias you called in lab 02
 echo "🆔 Foundry account: $FOUNDRY_ID"
 echo "🌐 Runtime URL: $AI_GATEWAY_URL"
-echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+echo "🔖 Model alias: $AI_GATEWAY_MODEL"
 
 # Paste the runtime key from lab 02 without showing it, and don't commit it or write it to a file
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
@@ -124,7 +124,7 @@ $FOUNDRY_RG      = "<foundry-resource-group>"     # resource group of the Foundr
 $FOUNDRY_ACCOUNT = "<foundry-account-name>"       # the account name, not a project or deployment name
 $IDENTITY        = "id-aigateway-backends"        # the user-assigned identity to create
 Write-Host "📝 Gateway $GATEWAY in $RG, with provider $PROVIDER and Foundry account $FOUNDRY_ACCOUNT"
-Write-Host "🪪 Identity to create: $IDENTITY"
+Write-Host "👤 Identity to create: $IDENTITY"
 
 # Read the Foundry account's resource ID and the gateway's runtime URL, and set the alias that you call
 $FOUNDRY_ID = az cognitiveservices account show -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT --query id -o tsv
@@ -132,7 +132,7 @@ $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query pr
 $env:AI_GATEWAY_MODEL = "<model-name>"            # the alias you called in lab 02
 Write-Host "🆔 Foundry account: $FOUNDRY_ID"
 Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
-Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🔖 Model alias: $env:AI_GATEWAY_MODEL"
 
 # Paste the runtime key from lab 02 without showing it, and don't commit it or write it to a file
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
@@ -187,7 +187,7 @@ Lab 02's provider calls Foundry with the gateway's system-assigned identity. See
 
 ```bash title="Bash"
 # Show the gateway's identities: the type, and the system-assigned identity's principal and tenant IDs
-echo "🪪 Identities of $GATEWAY:"
+echo "👤 Identities of $GATEWAY:"
 az aigateway identity show -g "$RG" -n "$GATEWAY" -o json
 ```
 </details> <!-- gh -->
@@ -196,7 +196,7 @@ az aigateway identity show -g "$RG" -n "$GATEWAY" -o json
 
 ```powershell title="PowerShell"
 # Show the gateway's identities: the type, and the system-assigned identity's principal and tenant IDs
-Write-Host "🪪 Identities of ${GATEWAY}:"
+Write-Host "👤 Identities of ${GATEWAY}:"
 az aigateway identity show -g $RG -n $GATEWAY -o json
 ```
 </details> <!-- gh -->
@@ -211,16 +211,16 @@ again:
 ```bash title="Bash"
 # Turn on the gateway's system-assigned identity, and wait until the gateway is ready again
 az aigateway identity assign -g "$RG" -n "$GATEWAY" --system-assigned true -o none &&
-  echo "🪪 The system-assigned identity of $GATEWAY is on"
+  echo "👤 The system-assigned identity of $GATEWAY is on"
 
 # Read the principal ID of the system-assigned identity
 PRINCIPAL_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query identity.principalId -o tsv)"
-echo "🪪 Gateway identity: $PRINCIPAL_ID"
+echo "👤 Gateway identity: $PRINCIPAL_ID"
 
 # Give the identity the Foundry User role on the Foundry account, so that the gateway can call its models
 az role assignment create --assignee-object-id "$PRINCIPAL_ID" --assignee-principal-type ServicePrincipal \
   --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope "$FOUNDRY_ID" -o none &&
-  echo "🛡️ The gateway's identity has the Foundry User role on the Foundry account"
+  echo "🔐 The gateway's identity has the Foundry User role on the Foundry account"
 ```
 </details> <!-- gh -->
 
@@ -229,16 +229,16 @@ az role assignment create --assignee-object-id "$PRINCIPAL_ID" --assignee-princi
 ```powershell title="PowerShell"
 # Turn on the gateway's system-assigned identity, and wait until the gateway is ready again
 az aigateway identity assign -g $RG -n $GATEWAY --system-assigned true -o none
-if ($?) { Write-Host "🪪 The system-assigned identity of $GATEWAY is on" }
+if ($?) { Write-Host "👤 The system-assigned identity of $GATEWAY is on" }
 
 # Read the principal ID of the system-assigned identity
 $PRINCIPAL_ID = az aigateway show -g $RG -n $GATEWAY --query identity.principalId -o tsv
-Write-Host "🪪 Gateway identity: $PRINCIPAL_ID"
+Write-Host "👤 Gateway identity: $PRINCIPAL_ID"
 
 # Give the identity the Foundry User role on the Foundry account, so that the gateway can call its models
 az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principal-type ServicePrincipal `
   --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope $FOUNDRY_ID -o none
-if ($?) { Write-Host "🛡️ The gateway's identity has the Foundry User role on the Foundry account" }
+if ($?) { Write-Host "🔐 The gateway's identity has the Foundry User role on the Foundry account" }
 ```
 </details> <!-- gh -->
 
@@ -281,8 +281,8 @@ export IDENTITY_ID="$(az identity show -g "$RG" -n "$IDENTITY" --query id -o tsv
 export IDENTITY_CLIENT_ID="$(az identity show -g "$RG" -n "$IDENTITY" --query clientId -o tsv)"
 export IDENTITY_PRINCIPAL_ID="$(az identity show -g "$RG" -n "$IDENTITY" --query principalId -o tsv)"
 echo "🆔 Identity: $IDENTITY_ID"
-echo "🪪 Client ID: $IDENTITY_CLIENT_ID"
-echo "🪪 Principal ID: $IDENTITY_PRINCIPAL_ID"
+echo "👤 Client ID: $IDENTITY_CLIENT_ID"
+echo "👤 Principal ID: $IDENTITY_PRINCIPAL_ID"
 ```
 </details> <!-- gh -->
 
@@ -295,8 +295,8 @@ $IDENTITY_ID           = az identity show -g $RG -n $IDENTITY --query id -o tsv
 $IDENTITY_CLIENT_ID    = az identity show -g $RG -n $IDENTITY --query clientId -o tsv
 $IDENTITY_PRINCIPAL_ID = az identity show -g $RG -n $IDENTITY --query principalId -o tsv
 Write-Host "🆔 Identity: $IDENTITY_ID"
-Write-Host "🪪 Client ID: $IDENTITY_CLIENT_ID"
-Write-Host "🪪 Principal ID: $IDENTITY_PRINCIPAL_ID"
+Write-Host "👤 Client ID: $IDENTITY_CLIENT_ID"
+Write-Host "👤 Principal ID: $IDENTITY_PRINCIPAL_ID"
 ```
 </details> <!-- gh -->
 
@@ -314,7 +314,7 @@ Or grant the role from the command line:
 # Give your identity the Foundry User role on the Foundry account, so that it can call the account's models
 az role assignment create --assignee-object-id "$IDENTITY_PRINCIPAL_ID" --assignee-principal-type ServicePrincipal \
   --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope "$FOUNDRY_ID" -o none &&
-  echo "🛡️ Identity $IDENTITY has the Foundry User role on the Foundry account"
+  echo "🔐 Identity $IDENTITY has the Foundry User role on the Foundry account"
 ```
 </details> <!-- gh -->
 
@@ -324,7 +324,7 @@ az role assignment create --assignee-object-id "$IDENTITY_PRINCIPAL_ID" --assign
 # Give your identity the Foundry User role on the Foundry account, so that it can call the account's models
 az role assignment create --assignee-object-id $IDENTITY_PRINCIPAL_ID --assignee-principal-type ServicePrincipal `
   --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope $FOUNDRY_ID -o none
-if ($?) { Write-Host "🛡️ Identity $IDENTITY has the Foundry User role on the Foundry account" }
+if ($?) { Write-Host "🔐 Identity $IDENTITY has the Foundry User role on the Foundry account" }
 ```
 </details> <!-- gh -->
 
@@ -343,7 +343,7 @@ if ($?) { Write-Host "🛡️ Identity $IDENTITY has the Foundry User role on th
 ```bash title="Bash"
 # Create the user-assigned identity, in the resource group's region
 az identity create -g "$RG" -n "$IDENTITY" -o none &&
-  echo "🪪 Identity $IDENTITY is ready"
+  echo "👤 Identity $IDENTITY is ready"
 
 # Read the identity's IDs: the resource ID to attach it, the principal ID to grant it access, and the client ID
 # to point the provider at it
@@ -351,8 +351,8 @@ export IDENTITY_ID="$(az identity show -g "$RG" -n "$IDENTITY" --query id -o tsv
 export IDENTITY_CLIENT_ID="$(az identity show -g "$RG" -n "$IDENTITY" --query clientId -o tsv)"
 export IDENTITY_PRINCIPAL_ID="$(az identity show -g "$RG" -n "$IDENTITY" --query principalId -o tsv)"
 echo "🆔 Identity: $IDENTITY_ID"
-echo "🪪 Client ID: $IDENTITY_CLIENT_ID"
-echo "🪪 Principal ID: $IDENTITY_PRINCIPAL_ID"
+echo "👤 Client ID: $IDENTITY_CLIENT_ID"
+echo "👤 Principal ID: $IDENTITY_PRINCIPAL_ID"
 ```
 </details> <!-- gh -->
 
@@ -361,7 +361,7 @@ echo "🪪 Principal ID: $IDENTITY_PRINCIPAL_ID"
 ```powershell title="PowerShell"
 # Create the user-assigned identity, in the resource group's region
 az identity create -g $RG -n $IDENTITY -o none
-if ($?) { Write-Host "🪪 Identity $IDENTITY is ready" }
+if ($?) { Write-Host "👤 Identity $IDENTITY is ready" }
 
 # Read the identity's IDs: the resource ID to attach it, the principal ID to grant it access, and the client ID
 # to point the provider at it
@@ -369,8 +369,8 @@ $IDENTITY_ID           = az identity show -g $RG -n $IDENTITY --query id -o tsv
 $IDENTITY_CLIENT_ID    = az identity show -g $RG -n $IDENTITY --query clientId -o tsv
 $IDENTITY_PRINCIPAL_ID = az identity show -g $RG -n $IDENTITY --query principalId -o tsv
 Write-Host "🆔 Identity: $IDENTITY_ID"
-Write-Host "🪪 Client ID: $IDENTITY_CLIENT_ID"
-Write-Host "🪪 Principal ID: $IDENTITY_PRINCIPAL_ID"
+Write-Host "👤 Client ID: $IDENTITY_CLIENT_ID"
+Write-Host "👤 Principal ID: $IDENTITY_PRINCIPAL_ID"
 ```
 </details> <!-- gh -->
 
@@ -387,7 +387,7 @@ system-assigned one. It returns when the gateway is ready again.
 ```bash title="Bash"
 # Attach your identity to the gateway, keep its other identities, and wait until the gateway is ready again
 az aigateway identity assign -g "$RG" -n "$GATEWAY" --user-assigned "$IDENTITY_ID" -o none &&
-  echo "🪪 Identity $IDENTITY is attached to $GATEWAY"
+  echo "👤 Identity $IDENTITY is attached to $GATEWAY"
 ```
 </details> <!-- gh -->
 
@@ -396,7 +396,7 @@ az aigateway identity assign -g "$RG" -n "$GATEWAY" --user-assigned "$IDENTITY_I
 ```powershell title="PowerShell"
 # Attach your identity to the gateway, keep its other identities, and wait until the gateway is ready again
 az aigateway identity assign -g $RG -n $GATEWAY --user-assigned $IDENTITY_ID -o none
-if ($?) { Write-Host "🪪 Identity $IDENTITY is attached to $GATEWAY" }
+if ($?) { Write-Host "👤 Identity $IDENTITY is attached to $GATEWAY" }
 ```
 </details> <!-- gh -->
 
@@ -408,7 +408,7 @@ if ($?) { Write-Host "🪪 Identity $IDENTITY is attached to $GATEWAY" }
 # Give your identity the Foundry User role on the Foundry account, so that it can call the account's models
 az role assignment create --assignee-object-id "$IDENTITY_PRINCIPAL_ID" --assignee-principal-type ServicePrincipal \
   --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope "$FOUNDRY_ID" -o none &&
-  echo "🛡️ Identity $IDENTITY has the Foundry User role on the Foundry account"
+  echo "🔐 Identity $IDENTITY has the Foundry User role on the Foundry account"
 ```
 </details> <!-- gh -->
 
@@ -418,7 +418,7 @@ az role assignment create --assignee-object-id "$IDENTITY_PRINCIPAL_ID" --assign
 # Give your identity the Foundry User role on the Foundry account, so that it can call the account's models
 az role assignment create --assignee-object-id $IDENTITY_PRINCIPAL_ID --assignee-principal-type ServicePrincipal `
   --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope $FOUNDRY_ID -o none
-if ($?) { Write-Host "🛡️ Identity $IDENTITY has the Foundry User role on the Foundry account" }
+if ($?) { Write-Host "🔐 Identity $IDENTITY has the Foundry User role on the Foundry account" }
 ```
 </details> <!-- gh -->
 
@@ -770,12 +770,12 @@ export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$(azd env 
   --query primaryKey --output tsv)"
 echo "📝 Gateway $GATEWAY in $RG, with provider $PROVIDER and identity $IDENTITY"
 echo "🌐 Runtime URL: $AI_GATEWAY_URL"
-echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
-echo "🪪 Client ID: $IDENTITY_CLIENT_ID"
+echo "🔖 Model alias: $AI_GATEWAY_MODEL"
+echo "👤 Client ID: $IDENTITY_CLIENT_ID"
 echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 
 # List the user-assigned identities attached to the gateway
-echo "🪪 User-assigned identities of $GATEWAY:"
+echo "👤 User-assigned identities of $GATEWAY:"
 az aigateway identity show -g "$RG" -n "$GATEWAY" --query userAssignedIdentities -o json
 ```
 </details> <!-- gh -->
@@ -800,12 +800,12 @@ $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$(azd env get
   --query primaryKey --output tsv
 Write-Host "📝 Gateway $GATEWAY in $RG, with provider $PROVIDER and identity $IDENTITY"
 Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
-Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
-Write-Host "🪪 Client ID: $IDENTITY_CLIENT_ID"
+Write-Host "🔖 Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "👤 Client ID: $IDENTITY_CLIENT_ID"
 Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 
 # List the user-assigned identities attached to the gateway
-Write-Host "🪪 User-assigned identities of ${GATEWAY}:"
+Write-Host "👤 User-assigned identities of ${GATEWAY}:"
 az aigateway identity show -g $RG -n $GATEWAY --query userAssignedIdentities -o json
 ```
 </details> <!-- gh -->
@@ -1101,7 +1101,7 @@ attaches your identity and points the provider at it again. In between, model ca
 PROVIDER_CLIENT_ID="$(az aigateway model-provider show -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" \
   --query properties.foundry.authentication.managedIdentity.clientId -o tsv)"
 echo "🔌 Provider's client ID: $PROVIDER_CLIENT_ID"
-echo "🪪 Identity's client ID: $IDENTITY_CLIENT_ID"
+echo "👤 Identity's client ID: $IDENTITY_CLIENT_ID"
 ```
 </details> <!-- gh -->
 
@@ -1112,7 +1112,7 @@ echo "🪪 Identity's client ID: $IDENTITY_CLIENT_ID"
 $PROVIDER_CLIENT_ID = az aigateway model-provider show -g $RG --gateway-name $GATEWAY -n $PROVIDER `
   --query properties.foundry.authentication.managedIdentity.clientId -o tsv
 Write-Host "🔌 Provider's client ID: $PROVIDER_CLIENT_ID"
-Write-Host "🪪 Identity's client ID: $IDENTITY_CLIENT_ID"
+Write-Host "👤 Identity's client ID: $IDENTITY_CLIENT_ID"
 ```
 </details> <!-- gh -->
 
@@ -1243,7 +1243,7 @@ Remove your identity from the gateway. `identity remove` returns when the gatewa
 ```bash title="Bash"
 # Detach your identity from the gateway, and wait until the gateway is ready again
 az aigateway identity remove -g "$RG" -n "$GATEWAY" --user-assigned "$IDENTITY_ID" -o none &&
-  echo "🧹 Identity $IDENTITY is detached from $GATEWAY"
+  echo "🚮 Identity $IDENTITY is detached from $GATEWAY"
 ```
 </details> <!-- gh -->
 
@@ -1252,7 +1252,7 @@ az aigateway identity remove -g "$RG" -n "$GATEWAY" --user-assigned "$IDENTITY_I
 ```powershell title="PowerShell"
 # Detach your identity from the gateway, and wait until the gateway is ready again
 az aigateway identity remove -g $RG -n $GATEWAY --user-assigned $IDENTITY_ID -o none
-if ($?) { Write-Host "🧹 Identity $IDENTITY is detached from $GATEWAY" }
+if ($?) { Write-Host "🚮 Identity $IDENTITY is detached from $GATEWAY" }
 ```
 </details> <!-- gh -->
 
@@ -1269,11 +1269,11 @@ In the portal, select the identity in **User-assigned identities**, select the d
 ```bash title="Bash"
 # Remove your identity's Foundry User role assignment from the Foundry account
 az role assignment delete --assignee "$IDENTITY_PRINCIPAL_ID" --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope "$FOUNDRY_ID" &&
-  echo "🧹 The Foundry User role assignment of $IDENTITY is deleted"
+  echo "🚮 The Foundry User role assignment of $IDENTITY is deleted"
 
 # Delete the identity, now that nothing uses it
 az identity delete -g "$RG" -n "$IDENTITY" &&
-  echo "🧹 Identity $IDENTITY is deleted"
+  echo "🚮 Identity $IDENTITY is deleted"
 ```
 </details> <!-- gh -->
 
@@ -1282,11 +1282,11 @@ az identity delete -g "$RG" -n "$IDENTITY" &&
 ```powershell title="PowerShell"
 # Remove your identity's Foundry User role assignment from the Foundry account
 az role assignment delete --assignee $IDENTITY_PRINCIPAL_ID --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope $FOUNDRY_ID
-if ($?) { Write-Host "🧹 The Foundry User role assignment of $IDENTITY is deleted" }
+if ($?) { Write-Host "🚮 The Foundry User role assignment of $IDENTITY is deleted" }
 
 # Delete the identity, now that nothing uses it
 az identity delete -g $RG -n $IDENTITY
-if ($?) { Write-Host "🧹 Identity $IDENTITY is deleted" }
+if ($?) { Write-Host "🚮 Identity $IDENTITY is deleted" }
 ```
 </details> <!-- gh -->
 
@@ -1309,7 +1309,7 @@ soft-deleted Foundry account. It takes about ten minutes.
 ```bash
 # Delete everything that azd up created, and purge the Foundry account
 azd down --purge --force &&
-  echo "🧹 Everything that azd up created is deleted"
+  echo "🚮 Everything that azd up created is deleted"
 ```
 
 </details> <!-- gh -->

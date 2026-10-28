@@ -105,7 +105,7 @@ az keyvault create -g "$RG" -n "$KEY_VAULT" --enable-rbac-authorization true -o 
 az role assignment create --role "Key Vault Secrets Officer" \
   --assignee "$(az ad signed-in-user show --query id -o tsv)" \
   --scope "$(az keyvault show -n "$KEY_VAULT" --query id -o tsv)" -o none &&
-  echo "🛡️ You're a Key Vault Secrets Officer on the vault (it can take a few minutes to apply)"
+  echo "🔐 You're a Key Vault Secrets Officer on the vault (it can take a few minutes to apply)"
 ```
 
 ```powershell title="PowerShell"
@@ -120,7 +120,7 @@ if ($?) { Write-Host "✅ Key Vault is ready in $RG, and KEY_VAULT holds its nam
 az role assignment create --role "Key Vault Secrets Officer" `
   --assignee (az ad signed-in-user show --query id -o tsv) `
   --scope (az keyvault show -n $KEY_VAULT --query id -o tsv) -o none
-if ($?) { Write-Host "🛡️ You're a Key Vault Secrets Officer on the vault (it can take a few minutes to apply)" }
+if ($?) { Write-Host "🔐 You're a Key Vault Secrets Officer on the vault (it can take a few minutes to apply)" }
 ```
 
 </details>
@@ -653,7 +653,7 @@ echo "🔑 Leaked value: in LEAKED_KEY (${#LEAKED_KEY} characters, not shown)"
 
 # Delete the key: both of its values stop working right away
 az aigateway api-key delete -g "$RG" --gateway-name "$GATEWAY" -n old-notebook --yes &&
-  echo "🧹 API key old-notebook is deleted"
+  echo "🚮 API key old-notebook is deleted"
 ```
 
 ```powershell title="PowerShell"
@@ -664,7 +664,7 @@ Write-Host "🔑 Leaked value: in LEAKED_KEY ($($LEAKED_KEY.Length) characters, 
 
 # Delete the key: both of its values stop working right away
 az aigateway api-key delete -g $RG --gateway-name $GATEWAY -n old-notebook --yes
-if ($?) { Write-Host "🧹 API key old-notebook is deleted" }
+if ($?) { Write-Host "🚮 API key old-notebook is deleted" }
 ```
 
 ### Suspend a key instead
@@ -857,7 +857,7 @@ Delete any other keys you created for testing, such as `support-bot-v2`:
 ```bash
 # Delete a test key, for example support-bot-v2 from the portal's rotation
 az aigateway api-key delete -g "$RG" --gateway-name "$GATEWAY" -n support-bot-v2 --yes &&
-  echo "🧹 API key support-bot-v2 is deleted"
+  echo "🚮 API key support-bot-v2 is deleted"
 ```
 
 <!-- track: iac | Bicep + azd -->
@@ -871,7 +871,7 @@ ten minutes.
 ```bash
 # Delete everything that azd up created, and purge the Foundry account
 azd down --purge --force &&
-  echo "🧹 Everything that azd up created is deleted"
+  echo "🚮 Everything that azd up created is deleted"
 ```
 
 The Bicep + azd track of lab 07 creates its own `app-dev` and `support-bot` keys, so you don't need to keep these.
@@ -884,11 +884,11 @@ and reserves the name; purge it if you want to reuse the name right away:
 ```bash
 # Delete the vault: Key Vault keeps it for a retention period, and reserves its name
 az keyvault delete -n "$KEY_VAULT" &&
-  echo "🧹 Key Vault is deleted, and its name stays reserved until you purge it"
+  echo "🚮 Key Vault is deleted, and its name stays reserved until you purge it"
 
 # Purge the deleted vault, so that you can reuse its name right away
 az keyvault purge -n "$KEY_VAULT" &&
-  echo "🧹 Key Vault is purged"
+  echo "🚮 Key Vault is purged"
 ```
 
 Clear the key values from your shell with `unset AI_GATEWAY_API_KEY OLD_SUPPORT_BOT LEAKED_KEY SUPPORT_BOT`

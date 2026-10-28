@@ -255,7 +255,7 @@ export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
 export LAW_CUSTOMER_ID="$(azd env get-value LOG_ANALYTICS_CUSTOMER_ID)"
 echo "📝 Gateway $GATEWAY in $RG"
 echo "🌐 Runtime URL: $AI_GATEWAY_URL"
-echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+echo "🔖 Model alias: $AI_GATEWAY_MODEL"
 echo "🆔 Log Analytics workspace ID: $LAW_CUSTOMER_ID"
 
 # Read the key from the gateway, so that it never shows on screen or lands in a file
@@ -280,7 +280,7 @@ $env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
 $LAW_CUSTOMER_ID        = azd env get-value LOG_ANALYTICS_CUSTOMER_ID
 Write-Host "📝 Gateway $GATEWAY in $RG"
 Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
-Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🔖 Model alias: $env:AI_GATEWAY_MODEL"
 Write-Host "🆔 Log Analytics workspace ID: $LAW_CUSTOMER_ID"
 
 # Read the key from the gateway, so that it never shows on screen or lands in a file
@@ -558,7 +558,7 @@ ten minutes.
 ```bash
 # Delete everything that azd up created, and purge the Foundry account
 azd down --purge --force &&
-  echo "🧹 Everything that azd up created is deleted"
+  echo "🚮 Everything that azd up created is deleted"
 ```
 
 The Bicep + azd track of [Attribute tokens and cost with OpenTelemetry](../14-otel-chargeback/README.md) creates its

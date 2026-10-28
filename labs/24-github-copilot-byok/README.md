@@ -117,7 +117,7 @@ export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --quer
 export AI_GATEWAY_MODEL="$MODEL"
 echo "📝 Gateway $GATEWAY in $RG, with Foundry account $FOUNDRY_ACCOUNT in $FOUNDRY_RG"
 echo "🌐 Runtime URL: $AI_GATEWAY_URL"
-echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+echo "🔖 Model alias: $AI_GATEWAY_MODEL"
 ```
 </details> <!-- gh -->
 
@@ -141,7 +141,7 @@ $env:AI_GATEWAY_URL   = "https://$(az aigateway show -g $RG -n $GATEWAY --query 
 $env:AI_GATEWAY_MODEL = $MODEL
 Write-Host "📝 Gateway $GATEWAY in $RG, with Foundry account $FOUNDRY_ACCOUNT in $FOUNDRY_RG"
 Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
-Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🔖 Model alias: $env:AI_GATEWAY_MODEL"
 ```
 </details> <!-- gh -->
 
@@ -311,7 +311,7 @@ export FOUNDRY_ID="$(az cognitiveservices account show -g "$FOUNDRY_RG" -n "$FOU
 echo "🆔 Foundry account: $FOUNDRY_ID"
 
 # Deploy gpt-6-astra with 100,000 tokens per minute of Global Standard capacity, and show its state
-echo "🧠 Model deployment $MODEL in $FOUNDRY_ACCOUNT:"
+echo "✨ Model deployment $MODEL in $FOUNDRY_ACCOUNT:"
 az cognitiveservices account deployment create -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" \
   --deployment-name "$MODEL" --model-name "$MODEL" --model-version 2026-09-03 \
   --model-format OpenAI --sku-name GlobalStandard --sku-capacity 100 \
@@ -327,7 +327,7 @@ $FOUNDRY_ID = az cognitiveservices account show -g $FOUNDRY_RG -n $FOUNDRY_ACCOU
 Write-Host "🆔 Foundry account: $FOUNDRY_ID"
 
 # Deploy gpt-6-astra with 100,000 tokens per minute of Global Standard capacity, and show its state
-Write-Host "🧠 Model deployment $MODEL in ${FOUNDRY_ACCOUNT}:"
+Write-Host "✨ Model deployment $MODEL in ${FOUNDRY_ACCOUNT}:"
 az cognitiveservices account deployment create -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT `
   --deployment-name $MODEL --model-name $MODEL --model-version 2026-09-03 `
   --model-format OpenAI --sku-name GlobalStandard --sku-capacity 100 `
@@ -348,10 +348,10 @@ az aigateway model create -g "$RG" --gateway-name "$GATEWAY" --provider-name "$P
   --display-name "$MODEL" --api-format OpenAIChatCompletions \
   --supported-endpoints /openai/v1/chat/completions /openai/v1/responses \
   --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$MODEL,modelName:$MODEL,modelVersion:2026-09-03}" -o none &&
-  echo "🧠 Model $MODEL is published through $PROVIDER"
+  echo "✨ Model $MODEL is published through $PROVIDER"
 
 # Give each caller 100,000 tokens per minute on the model, and show the model's policies
-echo "🛡️ Policies on $MODEL:"
+echo "🔐 Policies on $MODEL:"
 az aigateway model policy set-token-limit -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
   --token-limit 100000
 ```
@@ -365,10 +365,10 @@ az aigateway model create -g $RG --gateway-name $GATEWAY --provider-name $PROVID
   --display-name $MODEL --api-format OpenAIChatCompletions `
   --supported-endpoints /openai/v1/chat/completions /openai/v1/responses `
   --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$MODEL,modelName:$MODEL,modelVersion:2026-09-03}" -o none
-if ($?) { Write-Host "🧠 Model $MODEL is published through $PROVIDER" }
+if ($?) { Write-Host "✨ Model $MODEL is published through $PROVIDER" }
 
 # Give each caller 100,000 tokens per minute on the model, and show the model's policies
-Write-Host "🛡️ Policies on ${MODEL}:"
+Write-Host "🔐 Policies on ${MODEL}:"
 az aigateway model policy set-token-limit -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
   --token-limit 100000
 ```
@@ -380,7 +380,7 @@ az aigateway model policy set-token-limit -g $RG --gateway-name $GATEWAY --provi
 
 ```bash title="Bash"
 # Publish the gpt-6-astra alias, which Copilot sends in the model field, and show the model that it points at
-echo "🏷️ Alias $MODEL and its target model:"
+echo "🔖 Alias $MODEL and its target model:"
 az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$MODEL" \
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" \
   --query "{alias:properties.aliasName, target:properties.backendModels[0].resourceId}"
@@ -391,7 +391,7 @@ az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$MODEL" \
 
 ```powershell title="PowerShell"
 # Publish the gpt-6-astra alias, which Copilot sends in the model field, and show the model that it points at
-Write-Host "🏷️ Alias $MODEL and its target model:"
+Write-Host "🔖 Alias $MODEL and its target model:"
 az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $MODEL `
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" `
   --query "{alias:properties.aliasName, target:properties.backendModels[0].resourceId}"
@@ -846,7 +846,7 @@ export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_I
   --query primaryKey --output tsv)"
 echo "📝 Gateway $GATEWAY in $RG, with provider $PROVIDER and model $MODEL"
 echo "🌐 Runtime URL: $AI_GATEWAY_URL"
-echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+echo "🔖 Model alias: $AI_GATEWAY_MODEL"
 echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 
 # Print the base URL that Copilot needs
@@ -877,7 +877,7 @@ $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/a
   --query primaryKey --output tsv
 Write-Host "📝 Gateway $GATEWAY in $RG, with provider $PROVIDER and model $MODEL"
 Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
-Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🔖 Model alias: $env:AI_GATEWAY_MODEL"
 Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 
 # Print the base URL that Copilot needs
@@ -905,9 +905,9 @@ Before you configure Copilot, call the alias the way Copilot does: the Responses
 curl -sS "${AI_GATEWAY_URL%/}/default/models/openai/v1/responses" \
   -H "Authorization: Bearer $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
   -d "{\"model\":\"$AI_GATEWAY_MODEL\",\"input\":\"In one sentence, what is a code review for?\"}" \
-  | jq -r 'if .output then "🧠 Model: \(.model)",
+  | jq -r 'if .output then "✨ Model: \(.model)",
       "🤖 \([.output[] | select(.type == "message") | .content[] | select(.type == "output_text") | .text] | join(""))"
-    else "⚠️ \(.error.message // .)" end'
+    else "🚨 \(.error.message // .)" end'
 ```
 </details> <!-- gh -->
 
@@ -921,7 +921,7 @@ $body = @{ model = $env:AI_GATEWAY_MODEL; input = "In one sentence, what is a co
 $reply = Invoke-RestMethod -Method Post `
   -Uri "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/models/openai/v1/responses" `
   -Headers @{ Authorization = "Bearer $env:AI_GATEWAY_API_KEY" } -ContentType "application/json" -Body $body
-if ($?) { Write-Host "🧠 Model: $($reply.model)" }
+if ($?) { Write-Host "✨ Model: $($reply.model)" }
 if ($?) { Write-Host "🤖 $(($reply.output | Where-Object type -eq 'message').content.text -join '')" }
 ```
 </details> <!-- gh -->
@@ -929,7 +929,7 @@ if ($?) { Write-Host "🤖 $(($reply.output | Where-Object type -eq 'message').c
 Expected output (your text differs):
 
 ```text
-🧠 Model: gpt-6-astra
+✨ Model: gpt-6-astra
 🤖 A code review checks changes for bugs, clarity, and consistency before they're merged.
 ```
 
@@ -1286,7 +1286,7 @@ Run the commands from the lab folder (`labs/24-github-copilot-byok`).
 # Install the samples' dependencies in the infra folder: the Copilot SDK, which brings the Copilot runtime with it
 cd infra
 npm install          # @github/copilot-sdk
-echo "🧩 The Copilot SDK for TypeScript is installed"
+echo "📦 The Copilot SDK for TypeScript is installed"
 
 # Run the sample: the agent says which model it is, and lists the files in the folder
 echo "🤖 Agent reply:"
@@ -1300,7 +1300,7 @@ npm start            # runs copilot-sdk.ts on Node.js 22.18 or later
 # Install the samples' dependencies in the infra folder: the Copilot SDK, which brings the Copilot runtime with it
 cd infra
 pip install -r requirements.txt     # github-copilot-sdk
-echo "🧩 The Copilot SDK for Python is installed"
+echo "📦 The Copilot SDK for Python is installed"
 
 # Run the sample: the agent says which model it is, and lists the files in the folder
 echo "🤖 Agent reply:"
@@ -1450,7 +1450,7 @@ MCP_ENDPOINT="$(az aigateway mcp create -g "$RG" --gateway-name "$GATEWAY" -n le
   --display-name "Microsoft Learn" \
   --description "Search and fetch official Microsoft documentation and code samples." \
   --endpoints '[{"kind": "mcp", "namespace": "learn", "required": true,
-                 "mcp": {"transport": "streamableHttp", "url": "https://learn.microsoft.com/api/mcp"}}]' \
+                 "mcp": {"url": "https://learn.microsoft.com/api/mcp", "transport": "streamableHttp"}}]' \
   --query "properties.gatewayEndpoints[0].url" -o tsv)" &&
   echo "🔌 MCP server learn is ready: $MCP_ENDPOINT"
 ```
@@ -1534,7 +1534,7 @@ export AI_GATEWAY_MCP_URL="${AI_GATEWAY_URL%/}/default/toolservers/learn/mcp"
 echo "🔌 MCP endpoint: $AI_GATEWAY_MCP_URL"
 
 # List the server's tools the way Copilot does: a JSON-RPC tools/list request, with the key in the api-key header
-echo "🛠️ Tools on the learn MCP server:"
+echo "🔧 Tools on the learn MCP server:"
 curl -sS "$AI_GATEWAY_MCP_URL" \
   -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
@@ -1550,7 +1550,7 @@ $env:AI_GATEWAY_MCP_URL = "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/toolserve
 Write-Host "🔌 MCP endpoint: $env:AI_GATEWAY_MCP_URL"
 
 # List the server's tools the way Copilot does: a JSON-RPC tools/list request, with the key in the api-key header
-Write-Host "🛠️ Tools on the learn MCP server:"
+Write-Host "🔧 Tools on the learn MCP server:"
 $reply = Invoke-RestMethod -Method Post -Uri $env:AI_GATEWAY_MCP_URL `
   -Headers @{ "api-key" = $env:AI_GATEWAY_API_KEY; Accept = "application/json, text/event-stream" } `
   -ContentType "application/json" -Body '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
@@ -1562,7 +1562,7 @@ Expected output:
 
 ```text
 🔌 MCP endpoint: https://<gateway-host>/default/toolservers/learn/mcp
-🛠️ Tools on the learn MCP server:
+🔧 Tools on the learn MCP server:
 learn_microsoft_docs_search
 learn_microsoft_code_sample_search
 learn_microsoft_docs_fetch
@@ -2089,7 +2089,7 @@ Delete the key:
 ```bash title="Bash"
 # Delete the github-copilot key: every Copilot surface that still uses it stops working
 az aigateway api-key delete -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" --yes &&
-  echo "🧹 API key github-copilot is deleted"
+  echo "🚮 API key github-copilot is deleted"
 ```
 </details> <!-- gh -->
 
@@ -2098,7 +2098,7 @@ az aigateway api-key delete -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" --
 ```powershell title="PowerShell"
 # Delete the github-copilot key: every Copilot surface that still uses it stops working
 az aigateway api-key delete -g $RG --gateway-name $GATEWAY -n $KEY_NAME --yes
-if ($?) { Write-Host "🧹 API key github-copilot is deleted" }
+if ($?) { Write-Host "🚮 API key github-copilot is deleted" }
 ```
 </details> <!-- gh -->
 
@@ -2109,15 +2109,15 @@ If you don't need `gpt-6-astra` any more, also delete the alias, the backend mod
 ```bash title="Bash"
 # Delete the gpt-6-astra alias first, so that nothing points at the model
 az aigateway model-alias delete -g "$RG" --gateway-name "$GATEWAY" -n "$MODEL" --yes &&
-  echo "🧹 Alias $MODEL is deleted"
+  echo "🚮 Alias $MODEL is deleted"
 
 # Delete the backend model from the provider
 az aigateway model delete -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" --yes &&
-  echo "🧹 Model $MODEL is deleted from $PROVIDER"
+  echo "🚮 Model $MODEL is deleted from $PROVIDER"
 
 # Delete the gpt-6-astra deployment from the Foundry account
 az cognitiveservices account deployment delete -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --deployment-name "$MODEL" &&
-  echo "🧹 Model deployment $MODEL is deleted from $FOUNDRY_ACCOUNT"
+  echo "🚮 Model deployment $MODEL is deleted from $FOUNDRY_ACCOUNT"
 ```
 </details> <!-- gh -->
 
@@ -2126,15 +2126,15 @@ az cognitiveservices account deployment delete -g "$FOUNDRY_RG" -n "$FOUNDRY_ACC
 ```powershell title="PowerShell"
 # Delete the gpt-6-astra alias first, so that nothing points at the model
 az aigateway model-alias delete -g $RG --gateway-name $GATEWAY -n $MODEL --yes
-if ($?) { Write-Host "🧹 Alias $MODEL is deleted" }
+if ($?) { Write-Host "🚮 Alias $MODEL is deleted" }
 
 # Delete the backend model from the provider
 az aigateway model delete -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL --yes
-if ($?) { Write-Host "🧹 Model $MODEL is deleted from $PROVIDER" }
+if ($?) { Write-Host "🚮 Model $MODEL is deleted from $PROVIDER" }
 
 # Delete the gpt-6-astra deployment from the Foundry account
 az cognitiveservices account deployment delete -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT --deployment-name $MODEL
-if ($?) { Write-Host "🧹 Model deployment $MODEL is deleted from $FOUNDRY_ACCOUNT" }
+if ($?) { Write-Host "🚮 Model deployment $MODEL is deleted from $FOUNDRY_ACCOUNT" }
 ```
 </details> <!-- gh -->
 
@@ -2146,7 +2146,7 @@ Keep the gateway and the provider: the other labs reuse them. Keep the `learn` M
 ```bash title="Bash"
 # Delete the learn MCP server from the gateway
 az aigateway mcp delete -g "$RG" --gateway-name "$GATEWAY" -n learn --yes &&
-  echo "🧹 MCP server learn is deleted"
+  echo "🚮 MCP server learn is deleted"
 ```
 </details> <!-- gh -->
 
@@ -2155,7 +2155,7 @@ az aigateway mcp delete -g "$RG" --gateway-name "$GATEWAY" -n learn --yes &&
 ```powershell title="PowerShell"
 # Delete the learn MCP server from the gateway
 az aigateway mcp delete -g $RG --gateway-name $GATEWAY -n learn --yes
-if ($?) { Write-Host "🧹 MCP server learn is deleted" }
+if ($?) { Write-Host "🚮 MCP server learn is deleted" }
 ```
 </details> <!-- gh -->
 
@@ -2173,7 +2173,7 @@ minutes.
 ```bash
 # Delete everything that azd up created, and purge the Foundry account
 azd down --purge --force &&
-  echo "🧹 Everything that azd up created is deleted"
+  echo "🚮 Everything that azd up created is deleted"
 ```
 
 </details> <!-- gh -->

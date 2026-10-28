@@ -80,6 +80,48 @@ function checkTemplate(lab, site) {
   }
 }
 
+// Readers paste shell blocks into macOS zsh, so keep them paste-safe (AUTHORING.md, "CLI comments and status lines").
+// Status-line emoji must come from the AUTHORING.md table: zsh 5.9 draws newer emoji as <0001f9e0> and miscounts
+// the width of emoji with a variation selector. And when a paste arrives line by line, oh-my-zsh's url-quote-magic
+// escapes the glob characters that follow a quoted URL on a line that continues an open quote or heredoc.
+const SHELL_EMOJI = new Set([...'📦📝🏭✨🚀⏳🔌🔖🔧📂🚮🚨💡🔑👤🔐🌐🆔📍🤖🚦📊🔒📄✅']);
+function checkShellBlocks(name, content) {
+  const fences = /^[ \t]*```(bash|sh|zsh|shell|powershell|pwsh)\b[^\n]*\n([\s\S]*?)^[ \t]*```/gm;
+  for (const [, lang, body] of content.matchAll(fences)) {
+    for (const [e] of body.matchAll(/\p{Extended_Pictographic}\uFE0F?/gu)) {
+      if (!SHELL_EMOJI.has(e)) warn(`${name}: ${lang} block uses ${e}; pick a status emoji from the AUTHORING.md table`);
+    }
+    if (lang === 'powershell' || lang === 'pwsh') continue;
+    const stack = []; let heredoc = null;
+    for (const line of body.split('\n')) {
+      if (heredoc) {
+        if (line.trim() === heredoc) heredoc = null;
+        else if (urlThenGlob(line)) warn(`${name}: heredoc line "${line.trim().slice(0, 60)}" has a glob character after a URL`);
+        continue;
+      }
+      if (stack.length && stack.at(-1) !== 'cmd' && urlThenGlob(line)) {
+        warn(`${name}: quoted continuation "${line.trim().slice(0, 60)}" has a glob character after a URL; keep it on one line`);
+      }
+      for (let j = 0; j < line.length; j++) {
+        const c = line[j]; const top = stack.at(-1);
+        if (top === 'sq') { if (c === "'") stack.pop(); continue; }
+        if (c === '\\') { j++; continue; }
+        if (line.startsWith('$(', j)) { stack.push('cmd'); j++; continue; }
+        if (top === 'dq') { if (c === '"') stack.pop(); continue; }
+        if (c === "'") stack.push('sq');
+        else if (c === '"') stack.push('dq');
+        else if (c === ')' && top === 'cmd') stack.pop();
+        else if (c === '#' && (j === 0 || /\s/.test(line[j - 1]))) break;
+        else if (line.startsWith('<<', j)) {
+          const m = line.slice(j).match(/^<<-?\s*['"]?(\w+)['"]?/);
+          if (m) { heredoc = m[1]; j += m[0].length - 1; }
+        }
+      }
+    }
+  }
+}
+const urlThenGlob = (line) => /[a-z][\w+.-]*:\/\/[^\s"']*["']?[*?[\]^(|)~#{}=]/i.test(line);
+
 function gitUpdated(dir) {
   try {
     const out = execFileSync('git', ['log', '-1', '--format=%cI', '--', path.relative(ROOT, dir)], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
@@ -316,6 +358,7 @@ async function renderGuide(file, slug, site, known, rendered) {
   if (!fs.existsSync(file)) return null;
   const name = path.basename(file);
   const source = stripGitHub(fs.readFileSync(file, 'utf8'));
+  checkShellBlocks(name, source);
   const ctx = makeCtx({ dir: LABS, slug }, site, known, { labsPrefix: '../labs/' });
   const { html, toc } = await renderLab(source, ctx);
   for (const m of ctx.media) {
@@ -425,6 +468,7 @@ export async function build({ strict = false } = {}) {
       fs.copyFileSync(path.join(lab.dir, m), dest);
     }
     checkTemplate(lab, site);
+    checkShellBlocks(lab.slug, lab.content);
     const headings = [...lab.html.matchAll(/<h([23]) id="([^"]+)"><a class="anchor"[^>]*>#<\/a>([\s\S]*?)<\/h\1>/g)]
       .map((m) => ({ id: m[2], text: htmlToText(m[3]), level: Number(m[1]) }));
     searchIndex.push({

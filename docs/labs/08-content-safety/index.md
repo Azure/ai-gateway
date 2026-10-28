@@ -58,7 +58,7 @@ echo "🌐 Runtime URL: $AI_GATEWAY_URL"
 # Read the alias that apps send in the model field: for Foundry imports, it matches the deployment's model name
 export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" \
   -n "$MODEL" --query properties.deployment.modelName -o tsv)"
-echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+echo "🔖 Model alias: $AI_GATEWAY_MODEL"
 
 # Paste the runtime key you created in Access › Keys, without showing it: don't commit it or write it to a file
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
@@ -79,7 +79,7 @@ Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
 # Read the alias that apps send in the model field: for Foundry imports, it matches the deployment's model name
 $env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER `
   -n $MODEL --query properties.deployment.modelName -o tsv
-Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🔖 Model alias: $env:AI_GATEWAY_MODEL"
 
 # Paste the runtime key you created in Access › Keys, without showing it: don't commit it or write it to a file
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
@@ -163,17 +163,17 @@ content safety policy, or replaces the one that's there, and keeps every other p
 # Screen the model at Medium (Balanced) in all four categories, with Low (Strict) for Violence
 az aigateway model policy set-content-safety -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
   --content-safety Medium --violence-severity Low --output none &&
-  echo "🛡️ Content safety on $MODEL is Balanced (Medium), with Strict (Low) for Violence"
+  echo "🔐 Content safety on $MODEL is Balanced (Medium), with Strict (Low) for Violence"
 ```
 
 ```powershell title="PowerShell"
 # Screen the model at Medium (Balanced) in all four categories, with Low (Strict) for Violence
 az aigateway model policy set-content-safety -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
   --content-safety Medium --violence-severity Low --output none
-if ($?) { Write-Host "🛡️ Content safety on $MODEL is Balanced (Medium), with Strict (Low) for Violence" }
+if ($?) { Write-Host "🔐 Content safety on $MODEL is Balanced (Medium), with Strict (Low) for Violence" }
 ```
 
-The command prints `🛡️ Content safety on <model-name> is Balanced (Medium), with Strict (Low) for Violence`. Each
+The command prints `🔐 Content safety on <model-name> is Balanced (Medium), with Strict (Low) for Violence`. Each
 threshold accepts `None`, `Low`, `Medium`, or `High`. To override another category, add `--hate-severity`,
 `--self-harm-severity`, or `--sexual-severity`.
 
@@ -181,13 +181,13 @@ threshold accepts `None`, `Low`, `Medium`, or `High`. To override another catego
 
 ```bash title="Bash"
 # List the model's policies, to check the content safety thresholds
-echo "🛡️ Policies on $MODEL:"
+echo "🔐 Policies on $MODEL:"
 az aigateway model policy list -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" -o json
 ```
 
 ```powershell title="PowerShell"
 # List the model's policies, to check the content safety thresholds
-Write-Host "🛡️ Policies on ${MODEL}:"
+Write-Host "🔐 Policies on ${MODEL}:"
 az aigateway model policy list -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL -o json
 ```
 
@@ -209,7 +209,7 @@ URL="https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/provider
 echo "🆔 Subscription: $SUB"
 
 # Read the model's current policies, so that you know what the merge must keep
-echo "🛡️ Policies on $MODEL:"
+echo "🔐 Policies on $MODEL:"
 az rest --method get --url "$URL" --query properties.policies
 ```
 
@@ -223,7 +223,7 @@ POLICIES="$(az rest --method get --url "$URL" | jq -c '
 
 # Send the merged array back: a PATCH replaces the whole policies array
 az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}" --output none &&
-  echo "🛡️ Content safety on $MODEL is Balanced (Medium), with Strict (Low) for Violence"
+  echo "🔐 Content safety on $MODEL is Balanced (Medium), with Strict (Low) for Violence"
 ```
 
 ```powershell title="PowerShell"
@@ -243,7 +243,7 @@ $policies += [pscustomobject]@{
 $body = @{ properties = @{ policies = $policies } } | ConvertTo-Json -Depth 10 -Compress
 $body | Set-Content -Path patch.json
 az rest --method patch --url $URL --body '@patch.json' --output none
-if ($?) { Write-Host "🛡️ Content safety on $MODEL is Balanced (Medium), with Strict (Low) for Violence" }
+if ($?) { Write-Host "🔐 Content safety on $MODEL is Balanced (Medium), with Strict (Low) for Violence" }
 Remove-Item patch.json
 ```
 
@@ -337,7 +337,7 @@ export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$(azd env 
   --query primaryKey --output tsv)"
 echo "🌐 Runtime URL: $AI_GATEWAY_URL"
 echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
-echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+echo "🔖 Model alias: $AI_GATEWAY_MODEL"
 ```
 
 ```powershell title="PowerShell"
@@ -357,11 +357,11 @@ $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/a
   --query primaryKey --output tsv
 Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
 Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
-Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🔖 Model alias: $env:AI_GATEWAY_MODEL"
 ```
 
 > **Checkpoint**
-> `azd up` ended with `SUCCESS`, and the last command printed `🏷️ Model alias: gpt-6-luna-safe`.
+> `azd up` ended with `SUCCESS`, and the last command printed `🔖 Model alias: gpt-6-luna-safe`.
 > `az aigateway model-alias show -g "$RG" --gateway-name "$GATEWAY" -n "$AI_GATEWAY_MODEL" --query properties.policies`
 > returns one `contentSafety` entry with `"violenceSeverity": "Low"`, `"Medium"` for the other three categories,
 > and `"scope": "resource"`.
@@ -431,14 +431,14 @@ example, from the command line, set all four categories to `Medium`. The other t
 # Set all four categories to Medium (Balanced): only Violence changes, and the other policies stay
 az aigateway model policy set-content-safety -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
   --content-safety Medium --output none &&
-  echo "🛡️ Content safety on $MODEL is Balanced (Medium) for all four categories"
+  echo "🔐 Content safety on $MODEL is Balanced (Medium) for all four categories"
 ```
 
 ```powershell title="PowerShell"
 # Set all four categories to Medium (Balanced): only Violence changes, and the other policies stay
 az aigateway model policy set-content-safety -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
   --content-safety Medium --output none
-if ($?) { Write-Host "🛡️ Content safety on $MODEL is Balanced (Medium) for all four categories" }
+if ($?) { Write-Host "🔐 Content safety on $MODEL is Balanced (Medium) for all four categories" }
 ```
 
 On the Bicep + azd track, set the environment value and provision again instead:
@@ -450,7 +450,7 @@ azd env set CONTENT_SAFETY_VIOLENCE Medium &&
 
 # Provision again: only the screened alias changes
 azd provision &&
-  echo "🛡️ Content safety on $AI_GATEWAY_MODEL is Balanced (Medium) for all four categories"
+  echo "🔐 Content safety on $AI_GATEWAY_MODEL is Balanced (Medium) for all four categories"
 ```
 
 ```powershell title="PowerShell"
@@ -460,7 +460,7 @@ if ($?) { Write-Host "📝 CONTENT_SAFETY_VIOLENCE is Medium" }
 
 # Provision again: only the screened alias changes
 azd provision
-if ($?) { Write-Host "🛡️ Content safety on $env:AI_GATEWAY_MODEL is Balanced (Medium) for all four categories" }
+if ($?) { Write-Host "🔐 Content safety on $env:AI_GATEWAY_MODEL is Balanced (Medium) for all four categories" }
 ```
 
 A prompt that **Strict** blocked is more likely to pass at **Balanced**. Prompts that passed before still pass.
@@ -512,14 +512,14 @@ Select **Policies**, open the **Content safety** policy that's scoped to your mo
 # Remove only the content safety policy from the model, and keep its other policies
 az aigateway model policy remove -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
   --remove-content-safety true --output none &&
-  echo "🧹 Content safety is removed from $MODEL"
+  echo "🚮 Content safety is removed from $MODEL"
 ```
 
 ```powershell title="PowerShell"
 # Remove only the content safety policy from the model, and keep its other policies
 az aigateway model policy remove -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
   --remove-content-safety true --output none
-if ($?) { Write-Host "🧹 Content safety is removed from $MODEL" }
+if ($?) { Write-Host "🚮 Content safety is removed from $MODEL" }
 ```
 
 This removes only the content safety policy and keeps every other policy on the model.
@@ -534,7 +534,7 @@ POLICIES="$(az rest --method get --url "$URL" | jq -c '[(.properties.policies //
 
 # Send the remaining policies back: a PATCH replaces the whole policies array
 az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}" --output none &&
-  echo "🧹 Content safety is removed from $MODEL"
+  echo "🚮 Content safety is removed from $MODEL"
 ```
 
 <!-- track: iac | Bicep + azd -->
@@ -548,7 +548,7 @@ It takes about ten minutes.
 ```bash
 # Delete the resource group and purge the soft-deleted Foundry account, without prompts
 azd down --purge --force &&
-  echo "🧹 Everything that azd up created is deleted"
+  echo "🚮 Everything that azd up created is deleted"
 ```
 
 <!-- /tracks -->

@@ -16,6 +16,9 @@ Setup guide: [The one-time tasks that every lab builds on](SETUP.md)
 | `RequestDisallowedByAzure`: `The selected region is currently not accepting new customers` | The region has AI Gateway, but your subscription can't create new resources there | Pick another region from the list. |
 | `InvalidResourceGroupLocation` from `azd up` | The resource group `rg-<environment name>` already exists in another region | Run `azd env new` with a new environment name, or delete the old resource group. |
 | Your subscription is disabled in the portal's subscription picker | You lack write permission for API Management or connector gateways in that subscription | Ask for **Contributor** on the subscription or resource group, or pick another subscription. |
+| `zsh: command not found: #`, or a pasted block stops after a comment | zsh on macOS reads pasted `#` lines as commands | Turn on `interactive_comments`, as in [Choose where to run commands](SETUP.md#choose-where-to-run-commands), and paste the block again. |
+| `jq: error: syntax error, unexpected INVALID_CHARACTER`, and the pasted command shows `\{` or `\}` after a URL | The block was pasted while a command still ran, and oh-my-zsh's URL quoting escaped the characters after the URL | Wait for the prompt, then paste the block again. |
+| Pasted text shows codes such as `<0001f9e0>` | The snippet is an older copy with an emoji that zsh can't draw. The command still runs. | Reload the lab page to copy the current snippets. |
 
 ## Quick start
 
@@ -31,11 +34,11 @@ Quick start: [Your first model call in 5 minutes](quickstart/README.md)
 | `InsufficientQuota` on the model deployment | The subscription has no `gpt-6-luna` capacity left in the region | Start again in another region: set `LOCATION` in the Azure CLI track, or run `azd env new` with a new name and another `--location` in the Bicep + azd track. Or free capacity in [Foundry](https://ai.azure.com). |
 | `InvalidResourceGroupLocation` from `azd up` | The resource group `rg-<environment name>` already exists in another region | Run `azd env new` with a new environment name, or delete the old resource group. |
 | `403` or `404` from the gateway in the first minute | The gateway's role on the Foundry account, or the new alias, is still taking effect | Wait a minute and call again. |
-| `403` from the backend that doesn't go away | The gateway's managed identity has no role on the Foundry account | Assign it **Foundry User** on the account, as in the Azure CLI track's **Deploy the model in Foundry** step, and wait a few minutes. |
+| `403` from the backend that doesn't go away | The gateway's managed identity has no role on the Foundry account | Run the import in the Azure CLI track's **Publish the model** step again, which grants the role, or assign the gateway **Foundry User** on the account. Then wait a few minutes. |
 | `401` | The key is missing, wrong, or in the wrong header | Send it in the `api-key` header, or as `Authorization: Bearer <key>`. In the portal, copy it again from **Access** › **Keys**. |
 | `400` that mentions authentication | The request has both an `api-key` and an `Authorization` header | Send only one of them. |
-| `The subscription is not registered to use namespace` | A resource provider isn't registered yet | Run the `az provider register` loop from **Start creating the gateway**, then try again. |
-| `GatewayTimeout`: `The gateway did not receive a response from 'Microsoft.Web'` when you create the connector gateway | Azure Resource Manager stopped waiting for the connector gateway, which is usually created anyway | Run `az rest --method get` with the same `--url`, and add `--query properties.provisioningState`. If it prints `Succeeded`, continue with the next command. |
+| `The subscription is not registered to use namespace` | A resource provider isn't registered yet | [Register the resource providers](SETUP.md#register-the-resource-providers), then try again. |
+| `404` with `Resource not found` from the gateway | The alias is missing, or the URL path is wrong | Run the alias command in **Publish the model**: the import adds models but no aliases. Call `<runtime URL>/default/models/openai/v1/chat/completions`. |
 
 ## Lab 00: How AI Gateway works
 

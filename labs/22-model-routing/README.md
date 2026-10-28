@@ -145,7 +145,7 @@ Foundry account. To check, list the backend models. The **Provider** column show
 
 ```bash title="Bash"
 # List the backend models on the gateway, with the provider that holds each one
-echo "🧠 Backend models on $GATEWAY:"
+echo "✨ Backend models on $GATEWAY:"
 az aigateway model list -g "$RG" --gateway-name "$GATEWAY" -o table
 ```
 </details> <!-- gh -->
@@ -154,7 +154,7 @@ az aigateway model list -g "$RG" --gateway-name "$GATEWAY" -o table
 
 ```powershell title="PowerShell"
 # List the backend models on the gateway, with the provider that holds each one
-Write-Host "🧠 Backend models on ${GATEWAY}:"
+Write-Host "✨ Backend models on ${GATEWAY}:"
 az aigateway model list -g $RG --gateway-name $GATEWAY -o table
 ```
 </details> <!-- gh -->
@@ -170,7 +170,7 @@ az cognitiveservices account deployment create -g "$FOUNDRY_RG" -n "$FOUNDRY_ACC
   --deployment-name "$CANDIDATE" --model-name "$CANDIDATE" --model-version "$CANDIDATE_VERSION" \
   --model-format OpenAI --sku-name GlobalStandard --sku-capacity 10 \
   --query "{name:name, state:properties.provisioningState}" &&
-  echo "🧠 Model deployment $CANDIDATE is ready in $FOUNDRY_ACCOUNT"
+  echo "✨ Model deployment $CANDIDATE is ready in $FOUNDRY_ACCOUNT"
 ```
 </details> <!-- gh -->
 
@@ -182,7 +182,7 @@ az cognitiveservices account deployment create -g $FOUNDRY_RG -n $FOUNDRY_ACCOUN
   --deployment-name $CANDIDATE --model-name $CANDIDATE --model-version $CANDIDATE_VERSION `
   --model-format OpenAI --sku-name GlobalStandard --sku-capacity 10 `
   --query "{name:name, state:properties.provisioningState}"
-if ($?) { Write-Host "🧠 Model deployment $CANDIDATE is ready in $FOUNDRY_ACCOUNT" }
+if ($?) { Write-Host "✨ Model deployment $CANDIDATE is ready in $FOUNDRY_ACCOUNT" }
 ```
 </details> <!-- gh -->
 
@@ -273,7 +273,7 @@ az aigateway model create -g "$RG" --gateway-name "$GATEWAY" --provider-name "$P
   --supported-endpoints /openai/v1/chat/completions /openai/v1/responses \
   --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$CANDIDATE,modelName:$CANDIDATE,modelVersion:$CANDIDATE_VERSION}" \
   --query "{name:name, version:properties.deployment.modelVersion}" &&
-  echo "🧠 Model $CANDIDATE is published through $PROVIDER"
+  echo "✨ Model $CANDIDATE is published through $PROVIDER"
 ```
 </details> <!-- gh -->
 
@@ -286,7 +286,7 @@ az aigateway model create -g $RG --gateway-name $GATEWAY --provider-name $PROVID
   --supported-endpoints /openai/v1/chat/completions /openai/v1/responses `
   --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$CANDIDATE,modelName:$CANDIDATE,modelVersion:$CANDIDATE_VERSION}" `
   --query "{name:name, version:properties.deployment.modelVersion}"
-if ($?) { Write-Host "🧠 Model $CANDIDATE is published through $PROVIDER" }
+if ($?) { Write-Host "✨ Model $CANDIDATE is published through $PROVIDER" }
 ```
 </details> <!-- gh -->
 
@@ -302,7 +302,7 @@ a `weight`. With more than one backend model, each entry needs both a priority a
 export MODELS="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models"
 
 # Create the alias with both backend models at priority 0 and weights 80 and 20, then print each one's routing
-echo "🏷️ Alias $ALIAS routes to:"
+echo "🔖 Alias $ALIAS routes to:"
 az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" \
   --description "Canary: 80/20 between the current and the new model" \
   --backend-model resource-id="$MODELS/$PRIMARY" priority=0 weight=80 \
@@ -319,7 +319,7 @@ az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" \
 $MODELS = "$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models"
 
 # Create the alias with both backend models at priority 0 and weights 80 and 20, then print each one's routing
-Write-Host "🏷️ Alias $ALIAS routes to:"
+Write-Host "🔖 Alias $ALIAS routes to:"
 az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $ALIAS `
   --description "Canary: 80/20 between the current and the new model" `
   --backend-model resource-id="$MODELS/$PRIMARY" priority=0 weight=80 `
@@ -727,7 +727,7 @@ export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_I
 echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 
 # Print the alias's backend models, with the priority and the weight of each one
-echo "🏷️ Alias $ALIAS routes to:"
+echo "🔖 Alias $ALIAS routes to:"
 az aigateway model-alias show -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" --query properties.backendModels -o json |
   jq -r '.[] | "\(.resourceId | split("/") | last)  priority \(.priority)  weight \(.weight)"'
 ```
@@ -755,7 +755,7 @@ $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/a
 Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 
 # Print the alias's backend models, with the priority and the weight of each one
-Write-Host "🏷️ Alias $ALIAS routes to:"
+Write-Host "🔖 Alias $ALIAS routes to:"
 az aigateway model-alias show -g $RG --gateway-name $GATEWAY -n $ALIAS --query properties.backendModels -o json |
   ConvertFrom-Json | ForEach-Object { '{0}  priority {1}  weight {2}' -f ($_.resourceId -split '/')[-1], $_.priority, $_.weight }
 ```
@@ -806,7 +806,7 @@ To see the header for a single call:
 
 ```bash title="Bash"
 # Send one request to the alias, and print only the x-ms-served-model header of the response
-echo "🧠 Backend model that served one request to $ALIAS:"
+echo "✨ Backend model that served one request to $ALIAS:"
 curl -sS -D - -o /dev/null "$AI_GATEWAY_URL/default/models/openai/v1/chat/completions" \
   -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
   -d "{\"model\": \"$ALIAS\", \"max_completion_tokens\": 16, \"messages\": [{\"role\": \"user\", \"content\": \"Hi\"}]}" |
@@ -821,7 +821,7 @@ curl -sS -D - -o /dev/null "$AI_GATEWAY_URL/default/models/openai/v1/chat/comple
 $body = @{ model = $ALIAS; max_completion_tokens = 16; messages = @(@{ role = "user"; content = "Hi" }) } | ConvertTo-Json -Compress
 
 # Send it, and print only the x-ms-served-model header of the response
-Write-Host "🧠 Backend model that served one request to ${ALIAS}:"
+Write-Host "✨ Backend model that served one request to ${ALIAS}:"
 (Invoke-WebRequest -Method Post -Uri "$env:AI_GATEWAY_URL/default/models/openai/v1/chat/completions" `
   -Headers @{ "api-key" = $env:AI_GATEWAY_API_KEY } -ContentType "application/json" -Body $body).Headers["x-ms-served-model"]
 ```
@@ -862,7 +862,7 @@ Give `gpt-6.1-sol` priority `1`. It stays in the alias, ready to promote, but re
 
 ```bash title="Bash"
 # Prefer gpt-6-luna: it keeps priority 0, and the candidate moves to priority 1, both with weight 1
-echo "🏷️ Alias $ALIAS now routes to:"
+echo "🔖 Alias $ALIAS now routes to:"
 az aigateway model-alias update -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" \
   --description "Prefer the current model" \
   --backend-model resource-id="$MODELS/$PRIMARY" priority=0 weight=1 \
@@ -876,7 +876,7 @@ az aigateway model-alias update -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" \
 
 ```powershell title="PowerShell"
 # Prefer gpt-6-luna: it keeps priority 0, and the candidate moves to priority 1, both with weight 1
-Write-Host "🏷️ Alias $ALIAS now routes to:"
+Write-Host "🔖 Alias $ALIAS now routes to:"
 az aigateway model-alias update -g $RG --gateway-name $GATEWAY -n $ALIAS `
   --description "Prefer the current model" `
   --backend-model resource-id="$MODELS/$PRIMARY" priority=0 weight=1 `
@@ -944,7 +944,7 @@ To go back to the weighted split, run `azd env set ROUTING_STRATEGY weighted` an
 
 ```bash title="Bash"
 # Print the alias's backend models, with the priority and the weight of each one
-echo "🏷️ Alias $ALIAS routes to:"
+echo "🔖 Alias $ALIAS routes to:"
 az aigateway model-alias show -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" --query properties.backendModels -o json |
   jq -r '.[] | "\(.resourceId | split("/") | last)  priority \(.priority)  weight \(.weight)"'
 ```
@@ -954,7 +954,7 @@ az aigateway model-alias show -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" --q
 
 ```powershell title="PowerShell"
 # Print the alias's backend models, with the priority and the weight of each one
-Write-Host "🏷️ Alias $ALIAS routes to:"
+Write-Host "🔖 Alias $ALIAS routes to:"
 az aigateway model-alias show -g $RG --gateway-name $GATEWAY -n $ALIAS --query properties.backendModels -o json |
   ConvertFrom-Json | ForEach-Object { '{0}  priority {1}  weight {2}' -f ($_.resourceId -split '/')[-1], $_.priority, $_.weight }
 ```
@@ -1032,15 +1032,15 @@ last command of the CLI track.
 ```bash title="Bash"
 # Delete the alias first, so that nothing points to the candidate model: requests to the alias now fail
 az aigateway model-alias delete -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" --yes &&
-  echo "🧹 Alias $ALIAS is deleted"
+  echo "🚮 Alias $ALIAS is deleted"
 
 # Delete the candidate backend model from the gateway's provider
 az aigateway model delete -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$CANDIDATE" --yes &&
-  echo "🧹 Model $CANDIDATE is deleted from $PROVIDER"
+  echo "🚮 Model $CANDIDATE is deleted from $PROVIDER"
 
 # Delete the candidate deployment from the Foundry account, and keep gpt-6-luna for later labs
 az cognitiveservices account deployment delete -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --deployment-name "$CANDIDATE" &&
-  echo "🧹 Model deployment $CANDIDATE is deleted from $FOUNDRY_ACCOUNT"
+  echo "🚮 Model deployment $CANDIDATE is deleted from $FOUNDRY_ACCOUNT"
 ```
 </details> <!-- gh -->
 
@@ -1049,15 +1049,15 @@ az cognitiveservices account deployment delete -g "$FOUNDRY_RG" -n "$FOUNDRY_ACC
 ```powershell title="PowerShell"
 # Delete the alias first, so that nothing points to the candidate model: requests to the alias now fail
 az aigateway model-alias delete -g $RG --gateway-name $GATEWAY -n $ALIAS --yes
-if ($?) { Write-Host "🧹 Alias $ALIAS is deleted" }
+if ($?) { Write-Host "🚮 Alias $ALIAS is deleted" }
 
 # Delete the candidate backend model from the gateway's provider
 az aigateway model delete -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $CANDIDATE --yes
-if ($?) { Write-Host "🧹 Model $CANDIDATE is deleted from $PROVIDER" }
+if ($?) { Write-Host "🚮 Model $CANDIDATE is deleted from $PROVIDER" }
 
 # Delete the candidate deployment from the Foundry account, and keep gpt-6-luna for later labs
 az cognitiveservices account deployment delete -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT --deployment-name $CANDIDATE
-if ($?) { Write-Host "🧹 Model deployment $CANDIDATE is deleted from $FOUNDRY_ACCOUNT" }
+if ($?) { Write-Host "🚮 Model deployment $CANDIDATE is deleted from $FOUNDRY_ACCOUNT" }
 ```
 </details> <!-- gh -->
 
@@ -1076,7 +1076,7 @@ soft-deleted Foundry account. It takes about ten minutes.
 ```bash
 # Delete everything that azd up created in this lab, purge the soft-deleted Foundry account, and skip the prompt
 azd down --purge --force &&
-  echo "🧹 Everything that azd up created is deleted"
+  echo "🚮 Everything that azd up created is deleted"
 ```
 
 </details> <!-- gh -->

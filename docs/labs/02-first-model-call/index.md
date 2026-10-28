@@ -98,7 +98,7 @@ DEPLOYMENT_ID="$(az deployment group create -g "$FOUNDRY_RG" \
   --template-file infra/foundry.bicep \
   --parameters accountName="$FOUNDRY_ACCOUNT" deploymentName="$DEPLOYMENT" \
   --query properties.outputs.deploymentId.value -o tsv)" &&
-  echo "🧠 Model deployment $DEPLOYMENT is ready: $DEPLOYMENT_ID"
+  echo "✨ Model deployment $DEPLOYMENT is ready: $DEPLOYMENT_ID"
 ```
 
 </details>
@@ -150,12 +150,12 @@ The Bicep + azd track also creates its own gateway and Foundry deployment, so it
 > # Read the principal ID of the gateway's managed identity, and the Foundry account's resource ID
 > PRINCIPAL_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query identity.principalId -o tsv)"
 > FOUNDRY_ID="$(az cognitiveservices account show -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --query id -o tsv)"
-> echo "🪪 Gateway identity: $PRINCIPAL_ID"
+> echo "👤 Gateway identity: $PRINCIPAL_ID"
 >
 > # Give the gateway's identity the Foundry User role on the account, so that it can call the model
 > az role assignment create --assignee-object-id "$PRINCIPAL_ID" --assignee-principal-type ServicePrincipal \
 >   --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope "$FOUNDRY_ID" --output none &&
->   echo "🛡️ The gateway's identity has the Foundry User role on $FOUNDRY_ACCOUNT"
+>   echo "🔐 The gateway's identity has the Foundry User role on $FOUNDRY_ACCOUNT"
 > ```
 
 ### Copy the callable alias
@@ -168,13 +168,13 @@ example `<foundry-account-name>/gpt-6-luna`.
 ```bash title="Bash"
 # Save the alias that apps send in the model field
 export AI_GATEWAY_MODEL="<model-name>"    # the alias from the Aliases tab
-echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+echo "🔖 Model alias: $AI_GATEWAY_MODEL"
 ```
 
 ```powershell title="PowerShell"
 # Save the alias that apps send in the model field
 $env:AI_GATEWAY_MODEL = "<model-name>"    # the alias from the Aliases tab
-Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🔖 Model alias: $env:AI_GATEWAY_MODEL"
 ```
 
 ### Create a runtime API key
@@ -236,23 +236,23 @@ system-assigned identity the **Foundry User** role on the account.
 ```bash title="Bash"
 # Read the principal ID of the gateway's system-assigned managed identity
 PRINCIPAL_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query identity.principalId -o tsv)"
-echo "🪪 Gateway identity: $PRINCIPAL_ID"
+echo "👤 Gateway identity: $PRINCIPAL_ID"
 
 # Give the identity the Foundry User role on the account, so that the gateway can call its deployments
 az role assignment create --assignee-object-id "$PRINCIPAL_ID" --assignee-principal-type ServicePrincipal \
   --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope "$FOUNDRY_ID" --query id -o tsv &&
-  echo "🛡️ The gateway's identity has the Foundry User role on $FOUNDRY_ACCOUNT"
+  echo "🔐 The gateway's identity has the Foundry User role on $FOUNDRY_ACCOUNT"
 ```
 
 ```powershell title="PowerShell"
 # Read the principal ID of the gateway's system-assigned managed identity
 $PRINCIPAL_ID = az aigateway show -g $RG -n $GATEWAY --query identity.principalId -o tsv
-Write-Host "🪪 Gateway identity: $PRINCIPAL_ID"
+Write-Host "👤 Gateway identity: $PRINCIPAL_ID"
 
 # Give the identity the Foundry User role on the account, so that the gateway can call its deployments
 az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principal-type ServicePrincipal `
   --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope $FOUNDRY_ID --query id -o tsv
-if ($?) { Write-Host "🛡️ The gateway's identity has the Foundry User role on $FOUNDRY_ACCOUNT" }
+if ($?) { Write-Host "🔐 The gateway's identity has the Foundry User role on $FOUNDRY_ACCOUNT" }
 ```
 
 ### Create the Foundry provider
@@ -263,28 +263,18 @@ The provider tells the gateway where the account is and to authenticate with its
 # Create a Foundry provider that points at the account and signs in with the gateway's managed identity
 az aigateway model-provider create -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" \
   --kind Foundry --display-name "Foundry models" \
-  --foundry "$(jq -cn --arg endpoint "$FOUNDRY_ENDPOINT" --arg id "$FOUNDRY_ID" '{
-      endpoint: $endpoint, resourceIds: [$id],
-      authentication: {kind: "ManagedIdentity",
-                       managedIdentity: {resource: "https://cognitiveservices.azure.com/"}}}')" \
+  --foundry "{endpoint:'$FOUNDRY_ENDPOINT',resourceIds:[$FOUNDRY_ID],authentication:{kind:ManagedIdentity,managedIdentity:{resource:'https://cognitiveservices.azure.com/'}}}" \
   --query "{name:name, kind:properties.kind, endpoint:properties.foundry.endpoint}" &&
   echo "🔌 Model provider $PROVIDER points at $FOUNDRY_ACCOUNT"
 ```
 
 ```powershell title="PowerShell"
-# Write the provider's Foundry settings to a file, so that PowerShell passes the JSON to az unchanged
-@{
-  endpoint       = $FOUNDRY_ENDPOINT
-  resourceIds    = @($FOUNDRY_ID)
-  authentication = @{ kind = "ManagedIdentity"; managedIdentity = @{ resource = "https://cognitiveservices.azure.com/" } }
-} | ConvertTo-Json -Depth 10 -Compress | Set-Content foundry.json
-
 # Create a Foundry provider that points at the account and signs in with the gateway's managed identity
 az aigateway model-provider create -g $RG --gateway-name $GATEWAY -n $PROVIDER `
-  --kind Foundry --display-name "Foundry models" --foundry "@foundry.json" `
+  --kind Foundry --display-name "Foundry models" `
+  --foundry "{endpoint:'$FOUNDRY_ENDPOINT',resourceIds:[$FOUNDRY_ID],authentication:{kind:ManagedIdentity,managedIdentity:{resource:'https://cognitiveservices.azure.com/'}}}" `
   --query "{name:name, kind:properties.kind, endpoint:properties.foundry.endpoint}"
 if ($?) { Write-Host "🔌 Model provider $PROVIDER points at $FOUNDRY_ACCOUNT" }
-Remove-Item foundry.json
 ```
 
 ### Register the deployment
@@ -298,7 +288,7 @@ az aigateway model create -g "$RG" --gateway-name "$GATEWAY" --provider-name "$P
   --supported-endpoints /openai/v1/chat/completions /openai/v1/responses \
   --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$DEPLOYMENT,modelName:$DEPLOYMENT}" \
   --query "{name:name, deployment:properties.deployment.modelName}" &&
-  echo "🧠 Model $DEPLOYMENT is registered under $PROVIDER"
+  echo "✨ Model $DEPLOYMENT is registered under $PROVIDER"
 ```
 
 ```powershell title="PowerShell"
@@ -308,7 +298,7 @@ az aigateway model create -g $RG --gateway-name $GATEWAY --provider-name $PROVID
   --supported-endpoints /openai/v1/chat/completions /openai/v1/responses `
   --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$DEPLOYMENT,modelName:$DEPLOYMENT}" `
   --query "{name:name, deployment:properties.deployment.modelName}"
-if ($?) { Write-Host "🧠 Model $DEPLOYMENT is registered under $PROVIDER" }
+if ($?) { Write-Host "✨ Model $DEPLOYMENT is registered under $PROVIDER" }
 ```
 
 `--deployment-config` uses the Azure CLI shorthand syntax, so the same value works in Bash and PowerShell.
@@ -337,7 +327,7 @@ MODEL_ID="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOY
 az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$AI_GATEWAY_MODEL" \
   --backend-model resource-id="$MODEL_ID" \
   --query "{alias:properties.aliasName, target:properties.backendModels[0].resourceId}" &&
-  echo "🏷️ Alias $AI_GATEWAY_MODEL is ready"
+  echo "🔖 Alias $AI_GATEWAY_MODEL is ready"
 ```
 
 ```powershell title="PowerShell"
@@ -349,7 +339,7 @@ $MODEL_ID = "$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEP
 az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $env:AI_GATEWAY_MODEL `
   --backend-model resource-id="$MODEL_ID" `
   --query "{alias:properties.aliasName, target:properties.backendModels[0].resourceId}"
-if ($?) { Write-Host "🏷️ Alias $env:AI_GATEWAY_MODEL is ready" }
+if ($?) { Write-Host "🔖 Alias $env:AI_GATEWAY_MODEL is ready" }
 ```
 
 The command warns that the service doesn't enforce atomic alias creation. That's expected: it only matters when
@@ -388,7 +378,7 @@ Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) c
 > **Checkpoint**
 > `az aigateway model list -g "$RG" --gateway-name "$GATEWAY" --query "[].{name:name, provider:properties.providerKind}" -o table`
 > lists your deployment with the provider `Foundry`, the alias command returned your model's ID as `target` and
-> printed `🏷️ Alias gpt-6-luna is ready`, and
+> printed `🔖 Alias gpt-6-luna is ready`, and
 > `az aigateway api-key list -g "$RG" --gateway-name "$GATEWAY" --query "[].{name:name, state:properties.state}" -o table`
 > shows `app-first-call` as `active`, next to the built-in `master` key.
 
@@ -482,7 +472,7 @@ export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
 export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" \
   --query primaryKey --output tsv)"
 echo "🌐 Runtime URL: $AI_GATEWAY_URL"
-echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+echo "🔖 Model alias: $AI_GATEWAY_MODEL"
 echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 ```
 
@@ -505,12 +495,12 @@ $env:AI_GATEWAY_MODEL   = azd env get-value AI_GATEWAY_MODEL
 $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" `
   --query primaryKey --output tsv
 Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
-Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🔖 Model alias: $env:AI_GATEWAY_MODEL"
 Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 ```
 
 > **Checkpoint**
-> `azd up` ended with `SUCCESS`, and the last commands printed `🏷️ Model alias: gpt-6-luna`. In the portal, select
+> `azd up` ended with `SUCCESS`, and the last commands printed `🔖 Model alias: gpt-6-luna`. In the portal, select
 > the new gateway in the gateway switcher: **Models** lists `gpt-6-luna`.
 
 ### Change the token limit
@@ -526,7 +516,7 @@ azd env set TOKENS_PER_MINUTE 20000 &&
 
 # Provision again, which updates only the model
 azd provision &&
-  echo "🛡️ Token limit of 20,000 tokens per minute per caller is on $DEPLOYMENT"
+  echo "🔐 Token limit of 20,000 tokens per minute per caller is on $DEPLOYMENT"
 ```
 
 ```powershell title="PowerShell"
@@ -536,7 +526,7 @@ if ($?) { Write-Host "📝 TOKENS_PER_MINUTE is 20000" }
 
 # Provision again, which updates only the model
 azd provision
-if ($?) { Write-Host "🛡️ Token limit of 20,000 tokens per minute per caller is on $DEPLOYMENT" }
+if ($?) { Write-Host "🔐 Token limit of 20,000 tokens per minute per caller is on $DEPLOYMENT" }
 ```
 
 <!-- /tracks -->
@@ -570,7 +560,7 @@ Use the same alias and key everywhere. The gateway exposes the OpenAI-compatible
 curl -sS "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions" \
   -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
   -d "{\"model\":\"$AI_GATEWAY_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"Write a one-sentence status update.\"}]}" \
-  | jq -r 'if .choices then "🤖 \(.choices[0].message.content)" else "⚠️ \(.error.message // .)" end'
+  | jq -r 'if .choices then "🤖 \(.choices[0].message.content)" else "🚨 \(.error.message // .)" end'
 ```
 
 ```powershell title="PowerShell"
@@ -594,7 +584,7 @@ if ($?) { Write-Host "🤖 $($reply.choices[0].message.content)" }
 curl -sS "${AI_GATEWAY_URL%/}/default/models/openai/v1/responses" \
   -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
   -d "{\"model\":\"$AI_GATEWAY_MODEL\",\"input\":\"Summarize what an AI gateway does in one sentence.\"}" \
-  | jq -r 'if .output then "🤖 \([.output[] | select(.type == "message") | .content[] | select(.type == "output_text") | .text] | join(""))" else "⚠️ \(.error.message // .)" end'
+  | jq -r 'if .output then "🤖 \([.output[] | select(.type == "message") | .content[] | select(.type == "output_text") | .text] | join(""))" else "🚨 \(.error.message // .)" end'
 ```
 
 ```powershell title="PowerShell"
@@ -640,21 +630,21 @@ key never lives in code. Run the commands from the lab folder.
 # Move into the samples folder, and install the OpenAI SDK for Python that requirements.txt lists
 cd infra
 pip install -r requirements.txt     # the openai package
-echo "🧩 The OpenAI SDK for Python is installed"
+echo "📦 The OpenAI SDK for Python is installed"
 ```
 
 ```bash title="TypeScript"
 # Move into the samples folder, and install the OpenAI SDK for TypeScript that package.json lists
 cd infra
 npm install                         # the openai npm package
-echo "🧩 The OpenAI SDK for TypeScript is installed"
+echo "📦 The OpenAI SDK for TypeScript is installed"
 ```
 
 ```bash title="C#"
 # Move into the .NET sample, and restore it: it uses only HttpClient and System.Text.Json
 cd infra/dotnet
 dotnet restore                      # no extra packages: HttpClient and System.Text.Json
-echo "🧩 The .NET sample is restored"
+echo "📦 The .NET sample is restored"
 ```
 
 ### Call the model from code
@@ -773,13 +763,13 @@ Chat Completions: An AI gateway is a governed entry point that routes, secures, 
 
 ```bash title="Bash"
 # List the models that the gateway publishes, with the kind of provider of each
-echo "🧠 Models on gateway $GATEWAY:"
+echo "✨ Models on gateway $GATEWAY:"
 az aigateway model list -g "$RG" --gateway-name "$GATEWAY" --query "[].{name:name, provider:properties.providerKind}" -o table
 ```
 
 ```powershell title="PowerShell"
 # List the models that the gateway publishes, with the kind of provider of each
-Write-Host "🧠 Models on gateway ${GATEWAY}:"
+Write-Host "✨ Models on gateway ${GATEWAY}:"
 az aigateway model list -g $RG --gateway-name $GATEWAY --query "[].{name:name, provider:properties.providerKind}" -o table
 ```
 
@@ -868,47 +858,47 @@ and alias names shown on **Models**.
 ```bash title="Bash"
 # Delete the runtime API key, so that it stops working
 az aigateway api-key delete -g "$RG" --gateway-name "$GATEWAY" -n app-first-call --yes &&
-  echo "🧹 API key app-first-call is deleted"
+  echo "🚮 API key app-first-call is deleted"
 
 # Delete the alias first: deleting the provider doesn't delete the aliases that point at its models
 az aigateway model-alias delete -g "$RG" --gateway-name "$GATEWAY" -n "$DEPLOYMENT" --yes &&
-  echo "🧹 Alias $DEPLOYMENT is deleted"
+  echo "🚮 Alias $DEPLOYMENT is deleted"
 
 # Delete the provider, with its models. The Foundry deployment stays.
 az aigateway model-provider delete -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --yes &&
-  echo "🧹 Model provider $PROVIDER is deleted"
+  echo "🚮 Model provider $PROVIDER is deleted"
 
 # Read the principal ID of the gateway's identity, and the Foundry account's resource ID
 PRINCIPAL_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query identity.principalId -o tsv)"
 FOUNDRY_ID="$(az cognitiveservices account show -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --query id -o tsv)"
-echo "🪪 Gateway identity: $PRINCIPAL_ID"
+echo "👤 Gateway identity: $PRINCIPAL_ID"
 
 # Remove the Foundry User role that the gateway's identity has on the account
 az role assignment delete --assignee "$PRINCIPAL_ID" --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope "$FOUNDRY_ID" &&
-  echo "🧹 The gateway's Foundry User role on $FOUNDRY_ACCOUNT is removed"
+  echo "🚮 The gateway's Foundry User role on $FOUNDRY_ACCOUNT is removed"
 ```
 
 ```powershell title="PowerShell"
 # Delete the runtime API key, so that it stops working
 az aigateway api-key delete -g $RG --gateway-name $GATEWAY -n app-first-call --yes
-if ($?) { Write-Host "🧹 API key app-first-call is deleted" }
+if ($?) { Write-Host "🚮 API key app-first-call is deleted" }
 
 # Delete the alias first: deleting the provider doesn't delete the aliases that point at its models
 az aigateway model-alias delete -g $RG --gateway-name $GATEWAY -n $DEPLOYMENT --yes
-if ($?) { Write-Host "🧹 Alias $DEPLOYMENT is deleted" }
+if ($?) { Write-Host "🚮 Alias $DEPLOYMENT is deleted" }
 
 # Delete the provider, with its models. The Foundry deployment stays.
 az aigateway model-provider delete -g $RG --gateway-name $GATEWAY -n $PROVIDER --yes
-if ($?) { Write-Host "🧹 Model provider $PROVIDER is deleted" }
+if ($?) { Write-Host "🚮 Model provider $PROVIDER is deleted" }
 
 # Read the principal ID of the gateway's identity, and the Foundry account's resource ID
 $PRINCIPAL_ID = az aigateway show -g $RG -n $GATEWAY --query identity.principalId -o tsv
 $FOUNDRY_ID = az cognitiveservices account show -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT --query id -o tsv
-Write-Host "🪪 Gateway identity: $PRINCIPAL_ID"
+Write-Host "👤 Gateway identity: $PRINCIPAL_ID"
 
 # Remove the Foundry User role that the gateway's identity has on the account
 az role assignment delete --assignee $PRINCIPAL_ID --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope $FOUNDRY_ID
-if ($?) { Write-Host "🧹 The gateway's Foundry User role on $FOUNDRY_ACCOUNT is removed" }
+if ($?) { Write-Host "🚮 The gateway's Foundry User role on $FOUNDRY_ACCOUNT is removed" }
 ```
 
 If you created the Foundry account with `infra/foundry.bicep`, delete its resource group with
@@ -930,7 +920,7 @@ takes up to fifteen minutes.
 ```bash
 # Delete everything that azd up created, purge the Foundry account, and don't ask you to confirm
 azd down --purge --force &&
-  echo "🧹 Everything that azd up created is deleted"
+  echo "🚮 Everything that azd up created is deleted"
 ```
 
 `azd down` doesn't touch the gateway from lab 01, because this track created its own.

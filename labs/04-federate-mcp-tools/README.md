@@ -222,7 +222,7 @@ az aigateway mcp create -g "$RG" --gateway-name "$GATEWAY" -n learn \
   --display-name "Microsoft Learn" \
   --description "Search and fetch official Microsoft documentation and code samples." \
   --endpoints '[{"kind": "mcp", "namespace": "learn", "required": true,
-                 "mcp": {"transport": "streamableHttp", "url": "https://learn.microsoft.com/api/mcp"}}]' \
+                 "mcp": {"url": "https://learn.microsoft.com/api/mcp", "transport": "streamableHttp"}}]' \
   --query "{name:name,mcpEndpoint:properties.gatewayEndpoints[0].url}" &&
   echo "🔌 MCP server learn is ready"
 ```
@@ -1010,14 +1010,14 @@ On GitHub, open [infra/list_tools.py](infra/list_tools.py).
 ```bash title="Bash"
 # Create a virtual environment in .venv and activate it, so that the packages stay out of your global Python
 python -m venv .venv && source .venv/bin/activate &&
-  echo "🧩 Virtual environment .venv is active"
+  echo "📦 Virtual environment .venv is active"
 
 # Install the MCP Python SDK and httpx, which the script uses
 pip install -r infra/requirements.txt &&
-  echo "🧩 The packages in infra/requirements.txt are installed"
+  echo "📦 The packages in infra/requirements.txt are installed"
 
 # List the tools on learn through your gateway, then call learn_microsoft_docs_search
-echo "🛠️ Tools on learn, and a call to learn_microsoft_docs_search:"
+echo "🔧 Tools on learn, and a call to learn_microsoft_docs_search:"
 python infra/list_tools.py learn learn_microsoft_docs_search "How do I add a token limit in AI Gateway?"
 ```
 </details> <!-- gh -->
@@ -1027,14 +1027,14 @@ python infra/list_tools.py learn learn_microsoft_docs_search "How do I add a tok
 ```powershell title="PowerShell"
 # Create a virtual environment in .venv and activate it, so that the packages stay out of your global Python
 python -m venv .venv; .venv/Scripts/Activate.ps1
-if ($?) { Write-Host "🧩 Virtual environment .venv is active" }
+if ($?) { Write-Host "📦 Virtual environment .venv is active" }
 
 # Install the MCP Python SDK and httpx, which the script uses
 pip install -r infra/requirements.txt
-if ($?) { Write-Host "🧩 The packages in infra/requirements.txt are installed" }
+if ($?) { Write-Host "📦 The packages in infra/requirements.txt are installed" }
 
 # List the tools on learn through your gateway, then call learn_microsoft_docs_search
-Write-Host "🛠️ Tools on learn, and a call to learn_microsoft_docs_search:"
+Write-Host "🔧 Tools on learn, and a call to learn_microsoft_docs_search:"
 python infra/list_tools.py learn learn_microsoft_docs_search "How do I add a token limit in AI Gateway?"
 ```
 </details> <!-- gh -->
@@ -1056,7 +1056,7 @@ every published tool. Run it from the lab folder.
 
 ```bash title="Bash"
 # Run the MCP handshake through your gateway, and list every tool that learn publishes
-echo "🛠️ Tools on learn:"
+echo "🔧 Tools on learn:"
 ./infra/list-tools.sh learn
 ```
 </details> <!-- gh -->
@@ -1065,7 +1065,7 @@ echo "🛠️ Tools on learn:"
 
 ```powershell title="PowerShell"
 # Run the MCP handshake through your gateway, and list every tool that learn publishes
-Write-Host "🛠️ Tools on learn:"
+Write-Host "🔧 Tools on learn:"
 ./infra/list-tools.ps1 -Server learn
 ```
 </details> <!-- gh -->
@@ -1075,7 +1075,7 @@ On GitHub, open [list-tools.sh](infra/list-tools.sh) or [list-tools.ps1](infra/l
 Expected output (descriptions are shortened, and the tool list can change as the Learn server evolves):
 
 ```text
-🛠️ Tools on learn:
+🔧 Tools on learn:
 MCP endpoint: https://<gateway>.eastus2-01.ai.gateway.azure.com/default/toolservers/learn/mcp
 Server: <server-name-reported-by-the-gateway>  protocol: <negotiated-version>
 
@@ -1098,7 +1098,7 @@ Each tool carries its backend's namespace. Use the exact names that your output 
 
 ```bash title="Bash"
 # List the tools again, then call learn_microsoft_docs_search with a question
-echo "🛠️ Tools on learn, and a call to learn_microsoft_docs_search:"
+echo "🔧 Tools on learn, and a call to learn_microsoft_docs_search:"
 ./infra/list-tools.sh learn learn_microsoft_docs_search "How do I add a token limit in AI Gateway?"
 ```
 </details> <!-- gh -->
@@ -1107,7 +1107,7 @@ echo "🛠️ Tools on learn, and a call to learn_microsoft_docs_search:"
 
 ```powershell title="PowerShell"
 # List the tools again, then call learn_microsoft_docs_search with a question
-Write-Host "🛠️ Tools on learn, and a call to learn_microsoft_docs_search:"
+Write-Host "🔧 Tools on learn, and a call to learn_microsoft_docs_search:"
 ./infra/list-tools.ps1 -Server learn -Tool learn_microsoft_docs_search -Query "How do I add a token limit in AI Gateway?"
 ```
 </details> <!-- gh -->
@@ -1122,7 +1122,7 @@ should also accept both JSON and SSE responses.
 
 ```bash
 # Send a single tools/list request, with your runtime key in api-key
-echo "🛠️ tools/list response from learn:"
+echo "🔧 tools/list response from learn:"
 curl -sS "${AI_GATEWAY_URL%/}/default/toolservers/learn/mcp" \
   -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
@@ -1192,11 +1192,11 @@ and select **Save**. To remove the whole server, select **Delete** on the detail
 ```bash title="Bash"
 # Remove only the optional backend
 az aigateway mcp source remove -g "$RG" --gateway-name "$GATEWAY" -n learn --namespace docs --query "[].namespace" &&
-  echo "🧹 Backend docs is removed from learn"
+  echo "🚮 Backend docs is removed from learn"
 
 # Or remove the whole MCP server
 az aigateway mcp delete -g "$RG" --gateway-name "$GATEWAY" -n learn --yes &&
-  echo "🧹 MCP server learn is deleted"
+  echo "🚮 MCP server learn is deleted"
 ```
 </details> <!-- gh -->
 
@@ -1205,11 +1205,11 @@ az aigateway mcp delete -g "$RG" --gateway-name "$GATEWAY" -n learn --yes &&
 ```powershell title="PowerShell"
 # Remove only the optional backend
 az aigateway mcp source remove -g $RG --gateway-name $GATEWAY -n learn --namespace docs --query "[].namespace"
-if ($?) { Write-Host "🧹 Backend docs is removed from learn" }
+if ($?) { Write-Host "🚮 Backend docs is removed from learn" }
 
 # Or remove the whole MCP server
 az aigateway mcp delete -g $RG --gateway-name $GATEWAY -n learn --yes
-if ($?) { Write-Host "🧹 MCP server learn is deleted" }
+if ($?) { Write-Host "🚮 MCP server learn is deleted" }
 ```
 </details> <!-- gh -->
 
@@ -1229,7 +1229,7 @@ about ten minutes.
 ```bash
 # Delete the resource group with everything that azd up created, and purge soft-deleted resources
 azd down --purge --force &&
-  echo "🧹 Everything that azd up created is deleted"
+  echo "🚮 Everything that azd up created is deleted"
 ```
 
 To keep this gateway instead, skip `azd down`. To go back to one backend, run

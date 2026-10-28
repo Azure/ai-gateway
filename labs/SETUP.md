@@ -53,6 +53,18 @@ To work on your own machine, install the tools for the tracks you plan to follow
 Every command comes in a Bash and a PowerShell variant, unless it's the same in both shells. The PowerShell commands
 need PowerShell 7 or later, as Cloud Shell has; Windows PowerShell 5.1 doesn't run them.
 
+On macOS, the Terminal runs zsh, which treats a pasted `# comment` line as a command unless the
+`interactive_comments` option is on. Turn it on, now and in every new terminal, before you paste the Bash snippets:
+
+```bash
+setopt interactive_comments
+grep -qx 'setopt interactive_comments' ~/.zshrc 2>/dev/null || echo 'setopt interactive_comments' >> ~/.zshrc
+echo "✅ zsh accepts the comments in pasted commands"
+```
+
+Paste each block when the prompt is back. If you paste while a command still runs, the shell reads the block line by
+line, and add-ons such as oh-my-zsh's URL quoting can change the lines.
+
 ## Sign in to Azure
 
 Cloud Shell is already signed in, so skip this step there. On your own machine, sign in to the Azure CLI, select the
@@ -61,7 +73,7 @@ subscription for the labs, and sign in to `azd` for the Bicep + azd tracks:
 ```bash title="Bash or PowerShell"
 # Sign in to the Azure CLI in your browser, with the account that has access to your subscription
 az login &&
-  echo "🪪 Signed in to the Azure CLI"
+  echo "👤 Signed in to the Azure CLI"
 
 # Select the subscription for the labs, so that every later command creates resources in it
 az account set --subscription "<subscription-id>" &&
@@ -69,7 +81,7 @@ az account set --subscription "<subscription-id>" &&
 
 # Sign in to the Azure Developer CLI (azd) too, for the Bicep + azd tracks
 azd auth login &&
-  echo "🪪 Signed in to azd"
+  echo "👤 Signed in to azd"
 ```
 
 If your account belongs to more than one tenant, sign in to the tenant that has the subscription instead:
@@ -77,11 +89,11 @@ If your account belongs to more than one tenant, sign in to the tenant that has 
 ```bash title="Bash or PowerShell"
 # Sign in to the Azure CLI in the tenant that has your subscription
 az login --tenant "<tenant-id>" &&
-  echo "🪪 Signed in to the Azure CLI in tenant <tenant-id>"
+  echo "👤 Signed in to the Azure CLI in tenant <tenant-id>"
 
 # Sign in to azd in the same tenant
 azd auth login --tenant-id "<tenant-id>" &&
-  echo "🪪 Signed in to azd in tenant <tenant-id>"
+  echo "👤 Signed in to azd in tenant <tenant-id>"
 ```
 
 > **Checkpoint**
@@ -97,10 +109,10 @@ CLI loads it. The installer downloads the published release, verifies it, and ne
 ```bash title="Bash"
 # Install or upgrade the aigateway extension of the Azure CLI: the installer downloads and verifies the release
 curl -fsSL https://aka.ms/aigateway-cli-install | sh &&
-  echo "🧩 aigateway extension $(az extension show --name aigateway --query version --output tsv) is installed"
+  echo "📦 aigateway extension $(az extension show --name aigateway --query version --output tsv) is installed"
 
 # Check that the Azure CLI loads the extension: it prints the extension version and the API version it calls
-echo "🧩 The aigateway extension reports:"
+echo "📦 The aigateway extension reports:"
 az aigateway version
 ```
 </details> <!-- gh -->
@@ -110,16 +122,16 @@ az aigateway version
 ```powershell title="PowerShell"
 # Install or upgrade the aigateway extension of the Azure CLI: the installer downloads and verifies the release
 irm https://aka.ms/aigateway-cli-install-ps | iex
-if ($?) { Write-Host "🧩 aigateway extension $(az extension show --name aigateway --query version --output tsv) is installed" }
+if ($?) { Write-Host "📦 aigateway extension $(az extension show --name aigateway --query version --output tsv) is installed" }
 
 # Check that the Azure CLI loads the extension: it prints the extension version and the API version it calls
-Write-Host "🧩 The aigateway extension reports:"
+Write-Host "📦 The aigateway extension reports:"
 az aigateway version
 ```
 </details> <!-- gh -->
 
 > **Checkpoint**
-> The installer printed `🧩 aigateway extension … is installed`, and `az aigateway version` prints the extension
+> The installer printed `📦 aigateway extension … is installed`, and `az aigateway version` prints the extension
 > version and the API version it calls, `2025-09-01-preview`. The labs need version `1.0.0b14` or later; run the
 > installer again to upgrade an older one.
 
@@ -140,7 +152,7 @@ subscription. Registering returns quickly when a provider is already registered.
 # Register the resource providers for AI Gateway, its connector gateway, and Foundry (once per subscription)
 # --wait returns when each provider is registered, and right away if it already is
 for ns in Microsoft.ApiManagement Microsoft.Web Microsoft.CognitiveServices; do
-  az provider register --namespace "$ns" --wait && echo "🧩 $ns is registered"
+  az provider register --namespace "$ns" --wait && echo "📦 $ns is registered"
 done
 ```
 </details> <!-- gh -->
@@ -152,7 +164,7 @@ done
 # --wait returns when each provider is registered, and right away if it already is
 foreach ($ns in "Microsoft.ApiManagement", "Microsoft.Web", "Microsoft.CognitiveServices") {
   az provider register --namespace $ns --wait
-  if ($?) { Write-Host "🧩 $ns is registered" }
+  if ($?) { Write-Host "📦 $ns is registered" }
 }
 ```
 </details> <!-- gh -->
@@ -165,7 +177,7 @@ A few labs use more providers. Register them the same way before you start those
 | `Microsoft.Network` | [18 · Private networking](18-private-networking/README.md) |
 
 > **Checkpoint**
-> The loop printed a line such as `🧩 Microsoft.ApiManagement is registered` for each provider, and
+> The loop printed a line such as `📦 Microsoft.ApiManagement is registered` for each provider, and
 > `az provider show --namespace Microsoft.ApiManagement --query registrationState -o tsv` prints `Registered`.
 
 Registering a provider needs a role such as **Contributor** on the subscription. If you don't have it, ask your
@@ -223,7 +235,7 @@ deployment types of `gpt-6-luna` in a region, and prints nothing if the model is
 
 ```bash title="Bash"
 # List the deployment types of gpt-6-luna in a region, such as GlobalStandard: no output means it isn't there
-echo "🧠 Deployment types of gpt-6-luna in <location>:"
+echo "✨ Deployment types of gpt-6-luna in <location>:"
 az cognitiveservices model list --location "<location>" \
   --query "[?model.name=='gpt-6-luna'].model.skus[].name" -o tsv
 ```
@@ -233,7 +245,7 @@ az cognitiveservices model list --location "<location>" \
 
 ```powershell title="PowerShell"
 # List the deployment types of gpt-6-luna in a region, such as GlobalStandard: no output means it isn't there
-Write-Host "🧠 Deployment types of gpt-6-luna in <location>:"
+Write-Host "✨ Deployment types of gpt-6-luna in <location>:"
 az cognitiveservices model list --location "<location>" `
   --query "[?model.name=='gpt-6-luna'].model.skus[].name" -o tsv
 ```
@@ -325,7 +337,7 @@ usually within ten minutes:
 ```bash title="Bash or PowerShell"
 # Delete everything that azd up created, purge the soft-deleted Foundry account, and skip the confirmation prompt
 azd down --purge --force &&
-  echo "🧹 Everything that azd up created is deleted"
+  echo "🚮 Everything that azd up created is deleted"
 ```
 
 `--purge` also purges soft-deleted resources such as the Foundry account, which would otherwise stay soft-deleted

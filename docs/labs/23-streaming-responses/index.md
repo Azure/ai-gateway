@@ -68,7 +68,7 @@ echo "🌐 Runtime URL: $AI_GATEWAY_URL"
 # Read a starting guess for the alias: confirm it on the model's Aliases tab (lab 02), and replace it if it differs
 export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
   --query properties.deployment.modelName -o tsv)"
-echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+echo "🔖 Model alias: $AI_GATEWAY_MODEL"
 
 # Paste the runtime key that you created in Access › Keys, without showing it: don't commit it or write it to a file
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
@@ -93,7 +93,7 @@ Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
 # Read a starting guess for the alias: confirm it on the model's Aliases tab (lab 02), and replace it if it differs
 $env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
   --query properties.deployment.modelName -o tsv
-Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🔖 Model alias: $env:AI_GATEWAY_MODEL"
 
 # Paste the runtime key that you created in Access › Keys, without showing it: don't commit it or write it to a file
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
@@ -332,14 +332,14 @@ commands from the lab folder.
 # Move into the samples' folder, and install their requirements
 cd infra
 pip install -r requirements.txt     # the openai package
-echo "🧩 The OpenAI SDK is installed"
+echo "📦 The OpenAI SDK is installed"
 ```
 
 ```bash title="TypeScript"
 # Move into the samples' folder, and install their dependencies
 cd infra
 npm install                         # the openai npm package
-echo "🧩 The OpenAI SDK is installed"
+echo "📦 The OpenAI SDK is installed"
 ```
 
 ### Stream from code
@@ -474,7 +474,7 @@ An alias carries its own `policies` array, so one command creates the alias and 
 ```bash title="Bash"
 # Create the streaming alias for the same backend model, with its own token limit of 1,000 tokens per minute
 # for each caller identity, and show the alias and its policies
-echo "🏷️ Alias $STREAM_ALIAS and its policies:"
+echo "🔖 Alias $STREAM_ALIAS and its policies:"
 az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$STREAM_ALIAS" \
   --description "Streaming lab: 1,000 tokens per minute for each caller" \
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" \
@@ -490,7 +490,7 @@ ConvertTo-Json -Depth 10 -Compress -InputObject @(
 ) | Set-Content policies.json
 
 # Create the streaming alias for the same backend model, with that limit, and show the alias and its policies
-Write-Host "🏷️ Alias $STREAM_ALIAS and its policies:"
+Write-Host "🔖 Alias $STREAM_ALIAS and its policies:"
 az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $STREAM_ALIAS `
   --description "Streaming lab: 1,000 tokens per minute for each caller" `
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" `
@@ -579,9 +579,9 @@ export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_I
   --query primaryKey --output tsv)"
 echo "📝 Gateway $GATEWAY in $RG"
 echo "🌐 Runtime URL: $AI_GATEWAY_URL"
-echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+echo "🔖 Model alias: $AI_GATEWAY_MODEL"
 echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
-echo "🏷️ Streaming alias: $STREAM_ALIAS"
+echo "🔖 Streaming alias: $STREAM_ALIAS"
 ```
 
 ```powershell title="PowerShell"
@@ -600,16 +600,16 @@ $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/a
   --query primaryKey --output tsv
 Write-Host "📝 Gateway $GATEWAY in $RG"
 Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
-Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🔖 Model alias: $env:AI_GATEWAY_MODEL"
 Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
-Write-Host "🏷️ Streaming alias: $STREAM_ALIAS"
+Write-Host "🔖 Streaming alias: $STREAM_ALIAS"
 ```
 
 `AI_GATEWAY_MODEL` is the default alias, `gpt-6-luna`, which has no token limit, so the steps in
 [Stream a response](#stream-a-response) aren't throttled. **Verify** calls the streaming alias.
 
 > **Checkpoint**
-> `azd up` ended with `SUCCESS`, and the last command printed `🏷️ Streaming alias: gpt-6-luna-stream`. In
+> `azd up` ended with `SUCCESS`, and the last command printed `🔖 Streaming alias: gpt-6-luna-stream`. In
 > the portal, **Models** › **Aliases** lists it next to `gpt-6-luna`, and **Policies** lists a **Token rate limit**
 > scoped to it. If you came here from **Before you begin**, go back to [Stream a response](#stream-a-response) now.
 
@@ -772,13 +772,13 @@ Open `<model-name>-stream` in **Models** › **Aliases** and select **Delete**.
 ```bash title="Bash"
 # Delete the streaming alias, with its token limit: the backend model and your alias from lab 02 stay
 az aigateway model-alias delete -g "$RG" --gateway-name "$GATEWAY" -n "$STREAM_ALIAS" --yes &&
-  echo "🧹 Alias $STREAM_ALIAS is deleted"
+  echo "🚮 Alias $STREAM_ALIAS is deleted"
 ```
 
 ```powershell title="PowerShell"
 # Delete the streaming alias, with its token limit: the backend model and your alias from lab 02 stay
 az aigateway model-alias delete -g $RG --gateway-name $GATEWAY -n $STREAM_ALIAS --yes
-if ($?) { Write-Host "🧹 Alias $STREAM_ALIAS is deleted" }
+if ($?) { Write-Host "🚮 Alias $STREAM_ALIAS is deleted" }
 ```
 
 <!-- track: iac | Bicep + azd -->
@@ -792,7 +792,7 @@ account. It takes about ten minutes.
 ```bash
 # Delete everything that azd up created, and purge the Foundry account
 azd down --purge --force &&
-  echo "🧹 Everything that azd up created is deleted"
+  echo "🚮 Everything that azd up created is deleted"
 ```
 
 <!-- /tracks -->

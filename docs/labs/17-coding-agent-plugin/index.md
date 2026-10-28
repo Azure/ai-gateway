@@ -178,7 +178,7 @@ Install ai-gateway from Customize.
 ```bash title="Gemini CLI"
 # Install the plugin as a Gemini CLI extension, straight from the GitHub repository
 gemini extensions install https://github.com/Azure/ai-gateway
-echo "🧩 The ai-gateway extension is installed in Gemini CLI"
+echo "📦 The ai-gateway extension is installed in Gemini CLI"
 ```
 
 The marketplace is named `azure` and the plugin `ai-gateway`.
@@ -292,21 +292,21 @@ Read the code before you run it again or commit it. Check that:
 ```bash title="Bash"
 # Create a virtual environment in .venv and activate it, so that the packages stay out of your global Python
 python3 -m venv .venv && source .venv/bin/activate &&
-  echo "🧩 Virtual environment .venv is active"
+  echo "📦 Virtual environment .venv is active"
 
 # Install the packages that the generated app lists in requirements.txt
 pip install -r requirements.txt &&
-  echo "🧩 The packages in requirements.txt are installed"
+  echo "📦 The packages in requirements.txt are installed"
 ```
 
 ```powershell title="PowerShell"
 # Create a virtual environment in .venv and activate it, so that the packages stay out of your global Python
 python -m venv .venv; .\.venv\Scripts\Activate.ps1
-if ($?) { Write-Host "🧩 Virtual environment .venv is active" }
+if ($?) { Write-Host "📦 Virtual environment .venv is active" }
 
 # Install the packages that the generated app lists in requirements.txt
 pip install -r requirements.txt
-if ($?) { Write-Host "🧩 The packages in requirements.txt are installed" }
+if ($?) { Write-Host "📦 The packages in requirements.txt are installed" }
 ```
 
 Then start the entry point that the README names, for example `python summarize.py ticket.txt`.
@@ -348,11 +348,11 @@ Run this in the project folder. It checks that Git ignores `.env` and that your 
 
 ```bash title="Bash"
 # Check that Git ignores .env, the file that holds your key
-git check-ignore -q .env && echo "✅ .env is ignored" || echo "⚠️ .env is not ignored"
+git check-ignore -q .env && echo "✅ .env is ignored" || echo "🚨 .env is not ignored"
 
 # Search every other file for your key, skipping .git, .venv, and node_modules, and list any file that holds it
 if grep -rIlF --exclude=.env --exclude-dir=.git --exclude-dir=.venv --exclude-dir=node_modules -- "$AI_GATEWAY_API_KEY" .; then
-  echo "⚠️ The key appears in the files above"
+  echo "🚨 The key appears in the files above"
 else
   echo "✅ No key in project files"
 fi
@@ -360,13 +360,13 @@ fi
 
 ```powershell title="PowerShell"
 # Check that Git ignores .env, the file that holds your key
-git check-ignore -q .env; if ($LASTEXITCODE -eq 0) { Write-Host "✅ .env is ignored" } else { Write-Host "⚠️ .env is not ignored" }
+git check-ignore -q .env; if ($LASTEXITCODE -eq 0) { Write-Host "✅ .env is ignored" } else { Write-Host "🚨 .env is not ignored" }
 
 # Search every other file for your key, skipping .git, .venv, and node_modules, and list any file that holds it
 $hits = Get-ChildItem -Recurse -File -Force |
   Where-Object { $_.Name -ne ".env" -and $_.FullName -notmatch '[\\/](\.git|\.venv|node_modules)[\\/]' } |
   Select-String -SimpleMatch -Pattern $env:AI_GATEWAY_API_KEY -List
-if ($hits) { Write-Host "⚠️ The key appears in:"; $hits.Path } else { Write-Host "✅ No key in project files" }
+if ($hits) { Write-Host "🚨 The key appears in:"; $hits.Path } else { Write-Host "✅ No key in project files" }
 ```
 
 Expect `✅ .env is ignored` and `✅ No key in project files`. If the plugin wrote a different key to `.env`, run the
@@ -411,13 +411,13 @@ Delete the key you created for this lab. Then delete the `ticket-summarizer` fol
 ```bash title="Bash"
 # Delete the API key that you created for this lab, so that it stops working everywhere
 az aigateway api-key delete -g "$RG" --gateway-name "$GATEWAY" -n app-coding-agent --yes &&
-  echo "🧹 API key app-coding-agent is deleted"
+  echo "🚮 API key app-coding-agent is deleted"
 ```
 
 ```powershell title="PowerShell"
 # Delete the API key that you created for this lab, so that it stops working everywhere
 az aigateway api-key delete -g $RG --gateway-name $GATEWAY -n app-coding-agent --yes
-if ($?) { Write-Host "🧹 API key app-coding-agent is deleted" }
+if ($?) { Write-Host "🚮 API key app-coding-agent is deleted" }
 ```
 
 If the plugin wrote another gateway key to `.env` and that file was shared or committed, regenerate that key as
@@ -439,7 +439,7 @@ Optionally, remove the plugin. In Cursor, remove it where you installed it.
 ```bash title="Gemini CLI"
 # Remove the ai-gateway extension from Gemini CLI
 gemini extensions uninstall ai-gateway
-echo "🧹 The ai-gateway extension is removed from Gemini CLI"
+echo "🚮 The ai-gateway extension is removed from Gemini CLI"
 ```
 
 ## Troubleshooting

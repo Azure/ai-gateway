@@ -93,7 +93,7 @@ echo "🌐 Runtime URL: $AI_GATEWAY_URL"
 # Read the alias that apps send in the model field: for Foundry imports, it matches the deployment's model name
 export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" \
   -n "$MODEL" --query properties.deployment.modelName -o tsv)"
-echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+echo "🔖 Model alias: $AI_GATEWAY_MODEL"
 
 # Paste the runtime key you created in Access › Keys, without showing it: don't commit it or write it to a file
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
@@ -125,7 +125,7 @@ Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
 # Read the alias that apps send in the model field: for Foundry imports, it matches the deployment's model name
 $env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER `
   -n $MODEL --query properties.deployment.modelName -o tsv
-Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🔖 Model alias: $env:AI_GATEWAY_MODEL"
 
 # Paste the runtime key you created in Access › Keys, without showing it: don't commit it or write it to a file
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
@@ -248,7 +248,7 @@ URL="https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/provider
 echo "🆔 Subscription: $SUB"
 
 # Read the Gateway scope policies, so that you know what the merge must keep
-echo "🛡️ Gateway scope policies on $GATEWAY:"
+echo "🔐 Gateway scope policies on $GATEWAY:"
 az rest --method get --url "$URL" --query properties.policies
 ```
 </details> <!-- gh -->
@@ -262,7 +262,7 @@ $URL = "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/provi
 Write-Host "🆔 Subscription: $SUB"
 
 # Read the Gateway scope policies, so that you know what the merge must keep
-Write-Host "🛡️ Gateway scope policies on ${GATEWAY}:"
+Write-Host "🔐 Gateway scope policies on ${GATEWAY}:"
 az rest --method get --url $URL --query properties.policies
 ```
 </details> <!-- gh -->
@@ -284,7 +284,7 @@ BASELINE="$(jq -cn --arg cidrs "$ALLOWED_CIDRS" '[
 ]')"
 
 # Check the allowed ranges before you apply
-echo "🛡️ IP filter in the baseline:"
+echo "🔐 IP filter in the baseline:"
 jq '.[] | select(.type == "ipFilter")' <<<"$BASELINE"
 
 # Read the policies, drop any policy of the four baseline types, and add the baseline
@@ -293,7 +293,7 @@ POLICIES="$(az rest --method get --url "$URL" | jq -c --argjson baseline "$BASEL
 
 # Send the merged array back: a PATCH replaces the whole policies array
 az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}" --output none &&
-  echo "🛡️ Baseline of four policies is on $GATEWAY at Gateway scope"
+  echo "🔐 Baseline of four policies is on $GATEWAY at Gateway scope"
 ```
 </details> <!-- gh -->
 
@@ -309,7 +309,7 @@ $baseline = @(
 )
 
 # Check the allowed ranges before you apply
-Write-Host "🛡️ IP filter in the baseline:"
+Write-Host "🔐 IP filter in the baseline:"
 $baseline | Where-Object type -eq 'ipFilter' | ConvertTo-Json
 
 # Read the policies, drop any policy of the four baseline types, and add the baseline
@@ -321,7 +321,7 @@ $policies += $baseline
 $body = @{ properties = @{ policies = $policies } } | ConvertTo-Json -Depth 10 -Compress
 $body | Set-Content -Path patch.json
 az rest --method patch --url $URL --body '@patch.json' --output none
-if ($?) { Write-Host "🛡️ Baseline of four policies is on $GATEWAY at Gateway scope" }
+if ($?) { Write-Host "🔐 Baseline of four policies is on $GATEWAY at Gateway scope" }
 Remove-Item patch.json
 ```
 </details> <!-- gh -->
@@ -424,7 +424,7 @@ The PowerShell script reads `$env:ALLOWED_CIDRS` unless you pass `-AllowedCidrs`
 ```bash title="Bash"
 # Merge the baseline into the Gateway scope policies, and keep every other policy
 ./infra/apply-baseline.sh &&
-  echo "🛡️ Baseline of four policies is on $GATEWAY at Gateway scope"
+  echo "🔐 Baseline of four policies is on $GATEWAY at Gateway scope"
 ```
 </details> <!-- gh -->
 
@@ -433,7 +433,7 @@ The PowerShell script reads `$env:ALLOWED_CIDRS` unless you pass `-AllowedCidrs`
 ```powershell title="PowerShell"
 # Merge the baseline into the Gateway scope policies, and keep every other policy
 ./infra/apply-baseline.ps1 -ResourceGroup $RG -Gateway $GATEWAY
-if ($?) { Write-Host "🛡️ Baseline of four policies is on $GATEWAY at Gateway scope" }
+if ($?) { Write-Host "🔐 Baseline of four policies is on $GATEWAY at Gateway scope" }
 ```
 </details> <!-- gh -->
 
@@ -604,7 +604,7 @@ Add a deliberately low token limit to your model only, the same one you used in 
 # Add a low token limit to the model only: 1,000 tokens per minute for each caller
 az aigateway model policy set-token-limit -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
   --token-limit 1000 --output none &&
-  echo "🛡️ Token limit of 1,000 tokens per minute for each caller is on $MODEL"
+  echo "🔐 Token limit of 1,000 tokens per minute for each caller is on $MODEL"
 ```
 </details> <!-- gh -->
 
@@ -614,7 +614,7 @@ az aigateway model policy set-token-limit -g "$RG" --gateway-name "$GATEWAY" --p
 # Add a low token limit to the model only: 1,000 tokens per minute for each caller
 az aigateway model policy set-token-limit -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
   --token-limit 1000 --output none
-if ($?) { Write-Host "🛡️ Token limit of 1,000 tokens per minute for each caller is on $MODEL" }
+if ($?) { Write-Host "🔐 Token limit of 1,000 tokens per minute for each caller is on $MODEL" }
 ```
 </details> <!-- gh -->
 
@@ -647,7 +647,7 @@ model's tighter limit is evaluated too, and it blocks. Remove the model limit an
 # Remove only the token limit from the model, and keep its other policies
 az aigateway model policy remove -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
   --remove-token-limit true --output none &&
-  echo "🧹 Token limit is removed from $MODEL"
+  echo "🚮 Token limit is removed from $MODEL"
 ```
 </details> <!-- gh -->
 
@@ -657,7 +657,7 @@ az aigateway model policy remove -g "$RG" --gateway-name "$GATEWAY" --provider-n
 # Remove only the token limit from the model, and keep its other policies
 az aigateway model policy remove -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
   --remove-token-limit true --output none
-if ($?) { Write-Host "🧹 Token limit is removed from $MODEL" }
+if ($?) { Write-Host "🚮 Token limit is removed from $MODEL" }
 ```
 </details> <!-- gh -->
 
@@ -730,7 +730,7 @@ POLICIES="$(az rest --method get --url "$URL" | jq -c '[(.properties.policies //
 
 # Send the remaining policies back: a PATCH replaces the whole policies array
 az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}" --output none &&
-  echo "🧹 Baseline is removed from $GATEWAY"
+  echo "🚮 Baseline is removed from $GATEWAY"
 ```
 
 Every other Gateway scope policy stays.
@@ -746,7 +746,7 @@ Every other Gateway scope policy stays.
 ```bash title="Bash"
 # Remove the policy types listed in baseline-policies.json from Gateway scope, and keep every other policy
 ./infra/apply-baseline.sh --remove &&
-  echo "🧹 Baseline is removed from $GATEWAY"
+  echo "🚮 Baseline is removed from $GATEWAY"
 ```
 </details> <!-- gh -->
 
@@ -755,7 +755,7 @@ Every other Gateway scope policy stays.
 ```powershell title="PowerShell"
 # Remove the policy types listed in baseline-policies.json from Gateway scope, and keep every other policy
 ./infra/apply-baseline.ps1 -ResourceGroup $RG -Gateway $GATEWAY -Remove
-if ($?) { Write-Host "🧹 Baseline is removed from $GATEWAY" }
+if ($?) { Write-Host "🚮 Baseline is removed from $GATEWAY" }
 ```
 </details> <!-- gh -->
 

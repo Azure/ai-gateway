@@ -309,18 +309,18 @@ chmod +x infra/call-tool.sh &&
   echo "✅ infra/call-tool.sh is executable"
 
 # Run the MCP handshake with your runtime key, and list the tools that the server publishes
-echo "🛠️ Tools on MCP server $MCP_SERVER:"
+echo "🔧 Tools on MCP server $MCP_SERVER:"
 ./infra/call-tool.sh "$MCP_SERVER"
 ```
 
 ```powershell
 # Run the MCP handshake with your runtime key, and list the tools that the server publishes
-Write-Host "🛠️ Tools on MCP server ${MCP_SERVER}:"
+Write-Host "🔧 Tools on MCP server ${MCP_SERVER}:"
 ./infra/call-tool.ps1 -Server $MCP_SERVER
 ```
 
 ```text title="Expected output"
-🛠️ Tools on MCP server learn:
+🔧 Tools on MCP server learn:
 MCP endpoint: https://<gateway>.eastus2-01.ai.gateway.azure.com/default/toolservers/learn/mcp
 tools/list: HTTP 200
   learn_microsoft_docs_search
@@ -428,13 +428,13 @@ purpose, so a well-behaved agent stops retrying it. The documented response, for
 
 ```bash
 # Call a tool that's still allowed: the search runs and returns results
-echo "🛠️ Calling learn_microsoft_docs_search on MCP server $MCP_SERVER:"
+echo "🔧 Calling learn_microsoft_docs_search on MCP server $MCP_SERVER:"
 ./infra/call-tool.sh "$MCP_SERVER" learn_microsoft_docs_search '{"query":"What is Microsoft Agent 365?"}'
 ```
 
 ```powershell
 # Call a tool that's still allowed: the search runs and returns results
-Write-Host "🛠️ Calling learn_microsoft_docs_search on MCP server ${MCP_SERVER}:"
+Write-Host "🔧 Calling learn_microsoft_docs_search on MCP server ${MCP_SERVER}:"
 ./infra/call-tool.ps1 -Server $MCP_SERVER -Tool learn_microsoft_docs_search `
   -Arguments '{"query":"What is Microsoft Agent 365?"}'
 ```
@@ -517,13 +517,13 @@ publisher, isn't blocked, and its **Tools** tab shows all three tools enabled.
 
 ```bash
 # List the tools and call the search tool, to confirm that no Agent 365 block is left on the server
-echo "🛠️ Tools on MCP server $MCP_SERVER, and a call to learn_microsoft_docs_search:"
+echo "🔧 Tools on MCP server $MCP_SERVER, and a call to learn_microsoft_docs_search:"
 ./infra/call-tool.sh "$MCP_SERVER" learn_microsoft_docs_search '{"query":"What is Microsoft Agent 365?"}'
 ```
 
 ```powershell
 # List the tools and call the search tool, to confirm that no Agent 365 block is left on the server
-Write-Host "🛠️ Tools on MCP server ${MCP_SERVER}, and a call to learn_microsoft_docs_search:"
+Write-Host "🔧 Tools on MCP server ${MCP_SERVER}, and a call to learn_microsoft_docs_search:"
 ./infra/call-tool.ps1 -Server $MCP_SERVER -Tool learn_microsoft_docs_search `
   -Arguments '{"query":"What is Microsoft Agent 365?"}'
 ```

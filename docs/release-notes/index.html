@@ -110,6 +110,21 @@ track without it published the model and got a reply.</li>
 <li><strong>October 28.</strong> The <a href="../labs/quickstart/">quick start</a> now names Azure RBAC as the keyless alternative to the
 runtime API key, in every track and in <strong>How it works</strong>, and links to
 <a href="../labs/11-entra-rbac/">Go keyless with Microsoft Entra ID and RBAC</a> from its next steps.</li>
+<li><strong>October 28.</strong> The <a href="../labs/quickstart/#publish-the-model">quick start</a>&#39;s Azure CLI track now publishes the model
+with one import: <code>az aigateway model-provider create --foundry-resource-id</code> grants the gateway&#39;s managed identity
+the <strong>Foundry User</strong> role on the Foundry account, adds a model provider that signs in with that identity, and adds
+a model for each deployment. It replaces the role assignment, the provider JSON, and <code>az aigateway model create</code>.
+The track still adds the alias, because the import doesn&#39;t. Labs
+<a href="../labs/02-first-model-call/#create-the-foundry-provider">02</a> and
+<a href="../labs/18-private-networking/#publish-the-deployment-and-an-alias">18</a> now pass the provider&#39;s Foundry settings
+in the Azure CLI shorthand instead of building JSON with <code>jq</code> or a file.</li>
+<li><strong>October 28.</strong> The Bash snippets now paste cleanly into zsh on macOS. Their status lines use only emoji that zsh
+draws, such as 🔐 instead of 🛡️ and 🔖 instead of 🏷️, and JSON values that contain a URL stay on one line, so
+oh-my-zsh&#39;s URL quoting can&#39;t escape them. The <a href="../setup/#choose-where-to-run-commands">Setup guide</a> turns on
+<code>interactive_comments</code>, so zsh accepts the pasted comments, and
+<a href="../troubleshooting/#setup-and-deployment">Troubleshooting</a> lists the paste errors. <code>npm run check</code> flags other
+emoji, and URL lines that zsh could change. <a href="https://github.com/Azure/ai-gateway/blob/main/labs/AUTHORING.md#cli-comments-and-status-lines" target="_blank" rel="noopener">Authoring<span class="ext" aria-hidden="true">↗</span></a> lists the
+emoji.</li>
 <li><strong>October 28.</strong> The labs no longer describe AI Gateway as a preview service or say that the gateway is free
 during the preview. <a href="../labs/00-how-ai-gateway-works/">Lab 00</a> and the
 <a href="../setup/#check-your-subscription-and-permissions">Setup guide</a> point to the

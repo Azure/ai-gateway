@@ -592,7 +592,7 @@ A claim only appears in telemetry if the validated token has it. Decode your own
 
 ```bash title="Bash"
 # Get a token for AI Gateway's audience, and decode its claims locally, including the custom cost_center claim
-echo "🪪 Claims in your token for AI Gateway:"
+echo "👤 Claims in your token for AI Gateway:"
 az account get-access-token --resource https://azure-api.net/aigateway --query accessToken -o tsv \
   | python3 infra/show_claims.py cost_center
 ```
@@ -602,7 +602,7 @@ az account get-access-token --resource https://azure-api.net/aigateway --query a
 
 ```powershell title="PowerShell"
 # Get a token for AI Gateway's audience, and decode its claims locally, including the custom cost_center claim
-Write-Host "🪪 Claims in your token for AI Gateway:"
+Write-Host "👤 Claims in your token for AI Gateway:"
 az account get-access-token --resource https://azure-api.net/aigateway --query accessToken -o tsv |
   python infra/show_claims.py cost_center
 ```
@@ -872,7 +872,7 @@ echo "🌐 Prometheus endpoint: $PROM_URL"
 
 # Get a Microsoft Entra token for the Prometheus query API
 PROM_TOKEN="$(az account get-access-token --resource https://prometheus.monitor.azure.com --query accessToken -o tsv)"
-echo "🪪 Token acquired: in PROM_TOKEN (${#PROM_TOKEN} characters, not shown)"
+echo "👤 Token acquired: in PROM_TOKEN (${#PROM_TOKEN} characters, not shown)"
 ```
 </details> <!-- gh -->
 
@@ -886,7 +886,7 @@ Write-Host "🌐 Prometheus endpoint: $PROM_URL"
 
 # Get a Microsoft Entra token for the Prometheus query API
 $PROM_TOKEN = az account get-access-token --resource https://prometheus.monitor.azure.com --query accessToken -o tsv
-Write-Host "🪪 Token acquired: in PROM_TOKEN ($($PROM_TOKEN.Length) characters, not shown)"
+Write-Host "👤 Token acquired: in PROM_TOKEN ($($PROM_TOKEN.Length) characters, not shown)"
 ```
 </details> <!-- gh -->
 
@@ -1020,7 +1020,7 @@ In **Monitoring** › **Settings** › **Logging** › **Token claim attributes*
 ```bash title="Bash"
 # Delete the query, the usage, the price list, and the report, because they hold tenant and object IDs
 rm -f query.json usage.json prices.json chargeback.csv &&
-  echo "🧹 The exported files are deleted"
+  echo "🚮 The exported files are deleted"
 ```
 </details> <!-- gh -->
 
@@ -1029,7 +1029,7 @@ rm -f query.json usage.json prices.json chargeback.csv &&
 ```powershell title="PowerShell"
 # Delete the query, the usage, the price list, and the report, because they hold tenant and object IDs
 Remove-Item query.json, usage.json, prices.json, chargeback.csv -ErrorAction SilentlyContinue
-Write-Host "🧹 The exported files are deleted"
+Write-Host "🚮 The exported files are deleted"
 ```
 </details> <!-- gh -->
 
@@ -1046,7 +1046,7 @@ In the `ai-gateway/labs/14-otel-chargeback` folder, delete the files the report 
 ```bash title="Bash"
 # Delete the query, the usage, the price list, and the report, because they hold tenant and object IDs
 rm -f query.json usage.json prices.json chargeback.csv &&
-  echo "🧹 The exported files are deleted"
+  echo "🚮 The exported files are deleted"
 ```
 </details> <!-- gh -->
 
@@ -1055,7 +1055,7 @@ rm -f query.json usage.json prices.json chargeback.csv &&
 ```powershell title="PowerShell"
 # Delete the query, the usage, the price list, and the report, because they hold tenant and object IDs
 Remove-Item query.json, usage.json, prices.json, chargeback.csv -ErrorAction SilentlyContinue
-Write-Host "🧹 The exported files are deleted"
+Write-Host "🚮 The exported files are deleted"
 ```
 </details> <!-- gh -->
 
@@ -1069,7 +1069,7 @@ It takes about ten minutes.
 ```bash
 # Delete everything that azd up created, and purge the Foundry account
 azd down --purge --force &&
-  echo "🧹 Everything that azd up created is deleted"
+  echo "🚮 Everything that azd up created is deleted"
 ```
 
 To keep this gateway for other labs instead, skip `azd down` and restore the preset:
