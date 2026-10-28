@@ -86,9 +86,9 @@ lab. Follow [lab 06](06-token-limits/) and the quick start:
     └── limited-alias.bicep      # the lab's own resource-group-scoped module, named after what it declares
 ```
 
-- `main.bicep` takes `environmentName` and `location` (allowed `eastus2` and `swedencentral`), names resources with
-  `take(uniqueString(subscription().id, environmentName, location), 6)`, tags them with `azd-env-name`, and creates
-  the resource group `rg-<environment>`.
+- `main.bicep` takes `environmentName` and `location` (no `@allowed` list, since the regions change), names
+  resources with `take(uniqueString(subscription().id, environmentName, location), 6)`, tags them with
+  `azd-env-name`, and creates the resource group `rg-<environment>`.
 - Reuse a base module rather than copying resources: [`quickstart/infra/resources.bicep`](quickstart/infra/resources.bicep)
   for a gateway with the `foundry-models` provider, the `gpt-6-luna` alias, and the `app-first-call` key, or
   [lab 01's `gateway.bicep`](01-provision-gateway/infra/gateway.bicep) for a gateway alone. Keep the parameters of
@@ -277,7 +277,9 @@ Keep the video optional: every step it shows must also be written in the lab.
   feature isn't documented, give the portal path and say so.
 - Every command must be copy-pasteable. Prefer environment variables set once at the top of a track.
 - Bash first, PowerShell as an adjacent tab where it matters.
-- Mark preview behavior. The AI Gateway tier is in public preview in East US 2 and Sweden Central.
+- Mark preview behavior. The AI Gateway tier is in public preview, and its regions change: never list them. Link to
+  [Find the available regions](01-provision-gateway/README.md#find-the-available-regions), and use `eastus2` as
+  the example value.
 - Always include clean-up instructions and point out billable resources.
 
 ## Infrastructure as code

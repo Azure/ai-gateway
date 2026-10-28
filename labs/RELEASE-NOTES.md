@@ -27,6 +27,12 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
 
 #### Labs changes
 
+- **October 28.** AI Gateway now runs in more regions, and the list keeps growing during the preview, so the labs no
+  longer name fixed regions. [Lab 01](01-provision-gateway/README.md#find-the-available-regions) and the
+  [quick start](quickstart/README.md#find-the-available-regions) show how to list the current ones with the Azure CLI,
+  and how to check that a Foundry model is available in a region. The Bicep templates accept any region, the other
+  labs link to that list, and the notebooks check `AIGW_LOCATION` against it. The portal can offer fewer regions than
+  the Azure CLI and Bicep + azd tracks.
 - **October 27.** Every Bicep + azd track is now a self-contained azd template, like the quick start's: clone the
   repo, run `azd up` in the lab's folder to create a new gateway with everything the lab needs, change its settings
   with `azd env set` and `azd provision`, and remove it all with `azd down --purge --force`

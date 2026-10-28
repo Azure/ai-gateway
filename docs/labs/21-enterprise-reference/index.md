@@ -158,8 +158,9 @@ deployments leave that connection alone. The sample's exporter is still availabl
   letters, digits, and hyphens, starting with a letter.
 - **Tags.** Resource groups and top-level resources get `environment` and `workload: ai-gateway`, plus the
   `tags` from the parameter file, such as `costCenter`.
-- **Preview regions.** `aiGatewayLocation` only allows `eastus2` and `swedencentral`, where the AI Gateway tier
-  is in public preview. The other resources follow the deployment's `--location`.
+- **Regions.** `aiGatewayLocation` defaults to `eastus2`. Set it to any region where AI Gateway is available, as in
+  [Find the available regions](../01-provision-gateway/README.md#find-the-available-regions). The other resources follow the deployment's
+  `--location`, so pick one where the model is available.
 
 ### Environments: one template, two parameter files
 

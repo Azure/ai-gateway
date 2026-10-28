@@ -26,11 +26,11 @@ export const architecture = () => svgDoc('architecture', {
 
 export const provisioning = () => svgDoc('provisioning', {
   title: 'What provisioning an AI Gateway creates',
-  desc: 'You choose a name, a resource group, and a preview region. Azure creates the AI Gateway with a system-assigned managed identity, and its companion connector gateway with the same name. There is no capacity to size. You get a runtime URL, a default workspace for model and MCP routes, and the AI Gateway portal.',
+  desc: 'You choose a name, a resource group, and a region where AI Gateway is available. Azure creates the AI Gateway with a system-assigned managed identity, and its companion connector gateway with the same name. There is no capacity to size. You get a runtime URL, a default workspace for model and MCP routes, and the AI Gateway portal.',
   h: 356,
   body: () => {
     let o = zone(16, 20, 220, 316, 'You choose', { ic: 'user', tone: 'azure' });
-    [['Name', 'Up to 24 characters', 'Globally unique', 'doc'], ['Resource group', 'New or existing', 'Holds both resources', 'layers'], ['Region (preview)', 'East US 2', 'Sweden Central', 'globe']]
+    [['Name', 'Up to 24 characters', 'Globally unique', 'doc'], ['Resource group', 'New or existing', 'Holds both resources', 'layers'], ['Region', 'Any available region', 'List it with the CLI', 'globe']]
       .forEach(([t, s, s2, ic], i) => { o += box(28, 56 + i * 96, 196, 72, { t, s, s2, icon: ic, tone: 'azure' }); });
     o += zone(270, 20, 340, 316, 'Azure creates', { gw: true, ic: 'sparkle' });
     o += box(282, 56, 316, 72, { t: '1 · AI Gateway', s: 'No capacity to size', s2: 'Microsoft.ApiManagement/aigateways', icon: 'sparkle', mono: true, accent: true });
@@ -75,7 +75,7 @@ export const quickstart = () => svgDoc('quickstart', {
 
 export const createGateway = () => svgDoc('create-gateway', {
   title: 'What to choose in Create AI gateway',
-  desc: 'Basics: a globally unique name of 24 characters or fewer, a subscription where you can create API Management and connector gateways, a new or existing resource group, and East US 2 or Sweden Central. Advanced: keep the system-assigned managed identity enabled, public network access enabled, and public routing. Private routing is for virtual network backends and can only be chosen at creation. Then select Create gateway; provisioning takes a few minutes and Home opens with a setup guide.',
+  desc: 'Basics: a globally unique name of 24 characters or fewer, a subscription where you can create API Management and connector gateways, a new or existing resource group, and a region where AI Gateway is available. Advanced: keep the system-assigned managed identity enabled, public network access enabled, and public routing. Private routing is for virtual network backends and can only be chosen at creation. Then select Create gateway; provisioning takes a few minutes and Home opens with a setup guide.',
   h: 424,
   body: () => {
     const row = (x, y, lbl, chips, help) => {
@@ -87,7 +87,7 @@ export const createGateway = () => svgDoc('create-gateway', {
     o += row(36, 74, 'Name', [['<gateway>', 'azure', true]], 'Globally unique, 24 characters or fewer');
     o += row(36, 140, 'Subscription', [], 'Needs write access to API Management and connector gateways');
     o += row(36, 206, 'Resource group', [['New', 'azure'], ['Existing', 'azure']], 'Holds the gateway and its connector');
-    o += row(36, 272, 'Region', [['East US 2', 'azure'], ['Sweden Central', 'azure']], 'Preview regions');
+    o += row(36, 272, 'Region', [], 'One where AI Gateway is available, as listed by the CLI');
     o += zone(488, 20, 456, 304, 'Advanced · keep the defaults', { ic: 'shield', tone: 'green' });
     o += row(508, 74, 'System-assigned managed identity', [['Enabled', 'green']], 'The gateway uses it to call Foundry');
     o += row(508, 140, 'Public network access', [['Enabled', 'green']], 'Apps reach the runtime URL over HTTPS');

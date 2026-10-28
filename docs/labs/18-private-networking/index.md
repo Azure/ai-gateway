@@ -56,8 +56,9 @@ while the internet can't.
 - Permission to create a resource group, network resources, and a gateway, to change the Foundry resource, and
   to assign roles on it, for example **Owner**, or **Contributor** plus **Role Based Access Control
   Administrator**.
-- AI Gateway is in preview in East US 2 and Sweden Central. The virtual network must be in the gateway's
-  subscription and region.
+- A region where AI Gateway and `gpt-6-luna` are available, as in
+  [Find the available regions](../01-provision-gateway/README.md#find-the-available-regions). The virtual network must be
+  in the gateway's subscription and region.
 
 > [!WARNING]
 > Turning off public access on the Foundry resource blocks every caller that reaches it over the internet,
@@ -74,7 +75,7 @@ resource group, so clean-up is one command.
 
 ```bash title="Bash"
 export RG="rg-ai-gateway-private"            # a new resource group for this lab
-export LOCATION="eastus2"                    # eastus2 or swedencentral
+export LOCATION="eastus2"                    # a region where AI Gateway is available
 export GATEWAY="<private-gateway>"           # a NEW, globally unique name, 24 characters or fewer
 export SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
 export GATEWAY_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
@@ -102,7 +103,7 @@ az group create -n "$RG" -l "$LOCATION" -o none
 
 ```powershell title="PowerShell"
 $RG              = "rg-ai-gateway-private"   # a new resource group for this lab
-$LOCATION        = "eastus2"                 # eastus2 or swedencentral
+$LOCATION        = "eastus2"                 # a region where AI Gateway is available
 $GATEWAY         = "<private-gateway>"       # a NEW, globally unique name, 24 characters or fewer
 $SUBSCRIPTION_ID = az account show --query id -o tsv
 $GATEWAY_ID      = "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
@@ -387,8 +388,10 @@ azd env new aigw-lab18 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`. The Foundry resource's public access comes from the
-`FOUNDRY_PUBLIC_NETWORK_ACCESS` azd environment value, with the default `Enabled` in `infra/main.parameters.json`.
+For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
+regions](../01-provision-gateway/README.md#find-the-available-regions). The Foundry resource's public access comes
+from the `FOUNDRY_PUBLIC_NETWORK_ACCESS` azd environment value, with the default `Enabled` in
+`infra/main.parameters.json`.
 
 Bicep has no type definitions yet for `Microsoft.ApiManagement/aigateways` and `Microsoft.Web/connectorGateways`,
 so the templates silence the `BCP081` warnings about them with `#disable-next-line BCP081`.

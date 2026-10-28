@@ -52,8 +52,7 @@ allowed calls through.
 - For the test scripts and the Bash snippets: `curl` and `jq` (Bash) or PowerShell 7 or later.
 
 > [!NOTE]
-> Agent 365 tool threat protection is an emerging capability of the AI Gateway tier preview, which is available
-> in East US 2 and Sweden Central. Labels and behavior can change; see the
+> Agent 365 tool threat protection is an emerging capability of the AI Gateway tier preview. Labels and behavior can change; see the
 > [release note](https://ai.gateway.azure.com/docs/releases/2026-10-08-tool-threat-protection). AI Gateway itself
 > is free during the preview; Defender and Purview are licensed separately.
 
@@ -202,7 +201,8 @@ azd env new aigw-lab19 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`.
+For another region, use its name from [Find the available
+regions](../01-provision-gateway/README.md#find-the-available-regions).
 
 ### Read the outputs and the key
 

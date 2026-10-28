@@ -32,6 +32,39 @@ You need an Azure subscription where you can create resources and role assignmen
 **Contributor** plus **Role Based Access Control Administrator**. The gateway gets a role on your Foundry account, so
 that it can call the model with its own identity. Each track lists the tools that it needs at its start.
 
+### Find the available regions
+
+AI Gateway is in public preview, and the regions where you can create a gateway change as it rolls out. To list the
+current ones, run this in [Azure Cloud Shell](https://shell.azure.com):
+
+```bash title="Bash"
+regions=$(az provider show --namespace Microsoft.ApiManagement \
+  --query "resourceTypes[?resourceType=='aigateways'].locations | [0]" -o json)
+az account list-locations -o json |
+  jq -r --argjson regions "$regions" '
+    ["Display Name", "Name"],
+    (.[] | select(.displayName as $d | $regions | index($d)) | [.displayName, .name])
+    | @tsv
+  ' | column -t -s $'\t'
+```
+
+```powershell title="PowerShell"
+$regions = az provider show --namespace Microsoft.ApiManagement `
+  --query "resourceTypes[?resourceType=='aigateways'].locations | [0]" -o json | ConvertFrom-Json
+az account list-locations -o json | ConvertFrom-Json |
+  Where-Object { $regions -contains $_.displayName } |
+  Format-Table @{ Label = 'Display Name'; Expression = { $_.displayName } }, @{ Label = 'Name'; Expression = { $_.name } }
+```
+
+Use a value from the **Name** column, such as `eastus2`, as the location in the Azure CLI and Bicep + azd tracks. The
+portal lists the regions where it can create gateways, which can be fewer. Those two tracks also create the Foundry
+account in the gateway's region, so pick a region where `gpt-6-luna` is available too. This command prints its
+deployment types in a region, and prints nothing if the model isn't available there:
+
+```bash title="Bash or PowerShell"
+az cognitiveservices model list --location eastus2 --query "[?model.name=='gpt-6-luna'].model.skus[].name" -o tsv
+```
+
 ## How it works
 
 Every call that goes through AI Gateway uses the same five building blocks. In this quick start you create one of
@@ -53,7 +86,6 @@ a different base URL and the runtime key. For the full tour, watch the 3-minute 
 
 Pick one track. Each one creates the same five building blocks, makes your first call through the gateway, and ends
 with how to clean up.
-During the preview, AI Gateway runs in East US 2 (`eastus2`) and Sweden Central (`swedencentral`).
 
 <!-- track: portal | Portal -->
 
@@ -88,8 +120,8 @@ echo "Foundry account $FOUNDRY in $RG"
    ![The gateway switcher open in the top bar, with Recent gateways, View all gateways, and Create new gateway](../assets/screens/quickstart-01-switcher.webp "The gateway switcher lists your recent gateways. Create new gateway opens the Create AI gateway dialog.")
 
 2. Enter a **Name**, or select **Generate a new name**. Then choose your **Subscription**, a **Resource group**, and
-   the **Region**: **East US 2** or **Sweden Central**. For the resource group, select **New**, or select
-   **Existing** and pick the resource group of your Foundry account, so that you can clean up both with one command.
+   a **Region**. For the resource group, select **New**, or select **Existing** and pick the resource group of your
+   Foundry account, so that you can clean up both with one command.
 
    ![The Create AI gateway dialog with a name, the Existing resource group rg-aigw-quickstart, and the East US 2 region](../assets/screens/quickstart-02-create.webp "Create AI gateway: a generated name, the existing resource group of the Foundry account, and East US 2.")
 
@@ -211,7 +243,7 @@ suffix keeps the gateway and Foundry account names globally unique.
 curl -fsSL https://aka.ms/aigateway-cli-install | sh
 
 export RG="rg-aigw-quickstart"
-export LOCATION="eastus2"                     # or swedencentral
+export LOCATION="eastus2"                     # or another region from Find the available regions
 SUFFIX="$(openssl rand -hex 3)"
 export GATEWAY="aigw-$SUFFIX"                 # part of the runtime URL
 export FOUNDRY="aigw$SUFFIX"                  # the Foundry account and its subdomain
@@ -226,7 +258,7 @@ export GATEWAY_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/
 irm https://aka.ms/aigateway-cli-install-ps | iex
 
 $RG         = "rg-aigw-quickstart"
-$LOCATION   = "eastus2"                       # or swedencentral
+$LOCATION   = "eastus2"                       # or another region from Find the available regions
 $SUFFIX     = [guid]::NewGuid().ToString("N").Substring(0, 6)
 $GATEWAY    = "aigw-$SUFFIX"                  # part of the runtime URL
 $FOUNDRY    = "aigw$SUFFIX"                   # the Foundry account and its subdomain
@@ -459,8 +491,9 @@ azd env new aigw-quickstart --location eastus2 --subscription (az account show -
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`. azd saves the template's outputs, like the gateway URL and the
-alias, as environment values. The API key isn't an output, so it never lands in a file or a deployment log.
+For another region, use its name from [Find the available regions](#find-the-available-regions). azd saves the
+template's outputs, like the gateway URL and the alias, as environment values. The API key isn't an output, so it
+never lands in a file or a deployment log.
 
 ### Read the URL, the alias, and the key
 
@@ -541,7 +574,10 @@ azd down --purge --force
 |---|---|---|
 | A subscription is disabled in **Create AI gateway** | You can't write API Management or connector gateway resources in it | Pick another subscription, or ask for **Contributor** on it. |
 | `AuthorizationFailed` on `Microsoft.Authorization/roleAssignments` | You can create resources but not role assignments | Ask for **Owner**, or **Role Based Access Control Administrator**, on the resource group. |
-| `InsufficientQuota` on the model deployment | The subscription has no `gpt-6-luna` capacity left in the region | Start again in `swedencentral`: set `LOCATION` in the Azure CLI track, or run `azd env new` with a new name and `--location swedencentral` in the Bicep + azd track. Or free capacity in [Foundry](https://ai.azure.com). |
+| `LocationNotAvailableForResourceType` | AI Gateway isn't available in the region | Pick a region from [Find the available regions](#find-the-available-regions). |
+| `RequestDisallowedByAzure`: `The selected region is currently not accepting new customers` | The region has AI Gateway, but your subscription can't create new resources there | Pick another region from the list. |
+| `InvalidResourceProperties`: `The specified SKU 'GlobalStandard' for model 'gpt-6-luna 2026-09-22' is not supported in this region` | `gpt-6-luna` isn't available in the region | Pick a region where the model check in [Find the available regions](#find-the-available-regions) prints `GlobalStandard`. |
+| `InsufficientQuota` on the model deployment | The subscription has no `gpt-6-luna` capacity left in the region | Start again in another region: set `LOCATION` in the Azure CLI track, or run `azd env new` with a new name and another `--location` in the Bicep + azd track. Or free capacity in [Foundry](https://ai.azure.com). |
 | `InvalidResourceGroupLocation` from `azd up` | The resource group `rg-<environment name>` already exists in another region | Run `azd env new` with a new environment name, or delete the old resource group. |
 | `403` or `404` from the gateway in the first minute | The gateway's role on the Foundry account, or the new alias, is still taking effect | Wait a minute and call again. |
 | `403` from the backend that doesn't go away | The gateway's managed identity has no role on the Foundry account | Assign it **Foundry User** on the account, as in the Azure CLI track's **Deploy the model in Foundry** step, and wait a few minutes. |
@@ -589,8 +625,8 @@ recorded.
 ![Azure AI Gateway architecture: clients call one gateway that routes to model providers and tool sources](../assets/diagrams/architecture.svg "Apps, agents, and coding agents call one gateway. The gateway authenticates them, applies policies, routes model calls through aliases, federates tools, and emits OpenTelemetry.")
 
 > [!NOTE]
-> The AI Gateway tier is in public preview in **East US 2** and **Sweden Central**. The gateway itself is free
-> during the preview. Connected services, such as Microsoft Foundry inference and Application Insights, are billed
+> The AI Gateway tier is in public preview, in a growing list of regions: run the command in
+> [Find the available regions](../01-provision-gateway/README.md#find-the-available-regions) to list them. The gateway itself is free during the preview. Connected services, such as Microsoft Foundry inference and Application Insights, are billed
 > normally.
 
 ## Before you begin
@@ -788,7 +824,7 @@ Nothing to clean up. This lab doesn't create resources.
 |---|---|---|
 | A model call says the model can't be found | The `model` field doesn't match an alias | Copy the alias from **Models**, or from the code sample in **Catalog** |
 | An Anthropic call fails on the OpenAI endpoint | The gateway doesn't translate between protocols | Call `/default/models/anthropic/v1/messages` with `anthropic-version: 2023-06-01` |
-| You can't create a gateway in your region | The preview runs in two regions | Use East US 2 or Sweden Central |
+| You can't create a gateway in your region | AI Gateway isn't available there yet | Pick a region from [Find the available regions](../01-provision-gateway/README.md#find-the-available-regions) |
 | Monitoring is empty | No telemetry destination | Connect Application Insights in **Monitoring** › **Settings** |
 
 ## Next steps
@@ -821,7 +857,7 @@ order: 1
 illustration: diagrams/provisioning.svg
 tags: [provisioning, aigateways, az aigateway, Bicep, managed identity, regions]
 objectives:
-  - Create an AI Gateway in East US 2 or Sweden Central from the portal, the Azure CLI, or Bicep and azd
+  - Find the regions where AI Gateway is available, and create a gateway in one from the portal, the Azure CLI, or Bicep and azd
   - Find the gateway's runtime URL and its system-assigned managed identity
   - Confirm that the runtime endpoint answers over HTTPS
   - Navigate the AI Gateway portal and know which area manages what
@@ -879,6 +915,51 @@ need version `1.0.0b14` or later; run the installer again to upgrade an older on
 > gateway-wide policies, telemetry exporters, and the connector gateway, aren't in the extension yet. For those,
 > the labs call the Azure Resource Manager REST API with `az rest` and say why.
 
+### Find the available regions
+
+AI Gateway is in public preview, and the regions where you can create a gateway change as it rolls out. List the
+current ones: the first command reads the regions of the `Microsoft.ApiManagement/aigateways` resource type, and the
+second matches them to the region names that `--location` takes.
+
+```bash title="Bash"
+regions=$(az provider show --namespace Microsoft.ApiManagement \
+  --query "resourceTypes[?resourceType=='aigateways'].locations | [0]" -o json)
+az account list-locations -o json |
+  jq -r --argjson regions "$regions" '
+    ["Display Name", "Name"],
+    (.[] | select(.displayName as $d | $regions | index($d)) | [.displayName, .name])
+    | @tsv
+  ' | column -t -s $'\t'
+```
+
+```powershell title="PowerShell"
+$regions = az provider show --namespace Microsoft.ApiManagement `
+  --query "resourceTypes[?resourceType=='aigateways'].locations | [0]" -o json | ConvertFrom-Json
+az account list-locations -o json | ConvertFrom-Json |
+  Where-Object { $regions -contains $_.displayName } |
+  Format-Table @{ Label = 'Display Name'; Expression = { $_.displayName } }, @{ Label = 'Name'; Expression = { $_.name } }
+```
+
+Expected output: one row per region, such as `East US 2   eastus2`. Use a value from the **Name** column wherever a
+lab asks for a location. The portal lists the regions where it can create gateways, which can be fewer. To use a
+region that it doesn't list, create the gateway with the Azure CLI or Bicep + azd track.
+
+Later labs also deploy Foundry models, and their templates put the Foundry account in the gateway's region, so pick a
+region where those models are available too. For example, this command prints the deployment types of
+`gpt-6-luna` in a region, and prints nothing if the model isn't available there:
+
+```bash title="Bash"
+az cognitiveservices model list --location eastus2 \
+  --query "[?model.name=='gpt-6-luna'].model.skus[].name" -o tsv
+```
+
+```powershell title="PowerShell"
+az cognitiveservices model list --location eastus2 `
+  --query "[?model.name=='gpt-6-luna'].model.skus[].name" -o tsv
+```
+
+### Set your variables
+
 Set these variables once. Every track and the **Verify** section reuse them.
 
 ```bash title="Bash"
@@ -886,7 +967,7 @@ az account set --subscription "<subscription-id>"
 
 export RG="<resource-group>"               # for example rg-ai-gateway-labs
 export GATEWAY="<gateway>"                 # globally unique, 24 characters or fewer, part of the runtime URL
-export LOCATION="<location>"               # eastus2 or swedencentral
+export LOCATION="<location>"               # a Name from the list of available regions, for example eastus2
 export SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
 ```
 
@@ -895,13 +976,12 @@ az account set --subscription "<subscription-id>"
 
 $RG              = "<resource-group>"      # for example rg-ai-gateway-labs
 $GATEWAY         = "<gateway>"             # globally unique, 24 characters or fewer, part of the runtime URL
-$LOCATION        = "<location>"            # eastus2 or swedencentral
+$LOCATION        = "<location>"            # a Name from the list of available regions, for example eastus2
 $SUBSCRIPTION_ID = az account show --query id -o tsv
 ```
 
 > [!IMPORTANT]
-> During public preview, AI Gateway is available in **East US 2** (`eastus2`) and **Sweden Central**
-> (`swedencentral`). Create the resource group in one of these regions so that defaults line up. The gateway
+> Create the resource group in the same region as the gateway, so that defaults line up. The gateway
 > name must be 1–24 characters: letters, digits, and hyphens, starting with a letter and not ending with a hyphen.
 
 ## How it works
@@ -915,7 +995,7 @@ are the name, the region, and the resource group.
 | Property | Value |
 |---|---|
 | Resource type | `Microsoft.ApiManagement/aigateways` (API version `2025-09-01-preview`), plus `Microsoft.Web/connectorGateways` with the same name |
-| Regions (preview) | East US 2 (`eastus2`), Sweden Central (`swedencentral`) |
+| Regions (preview) | They change during the preview. List them as in [Find the available regions](#find-the-available-regions) |
 | Name | 1–24 characters: letters, digits, and hyphens. It becomes the first label of the runtime host name |
 | Runtime URL | `https://` + `properties.frontend.defaultHostname`, for example `https://<gateway>.eastus2-01.ai.gateway.azure.com` |
 | Runtime routes | Models under `/default/models/…`, MCP servers under `/default/toolservers/<server>/mcp` |
@@ -948,12 +1028,11 @@ gateway switcher in the top bar and start creating a new one from there.
 
 In **Create AI gateway**, enter a globally unique **Name** of 24 characters or fewer, or select
 **Generate a new name**. Then choose the subscription, a **Resource group** (**New** or **Existing**), and the
-**Region** (**East US 2** or **Sweden Central**). Under **Advanced**, keep
-**Enable system-assigned managed identity** selected, **Public network access** set to **Enabled**, and
+**Region**. Under **Advanced**, keep **Enable system-assigned managed identity** selected, **Public network access** set to **Enabled**, and
 **Public routing**. **Private routing** connects the gateway to private backends through a virtual network and
 can only be chosen at creation. [Lab 18](../18-private-networking/README.md) covers it.
 
-![What to choose in Create AI gateway: a unique name, a subscription, a resource group, and a preview region, with the Advanced defaults kept](../assets/diagrams/create-gateway.svg "Fill in the basics, keep the Advanced defaults, then select Create gateway.")
+![What to choose in Create AI gateway: a unique name, a subscription, a resource group, and a region, with the Advanced defaults kept](../assets/diagrams/create-gateway.svg "Fill in the basics, keep the Advanced defaults, then select Create gateway.")
 
 > [!NOTE]
 > The subscription picker lists every subscription you can see. Subscriptions where you lack write permission
@@ -1081,7 +1160,7 @@ resources together in your own templates, and set `sku`: without it, the gateway
 | Parameter | Description |
 |---|---|
 | `gatewayName` | Required. The gateway name, 24 characters or fewer |
-| `location` | `eastus2` (default) or `swedencentral` |
+| `location` | `eastus2` (default), or another region where AI Gateway is available |
 | `tags` | Optional. Tags applied to both resources |
 | `backendSubnetId` | Optional. A subnet for outbound virtual network integration, which can only be set at creation. See [Lab 18](../18-private-networking/README.md) |
 
@@ -1116,7 +1195,7 @@ azd env new aigw-lab01 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`.
+For another region, use its name from [Find the available regions](#find-the-available-regions).
 
 ### Read the outputs
 
@@ -1290,9 +1369,10 @@ azd down --purge --force
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Your subscription is disabled in the portal's subscription picker | You lack write permission for API Management or connector gateways in that subscription | Ask for **Contributor** on the subscription or resource group, or pick another subscription. |
-| The deployment fails because the region isn't supported | `$LOCATION` or the template's `location` is outside the preview regions | Use `eastus2` or `swedencentral`. The template accepts only these two values and defaults to `eastus2`. |
+| `LocationNotAvailableForResourceType` | `$LOCATION` or the template's `location` isn't a region where AI Gateway is available | Pick a region from [Find the available regions](#find-the-available-regions). The template defaults to `eastus2`. |
+| `RequestDisallowedByAzure`: `The selected region is currently not accepting new customers` | The region has AI Gateway, but your subscription can't create new resources there | Pick another region from the list. |
 | The name is rejected | Gateway names are globally unique and limited to 24 characters: letters, digits, and hyphens, starting with a letter | Pick another name that follows the rules. |
-| `AIGatewaySubscriptionGatewayLimitExceeded`: `…has reached the maximum of 5 AI Gateway resources allowed in this region.` | The subscription already has five gateways in `$LOCATION` | Delete a gateway you no longer need, or create this one in the other preview region. |
+| `AIGatewaySubscriptionGatewayLimitExceeded`: `…has reached the maximum of 5 AI Gateway resources allowed in this region.` | The subscription already has five gateways in `$LOCATION` | Delete a gateway you no longer need, or create this one in another available region. |
 | `InvalidSkuName`: `Supported AI Gateway SKU names are 'Premium' and 'Consumption'.` | Your template sets another `sku.name`, such as `AIGateway` from older samples | Set `sku: { name: 'Consumption' }`, as [`infra/gateway.bicep`](infra/gateway.bicep) does. |
 | `MissingSubscriptionRegistration` | A resource provider isn't registered in the subscription | Run `az provider register -n Microsoft.ApiManagement --wait` and `az provider register -n Microsoft.Web --wait`, or ask your subscription administrator. |
 | `Could not resolve host` when you call the URL | Provisioning or DNS isn't finished | Run `az aigateway wait -g "$RG" -n "$GATEWAY" --created` and retry. |
@@ -1698,7 +1778,8 @@ azd env new aigw-lab02 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`.
+For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
+regions](../01-provision-gateway/README.md#find-the-available-regions).
 
 ### Read the outputs and the key
 
@@ -2474,8 +2555,9 @@ Remove-Variable key
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`. azd keeps the key in `.azure/aigw-lab03/.env`, which
-`.azure/.gitignore` keeps out of Git. If your Claude Console key can't call the default models, set `FAST_MODEL`
+For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
+regions](../01-provision-gateway/README.md#find-the-available-regions). azd keeps the key in `.azure/aigw-lab03/.env`,
+which `.azure/.gitignore` keeps out of Git. If your Claude Console key can't call the default models, set `FAST_MODEL`
 and `SMART_MODEL` with `azd env set` before `azd up`.
 
 ### Read the outputs and the key
@@ -3193,9 +3275,10 @@ azd env new aigw-lab22 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`. The parameters come from azd environment values, with the
-defaults in `infra/main.parameters.json`: `ROUTING_STRATEGY` (`weighted`), `ROUTING_CANDIDATE_WEIGHT` (`20`),
-`CANDIDATE_MODEL` (`gpt-6.1-sol`), and `CANDIDATE_MODEL_VERSION` (`2026-09-29`).
+For another region, pick one where AI Gateway and the `gpt-6-luna` and `gpt-6.1-sol` models are available, as in [Find
+the available regions](../01-provision-gateway/README.md#find-the-available-regions). The parameters come from azd
+environment values, with the defaults in `infra/main.parameters.json`: `ROUTING_STRATEGY` (`weighted`),
+`ROUTING_CANDIDATE_WEIGHT` (`20`), `CANDIDATE_MODEL` (`gpt-6.1-sol`), and `CANDIDATE_MODEL_VERSION` (`2026-09-29`).
 
 ### Read the outputs and the key
 
@@ -3963,7 +4046,8 @@ azd env new aigw-lab23 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`.
+For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
+regions](../01-provision-gateway/README.md#find-the-available-regions).
 
 ### Read the outputs and the key
 
@@ -4449,7 +4533,8 @@ azd env new aigw-lab04 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`.
+For another region, use its name from [Find the available
+regions](../01-provision-gateway/README.md#find-the-available-regions).
 
 ### Read the outputs and the key
 
@@ -5105,7 +5190,8 @@ azd env new aigw-lab05 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`.
+For another region, use its name from [Find the available
+regions](../01-provision-gateway/README.md#find-the-available-regions).
 
 ### Read the outputs and the key
 
@@ -5837,7 +5923,8 @@ azd env new aigw-lab06 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`.
+For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
+regions](../01-provision-gateway/README.md#find-the-available-regions).
 
 ### Read the outputs and the key
 
@@ -6403,7 +6490,8 @@ azd env new aigw-lab07 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`.
+For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
+regions](../01-provision-gateway/README.md#find-the-available-regions).
 
 ### Read the outputs and the key
 
@@ -6933,7 +7021,8 @@ azd env new aigw-lab08 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`.
+For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
+regions](../01-provision-gateway/README.md#find-the-available-regions).
 
 ### Read the outputs and the key
 
@@ -7907,7 +7996,8 @@ azd env new aigw-lab10 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`.
+For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
+regions](../01-provision-gateway/README.md#find-the-available-regions).
 
 ### Read the outputs and the key
 
@@ -8694,7 +8784,8 @@ azd env new aigw-lab11 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`.
+For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
+regions](../01-provision-gateway/README.md#find-the-available-regions).
 
 ### Read the outputs
 
@@ -9434,7 +9525,8 @@ azd env new aigw-lab12 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`.
+For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
+regions](../01-provision-gateway/README.md#find-the-available-regions).
 
 ### Read the outputs and the key
 
@@ -10008,7 +10100,8 @@ azd env new aigw-lab13 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`.
+For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
+regions](../01-provision-gateway/README.md#find-the-available-regions).
 
 ### Read the outputs and the key
 
@@ -10552,7 +10645,8 @@ azd env new aigw-lab14 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`.
+For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
+regions](../01-provision-gateway/README.md#find-the-available-regions).
 
 ### Read the outputs and the key
 
@@ -12630,8 +12724,9 @@ azd env new aigw-lab24 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`. If the Foundry deployment fails with `InsufficientQuota`, deploy
-`gpt-6-astra` with the Data Zone Standard SKU instead, and provision again:
+For another region, pick one where AI Gateway and the `gpt-6-luna` and `gpt-6-astra` models are available, as in [Find
+the available regions](../01-provision-gateway/README.md#find-the-available-regions). If the Foundry deployment fails
+with `InsufficientQuota`, deploy `gpt-6-astra` with the Data Zone Standard SKU instead, and provision again:
 
 ```bash title="Bash"
 azd env set BYOK_MODEL_SKU DataZoneStandard
@@ -13722,8 +13817,9 @@ while the internet can't.
 - Permission to create a resource group, network resources, and a gateway, to change the Foundry resource, and
   to assign roles on it, for example **Owner**, or **Contributor** plus **Role Based Access Control
   Administrator**.
-- AI Gateway is in preview in East US 2 and Sweden Central. The virtual network must be in the gateway's
-  subscription and region.
+- A region where AI Gateway and `gpt-6-luna` are available, as in
+  [Find the available regions](../01-provision-gateway/README.md#find-the-available-regions). The virtual network must be
+  in the gateway's subscription and region.
 
 > [!WARNING]
 > Turning off public access on the Foundry resource blocks every caller that reaches it over the internet,
@@ -13740,7 +13836,7 @@ resource group, so clean-up is one command.
 
 ```bash title="Bash"
 export RG="rg-ai-gateway-private"            # a new resource group for this lab
-export LOCATION="eastus2"                    # eastus2 or swedencentral
+export LOCATION="eastus2"                    # a region where AI Gateway is available
 export GATEWAY="<private-gateway>"           # a NEW, globally unique name, 24 characters or fewer
 export SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
 export GATEWAY_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
@@ -13768,7 +13864,7 @@ az group create -n "$RG" -l "$LOCATION" -o none
 
 ```powershell title="PowerShell"
 $RG              = "rg-ai-gateway-private"   # a new resource group for this lab
-$LOCATION        = "eastus2"                 # eastus2 or swedencentral
+$LOCATION        = "eastus2"                 # a region where AI Gateway is available
 $GATEWAY         = "<private-gateway>"       # a NEW, globally unique name, 24 characters or fewer
 $SUBSCRIPTION_ID = az account show --query id -o tsv
 $GATEWAY_ID      = "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
@@ -14053,8 +14149,10 @@ azd env new aigw-lab18 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`. The Foundry resource's public access comes from the
-`FOUNDRY_PUBLIC_NETWORK_ACCESS` azd environment value, with the default `Enabled` in `infra/main.parameters.json`.
+For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
+regions](../01-provision-gateway/README.md#find-the-available-regions). The Foundry resource's public access comes
+from the `FOUNDRY_PUBLIC_NETWORK_ACCESS` azd environment value, with the default `Enabled` in
+`infra/main.parameters.json`.
 
 Bicep has no type definitions yet for `Microsoft.ApiManagement/aigateways` and `Microsoft.Web/connectorGateways`,
 so the templates silence the `BCP081` warnings about them with `#disable-next-line BCP081`.
@@ -14628,8 +14726,7 @@ allowed calls through.
 - For the test scripts and the Bash snippets: `curl` and `jq` (Bash) or PowerShell 7 or later.
 
 > [!NOTE]
-> Agent 365 tool threat protection is an emerging capability of the AI Gateway tier preview, which is available
-> in East US 2 and Sweden Central. Labels and behavior can change; see the
+> Agent 365 tool threat protection is an emerging capability of the AI Gateway tier preview. Labels and behavior can change; see the
 > [release note](https://ai.gateway.azure.com/docs/releases/2026-10-08-tool-threat-protection). AI Gateway itself
 > is free during the preview; Defender and Purview are licensed separately.
 
@@ -14778,7 +14875,8 @@ azd env new aigw-lab19 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`.
+For another region, use its name from [Find the available
+regions](../01-provision-gateway/README.md#find-the-available-regions).
 
 ### Read the outputs and the key
 
@@ -15732,8 +15830,9 @@ deployments leave that connection alone. The sample's exporter is still availabl
   letters, digits, and hyphens, starting with a letter.
 - **Tags.** Resource groups and top-level resources get `environment` and `workload: ai-gateway`, plus the
   `tags` from the parameter file, such as `costCenter`.
-- **Preview regions.** `aiGatewayLocation` only allows `eastus2` and `swedencentral`, where the AI Gateway tier
-  is in public preview. The other resources follow the deployment's `--location`.
+- **Regions.** `aiGatewayLocation` defaults to `eastus2`. Set it to any region where AI Gateway is available, as in
+  [Find the available regions](../01-provision-gateway/README.md#find-the-available-regions). The other resources follow the deployment's
+  `--location`, so pick one where the model is available.
 
 ### Environments: one template, two parameter files
 

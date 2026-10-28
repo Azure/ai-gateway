@@ -359,8 +359,9 @@ Remove-Variable key
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`. azd keeps the key in `.azure/aigw-lab03/.env`, which
-`.azure/.gitignore` keeps out of Git. If your Claude Console key can't call the default models, set `FAST_MODEL`
+For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
+regions](../01-provision-gateway/README.md#find-the-available-regions). azd keeps the key in `.azure/aigw-lab03/.env`,
+which `.azure/.gitignore` keeps out of Git. If your Claude Console key can't call the default models, set `FAST_MODEL`
 and `SMART_MODEL` with `azd env set` before `azd up`.
 
 ### Read the outputs and the key

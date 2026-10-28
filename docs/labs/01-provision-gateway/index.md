@@ -9,7 +9,7 @@ order: 1
 illustration: diagrams/provisioning.svg
 tags: [provisioning, aigateways, az aigateway, Bicep, managed identity, regions]
 objectives:
-  - Create an AI Gateway in East US 2 or Sweden Central from the portal, the Azure CLI, or Bicep and azd
+  - Find the regions where AI Gateway is available, and create a gateway in one from the portal, the Azure CLI, or Bicep and azd
   - Find the gateway's runtime URL and its system-assigned managed identity
   - Confirm that the runtime endpoint answers over HTTPS
   - Navigate the AI Gateway portal and know which area manages what
@@ -67,6 +67,51 @@ need version `1.0.0b14` or later; run the installer again to upgrade an older on
 > gateway-wide policies, telemetry exporters, and the connector gateway, aren't in the extension yet. For those,
 > the labs call the Azure Resource Manager REST API with `az rest` and say why.
 
+### Find the available regions
+
+AI Gateway is in public preview, and the regions where you can create a gateway change as it rolls out. List the
+current ones: the first command reads the regions of the `Microsoft.ApiManagement/aigateways` resource type, and the
+second matches them to the region names that `--location` takes.
+
+```bash title="Bash"
+regions=$(az provider show --namespace Microsoft.ApiManagement \
+  --query "resourceTypes[?resourceType=='aigateways'].locations | [0]" -o json)
+az account list-locations -o json |
+  jq -r --argjson regions "$regions" '
+    ["Display Name", "Name"],
+    (.[] | select(.displayName as $d | $regions | index($d)) | [.displayName, .name])
+    | @tsv
+  ' | column -t -s $'\t'
+```
+
+```powershell title="PowerShell"
+$regions = az provider show --namespace Microsoft.ApiManagement `
+  --query "resourceTypes[?resourceType=='aigateways'].locations | [0]" -o json | ConvertFrom-Json
+az account list-locations -o json | ConvertFrom-Json |
+  Where-Object { $regions -contains $_.displayName } |
+  Format-Table @{ Label = 'Display Name'; Expression = { $_.displayName } }, @{ Label = 'Name'; Expression = { $_.name } }
+```
+
+Expected output: one row per region, such as `East US 2   eastus2`. Use a value from the **Name** column wherever a
+lab asks for a location. The portal lists the regions where it can create gateways, which can be fewer. To use a
+region that it doesn't list, create the gateway with the Azure CLI or Bicep + azd track.
+
+Later labs also deploy Foundry models, and their templates put the Foundry account in the gateway's region, so pick a
+region where those models are available too. For example, this command prints the deployment types of
+`gpt-6-luna` in a region, and prints nothing if the model isn't available there:
+
+```bash title="Bash"
+az cognitiveservices model list --location eastus2 \
+  --query "[?model.name=='gpt-6-luna'].model.skus[].name" -o tsv
+```
+
+```powershell title="PowerShell"
+az cognitiveservices model list --location eastus2 `
+  --query "[?model.name=='gpt-6-luna'].model.skus[].name" -o tsv
+```
+
+### Set your variables
+
 Set these variables once. Every track and the **Verify** section reuse them.
 
 ```bash title="Bash"
@@ -74,7 +119,7 @@ az account set --subscription "<subscription-id>"
 
 export RG="<resource-group>"               # for example rg-ai-gateway-labs
 export GATEWAY="<gateway>"                 # globally unique, 24 characters or fewer, part of the runtime URL
-export LOCATION="<location>"               # eastus2 or swedencentral
+export LOCATION="<location>"               # a Name from the list of available regions, for example eastus2
 export SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
 ```
 
@@ -83,13 +128,12 @@ az account set --subscription "<subscription-id>"
 
 $RG              = "<resource-group>"      # for example rg-ai-gateway-labs
 $GATEWAY         = "<gateway>"             # globally unique, 24 characters or fewer, part of the runtime URL
-$LOCATION        = "<location>"            # eastus2 or swedencentral
+$LOCATION        = "<location>"            # a Name from the list of available regions, for example eastus2
 $SUBSCRIPTION_ID = az account show --query id -o tsv
 ```
 
 > [!IMPORTANT]
-> During public preview, AI Gateway is available in **East US 2** (`eastus2`) and **Sweden Central**
-> (`swedencentral`). Create the resource group in one of these regions so that defaults line up. The gateway
+> Create the resource group in the same region as the gateway, so that defaults line up. The gateway
 > name must be 1–24 characters: letters, digits, and hyphens, starting with a letter and not ending with a hyphen.
 
 ## How it works
@@ -103,7 +147,7 @@ are the name, the region, and the resource group.
 | Property | Value |
 |---|---|
 | Resource type | `Microsoft.ApiManagement/aigateways` (API version `2025-09-01-preview`), plus `Microsoft.Web/connectorGateways` with the same name |
-| Regions (preview) | East US 2 (`eastus2`), Sweden Central (`swedencentral`) |
+| Regions (preview) | They change during the preview. List them as in [Find the available regions](#find-the-available-regions) |
 | Name | 1–24 characters: letters, digits, and hyphens. It becomes the first label of the runtime host name |
 | Runtime URL | `https://` + `properties.frontend.defaultHostname`, for example `https://<gateway>.eastus2-01.ai.gateway.azure.com` |
 | Runtime routes | Models under `/default/models/…`, MCP servers under `/default/toolservers/<server>/mcp` |
@@ -136,12 +180,11 @@ gateway switcher in the top bar and start creating a new one from there.
 
 In **Create AI gateway**, enter a globally unique **Name** of 24 characters or fewer, or select
 **Generate a new name**. Then choose the subscription, a **Resource group** (**New** or **Existing**), and the
-**Region** (**East US 2** or **Sweden Central**). Under **Advanced**, keep
-**Enable system-assigned managed identity** selected, **Public network access** set to **Enabled**, and
+**Region**. Under **Advanced**, keep **Enable system-assigned managed identity** selected, **Public network access** set to **Enabled**, and
 **Public routing**. **Private routing** connects the gateway to private backends through a virtual network and
 can only be chosen at creation. [Lab 18](../18-private-networking/README.md) covers it.
 
-![What to choose in Create AI gateway: a unique name, a subscription, a resource group, and a preview region, with the Advanced defaults kept](../assets/diagrams/create-gateway.svg "Fill in the basics, keep the Advanced defaults, then select Create gateway.")
+![What to choose in Create AI gateway: a unique name, a subscription, a resource group, and a region, with the Advanced defaults kept](../assets/diagrams/create-gateway.svg "Fill in the basics, keep the Advanced defaults, then select Create gateway.")
 
 > [!NOTE]
 > The subscription picker lists every subscription you can see. Subscriptions where you lack write permission
@@ -269,7 +312,7 @@ resources together in your own templates, and set `sku`: without it, the gateway
 | Parameter | Description |
 |---|---|
 | `gatewayName` | Required. The gateway name, 24 characters or fewer |
-| `location` | `eastus2` (default) or `swedencentral` |
+| `location` | `eastus2` (default), or another region where AI Gateway is available |
 | `tags` | Optional. Tags applied to both resources |
 | `backendSubnetId` | Optional. A subnet for outbound virtual network integration, which can only be set at creation. See [Lab 18](../18-private-networking/README.md) |
 
@@ -304,7 +347,7 @@ azd env new aigw-lab01 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`.
+For another region, use its name from [Find the available regions](#find-the-available-regions).
 
 ### Read the outputs
 
@@ -478,9 +521,10 @@ azd down --purge --force
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Your subscription is disabled in the portal's subscription picker | You lack write permission for API Management or connector gateways in that subscription | Ask for **Contributor** on the subscription or resource group, or pick another subscription. |
-| The deployment fails because the region isn't supported | `$LOCATION` or the template's `location` is outside the preview regions | Use `eastus2` or `swedencentral`. The template accepts only these two values and defaults to `eastus2`. |
+| `LocationNotAvailableForResourceType` | `$LOCATION` or the template's `location` isn't a region where AI Gateway is available | Pick a region from [Find the available regions](#find-the-available-regions). The template defaults to `eastus2`. |
+| `RequestDisallowedByAzure`: `The selected region is currently not accepting new customers` | The region has AI Gateway, but your subscription can't create new resources there | Pick another region from the list. |
 | The name is rejected | Gateway names are globally unique and limited to 24 characters: letters, digits, and hyphens, starting with a letter | Pick another name that follows the rules. |
-| `AIGatewaySubscriptionGatewayLimitExceeded`: `…has reached the maximum of 5 AI Gateway resources allowed in this region.` | The subscription already has five gateways in `$LOCATION` | Delete a gateway you no longer need, or create this one in the other preview region. |
+| `AIGatewaySubscriptionGatewayLimitExceeded`: `…has reached the maximum of 5 AI Gateway resources allowed in this region.` | The subscription already has five gateways in `$LOCATION` | Delete a gateway you no longer need, or create this one in another available region. |
 | `InvalidSkuName`: `Supported AI Gateway SKU names are 'Premium' and 'Consumption'.` | Your template sets another `sku.name`, such as `AIGateway` from older samples | Set `sku: { name: 'Consumption' }`, as [`infra/gateway.bicep`](infra/gateway.bicep) does. |
 | `MissingSubscriptionRegistration` | A resource provider isn't registered in the subscription | Run `az provider register -n Microsoft.ApiManagement --wait` and `az provider register -n Microsoft.Web --wait`, or ask your subscription administrator. |
 | `Could not resolve host` when you call the URL | Provisioning or DNS isn't finished | Run `az aigateway wait -g "$RG" -n "$GATEWAY" --created` and retry. |

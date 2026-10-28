@@ -184,7 +184,8 @@ azd env new aigw-lab05 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`.
+For another region, use its name from [Find the available
+regions](../01-provision-gateway/README.md#find-the-available-regions).
 
 ### Read the outputs and the key
 

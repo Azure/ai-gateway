@@ -79,7 +79,11 @@ Before you create, change, or delete Azure resources, confirm the subscription a
   the gateway. Put `#disable-next-line BCP081` before each `aigateways` and `connectorGateways` resource
   declaration, because Bicep has no types for them. Gateway names are at most 24 characters, and a subscription
   can have at most five gateways in each region.
-- The public preview runs in East US 2 (`eastus2`) and Sweden Central (`swedencentral`).
+- The public preview runs in a growing list of regions. List them with
+  `az provider show --namespace Microsoft.ApiManagement --query "resourceTypes[?resourceType=='aigateways'].locations | [0]"`
+  (display names; `az account list-locations` maps them to `--location` names), as in lab 01's
+  **Find the available regions**. The portal can offer fewer regions than the CLI and Bicep. Templates that deploy
+  Foundry models need a region where those models are available too.
 - The CLI track uses the `az aigateway` extension 1.0.0b14 or later (lab 01 installs it) for gateways, providers,
   models (`model create --deployment-config "{resourceId:…,modelName:…}"`), aliases, model policies
   (`model policy set-token-limit`, `set-content-safety`, `remove`), API keys, and MCP servers.

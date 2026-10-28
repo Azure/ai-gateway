@@ -15,11 +15,7 @@
 @maxLength(24)
 param gatewayName string
 
-@description('Region for the gateway and the network. The integration subnet must be in the gateway region.')
-@allowed([
-  'eastus2'
-  'swedencentral'
-])
+@description('Region for the gateway and the network. Pick one where AI Gateway is available. The integration subnet must be in the gateway region.')
 param location string = 'eastus2'
 
 @description('Tags applied to the gateway and the network resources.')

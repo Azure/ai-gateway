@@ -22,11 +22,7 @@ param environmentName string
 @description('Region for the resource groups, the Foundry account, and the monitoring resources. The model and SKU must be available here.')
 param location string = deployment().location
 
-@allowed([
-  'eastus2'
-  'swedencentral'
-])
-@description('Region for the gateway. The AI Gateway tier preview is available in East US 2 and Sweden Central.')
+@description('Region for the gateway. Pick one where AI Gateway is available. List them with az provider show --namespace Microsoft.ApiManagement (lab 01, Find the available regions).')
 param aiGatewayLocation string = 'eastus2'
 
 @description('Optional Microsoft Entra object ID of a developer. When set, the developer gets data-plane roles on the Foundry account, the alias, and the MCP server. Leave empty in production.')

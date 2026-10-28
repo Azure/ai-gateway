@@ -3,11 +3,7 @@
 // User role for the gateway identity on every Foundry account it calls.
 targetScope = 'resourceGroup'
 
-@description('Location of the gateway. The AI Gateway tier preview is available in East US 2 and Sweden Central.')
-@allowed([
-  'eastus2'
-  'swedencentral'
-])
+@description('Location of the gateway. Pick one where AI Gateway is available. List them with az provider show --namespace Microsoft.ApiManagement (lab 01, Find the available regions).')
 param location string
 
 @description('Gateway name, max 24 characters. It becomes the first label of the runtime host name, https://<name>.<region>-01.ai.gateway.azure.com.')

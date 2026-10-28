@@ -372,8 +372,9 @@ azd env new aigw-lab24 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`. If the Foundry deployment fails with `InsufficientQuota`, deploy
-`gpt-6-astra` with the Data Zone Standard SKU instead, and provision again:
+For another region, pick one where AI Gateway and the `gpt-6-luna` and `gpt-6-astra` models are available, as in [Find
+the available regions](../01-provision-gateway/README.md#find-the-available-regions). If the Foundry deployment fails
+with `InsufficientQuota`, deploy `gpt-6-astra` with the Data Zone Standard SKU instead, and provision again:
 
 ```bash title="Bash"
 azd env set BYOK_MODEL_SKU DataZoneStandard

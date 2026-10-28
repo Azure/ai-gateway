@@ -293,9 +293,10 @@ azd env new aigw-lab22 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`. The parameters come from azd environment values, with the
-defaults in `infra/main.parameters.json`: `ROUTING_STRATEGY` (`weighted`), `ROUTING_CANDIDATE_WEIGHT` (`20`),
-`CANDIDATE_MODEL` (`gpt-6.1-sol`), and `CANDIDATE_MODEL_VERSION` (`2026-09-29`).
+For another region, pick one where AI Gateway and the `gpt-6-luna` and `gpt-6.1-sol` models are available, as in [Find
+the available regions](../01-provision-gateway/README.md#find-the-available-regions). The parameters come from azd
+environment values, with the defaults in `infra/main.parameters.json`: `ROUTING_STRATEGY` (`weighted`),
+`ROUTING_CANDIDATE_WEIGHT` (`20`), `CANDIDATE_MODEL` (`gpt-6.1-sol`), and `CANDIDATE_MODEL_VERSION` (`2026-09-29`).
 
 ### Read the outputs and the key
 

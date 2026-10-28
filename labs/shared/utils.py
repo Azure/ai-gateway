@@ -14,7 +14,7 @@ nothing here prints or saves them.
 
 Override the defaults with environment variables before you start the kernel:
 
-    AIGW_LOCATION                 eastus2 (or swedencentral)
+    AIGW_LOCATION                 eastus2, or another region where AI Gateway is available
     AIGW_RESOURCE_GROUP           rg-ai-gateway-labs
     AIGW_GATEWAY_NAME             aigw-labs-<6 characters of the SHA-1 of the subscription ID>
     AIGW_FOUNDRY_ACCOUNT          an existing Foundry account to reuse, instead of aigwlabs<8 characters>
@@ -45,7 +45,6 @@ COGNITIVE_API = "2025-04-01-preview"    # Microsoft.CognitiveServices (Foundry)
 RESOURCES_API = "2021-04-01"            # resource groups, resource providers, and deployments
 ROLES_API = "2022-04-01"                # Microsoft.Authorization/roleAssignments
 AIGW_SCOPE = "https://azure-api.net/aigateway/.default"   # Microsoft Entra token scope for gateway callers
-REGIONS = ("eastus2", "swedencentral")                   # AI Gateway regions during the preview
 
 ROLES = {   # AI Gateway data-plane roles: role ID -> name
     "caad7a21-134e-43f4-a550-c5ffc17e051c": "AI Gateway User",
@@ -70,6 +69,15 @@ def az(*args: str, check: bool = True):
     return json.loads(result.stdout) if result.stdout.strip() else None
 
 
+def gateway_regions() -> list[str]:
+    """The --location names of the regions where AI Gateway is available. The list changes during the preview."""
+    display_names = az("provider", "show", "--namespace", "Microsoft.ApiManagement", "--query",
+                       "resourceTypes[?resourceType=='aigateways'].locations | [0]", check=False) or []
+    locations = az("account", "list-locations", "--query", "[].{name:name, displayName:displayName}",
+                   check=False) or []
+    return [location["name"] for location in locations if location["displayName"] in display_names]
+
+
 class Lab:
     """Settings and Azure helpers for one lab notebook."""
 
@@ -91,8 +99,10 @@ class Lab:
         self.foundry_resource_group = os.environ.get("AIGW_FOUNDRY_RESOURCE_GROUP") or self.resource_group
         self.tags = {"lab": name, "workload": "ai-gateway-labs"}
 
-        if self.location not in REGIONS:
-            sys.exit(f"❌ During the preview, AI Gateway runs in {' or '.join(REGIONS)}. Set AIGW_LOCATION.")
+        regions = gateway_regions()
+        if regions and self.location not in regions:
+            sys.exit(f"❌ AI Gateway isn't available in {self.location}. "
+                     f"Set AIGW_LOCATION to one of: {', '.join(regions)}.")
         if not re.fullmatch(r"[A-Za-z]([A-Za-z0-9-]{0,22}[A-Za-z0-9])?", self.gateway_name):
             sys.exit("❌ Gateway names use 1 to 24 letters, digits, or hyphens, and start with a letter.")
 

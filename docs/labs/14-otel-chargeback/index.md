@@ -225,7 +225,8 @@ azd env new aigw-lab14 --location eastus2 --subscription (az account show --quer
 azd up
 ```
 
-For Sweden Central, use `--location swedencentral`.
+For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
+regions](../01-provision-gateway/README.md#find-the-available-regions).
 
 ### Read the outputs and the key
 

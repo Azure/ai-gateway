@@ -8,11 +8,7 @@ targetScope = 'subscription'
 @maxLength(60)
 param environmentName string
 
-@description('Region for every resource. During the preview, AI Gateway runs in East US 2 and Sweden Central.')
-@allowed([
-  'eastus2'
-  'swedencentral'
-])
+@description('Region for every resource. Pick one where AI Gateway is available. List them with az provider show --namespace Microsoft.ApiManagement (lab 01, Find the available regions).')
 @metadata({ azd: { type: 'location' } })
 param location string
 
