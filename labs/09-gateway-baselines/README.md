@@ -75,42 +75,64 @@ Set these variables once. Every track and the **Verify** section reuse them.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Name your gateway, its model provider, and the backend model that the Verify section calls
 export RG="<resource-group>"
 export GATEWAY="<gateway>"                 # 24 characters or fewer
 export PROVIDER="<provider-name>"          # for example foundry-models
 export MODEL="<model-name>"                # the backend model name under that provider
 
+# Read the gateway's runtime URL, which apps call
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
-# For Foundry imports, the default alias matches the deployment's model name.
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+
+# Read the alias that apps send in the model field: for Foundry imports, it matches the deployment's model name
 export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" \
   -n "$MODEL" --query properties.deployment.modelName -o tsv)"
-# Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
-read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
+echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
 
-# The public IP address this machine uses on the internet, and the ranges the IP filter allows.
-export MY_IP="$(curl -s https://api.ipify.org)" && echo "$MY_IP"
+# Paste the runtime key you created in Access › Keys, without showing it: don't commit it or write it to a file
+read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
+
+# Read the public IP address that this machine uses on the internet
+export MY_IP="$(curl -s https://api.ipify.org)"
+echo "🌐 Public IP address: $MY_IP"
+
+# Set the ranges that the IP filter allows
 export ALLOWED_CIDRS="$MY_IP/32"           # comma-separated, for example "$MY_IP/32,198.51.100.0/24"
+echo "📝 Ranges the IP filter allows: $ALLOWED_CIDRS"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Name your gateway, its model provider, and the backend model that the Verify section calls
 $RG         = "<resource-group>"
 $GATEWAY    = "<gateway>"                 # 24 characters or fewer
 $PROVIDER   = "<provider-name>"           # for example foundry-models
 $MODEL      = "<model-name>"              # the backend model name under that provider
 
+# Read the gateway's runtime URL, which apps call
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
-# For Foundry imports, the default alias matches the deployment's model name.
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+
+# Read the alias that apps send in the model field: for Foundry imports, it matches the deployment's model name
 $env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER `
   -n $MODEL --query properties.deployment.modelName -o tsv
-# Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
-$env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
+Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
 
-# The public IP address this machine uses on the internet, and the ranges the IP filter allows.
-$env:MY_IP = Invoke-RestMethod https://api.ipify.org; $env:MY_IP
+# Paste the runtime key you created in Access › Keys, without showing it: don't commit it or write it to a file
+$env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
+
+# Read the public IP address that this machine uses on the internet
+$env:MY_IP = Invoke-RestMethod https://api.ipify.org
+Write-Host "🌐 Public IP address: $env:MY_IP"
+
+# Set the ranges that the IP filter allows
 $env:ALLOWED_CIDRS = "$($env:MY_IP)/32"    # comma-separated, for example "$($env:MY_IP)/32,198.51.100.0/24"
+Write-Host "📝 Ranges the IP filter allows: $env:ALLOWED_CIDRS"
 ```
 </details> <!-- gh -->
 
@@ -215,9 +237,13 @@ change.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Read your subscription ID, and build the management URL of the gateway's default workspace
 SUB="$(az account show --query id -o tsv)"
 URL="https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY/workspaces/default?api-version=2025-09-01-preview"
+echo "🆔 Subscription: $SUB"
 
+# Read the Gateway scope policies, so that you know what the merge must keep
+echo "🛡️ Gateway scope policies on $GATEWAY:"
 az rest --method get --url "$URL" --query properties.policies
 ```
 </details> <!-- gh -->
@@ -225,9 +251,13 @@ az rest --method get --url "$URL" --query properties.policies
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Read your subscription ID, and build the management URL of the gateway's default workspace
 $SUB = az account show --query id -o tsv
 $URL = "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY/workspaces/default`?api-version=2025-09-01-preview"
+Write-Host "🆔 Subscription: $SUB"
 
+# Read the Gateway scope policies, so that you know what the merge must keep
+Write-Host "🛡️ Gateway scope policies on ${GATEWAY}:"
 az rest --method get --url $URL --query properties.policies
 ```
 </details> <!-- gh -->
@@ -240,39 +270,53 @@ Gateway scope cost limit.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Build the four baseline policies, with your ranges in the IP filter
 BASELINE="$(jq -cn --arg cidrs "$ALLOWED_CIDRS" '[
   {"type":"tokenLimit","count":100000,"period":"minute","counterKey":["identity"],"scope":"workspace"},
   {"type":"requestRateLimit","callsPerPeriod":600,"periodSeconds":60,"counterKey":["identity"],"scope":"workspace"},
   {"type":"contentSafety","hateSeverity":"Medium","violenceSeverity":"Medium","sexualSeverity":"Medium","selfHarmSeverity":"Medium"},
   {"type":"ipFilter","action":"Allow","cidrRanges":($cidrs | split(",") | map(gsub("\\s"; "")) | map(select(length > 0)))}
 ]')"
-jq '.[] | select(.type == "ipFilter")' <<<"$BASELINE"    # check the allowed ranges before you apply
 
+# Check the allowed ranges before you apply
+echo "🛡️ IP filter in the baseline:"
+jq '.[] | select(.type == "ipFilter")' <<<"$BASELINE"
+
+# Read the policies, drop any policy of the four baseline types, and add the baseline
 POLICIES="$(az rest --method get --url "$URL" | jq -c --argjson baseline "$BASELINE" '
   [(.properties.policies // [])[] | select(.type | IN($baseline[].type) | not)] + $baseline')"
 
-az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}"
+# Send the merged array back: a PATCH replaces the whole policies array
+az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}" --output none &&
+  echo "🛡️ Baseline of four policies is on $GATEWAY at Gateway scope"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Build the four baseline policies, with your ranges in the IP filter
 $baseline = @(
   [pscustomobject]@{ type = 'tokenLimit'; count = 100000; period = 'minute'; counterKey = @('identity'); scope = 'workspace' }
   [pscustomobject]@{ type = 'requestRateLimit'; callsPerPeriod = 600; periodSeconds = 60; counterKey = @('identity'); scope = 'workspace' }
   [pscustomobject]@{ type = 'contentSafety'; hateSeverity = 'Medium'; violenceSeverity = 'Medium'; sexualSeverity = 'Medium'; selfHarmSeverity = 'Medium' }
   [pscustomobject]@{ type = 'ipFilter'; action = 'Allow'; cidrRanges = @($env:ALLOWED_CIDRS -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
 )
-$baseline | Where-Object type -eq 'ipFilter' | ConvertTo-Json    # check the allowed ranges before you apply
 
+# Check the allowed ranges before you apply
+Write-Host "🛡️ IP filter in the baseline:"
+$baseline | Where-Object type -eq 'ipFilter' | ConvertTo-Json
+
+# Read the policies, drop any policy of the four baseline types, and add the baseline
 $current  = az rest --method get --url $URL | ConvertFrom-Json
 $policies = @($current.properties.policies | Where-Object { $_ -and $_.type -notin $baseline.type })
 $policies += $baseline
 
+# Send the merged array back from a file, which keeps the JSON quotes intact: a PATCH replaces the whole array
 $body = @{ properties = @{ policies = $policies } } | ConvertTo-Json -Depth 10 -Compress
 $body | Set-Content -Path patch.json
-az rest --method patch --url $URL --body '@patch.json'
+az rest --method patch --url $URL --body '@patch.json' --output none
+if ($?) { Write-Host "🛡️ Baseline of four policies is on $GATEWAY at Gateway scope" }
 Remove-Item patch.json
 ```
 </details> <!-- gh -->
@@ -351,14 +395,18 @@ From the lab folder, print the merged policy array without changing anything:
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-./infra/apply-baseline.sh --dry-run
+# Print the merged policy array, without changing anything on the gateway
+./infra/apply-baseline.sh --dry-run &&
+  echo "💡 Nothing is applied yet: review the policies above, then apply them"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Print the merged policy array, without changing anything on the gateway
 ./infra/apply-baseline.ps1 -ResourceGroup $RG -Gateway $GATEWAY -DryRun
+if ($?) { Write-Host "💡 Nothing is applied yet: review the policies above, then apply them" }
 ```
 </details> <!-- gh -->
 
@@ -369,14 +417,18 @@ The PowerShell script reads `$env:ALLOWED_CIDRS` unless you pass `-AllowedCidrs`
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-./infra/apply-baseline.sh
+# Merge the baseline into the Gateway scope policies, and keep every other policy
+./infra/apply-baseline.sh &&
+  echo "🛡️ Baseline of four policies is on $GATEWAY at Gateway scope"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Merge the baseline into the Gateway scope policies, and keep every other policy
 ./infra/apply-baseline.ps1 -ResourceGroup $RG -Gateway $GATEWAY
+if ($?) { Write-Host "🛡️ Baseline of four policies is on $GATEWAY at Gateway scope" }
 ```
 </details> <!-- gh -->
 
@@ -504,6 +556,8 @@ From the lab folder, send one chat completion:
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Send one chat completion from this machine through the baseline
+echo "🤖 Expect Status: 200 and a reply, because your IP address is on the allow list:"
 ./infra/check-call.sh "$AI_GATEWAY_MODEL"
 ```
 </details> <!-- gh -->
@@ -511,6 +565,8 @@ From the lab folder, send one chat completion:
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Send one chat completion from this machine through the baseline
+Write-Host "🤖 Expect Status: 200 and a reply, because your IP address is on the allow list:"
 ./infra/check-call.ps1 -Model $env:AI_GATEWAY_MODEL
 ```
 </details> <!-- gh -->
@@ -520,6 +576,7 @@ On GitHub, open [check-call.sh](infra/check-call.sh) or [check-call.ps1](infra/c
 Expected output:
 
 ```text
+🤖 Expect Status: 200 and a reply, because your IP address is on the allow list:
 Status: 200
 Reply:  A gateway-wide policy baseline is a default set of rules that applies to every asset ...
 ```
@@ -539,16 +596,20 @@ Add a deliberately low token limit to your model only, the same one you used in 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Add a low token limit to the model only: 1,000 tokens per minute for each caller
 az aigateway model policy set-token-limit -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
-  --token-limit 1000
+  --token-limit 1000 --output none &&
+  echo "🛡️ Token limit of 1,000 tokens per minute for each caller is on $MODEL"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Add a low token limit to the model only: 1,000 tokens per minute for each caller
 az aigateway model policy set-token-limit -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
-  --token-limit 1000
+  --token-limit 1000 --output none
+if ($?) { Write-Host "🛡️ Token limit of 1,000 tokens per minute for each caller is on $MODEL" }
 ```
 </details> <!-- gh -->
 
@@ -557,6 +618,8 @@ Then send a burst with the script from lab 06:
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Send a burst of eight requests with the script from lab 06
+echo "🚦 Expect 429 Too Many Requests after three or four requests:"
 ../06-token-limits/infra/trigger-token-limit.sh "$AI_GATEWAY_MODEL" 8
 ```
 </details> <!-- gh -->
@@ -564,6 +627,8 @@ Then send a burst with the script from lab 06:
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Send a burst of eight requests with the script from lab 06
+Write-Host "🚦 Expect 429 Too Many Requests after three or four requests:"
 ../06-token-limits/infra/trigger-token-limit.ps1 -Model $env:AI_GATEWAY_MODEL -Requests 8
 ```
 </details> <!-- gh -->
@@ -574,16 +639,20 @@ model's tighter limit is evaluated too, and it blocks. Remove the model limit an
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Remove only the token limit from the model, and keep its other policies
 az aigateway model policy remove -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
-  --remove-token-limit true
+  --remove-token-limit true --output none &&
+  echo "🧹 Token limit is removed from $MODEL"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Remove only the token limit from the model, and keep its other policies
 az aigateway model policy remove -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
-  --remove-token-limit true
+  --remove-token-limit true --output none
+if ($?) { Write-Host "🧹 Token limit is removed from $MODEL" }
 ```
 </details> <!-- gh -->
 
@@ -650,9 +719,13 @@ Select **Policies**. For each of the four policies with **Gateway** scope, selec
 ### Remove the baseline
 
 ```bash
+# Read the Gateway scope policies and drop the four baseline types, so that the others stay
 POLICIES="$(az rest --method get --url "$URL" | jq -c '[(.properties.policies // [])[]
   | select(.type | IN("tokenLimit","requestRateLimit","contentSafety","ipFilter") | not)]')"
-az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}"
+
+# Send the remaining policies back: a PATCH replaces the whole policies array
+az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}" --output none &&
+  echo "🧹 Baseline is removed from $GATEWAY"
 ```
 
 Every other Gateway scope policy stays.
@@ -666,14 +739,18 @@ Every other Gateway scope policy stays.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-./infra/apply-baseline.sh --remove
+# Remove the policy types listed in baseline-policies.json from Gateway scope, and keep every other policy
+./infra/apply-baseline.sh --remove &&
+  echo "🧹 Baseline is removed from $GATEWAY"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Remove the policy types listed in baseline-policies.json from Gateway scope, and keep every other policy
 ./infra/apply-baseline.ps1 -ResourceGroup $RG -Gateway $GATEWAY -Remove
+if ($?) { Write-Host "🧹 Baseline is removed from $GATEWAY" }
 ```
 </details> <!-- gh -->
 

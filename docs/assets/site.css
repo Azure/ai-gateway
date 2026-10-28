@@ -368,12 +368,11 @@ kbd {
 .qs-terminal code { display: block; font-family: var(--mono); background: none; padding: 0; color: inherit; white-space: normal; }
 .qs-line { display: block; white-space: pre-wrap; }
 .qs-hang { padding-left: 6ch; text-indent: -6ch; }
-.qs-sub { padding-left: 6ch; }
-.qs-reply { padding-left: 2ch; }
+.qs-st { padding-left: 3ch; text-indent: -3ch; }
+.qs-url { overflow-wrap: anywhere; }
 .qs-gap { margin-top: 1.6em; }
 .qs-nb { white-space: nowrap; }
 .qs-prompt { color: #62abf5; }
-.qs-dim { color: #84848d; }
 .qs-hl { color: #c7b8ff; }
 .qs-ok { color: #6ccb5f; font-weight: 600; }
 .qs-err { color: #ff7b72; font-weight: 600; }

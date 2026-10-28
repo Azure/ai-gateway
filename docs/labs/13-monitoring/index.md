@@ -50,29 +50,41 @@ send the gateway's OpenTelemetry signals to Application Insights and answer all 
 Set these variables once. The tracks and the traffic script reuse them.
 
 ```bash title="Bash"
+# Name your gateway from lab 02, and the alias that the traffic script calls
 export RG="<resource-group>"
 export GATEWAY="<gateway>"
 export AI_GATEWAY_MODEL="<model-name>"     # a callable alias, for example the one you used in lab 02
 
+# Build the management URL of the gateway's default workspace for az rest, and read the gateway's runtime URL
 export API="api-version=2025-09-01-preview"
 export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
 export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
-# Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
+echo "🆔 Gateway ID: $GATEWAY_ID"
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+
+# Paste the runtime key you created in Access › Keys, without showing it: don't commit it or write it to a file
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 ```
 
 ```powershell title="PowerShell"
+# Name your gateway from lab 02, and the alias that the traffic script calls
 $RG      = "<resource-group>"
 $GATEWAY = "<gateway>"
 $env:AI_GATEWAY_MODEL = "<model-name>"     # a callable alias, for example the one you used in lab 02
 
+# Build the management URL of the gateway's default workspace for az rest, and read the gateway's runtime URL
 $API        = "api-version=2025-09-01-preview"
 $GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
 $WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
-# Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
+Write-Host "🆔 Gateway ID: $GATEWAY_ID"
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+
+# Paste the runtime key you created in Access › Keys, without showing it: don't commit it or write it to a file
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 ```
 
 > [!IMPORTANT]
@@ -173,7 +185,9 @@ The lab is a small azd project in the
 [Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
 
 ```bash title="Bash or PowerShell"
-cd ~/ai-gateway/labs/13-monitoring
+# Move into the lab's folder, which holds the azd project
+cd ~/ai-gateway/labs/13-monitoring &&
+  echo "📂 Lab folder: ~/ai-gateway/labs/13-monitoring"
 ```
 
 ### Review the templates
@@ -208,13 +222,23 @@ Create an azd environment named `aigw-lab13` in your current subscription, then 
 about four minutes.
 
 ```bash title="Bash"
-azd env new aigw-lab13 --location eastus2 --subscription "$(az account show --query id --output tsv)"
-azd up
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
+azd env new aigw-lab13 --location eastus2 --subscription "$(az account show --query id --output tsv)" &&
+  echo "📝 azd environment aigw-lab13 deploys to eastus2"
+
+# Provision the gateway, its model, alias, and key, and Application Insights, and connect the gateway to it
+azd up &&
+  echo "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)"
 ```
 
 ```powershell title="PowerShell"
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab13 --location eastus2 --subscription (az account show --query id --output tsv)
+if ($?) { Write-Host "📝 azd environment aigw-lab13 deploys to eastus2" }
+
+# Provision the gateway, its model, alias, and key, and Application Insights, and connect the gateway to it
 azd up
+if ($?) { Write-Host "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)" }
 ```
 
 For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
@@ -226,6 +250,7 @@ Set the variables that the next sections and **Verify** use from azd's environme
 the gateway, so that it never shows on screen. The last command lists the gateway's telemetry exporters.
 
 ```bash title="Bash"
+# Read the gateway's names, URLs, and alias, and the Log Analytics workspace ID, from azd's environment values
 export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
 export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
 export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
@@ -234,12 +259,23 @@ export GATEWAY_ID="$(azd env get-value AI_GATEWAY_ID)"
 export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
 export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
 export LAW_CUSTOMER_ID="$(azd env get-value LOG_ANALYTICS_CUSTOMER_ID)"
+echo "📝 Gateway $GATEWAY in $RG"
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+echo "🆔 Log Analytics workspace ID: $LAW_CUSTOMER_ID"
+
+# Read the key from the gateway, so that it never shows on screen or lands in a file
 export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" \
   --query primaryKey --output tsv)"
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
+
+# List the gateway's telemetry exporters with az rest, because the aigateway extension doesn't manage them yet
+echo "📊 Telemetry exporters on $GATEWAY:"
 az rest --url "$WS/telemetryExporters?$API" --query "value[].{name:name, kind:properties.kind}" -o table
 ```
 
 ```powershell title="PowerShell"
+# Read the gateway's names, URLs, and alias, and the Log Analytics workspace ID, from azd's environment values
 $RG                     = azd env get-value AZURE_RESOURCE_GROUP
 $GATEWAY                = azd env get-value AI_GATEWAY_NAME
 $env:AI_GATEWAY_MODEL   = azd env get-value AI_GATEWAY_MODEL
@@ -248,8 +284,18 @@ $GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
 $WS                     = "https://management.azure.com$GATEWAY_ID/workspaces/default"
 $env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
 $LAW_CUSTOMER_ID        = azd env get-value LOG_ANALYTICS_CUSTOMER_ID
+Write-Host "📝 Gateway $GATEWAY in $RG"
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🆔 Log Analytics workspace ID: $LAW_CUSTOMER_ID"
+
+# Read the key from the gateway, so that it never shows on screen or lands in a file
 $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" `
   --query primaryKey --output tsv
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
+
+# List the gateway's telemetry exporters with az rest, because the aigateway extension doesn't manage them yet
+Write-Host "📊 Telemetry exporters on ${GATEWAY}:"
 az rest --url "$WS/telemetryExporters?$API" --query "value[].{name:name, kind:properties.kind}" -o table
 ```
 
@@ -272,10 +318,14 @@ From the lab folder, run the script for your shell. It sends ten chat completion
 on each, then one request for an alias that doesn't exist, so you also get a failure to investigate.
 
 ```bash title="Bash"
+# Send ten chat completions, each with an x-correlation-id header, then one call to an alias that doesn't exist
+echo "📊 Sending 10 requests to $AI_GATEWAY_MODEL, then one that fails on purpose:"
 ./infra/generate-traffic.sh "$AI_GATEWAY_MODEL" 10
 ```
 
 ```powershell title="PowerShell"
+# Send ten chat completions, each with an x-correlation-id header, then one call to an alias that doesn't exist
+Write-Host "📊 Sending 10 requests to $env:AI_GATEWAY_MODEL, then one that fails on purpose:"
 ./infra/generate-traffic.ps1 -Model $env:AI_GATEWAY_MODEL -Requests 10
 ```
 
@@ -413,11 +463,15 @@ install the first time. On the Bicep + azd track, `LAW_CUSTOMER_ID` already hold
 alias and status code:
 
 ```bash title="Bash"
+# Count the model calls of the last hour by alias and status code, from the gateway's spans in Log Analytics
+echo "📊 Model calls in the last hour, by alias and status code:"
 az monitor log-analytics query -w "$LAW_CUSTOMER_ID" -o table --analytics-query \
   'OTelSpans | where TimeGenerated > ago(1h) | where Kind =~ "Server" and tostring(Attributes["http.route"]) contains "/models/" | summarize Calls = count() by Model = tostring(Attributes["gen_ai.request.model"]), Status = toint(Attributes["http.response.status_code"])'
 ```
 
 ```powershell title="PowerShell"
+# Count the model calls of the last hour by alias and status code, from the gateway's spans in Log Analytics
+Write-Host "📊 Model calls in the last hour, by alias and status code:"
 az monitor log-analytics query -w $LAW_CUSTOMER_ID -o table --analytics-query `
   'OTelSpans | where TimeGenerated > ago(1h) | where Kind =~ "Server" and tostring(Attributes["http.route"]) contains "/models/" | summarize Calls = count() by Model = tostring(Attributes["gen_ai.request.model"]), Status = toint(Attributes["http.response.status_code"])'
 ```
@@ -450,10 +504,14 @@ To check the exporter from the CLI, list the gateway's telemetry exporters. The 
 manage telemetry exporters yet, so call the Azure Resource Manager REST API with `az rest`:
 
 ```bash title="Bash"
+# List the gateway's telemetry exporters, with the kind of each one
+echo "📊 Telemetry exporters on $GATEWAY:"
 az rest --url "$WS/telemetryExporters?$API" --query "value[].{name:name, kind:properties.kind}" -o table
 ```
 
 ```powershell title="PowerShell"
+# List the gateway's telemetry exporters, with the kind of each one
+Write-Host "📊 Telemetry exporters on ${GATEWAY}:"
 az rest --url "$WS/telemetryExporters?$API" --query "value[].{name:name, kind:properties.kind}" -o table
 ```
 
@@ -504,7 +562,9 @@ with it. [`--purge`](../SETUP.md#delete-what-azd-created) also purges the soft-d
 ten minutes.
 
 ```bash
-azd down --purge --force
+# Delete everything that azd up created, and purge the Foundry account
+azd down --purge --force &&
+  echo "🧹 Everything that azd up created is deleted"
 ```
 
 The Bicep + azd track of [Attribute tokens and cost with OpenTelemetry](../14-otel-chargeback/README.md) creates its

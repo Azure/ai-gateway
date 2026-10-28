@@ -49,7 +49,8 @@ To work on your own machine, install the tools for the tracks you plan to follow
 | [`jq`](https://jqlang.org/download/) | The Bash snippets that build or read JSON. The PowerShell snippets don't need it. |
 | Python, Node.js, or the .NET 8 SDK | The code samples, depending on the language. Each lab lists the versions it needs. |
 
-Every command comes in a Bash and a PowerShell variant, unless it's the same in both shells.
+Every command comes in a Bash and a PowerShell variant, unless it's the same in both shells. The PowerShell commands
+need PowerShell 7 or later, as Cloud Shell has; Windows PowerShell 5.1 doesn't run them.
 
 ## Sign in to Azure
 
@@ -57,16 +58,29 @@ Cloud Shell is already signed in, so skip this step there. On your own machine, 
 subscription for the labs, and sign in to `azd` for the Bicep + azd tracks:
 
 ```bash title="Bash or PowerShell"
-az login
-az account set --subscription "<subscription-id>"
-azd auth login
+# Sign in to the Azure CLI in your browser, with the account that has access to your subscription
+az login &&
+  echo "🪪 Signed in to the Azure CLI"
+
+# Select the subscription for the labs, so that every later command creates resources in it
+az account set --subscription "<subscription-id>" &&
+  echo "🆔 Subscription <subscription-id> is selected"
+
+# Sign in to the Azure Developer CLI (azd) too, for the Bicep + azd tracks
+azd auth login &&
+  echo "🪪 Signed in to azd"
 ```
 
 If your account belongs to more than one tenant, sign in to the tenant that has the subscription instead:
 
 ```bash title="Bash or PowerShell"
-az login --tenant "<tenant-id>"
-azd auth login --tenant-id "<tenant-id>"
+# Sign in to the Azure CLI in the tenant that has your subscription
+az login --tenant "<tenant-id>" &&
+  echo "🪪 Signed in to the Azure CLI in tenant <tenant-id>"
+
+# Sign in to azd in the same tenant
+azd auth login --tenant-id "<tenant-id>" &&
+  echo "🪪 Signed in to azd in tenant <tenant-id>"
 ```
 
 > **Checkpoint**
@@ -80,7 +94,12 @@ CLI loads it. The installer downloads the published release, verifies it, and ne
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-curl -fsSL https://aka.ms/aigateway-cli-install | sh
+# Install or upgrade the aigateway extension of the Azure CLI: the installer downloads and verifies the release
+curl -fsSL https://aka.ms/aigateway-cli-install | sh &&
+  echo "🧩 aigateway extension $(az extension show --name aigateway --query version --output tsv) is installed"
+
+# Check that the Azure CLI loads the extension: it prints the extension version and the API version it calls
+echo "🧩 The aigateway extension reports:"
 az aigateway version
 ```
 </details> <!-- gh -->
@@ -88,14 +107,20 @@ az aigateway version
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Install or upgrade the aigateway extension of the Azure CLI: the installer downloads and verifies the release
 irm https://aka.ms/aigateway-cli-install-ps | iex
+if ($?) { Write-Host "🧩 aigateway extension $(az extension show --name aigateway --query version --output tsv) is installed" }
+
+# Check that the Azure CLI loads the extension: it prints the extension version and the API version it calls
+Write-Host "🧩 The aigateway extension reports:"
 az aigateway version
 ```
 </details> <!-- gh -->
 
 > **Checkpoint**
-> `az aigateway version` prints the extension version and the API version it calls, `2025-09-01-preview`. The labs
-> need version `1.0.0b14` or later; run the installer again to upgrade an older one.
+> The installer printed `🧩 aigateway extension … is installed`, and `az aigateway version` prints the extension
+> version and the API version it calls, `2025-09-01-preview`. The labs need version `1.0.0b14` or later; run the
+> installer again to upgrade an older one.
 
 > [!NOTE]
 > The labs use `az aigateway` commands wherever the extension covers an operation. A few operations, such as
@@ -111,8 +136,10 @@ subscription. Registering returns quickly when a provider is already registered.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Register the resource providers for AI Gateway, its connector gateway, and Foundry (once per subscription)
+# --wait returns when each provider is registered, and right away if it already is
 for ns in Microsoft.ApiManagement Microsoft.Web Microsoft.CognitiveServices; do
-  az provider register --namespace "$ns" --wait
+  az provider register --namespace "$ns" --wait && echo "🧩 $ns is registered"
 done
 ```
 </details> <!-- gh -->
@@ -120,8 +147,11 @@ done
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Register the resource providers for AI Gateway, its connector gateway, and Foundry (once per subscription)
+# --wait returns when each provider is registered, and right away if it already is
 foreach ($ns in "Microsoft.ApiManagement", "Microsoft.Web", "Microsoft.CognitiveServices") {
   az provider register --namespace $ns --wait
+  if ($?) { Write-Host "🧩 $ns is registered" }
 }
 ```
 </details> <!-- gh -->
@@ -134,6 +164,7 @@ A few labs use more providers. Register them the same way before you start those
 | `Microsoft.Network` | [18 · Private networking](18-private-networking/README.md) |
 
 > **Checkpoint**
+> The loop printed a line such as `🧩 Microsoft.ApiManagement is registered` for each provider, and
 > `az provider show --namespace Microsoft.ApiManagement --query registrationState -o tsv` prints `Registered`.
 
 Registering a provider needs a role such as **Contributor** on the subscription. If you don't have it, ask your
@@ -148,8 +179,12 @@ AI Gateway keeps adding regions. List the current ones: the first command reads 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Read the regions of the aigateways resource type, where you can create a gateway
 regions=$(az provider show --namespace Microsoft.ApiManagement \
   --query "resourceTypes[?resourceType=='aigateways'].locations | [0]" -o json)
+
+# Match them to the region names that --location takes, and print both as a table
+echo "📍 Regions where you can create a gateway:"
 az account list-locations -o json |
   jq -r --argjson regions "$regions" '
     ["Display Name", "Name"],
@@ -162,17 +197,22 @@ az account list-locations -o json |
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Read the regions of the aigateways resource type, where you can create a gateway
 $regions = az provider show --namespace Microsoft.ApiManagement `
   --query "resourceTypes[?resourceType=='aigateways'].locations | [0]" -o json | ConvertFrom-Json
+
+# Match them to the region names that --location takes, and print both as a table
+Write-Host "📍 Regions where you can create a gateway:"
 az account list-locations -o json | ConvertFrom-Json |
   Where-Object { $regions -contains $_.displayName } |
   Format-Table @{ Label = 'Display Name'; Expression = { $_.displayName } }, @{ Label = 'Name'; Expression = { $_.name } }
 ```
 </details> <!-- gh -->
 
-Expected output: one row per region, such as `East US 2   eastus2`. Use a value from the **Name** column wherever a
-lab asks for a location. The portal lists the regions where it can create gateways, which can be fewer. To use a
-region that it doesn't list, create the gateway with the Azure CLI or Bicep + azd track.
+Expected output: the `📍 Regions where you can create a gateway:` line, then one row per region, such as
+`East US 2   eastus2`. Use a value from the **Name** column wherever a lab asks for a location. The portal lists the
+regions where it can create gateways, which can be fewer. To use a region that it doesn't list, create the gateway
+with the Azure CLI or Bicep + azd track.
 
 Most labs also deploy Foundry models, and their templates put the Foundry account in the gateway's region, so pick a
 region where those models are available too. Each lab names its models. For example, this command prints the
@@ -181,6 +221,8 @@ deployment types of `gpt-6-luna` in a region, and prints nothing if the model is
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# List the deployment types of gpt-6-luna in a region, such as GlobalStandard: no output means it isn't there
+echo "🧠 Deployment types of gpt-6-luna in <location>:"
 az cognitiveservices model list --location "<location>" \
   --query "[?model.name=='gpt-6-luna'].model.skus[].name" -o tsv
 ```
@@ -189,6 +231,8 @@ az cognitiveservices model list --location "<location>" \
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# List the deployment types of gpt-6-luna in a region, such as GlobalStandard: no output means it isn't there
+Write-Host "🧠 Deployment types of gpt-6-luna in <location>:"
 az cognitiveservices model list --location "<location>" `
   --query "[?model.name=='gpt-6-luna'].model.skus[].name" -o tsv
 ```
@@ -200,8 +244,10 @@ The Bicep + azd tracks, the notebooks, and the code samples run from the
 [labs repo](https://github.com/Azure/ai-gateway/tree/main/labs). Clone it once into your home folder:
 
 ```bash title="Bash or PowerShell"
+# Clone the labs repo into your home folder, as ~/ai-gateway, where every lab expects it
 cd ~
-git clone https://github.com/Azure/ai-gateway.git
+git clone https://github.com/Azure/ai-gateway.git &&
+  echo "📂 The labs are in ~/ai-gateway/labs"
 ```
 
 Each lab then moves into its own folder, for example `cd ~/ai-gateway/labs/06-token-limits`. If you cloned the repo
@@ -227,9 +273,20 @@ For example, for [lab 06](06-token-limits/README.md):
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-cd ~/ai-gateway/labs/06-token-limits
-azd env new aigw-lab06 --location "<location>" --subscription "$(az account show --query id --output tsv)"
-azd up
+# Move into the lab's folder, which holds its azure.yaml file and its infra/ templates
+cd ~/ai-gateway/labs/06-token-limits &&
+  echo "📂 Lab folder: $(pwd)"
+
+# Create an azd environment in your current subscription and region, so that azd doesn't prompt you
+azd env new aigw-lab06 --location "<location>" --subscription "$(az account show --query id --output tsv)" &&
+  echo "📝 azd environment aigw-lab06 deploys to <location>"
+
+# Deploy the templates: the resource group rg-aigw-lab06, the gateway, and whatever else the lab needs
+azd up &&
+  echo "🚀 Lab deployed to rg-aigw-lab06"
+
+# Read one of the outputs that the next steps use: the gateway's runtime URL
+echo "🌐 Runtime URL:"
 azd env get-value AI_GATEWAY_URL
 ```
 </details> <!-- gh -->
@@ -237,9 +294,20 @@ azd env get-value AI_GATEWAY_URL
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Move into the lab's folder, which holds its azure.yaml file and its infra/ templates
 cd ~/ai-gateway/labs/06-token-limits
+if ($?) { Write-Host "📂 Lab folder: $(Get-Location)" }
+
+# Create an azd environment in your current subscription and region, so that azd doesn't prompt you
 azd env new aigw-lab06 --location "<location>" --subscription (az account show --query id --output tsv)
+if ($?) { Write-Host "📝 azd environment aigw-lab06 deploys to <location>" }
+
+# Deploy the templates: the resource group rg-aigw-lab06, the gateway, and whatever else the lab needs
 azd up
+if ($?) { Write-Host "🚀 Lab deployed to rg-aigw-lab06" }
+
+# Read one of the outputs that the next steps use: the gateway's runtime URL
+Write-Host "🌐 Runtime URL:"
 azd env get-value AI_GATEWAY_URL
 ```
 </details> <!-- gh -->
@@ -254,7 +322,9 @@ When you finish a lab, run this from its folder. It deletes the environment's re
 usually within ten minutes:
 
 ```bash title="Bash or PowerShell"
-azd down --purge --force
+# Delete everything that azd up created, purge the soft-deleted Foundry account, and skip the confirmation prompt
+azd down --purge --force &&
+  echo "🧹 Everything that azd up created is deleted"
 ```
 
 `--purge` also purges soft-deleted resources such as the Foundry account, which would otherwise stay soft-deleted

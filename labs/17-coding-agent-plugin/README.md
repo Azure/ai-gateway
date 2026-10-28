@@ -71,30 +71,50 @@ revoke it on its own later.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Name your gateway and the alias that the generated app calls
 export RG="<resource-group>"
 export GATEWAY="<gateway>"
 export AI_GATEWAY_MODEL="<model-name>"   # the alias from lab 02
+echo "📝 Gateway $GATEWAY in $RG, alias $AI_GATEWAY_MODEL"
+
+# Read the gateway's resource ID, which you pass to the plugin, and its runtime URL, which the app calls
 export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
 
-az aigateway api-key create -g "$RG" --gateway-name "$GATEWAY" -n app-coding-agent --display-name app-coding-agent -o none
+# Create an API key for this app, so that you can revoke it on its own later
+az aigateway api-key create -g "$RG" --gateway-name "$GATEWAY" -n app-coding-agent --display-name app-coding-agent -o none &&
+  echo "🔑 API key app-coding-agent is ready"
+
+# Read the key into an environment variable, so that it never shows on screen
 AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n app-coding-agent \
   --query primaryKey -o tsv)" && export AI_GATEWAY_API_KEY
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Name your gateway and the alias that the generated app calls
 $RG      = "<resource-group>"
 $GATEWAY = "<gateway>"
 $env:AI_GATEWAY_MODEL = "<model-name>"   # the alias from lab 02
+Write-Host "📝 Gateway $GATEWAY in $RG, alias $env:AI_GATEWAY_MODEL"
+
+# Read the gateway's resource ID, which you pass to the plugin, and its runtime URL, which the app calls
 $GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
 
+# Create an API key for this app, so that you can revoke it on its own later
 az aigateway api-key create -g $RG --gateway-name $GATEWAY -n app-coding-agent --display-name app-coding-agent -o none
+if ($?) { Write-Host "🔑 API key app-coding-agent is ready" }
+
+# Read the key into an environment variable, so that it never shows on screen
 $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n app-coding-agent `
   --query primaryKey -o tsv
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 ```
 </details> <!-- gh -->
 
@@ -103,18 +123,20 @@ Then print the gateway's Azure resource ID. You pass it to the plugin.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-echo "$GATEWAY_ID"
+# Print the gateway's resource ID, to copy into the plugin's commands
+echo "🆔 Gateway resource ID: $GATEWAY_ID"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-$GATEWAY_ID
+# Print the gateway's resource ID, to copy into the plugin's commands
+Write-Host "🆔 Gateway resource ID: $GATEWAY_ID"
 ```
 </details> <!-- gh -->
 
-It looks like
+The ID looks like
 `/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.ApiManagement/aigateways/<gateway>`.
 
 ## How it works
@@ -155,14 +177,18 @@ Start in an empty folder with Git, so you can check later that no secret gets co
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-mkdir ticket-summarizer && cd ticket-summarizer && git init -q
+# Create the project folder, move into it, and start a Git repository quietly
+mkdir ticket-summarizer && cd ticket-summarizer && git init -q &&
+  echo "📂 Project folder with Git: $(pwd)"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Create the project folder, move into it, and start a Git repository quietly
 New-Item -ItemType Directory ticket-summarizer | Out-Null; Set-Location ticket-summarizer; git init -q
+if ($?) { Write-Host "📂 Project folder with Git: $(Get-Location)" }
 ```
 </details> <!-- gh -->
 
@@ -201,7 +227,9 @@ Install ai-gateway from Customize.
 <details><summary>Gemini CLI</summary> <!-- gh -->
 
 ```bash title="Gemini CLI"
+# Install the plugin as a Gemini CLI extension, straight from the GitHub repository
 gemini extensions install https://github.com/Azure/ai-gateway
+echo "🧩 The ai-gateway extension is installed in Gemini CLI"
 ```
 </details> <!-- gh -->
 
@@ -316,16 +344,26 @@ Read the code before you run it again or commit it. Check that:
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+# Create a virtual environment in .venv and activate it, so that the packages stay out of your global Python
+python3 -m venv .venv && source .venv/bin/activate &&
+  echo "🧩 Virtual environment .venv is active"
+
+# Install the packages that the generated app lists in requirements.txt
+pip install -r requirements.txt &&
+  echo "🧩 The packages in requirements.txt are installed"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Create a virtual environment in .venv and activate it, so that the packages stay out of your global Python
 python -m venv .venv; .\.venv\Scripts\Activate.ps1
+if ($?) { Write-Host "🧩 Virtual environment .venv is active" }
+
+# Install the packages that the generated app lists in requirements.txt
 pip install -r requirements.txt
+if ($?) { Write-Host "🧩 The packages in requirements.txt are installed" }
 ```
 </details> <!-- gh -->
 
@@ -347,6 +385,8 @@ If the app fails, this call tells you whether the problem is in the gateway setu
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Call the model through the gateway with your key and alias, and print only the HTTP status code
+echo "🤖 HTTP status of a model call through the gateway:"
 curl -sS -o /dev/null -w "HTTP %{http_code}\n" "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions" \
   -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
   -d "{\"model\":\"$AI_GATEWAY_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
@@ -356,13 +396,15 @@ curl -sS -o /dev/null -w "HTTP %{http_code}\n" "${AI_GATEWAY_URL%/}/default/mode
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Call the model through the gateway with your key and alias, and print only the HTTP status code
+Write-Host "🤖 HTTP status of a model call through the gateway:"
 $body = @{ model = $env:AI_GATEWAY_MODEL; messages = @(@{ role = "user"; content = "ping" }) } | ConvertTo-Json -Depth 5
 (Invoke-WebRequest -Method Post -Uri "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/models/openai/v1/chat/completions" `
   -Headers @{ "api-key" = $env:AI_GATEWAY_API_KEY } -ContentType "application/json" -Body $body -SkipHttpErrorCheck).StatusCode
 ```
 </details> <!-- gh -->
 
-Expect `HTTP 200`.
+Expect `HTTP 200` (`200` in PowerShell).
 
 ### Check that no secret can be committed
 
@@ -371,11 +413,14 @@ Run this in the project folder. It checks that Git ignores `.env` and that your 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-git check-ignore -q .env && echo ".env is ignored" || echo "WARNING: .env is not ignored"
+# Check that Git ignores .env, the file that holds your key
+git check-ignore -q .env && echo "✅ .env is ignored" || echo "⚠️ .env is not ignored"
+
+# Search every other file for your key, skipping .git, .venv, and node_modules, and list any file that holds it
 if grep -rIlF --exclude=.env --exclude-dir=.git --exclude-dir=.venv --exclude-dir=node_modules -- "$AI_GATEWAY_API_KEY" .; then
-  echo "WARNING: the key appears in the files above"
+  echo "⚠️ The key appears in the files above"
 else
-  echo "No key in project files"
+  echo "✅ No key in project files"
 fi
 ```
 </details> <!-- gh -->
@@ -383,15 +428,18 @@ fi
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-git check-ignore -q .env; if ($LASTEXITCODE -eq 0) { ".env is ignored" } else { "WARNING: .env is not ignored" }
+# Check that Git ignores .env, the file that holds your key
+git check-ignore -q .env; if ($LASTEXITCODE -eq 0) { Write-Host "✅ .env is ignored" } else { Write-Host "⚠️ .env is not ignored" }
+
+# Search every other file for your key, skipping .git, .venv, and node_modules, and list any file that holds it
 $hits = Get-ChildItem -Recurse -File -Force |
   Where-Object { $_.Name -ne ".env" -and $_.FullName -notmatch '[\\/](\.git|\.venv|node_modules)[\\/]' } |
   Select-String -SimpleMatch -Pattern $env:AI_GATEWAY_API_KEY -List
-if ($hits) { "WARNING: the key appears in:"; $hits.Path } else { "No key in project files" }
+if ($hits) { Write-Host "⚠️ The key appears in:"; $hits.Path } else { Write-Host "✅ No key in project files" }
 ```
 </details> <!-- gh -->
 
-Expect `.env is ignored` and `No key in project files`. If the plugin wrote a different key to `.env`, run the
+Expect `✅ .env is ignored` and `✅ No key in project files`. If the plugin wrote a different key to `.env`, run the
 check again with that key in `AI_GATEWAY_API_KEY`.
 
 <!-- /steps -->
@@ -458,14 +506,18 @@ Delete the key you created for this lab. Then delete the `ticket-summarizer` fol
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-az aigateway api-key delete -g "$RG" --gateway-name "$GATEWAY" -n app-coding-agent --yes
+# Delete the API key that you created for this lab, so that it stops working everywhere
+az aigateway api-key delete -g "$RG" --gateway-name "$GATEWAY" -n app-coding-agent --yes &&
+  echo "🧹 API key app-coding-agent is deleted"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Delete the API key that you created for this lab, so that it stops working everywhere
 az aigateway api-key delete -g $RG --gateway-name $GATEWAY -n app-coding-agent --yes
+if ($?) { Write-Host "🧹 API key app-coding-agent is deleted" }
 ```
 </details> <!-- gh -->
 
@@ -494,7 +546,9 @@ Optionally, remove the plugin. In Cursor, remove it where you installed it.
 <details><summary>Gemini CLI</summary> <!-- gh -->
 
 ```bash title="Gemini CLI"
+# Remove the ai-gateway extension from Gemini CLI
 gemini extensions uninstall ai-gateway
+echo "🧹 The ai-gateway extension is removed from Gemini CLI"
 ```
 </details> <!-- gh -->
 

@@ -48,21 +48,35 @@ this lab you publish only the approved tools, block one explicitly, and give eac
 Set these variables once. Every track and the **Verify** section reuse them.
 
 ```bash title="Bash"
+# Name the resource group and the gateway that hold the learn MCP server from lab 04
 export RG="<resource-group>"
 export GATEWAY="<gateway>"
+echo "📝 Gateway $GATEWAY in $RG"
 
+# Read the gateway's runtime URL, which every MCP endpoint starts with
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
-# Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+
+# Paste the runtime key that you created in Access › Keys, without showing it
+# Don't commit the key or write it to a file
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 ```
 
 ```powershell title="PowerShell"
+# Name the resource group and the gateway that hold the learn MCP server from lab 04
 $RG         = "<resource-group>"
 $GATEWAY    = "<gateway>"
+Write-Host "📝 Gateway $GATEWAY in $RG"
 
+# Read the gateway's runtime URL, which every MCP endpoint starts with
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
-# Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+
+# Paste the runtime key that you created in Access › Keys, without showing it
+# Don't commit the key or write it to a file
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 ```
 
 ## How it works
@@ -131,7 +145,9 @@ The lab is a small azd project in the
 [Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
 
 ```bash title="Bash or PowerShell"
-cd ~/ai-gateway/labs/05-mcp-tool-controls
+# Move into the lab's folder, which holds the azd project and the scripts
+cd ~/ai-gateway/labs/05-mcp-tool-controls &&
+  echo "📂 Lab folder: ~/ai-gateway/labs/05-mcp-tool-controls"
 ```
 
 ### Review the templates
@@ -169,13 +185,23 @@ Create an azd environment named `aigw-lab05` in your current subscription, then 
 about three minutes.
 
 ```bash title="Bash"
-azd env new aigw-lab05 --location eastus2 --subscription "$(az account show --query id --output tsv)"
-azd up
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
+azd env new aigw-lab05 --location eastus2 --subscription "$(az account show --query id --output tsv)" &&
+  echo "📝 azd environment aigw-lab05 deploys to eastus2"
+
+# Provision the gateway, the learn MCP server with its tool controls and request rate limit, and the key
+azd up &&
+  echo "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)"
 ```
 
 ```powershell title="PowerShell"
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab05 --location eastus2 --subscription (az account show --query id --output tsv)
+if ($?) { Write-Host "📝 azd environment aigw-lab05 deploys to eastus2" }
+
+# Provision the gateway, the learn MCP server with its tool controls and request rate limit, and the key
 azd up
+if ($?) { Write-Host "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)" }
 ```
 
 For another region, use its name from [Find the available
@@ -187,21 +213,39 @@ Set the variables that the next sections and **Verify** use from azd's environme
 the gateway, so that it never shows on screen.
 
 ```bash title="Bash"
+# Read the template's outputs: the resource group, the gateway, and its runtime URL
 export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
 export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
 export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
+echo "📝 Gateway $GATEWAY in $RG"
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+
+# Read the key from the gateway, so that it never lands in a file or a deployment log
 export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$(azd env get-value AI_GATEWAY_ID)/apiKeys/app-first-call" \
   --query primaryKey --output tsv)"
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
+
+# Show the tools that the learn MCP server publishes and the tools it blocks
+echo "🛠️ Tool controls on the learn MCP server:"
 az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn --query "properties.{allowList:allowList,blocked:blocked}"
 ```
 
 ```powershell title="PowerShell"
+# Read the template's outputs: the resource group, the gateway, its runtime URL, and its resource ID
 $RG                     = azd env get-value AZURE_RESOURCE_GROUP
 $GATEWAY                = azd env get-value AI_GATEWAY_NAME
 $env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
 $GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
+Write-Host "📝 Gateway $GATEWAY in $RG"
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+
+# Read the key from the gateway, so that it never lands in a file or a deployment log
 $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" `
   --query primaryKey --output tsv
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
+
+# Show the tools that the learn MCP server publishes and the tools it blocks
+Write-Host "🛠️ Tool controls on the learn MCP server:"
 az aigateway mcp show -g $RG --gateway-name $GATEWAY -n learn --query "properties.{allowList:allowList,blocked:blocked}"
 ```
 
@@ -222,10 +266,14 @@ Run the script from [Federate MCP tools behind one endpoint](../04-federate-mcp-
 includes a copy, so run it from this lab's folder. It lists the tools and calls an allowed one.
 
 ```bash title="Bash"
+# List the tools that the learn MCP server publishes, then call the allowed search tool
+echo "🛠️ Tools on the learn MCP server, and a call to learn_microsoft_docs_search:"
 ./infra/list-tools.sh learn learn_microsoft_docs_search "What is AI Gateway?"
 ```
 
 ```powershell title="PowerShell"
+# List the tools that the learn MCP server publishes, then call the allowed search tool
+Write-Host "🛠️ Tools on the learn MCP server, and a call to learn_microsoft_docs_search:"
 ./infra/list-tools.ps1 -Server learn -Tool learn_microsoft_docs_search -Query "What is AI Gateway?"
 ```
 
@@ -255,10 +303,14 @@ select **Save**.
 ### Confirm that clients can't connect
 
 ```bash title="Bash"
+# Try to connect to the blocked server: the MCP handshake fails before any backend is called
+echo "🚦 Expect initialize to fail with AccessBlockedByGateway:"
 ./infra/list-tools.sh learn
 ```
 
 ```powershell title="PowerShell"
+# Try to connect to the blocked server: the MCP handshake fails before any backend is called
+Write-Host "🚦 Expect initialize to fail with AccessBlockedByGateway:"
 ./infra/list-tools.ps1 -Server learn
 ```
 
@@ -277,22 +329,36 @@ confirm that the four tools are back.
 Set `MCP_SERVER_ACCESS` to `blocked` and provision again. Only the MCP server changes.
 
 ```bash title="Bash"
-azd env set MCP_SERVER_ACCESS blocked
-azd provision
+# Set the server's access to blocked in the azd environment
+azd env set MCP_SERVER_ACCESS blocked &&
+  echo "📝 MCP_SERVER_ACCESS is blocked"
+
+# Provision again, which updates only the MCP server
+azd provision &&
+  echo "🔌 The learn MCP server is blocked"
 ```
 
 ```powershell title="PowerShell"
+# Set the server's access to blocked in the azd environment
 azd env set MCP_SERVER_ACCESS blocked
+if ($?) { Write-Host "📝 MCP_SERVER_ACCESS is blocked" }
+
+# Provision again, which updates only the MCP server
 azd provision
+if ($?) { Write-Host "🔌 The learn MCP server is blocked" }
 ```
 
 ### Confirm that clients can't connect
 
 ```bash title="Bash"
+# Try to connect to the blocked server: the MCP handshake fails before any backend is called
+echo "🚦 Expect initialize to fail with AccessBlockedByGateway:"
 ./infra/list-tools.sh learn
 ```
 
 ```powershell title="PowerShell"
+# Try to connect to the blocked server: the MCP handshake fails before any backend is called
+Write-Host "🚦 Expect initialize to fail with AccessBlockedByGateway:"
 ./infra/list-tools.ps1 -Server learn
 ```
 
@@ -302,14 +368,30 @@ The script stops at `initialize`. The gateway answers with HTTP `200` and a JSON
 ### Turn the server back on
 
 ```bash title="Bash"
-azd env set MCP_SERVER_ACCESS active
-azd provision
+# Set the server's access back to active in the azd environment
+azd env set MCP_SERVER_ACCESS active &&
+  echo "📝 MCP_SERVER_ACCESS is active"
+
+# Provision again, which updates only the MCP server
+azd provision &&
+  echo "🔌 The learn MCP server is active"
+
+# List the tools again, to confirm that clients can connect
+echo "🛠️ Tools on the learn MCP server:"
 ./infra/list-tools.sh learn
 ```
 
 ```powershell title="PowerShell"
+# Set the server's access back to active in the azd environment
 azd env set MCP_SERVER_ACCESS active
+if ($?) { Write-Host "📝 MCP_SERVER_ACCESS is active" }
+
+# Provision again, which updates only the MCP server
 azd provision
+if ($?) { Write-Host "🔌 The learn MCP server is active" }
+
+# List the tools again, to confirm that clients can connect
+Write-Host "🛠️ Tools on the learn MCP server:"
 ./infra/list-tools.ps1 -Server learn
 ```
 
@@ -364,30 +446,46 @@ Policies live inline in the MCP server's `properties.policies` array. `az aigate
 The command is the same in Bash and PowerShell.
 
 ```bash
+# Read the policies on the learn MCP server, so that you can keep the ones you don't change
+echo "🛡️ Policies on the learn MCP server:"
 az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn --query properties.policies
 ```
 
-The command prints nothing if the server has never had a policy, and `[]` if you removed its last one.
+The `mcp show` command prints nothing if the server has never had a policy, and `[]` if you removed its last one.
 
 ### Replace the request rate limit and keep everything else
 
 ```bash title="Bash"
+# Read the whole MCP server, keep every policy except the request rate limit, and add the new one:
+# 5 calls per 30 seconds for each caller identity, in a file that --policies reads with the @ prefix
 az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn -o json | jq -c '
     [(.properties.policies // [])[] | select(.type != "requestRateLimit")]
-    + [{type: "requestRateLimit", callsPerPeriod: 5, periodSeconds: 30, counterKey: ["identity"]}]' > policies.json
+    + [{type: "requestRateLimit", callsPerPeriod: 5, periodSeconds: 30, counterKey: ["identity"]}]' > policies.json &&
+  echo "📄 policies.json has the merged policies"
+
+# Replace the server's whole policies array with the file, show the result, and delete the file
 az aigateway mcp update -g "$RG" --gateway-name "$GATEWAY" -n learn --policies @policies.json \
-  --query properties.policies
+  --query properties.policies &&
+  echo "🛡️ Request rate limit of 5 calls per 30 seconds is on learn"
 rm policies.json
 ```
 
 ```powershell title="PowerShell"
+# Read the whole MCP server, keep every policy except the request rate limit, and add the new one:
+# 5 calls per 30 seconds for each caller identity
 $current  = az aigateway mcp show -g $RG --gateway-name $GATEWAY -n learn -o json | ConvertFrom-Json
 $policies = @($current.properties.policies | Where-Object { $_ -and $_.type -ne 'requestRateLimit' })
 $policies += [pscustomobject]@{ type = 'requestRateLimit'; callsPerPeriod = 5; periodSeconds = 30; counterKey = @('identity') }
+Write-Host "📝 Policies to write: $($policies.Count), including the request rate limit"
 
+# Write the merged array to a file, which --policies reads with the @ prefix
 ConvertTo-Json -Depth 10 -Compress -InputObject $policies | Set-Content -Path policies.json
+if ($?) { Write-Host "📄 policies.json has the merged policies" }
+
+# Replace the server's whole policies array with the file, show the result, and delete the file
 az aigateway mcp update -g $RG --gateway-name $GATEWAY -n learn --policies "@policies.json" `
   --query properties.policies
+if ($?) { Write-Host "🛡️ Request rate limit of 5 calls per 30 seconds is on learn" }
 Remove-Item policies.json
 ```
 
@@ -421,6 +519,8 @@ shared counter.
 with `callsPerPeriod`, `periodSeconds`, and `counterKey`. The command is the same in Bash and PowerShell.
 
 ```bash
+# Read the policies on the learn MCP server that azd up created
+echo "🛡️ Policies on the learn MCP server:"
 az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn --query properties.policies
 ```
 
@@ -435,13 +535,23 @@ provision again. `REQUEST_RATE_LIMIT` and `REQUEST_RATE_LIMIT_PERIOD` work the s
 `REQUEST_RATE_LIMIT` `0` removes the policy.
 
 ```bash title="Bash"
-azd env set REQUEST_RATE_LIMIT_COUNTER_KEY '["ipAddress"]'
-azd provision
+# Count calls per client IP address instead of per key, in the azd environment
+azd env set REQUEST_RATE_LIMIT_COUNTER_KEY '["ipAddress"]' &&
+  echo "📝 REQUEST_RATE_LIMIT_COUNTER_KEY is set to ipAddress"
+
+# Provision again, which updates the learn MCP server's request rate limit
+azd provision &&
+  echo "🛡️ The request rate limit on learn counts calls per client IP address"
 ```
 
 ```powershell title="PowerShell"
+# Count calls per client IP address instead of per key, in the azd environment
 azd env set REQUEST_RATE_LIMIT_COUNTER_KEY '["ipAddress"]'
+if ($?) { Write-Host "📝 REQUEST_RATE_LIMIT_COUNTER_KEY is set to ipAddress" }
+
+# Provision again, which updates the learn MCP server's request rate limit
 azd provision
+if ($?) { Write-Host "🛡️ The request rate limit on learn counts calls per client IP address" }
 ```
 
 Use `'["identity","ipAddress"]'` for both. Set it back to `'["identity"]'` before **Verify**.
@@ -461,10 +571,14 @@ fresh window.
 The code sample tool is still listed, but the gateway refuses to run it:
 
 ```bash title="Bash"
+# List the tools, then try to call the code sample tool, which is listed but blocked
+echo "🚦 Expect the call to learn_microsoft_code_sample_search to fail:"
 ./infra/list-tools.sh learn learn_microsoft_code_sample_search "Python MCP client"
 ```
 
 ```powershell title="PowerShell"
+# List the tools, then try to call the code sample tool, which is listed but blocked
+Write-Host "🚦 Expect the call to learn_microsoft_code_sample_search to fail:"
 ./infra/list-tools.ps1 -Server learn -Tool learn_microsoft_code_sample_search -Query "Python MCP client"
 ```
 
@@ -476,10 +590,14 @@ the gateway's error. The Learn backend never receives the call.
 Wait 30 seconds, then send a handshake followed by eight `tools/list` requests:
 
 ```bash title="Bash"
+# Send the MCP handshake and eight tools/list requests, and print the status and Retry-After of each one
+echo "🚦 Expect 429 Too Many Requests after the limit of 5 calls per 30 seconds:"
 ./infra/trigger-request-rate.sh learn 8
 ```
 
 ```powershell title="PowerShell"
+# Send the MCP handshake and eight tools/list requests, and print the status and Retry-After of each one
+Write-Host "🚦 Expect 429 Too Many Requests after the limit of 5 calls per 30 seconds:"
 ./infra/trigger-request-rate.ps1 -Server learn -Requests 8
 ```
 
@@ -489,6 +607,7 @@ On GitHub, open [trigger-request-rate.sh](infra/trigger-request-rate.sh) or
 Expected output (your `Retry-After` values will differ):
 
 ```text
+🚦 Expect 429 Too Many Requests after the limit of 5 calls per 30 seconds:
 Request  Method                      Status  Retry-After
 1        initialize                  200     -
 2        notifications/initialized   202     -
@@ -515,6 +634,8 @@ Right after the burst, while you're still throttled, send one raw request and lo
 headers. If it returns `200`, the window has already renewed. Run the burst again, then this command.
 
 ```bash
+# Send one raw tools/list request, and show its status line, headers, and body
+echo "🚦 Expect HTTP 429 with a retry-after header:"
 curl -i "${AI_GATEWAY_URL%/}/default/toolservers/learn/mcp" \
   -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
@@ -560,19 +681,32 @@ A 5-call limit will throttle real agents. Remove it, and open the tool catalog a
 ### Remove the policy
 
 ```bash title="Bash"
+# Read the whole MCP server, and keep every policy except the request rate limit, in a file for --policies
 az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn -o json \
-  | jq -c '[(.properties.policies // [])[] | select(.type != "requestRateLimit")]' > policies.json
+  | jq -c '[(.properties.policies // [])[] | select(.type != "requestRateLimit")]' > policies.json &&
+  echo "📄 policies.json has every policy except the request rate limit"
+
+# Replace the server's whole policies array with the file, show the result, and delete the file
 az aigateway mcp update -g "$RG" --gateway-name "$GATEWAY" -n learn --policies @policies.json \
-  --query properties.policies
+  --query properties.policies &&
+  echo "🧹 Request rate limit is removed from learn"
 rm policies.json
 ```
 
 ```powershell title="PowerShell"
+# Read the whole MCP server, and keep every policy except the request rate limit
 $current  = az aigateway mcp show -g $RG --gateway-name $GATEWAY -n learn -o json | ConvertFrom-Json
 $policies = @($current.properties.policies | Where-Object { $_ -and $_.type -ne 'requestRateLimit' })
+Write-Host "📝 Policies to keep: $($policies.Count)"
+
+# Write the remaining policies to a file, which --policies reads with the @ prefix
 ConvertTo-Json -Depth 10 -Compress -InputObject $policies | Set-Content -Path policies.json
+if ($?) { Write-Host "📄 policies.json has every policy except the request rate limit" }
+
+# Replace the server's whole policies array with the file, show the result, and delete the file
 az aigateway mcp update -g $RG --gateway-name $GATEWAY -n learn --policies "@policies.json" `
   --query properties.policies
+if ($?) { Write-Host "🧹 Request rate limit is removed from learn" }
 Remove-Item policies.json
 ```
 
@@ -588,16 +722,23 @@ server, and the key. [`--purge`](../SETUP.md#delete-what-azd-created) also purge
 about ten minutes.
 
 ```bash
-azd down --purge --force
+# Delete everything that azd up created, and purge the soft-deleted resources
+azd down --purge --force &&
+  echo "🧹 Everything that azd up created is deleted"
 ```
 
 To keep this gateway for other labs instead, skip `azd down`. Open the catalog and remove the limit:
 
 ```bash
+# Allow all tools, block none, and set the request rate limit to 0, which removes it
 azd env set MCP_ALLOWED_TOOLS '["*"]'
 azd env set MCP_BLOCKED_TOOLS '[]'
-azd env set REQUEST_RATE_LIMIT 0
-azd provision
+azd env set REQUEST_RATE_LIMIT 0 &&
+  echo "📝 The azd environment allows all tools, blocks none, and has no request rate limit"
+
+# Provision again, which updates only the learn MCP server
+azd provision &&
+  echo "🔌 The learn MCP server publishes every tool, with no request rate limit"
 ```
 
 <!-- /tracks -->

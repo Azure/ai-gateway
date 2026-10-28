@@ -56,37 +56,57 @@ called.
 Set these variables once. Both tracks and the **Verify** section reuse them. Use the `app-dev` key here.
 
 ```bash title="Bash"
+# Name your gateway, its model provider, and the backend model that gets the budget
 export RG="<resource-group>"
 export GATEWAY="<gateway>"                 # 24 characters or fewer
 export PROVIDER="<provider-name>"          # for example foundry-models
 export MODEL="<model-name>"                # the backend model name under that provider
 
+# Read the gateway's resource ID, and build the management URL of its default workspace for the az rest calls
 export API="api-version=2025-09-01-preview"
 export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
 export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
+echo "🆔 Gateway: $GATEWAY_ID"
+
+# Read the gateway's runtime URL, which apps call
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
-# For Foundry imports, the default alias matches the deployment's model name.
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+
+# Read the alias that apps send in the model field: for Foundry imports, it matches the deployment's model name
 export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" \
   -n "$MODEL" --query properties.deployment.modelName -o tsv)"
-# Paste the app-dev runtime key from Access › Keys. Don't commit it or write it to a file.
+echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+
+# Paste the app-dev runtime key from Access › Keys, without showing it: don't commit it or write it to a file
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 ```
 
 ```powershell title="PowerShell"
+# Name your gateway, its model provider, and the backend model that gets the budget
 $RG         = "<resource-group>"
 $GATEWAY    = "<gateway>"                 # 24 characters or fewer
 $PROVIDER   = "<provider-name>"           # for example foundry-models
 $MODEL      = "<model-name>"              # the backend model name under that provider
 
+# Read the gateway's resource ID, and build the management URL of its default workspace for the az rest calls
 $API        = "api-version=2025-09-01-preview"
 $GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
 $WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
+Write-Host "🆔 Gateway: $GATEWAY_ID"
+
+# Read the gateway's runtime URL, which apps call
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
-# For Foundry imports, the default alias matches the deployment's model name.
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+
+# Read the alias that apps send in the model field: for Foundry imports, it matches the deployment's model name
 $env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER `
   -n $MODEL --query properties.deployment.modelName -o tsv
-# Paste the app-dev runtime key from Access › Keys. Don't commit it or write it to a file.
+Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+
+# Paste the app-dev runtime key from Access › Keys, without showing it: don't commit it or write it to a file
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 ```
 
 ## How it works
@@ -201,9 +221,13 @@ set cost limits. Policies live inline in the model's `properties.policies` array
 whole array**, so always read it first and keep the policies you didn't mean to change.
 
 ```bash
+# Read your subscription ID, and build the management URL of your model, which holds its policies
 SUB="$(az account show --query id -o tsv)"
 URL="https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY/workspaces/default/modelProviders/$PROVIDER/models/$MODEL?api-version=2025-09-01-preview"
+echo "🆔 Subscription: $SUB"
 
+# Read the model's current policies, so that you know what the merge must keep
+echo "🛡️ Policies on $MODEL:"
 az rest --method get --url "$URL" --query properties.policies
 ```
 
@@ -214,8 +238,12 @@ so the merge below updates an existing `costLimit` in place (keeping its `id` an
 creates a new one, with a fresh GUID, when none exists.
 
 ```bash title="Bash"
+# Choose the default budget: 5 US dollars for each caller, renewed every day
 BUDGET=5
 PERIOD=day
+
+# Read the policies, then update the cost limit in place, keeping its id and overrides,
+# or add a new one with a fresh GUID when there's none
 POLICIES="$(az rest --method get --url "$URL" | jq -c \
   --argjson amount "$BUDGET" --arg period "$PERIOD" --arg id "$(uuidgen | tr 'A-Z' 'a-z')" '
   .properties.policies // [] | . as $p
@@ -226,15 +254,23 @@ POLICIES="$(az rest --method get --url "$URL" | jq -c \
     else $p + [{"type":"costLimit","id":$id,"amount":$amount,"period":$period,"counterKey":["identity"]}]
     end')"
 
-az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}"
+# Send the merged array back: a PATCH replaces the whole policies array
+az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}" --output none &&
+  echo "🛡️ Cost limit of \$$BUDGET per $PERIOD for each caller is on $MODEL"
 ```
 
 ```powershell title="PowerShell"
+# Choose the default budget: 5 US dollars for each caller, renewed every day
 $BUDGET = 5
 $PERIOD = 'day'
+
+# Read your subscription ID, and build the management URL of your model, which holds its policies
 $SUB = az account show --query id -o tsv
 $URL = "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY/workspaces/default/modelProviders/$PROVIDER/models/$MODEL`?api-version=2025-09-01-preview"
+Write-Host "🆔 Subscription: $SUB"
 
+# Read the policies, then update the cost limit in place, keeping its id and overrides,
+# or add a new one with a fresh GUID when there's none
 $current  = az rest --method get --url $URL | ConvertFrom-Json
 $policies = @($current.properties.policies | Where-Object { $_ })
 $cost     = $policies | Where-Object { $_.type -eq 'costLimit' } | Select-Object -First 1
@@ -248,9 +284,11 @@ if ($cost) {
   }
 }
 
+# Send the merged array back from a file, which keeps the JSON quotes intact: a PATCH replaces the whole array
 $body = @{ properties = @{ policies = $policies } } | ConvertTo-Json -Depth 10 -Compress
 $body | Set-Content -Path patch.json
-az rest --method patch --url $URL --body '@patch.json'
+az rest --method patch --url $URL --body '@patch.json' --output none
+if ($?) { Write-Host "🛡️ Cost limit of `$$BUDGET per $PERIOD for each caller is on $MODEL" }
 Remove-Item patch.json
 ```
 
@@ -299,7 +337,9 @@ The lab is a small azd project in the
 [Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
 
 ```bash title="Bash or PowerShell"
-cd ~/ai-gateway/labs/07-cost-budgets
+# Move into the lab's folder, which holds the azd project
+cd ~/ai-gateway/labs/07-cost-budgets &&
+  echo "📂 Lab folder: ~/ai-gateway/labs/07-cost-budgets"
 ```
 
 ### Review the templates
@@ -321,13 +361,23 @@ Create an azd environment named `aigw-lab07` in your current subscription, then 
 about three minutes.
 
 ```bash title="Bash"
-azd env new aigw-lab07 --location eastus2 --subscription "$(az account show --query id --output tsv)"
-azd up
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
+azd env new aigw-lab07 --location eastus2 --subscription "$(az account show --query id --output tsv)" &&
+  echo "📝 azd environment aigw-lab07 deploys to eastus2"
+
+# Provision the gateway, the Foundry model, the app-dev and support-bot keys, and the budgeted alias
+azd up &&
+  echo "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)"
 ```
 
 ```powershell title="PowerShell"
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab07 --location eastus2 --subscription (az account show --query id --output tsv)
+if ($?) { Write-Host "📝 azd environment aigw-lab07 deploys to eastus2" }
+
+# Provision the gateway, the Foundry model, the app-dev and support-bot keys, and the budgeted alias
 azd up
+if ($?) { Write-Host "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)" }
 ```
 
 For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
@@ -339,37 +389,55 @@ Set the variables that **Verify** and **Go further** use from azd's environment 
 from the gateway, so that it never shows on screen.
 
 ```bash title="Bash"
+# Read the template's outputs: the resource group, the gateway, its model provider, and the backend model
 export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
 export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
 export PROVIDER="$(azd env get-value AI_GATEWAY_PROVIDER)"
 export MODEL="$(azd env get-value AI_GATEWAY_BACKEND_MODEL)"
+
+# Read the gateway's resource ID, and build the management URL of its default workspace for the az rest calls
 export API="api-version=2025-09-01-preview"
 export GATEWAY_ID="$(azd env get-value AI_GATEWAY_ID)"
 export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
+
+# Read the gateway's runtime URL and the budgeted alias
 export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
 export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
+
+# Read the app-dev key from the gateway, so that it never lands in a file or a deployment log
 export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-dev" \
   --query primaryKey --output tsv)"
-echo "$AI_GATEWAY_MODEL"
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
+echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
 ```
 
 ```powershell title="PowerShell"
+# Read the template's outputs: the resource group, the gateway, its model provider, and the backend model
 $RG                     = azd env get-value AZURE_RESOURCE_GROUP
 $GATEWAY                = azd env get-value AI_GATEWAY_NAME
 $PROVIDER               = azd env get-value AI_GATEWAY_PROVIDER
 $MODEL                  = azd env get-value AI_GATEWAY_BACKEND_MODEL
+
+# Read the gateway's resource ID, and build the management URL of its default workspace for the az rest calls
 $API                    = "api-version=2025-09-01-preview"
 $GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
 $WS                     = "https://management.azure.com$GATEWAY_ID/workspaces/default"
+
+# Read the gateway's runtime URL and the budgeted alias
 $env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
 $env:AI_GATEWAY_MODEL   = azd env get-value AI_GATEWAY_MODEL
+
+# Read the app-dev key from the gateway, so that it never lands in a file or a deployment log
 $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-dev" `
   --query primaryKey --output tsv
-$env:AI_GATEWAY_MODEL
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
+Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
 ```
 
 > **Checkpoint**
-> `azd up` ended with `SUCCESS`, and the last command printed the budgeted alias, `gpt-6-luna-budget`.
+> `azd up` ended with `SUCCESS`, and the last command printed `🏷️ Model alias: gpt-6-luna-budget`.
 > `az rest --url "$WS/aliases/$AI_GATEWAY_MODEL?$API" --query properties.policies` returns one `costLimit` entry
 > with `"amount": 5.0`, `"period": "day"`, `"counterKey": ["identity"]`, and two `overrides`: `"amount": 50.0`
 > with the `apiKeyResourceId` of `support-bot`, and `"amount": 20.0` with your `oid` and `tid` claims.
@@ -403,13 +471,23 @@ the new budget earlier today.
 On the Bicep + azd track, a call to `gpt-6-luna` costs about $0.0001, so set the budget to `0.001`:
 
 ```bash title="Bash"
-azd env set COST_LIMIT_AMOUNT 0.001
-azd provision
+# Lower the default budget to $0.001 for each caller, in the azd environment
+azd env set COST_LIMIT_AMOUNT 0.001 &&
+  echo "📝 COST_LIMIT_AMOUNT is 0.001"
+
+# Deploy the change: only the budgeted alias changes, and it keeps its policy id and the spend so far
+azd provision &&
+  echo "🛡️ Default budget on $AI_GATEWAY_MODEL is now \$0.001 for each caller"
 ```
 
 ```powershell title="PowerShell"
+# Lower the default budget to $0.001 for each caller, in the azd environment
 azd env set COST_LIMIT_AMOUNT 0.001
+if ($?) { Write-Host "📝 COST_LIMIT_AMOUNT is 0.001" }
+
+# Deploy the change: only the budgeted alias changes, and it keeps its policy id and the spend so far
 azd provision
+if ($?) { Write-Host "🛡️ Default budget on $env:AI_GATEWAY_MODEL is now `$0.001 for each caller" }
 ```
 
 ### Run the requests
@@ -418,10 +496,14 @@ From the lab folder, run the script for your shell. It prints the status, the er
 any response header whose name mentions budget, cost, or remaining.
 
 ```bash title="Bash"
+# Send 10 requests with the app-dev key, and print the status, the tokens used, and the budget headers of each
+echo "🚦 Expect 403 once app-dev's estimated spend reaches the budget:"
 ./infra/trigger-cost-limit.sh "$AI_GATEWAY_MODEL" 10
 ```
 
 ```powershell title="PowerShell"
+# Send 10 requests with the app-dev key, and print the status, the tokens used, and the budget headers of each
+Write-Host "🚦 Expect 403 once app-dev's estimated spend reaches the budget:"
 ./infra/trigger-cost-limit.ps1 -Model $env:AI_GATEWAY_MODEL -Requests 10
 ```
 
@@ -432,6 +514,7 @@ Example output with a $0.001 budget on the alias from the Bicep + azd track (you
 successful calls, and the header values will differ):
 
 ```text
+🚦 Expect 403 once app-dev's estimated spend reaches the budget:
 Request  Status  Error code               Tokens used  Budget headers
 1        200     -                        223          …; x-alias-cost-per-day-remaining=…; x-alias-cost-per-day-consumed=0.000101900
 2        200     -                        221          …; x-alias-cost-per-day-remaining=…; x-alias-cost-per-day-consumed=0.000100900
@@ -451,6 +534,8 @@ small overshoot described in [How it works](#how-it-works).
 Look at the full headers and body of a single blocked call:
 
 ```bash
+# Send one more request with the app-dev key, and show the whole response: the status line, the headers, and the body
+echo "🚦 Expect 403 with the message LLM cost quota is exceeded:"
 curl -i "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions" \
   -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
   -d "{\"model\":\"$AI_GATEWAY_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
@@ -470,14 +555,24 @@ script again. Every request succeeds, because that key has its own counter and a
 track, read that key from the gateway instead:
 
 ```bash title="Bash"
+# Read the support-bot key from the gateway, so that it never shows on screen
 export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/support-bot" \
   --query primaryKey --output tsv)"
+echo "🔑 support-bot key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
+
+# Send the same 10 requests with support-bot, which has its own counter and a $50 override
+echo "📊 Expect 200 for every request, because support-bot has its own \$50 budget:"
 ./infra/trigger-cost-limit.sh "$AI_GATEWAY_MODEL" 10
 ```
 
 ```powershell title="PowerShell"
+# Read the support-bot key from the gateway, so that it never shows on screen
 $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/support-bot" `
   --query primaryKey --output tsv
+Write-Host "🔑 support-bot key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
+
+# Send the same 10 requests with support-bot, which has its own counter and a $50 override
+Write-Host "📊 Expect 200 for every request, because support-bot has its own `$50 budget:"
 ./infra/trigger-cost-limit.ps1 -Model $env:AI_GATEWAY_MODEL -Requests 10
 ```
 
@@ -532,8 +627,12 @@ production **Budget amount**. If you created runtime keys only for this lab, rev
 ### Remove the cost limit
 
 ```bash
+# Read the policies, and keep every one except the cost limit
 POLICIES="$(az rest --method get --url "$URL" | jq -c '[(.properties.policies // [])[] | select(.type != "costLimit")]')"
-az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}"
+
+# Send the array back without the cost limit: a PATCH replaces the whole policies array
+az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}" --output none &&
+  echo "🧹 Cost limit is removed from $MODEL"
 ```
 
 To keep the policy instead, run the merge again with a production budget, for example `BUDGET=100`.
@@ -547,7 +646,9 @@ keys, and the budgeted alias. [`--purge`](../SETUP.md#delete-what-azd-created) a
 account. It takes about ten minutes.
 
 ```bash
-azd down --purge --force
+# Delete everything that azd up created, and purge the Foundry account
+azd down --purge --force &&
+  echo "🧹 Everything that azd up created is deleted"
 ```
 
 To keep this gateway for other labs instead, skip `azd down` and raise the budget to a production value:

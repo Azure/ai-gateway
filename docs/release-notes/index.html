@@ -92,6 +92,11 @@ likely causes and fixes, in one section per lab, plus
 <a href="../troubleshooting/#setup-and-deployment">Setup and deployment</a>.
 On the site, you can filter it by an error code or a word from the message, and site search finds each lab&#39;s
 section. Each lab&#39;s <strong>Troubleshooting</strong> section and its right rail link to its section on the page.</li>
+<li><strong>October 28.</strong> Every Azure CLI, azd, and REST command in the labs, the <a href="../labs/quickstart/">quick start</a>, and
+the <a href="../setup/">Setup guide</a> now has a comment that explains what it does, in both Bash and PowerShell. After it
+runs, it prints a short status line with an emoji, such as <code>🚀 Gateway aigw-1a2b3c is ready</code> or
+<code>🤖 &lt;the model&#39;s reply&gt;</code>. Status lines print only when the command succeeds, and keys and tokens are never
+printed: only their length is. <a href="https://github.com/Azure/ai-gateway/blob/main/labs/AUTHORING.md#cli-comments-and-status-lines" target="_blank" rel="noopener">Authoring<span class="ext" aria-hidden="true">↗</span></a> lists the conventions.</li>
 <li><strong>October 28.</strong> The labs no longer describe AI Gateway as a preview service or say that the gateway is free
 during the preview. <a href="../labs/00-how-ai-gateway-works/">Lab 00</a> and the
 <a href="../setup/#check-your-subscription-and-permissions">Setup guide</a> point to the

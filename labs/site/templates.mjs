@@ -254,13 +254,14 @@ export function homePage({ rel, site, catalog, labs, totals, latest }) {
   const startHref = labUrl(rel, quick ? 'quickstart' : labs[0].slug);
   // Condensed from a real run of the quick start's Azure CLI track. One block per line, so narrow screens wrap with a hanging indent.
   const qsLines = [
-    ['qs-hang', '<span class="qs-dim">[1/4]</span> Start creating the gateway <span class="qs-hl qs-nb">aigw-14651e</span>'],
-    ['qs-hang', '<span class="qs-dim">[2/4]</span> Deploy <span class="qs-hl">gpt-6-luna</span> in Foundry'],
-    ['qs-hang', '<span class="qs-dim">[3/4]</span> Publish the model behind the alias <span class="qs-hl qs-nb">gpt-6-luna</span>'],
-    ['qs-hang', '<span class="qs-dim">[4/4]</span> Create the runtime key <span class="qs-nb">app-first-call</span>'],
-    ['qs-sub', '<span class="qs-ok">Ready</span> in 1 min 44 s'],
+    ['qs-st', '⏳ Gateway <span class="qs-hl qs-nb">aigw-540780</span> is provisioning in the background'],
+    ['qs-st', '🧠 Model deployment <span class="qs-hl">gpt-6-luna</span> is ready'],
+    ['qs-st', '🚀 Gateway <span class="qs-hl qs-nb">aigw-540780</span> <span class="qs-ok">is ready</span>'],
+    ['qs-st', '🏷️ Alias <span class="qs-hl">gpt-6-luna</span> is ready'],
+    ['qs-st', '🔑 API key <span class="qs-nb">app-first-call</span> is ready'],
+    ['qs-st qs-url', '🌐 Runtime URL: <span class="qs-hl">https://aigw-540780.eastus2-01.ai.gateway.azure.com</span>'],
     ['qs-gap qs-hang', '<span class="qs-prompt">$</span> curl $AI_GATEWAY_URL/…/chat/completions -H "api-key: …"'],
-    ['qs-reply', 'An AI gateway sits between applications and AI models to route requests while managing access, policies, and monitoring.'],
+    ['qs-st', '🤖 An AI gateway sits between applications and AI models, routing requests while managing access, security, and usage.'],
   ].map(([c, h]) => `<span class="qs-line${c ? ` ${c}` : ''}">${h}</span>`).join('');
 
   const trackCards = [

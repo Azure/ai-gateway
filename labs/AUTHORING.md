@@ -259,6 +259,49 @@ For secrets, use shell variables (`$AI_GATEWAY_API_KEY`) and show how to set the
 - Include files from the lab folder: `<!-- include: infra/main.bicep -->` (optional language: `<!-- include: infra/x.sh bash -->`).
   The site shows the file with a GitHub link and collapses long files. On GitHub, add a normal link next to it.
 
+#### CLI comments and status lines
+
+Every command in a Bash or PowerShell block has a `#` comment above it that says what it does and why, and prints a
+short status line with an emoji, so that readers see at a glance what happened. The
+[quick start](quickstart/README.md) is the model.
+
+- **Comments:** one line, two at most, starting with a verb, in sentence case with no trailing period. Explain
+  non-obvious flags and values, such as `--no-wait`, a capacity, or a role GUID. Separate the groups with blank
+  lines, and keep emoji out of comments.
+- **Status lines after actions:** in Bash, end the command with `&&` and indent
+  `echo "📦 Resource group $RG is ready"` on the next line. In PowerShell, add `if ($?) { Write-Host "…" }` on the
+  next line. Either way, the line prints only when the command succeeds, so a missing line means a failure.
+- **Values:** after a read into a variable, print it with a label, such as `echo "🌐 Runtime URL: $AI_GATEWAY_URL"`.
+  When the command's own output is the point (a table, a JSON body, headers, a stream), print a labeled header
+  line before it instead.
+- **Model replies:** format them with `jq -r 'if .choices then "🤖 \(…)" else "⚠️ \(.error.message // .)" end'`
+  in Bash and `if ($?) { Write-Host "🤖 $($reply.choices[0].message.content)" }` in PowerShell. Label a failure
+  that a policy causes on purpose, such as a 429, with 🚦.
+- **Secrets:** never print a key or a token. Print its length:
+  `echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"`.
+- **Blocks for either shell** (`title="Bash or PowerShell"`, untitled `bash` blocks with only `az`, `azd`, `cd`,
+  or `git` commands, and SDK installs): a comment, the command ending with `&&`, and a literal
+  `echo "<emoji> …"` with no variables on the next line. `&&` works in Bash and in PowerShell 7, which the labs
+  need.
+- **Pitfalls:** no `!` in Bash echo strings, and write `"${VAR}:"` instead of `"$VAR:"` in PowerShell strings.
+- Use the same emoji for the same kind of thing:
+
+  | Emoji | Use | Emoji | Use |
+  |---|---|---|---|
+  | 🧩 | Extension, SDK, or resource provider | 🔑 | API key, never its value |
+  | 📝 | Variables, settings, or an azd environment | 🪪 | Identity, sign-in, or token |
+  | 📦 | Resource group | 🛡️ | Policy, role assignment, or guardrail |
+  | 🏭 | Foundry account | 🌐 | URL or endpoint |
+  | 🧠 | Model or deployment | 🆔 | Resource or subscription ID |
+  | 🚀 | Gateway ready, deployment done, or app started | 📍 | Region |
+  | ⏳ | Waiting or provisioning in the background | 🤖 | Model or agent reply |
+  | 🔌 | Model provider, connector gateway, backend, or MCP server | 🚦 | Expected 429, 403, or 400 from a policy |
+  | 🏷️ | Alias | 📊 | Metrics, logs, queries, or a listing |
+  | 🛠️ | MCP tools | 🔒 | Private networking or DNS |
+  | 📂 | Folder or clone | 📄 | File written |
+  | 🧹 | Delete or purge | ✅ | Success or a summary |
+  | ⚠️ | An unexpected error | 💡 | A tip |
+
 ### Callouts and checkpoints
 
 ```markdown

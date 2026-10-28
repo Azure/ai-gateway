@@ -61,7 +61,7 @@ function write(rel, content) {
 function checkTemplate(lab, site) {
   if (!fs.existsSync(path.join(lab.dir, 'azure.yaml'))) return;
   const folder = `labs/${lab.slug}`;
-  const cd = new RegExp(`\\b(?:cd|Set-Location)\\s+\\S*${folder}\\s*$`, 'm');
+  const cd = new RegExp(`\\b(?:cd|Set-Location)\\s+\\S*${folder}\\s*(?:&&\\s*)?$`, 'm');
   const blocks = [...lab.content.matchAll(/^```[^\n]*\n([\s\S]*?)^```/gm)].map((m) => m[1]);
   const clones = blocks.filter((b) => /\bgit clone\b/.test(b) && b.includes(site.repo));
   if (!clones.length && !lab.content.includes('SETUP.md#clone-the-labs-repo')) {

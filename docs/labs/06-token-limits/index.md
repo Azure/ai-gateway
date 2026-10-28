@@ -46,31 +46,51 @@ you give each caller its own token allowance at the gateway, so a noisy neighbor
 Set these variables once. Every track and the **Verify** section reuse them.
 
 ```bash title="Bash"
+# Name the resource group, the gateway, the model provider, and the model that you published in lab 02
 export RG="<resource-group>"
 export GATEWAY="<gateway>"                 # 24 characters or fewer
 export PROVIDER="<provider-name>"          # for example foundry-models
 export MODEL="<model-name>"                # the backend model name under that provider
+echo "📝 Model $MODEL from $PROVIDER, on gateway $GATEWAY in $RG"
 
+# Read the gateway's runtime URL
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
-# A starting guess for the alias. Confirm it on the model's Aliases tab (lab 02) and replace it if it differs.
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+
+# Guess the alias from the model's deployment name
+# Confirm it on the model's Aliases tab (lab 02), and replace it if it differs
 export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" \
   -n "$MODEL" --query properties.deployment.modelName -o tsv)"
-# Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
+echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+
+# Paste the runtime key that you created in Access › Keys, without showing it
+# Don't commit the key or write it to a file
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 ```
 
 ```powershell title="PowerShell"
+# Name the resource group, the gateway, the model provider, and the model that you published in lab 02
 $RG         = "<resource-group>"
 $GATEWAY    = "<gateway>"                 # 24 characters or fewer
 $PROVIDER   = "<provider-name>"           # for example foundry-models
 $MODEL      = "<model-name>"              # the backend model name under that provider
+Write-Host "📝 Model $MODEL from $PROVIDER, on gateway $GATEWAY in $RG"
 
+# Read the gateway's runtime URL
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
-# A starting guess for the alias. Confirm it on the model's Aliases tab (lab 02) and replace it if it differs.
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+
+# Guess the alias from the model's deployment name
+# Confirm it on the model's Aliases tab (lab 02), and replace it if it differs
 $env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER `
   -n $MODEL --query properties.deployment.modelName -o tsv
-# Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
+Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+
+# Paste the runtime key that you created in Access › Keys, without showing it
+# Don't commit the key or write it to a file
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 ```
 
 > [!TIP]
@@ -150,13 +170,17 @@ Policies live in the model's `properties.policies` array. `az aigateway model po
 token limit, or replaces the one that's there, and keeps every other policy on the model.
 
 ```bash title="Bash"
+# Add a token limit to the model: 1,000 tokens per minute, with its own counter for each caller identity
 az aigateway model policy set-token-limit -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
-  --token-limit 1000 --token-period minute --token-counter-key Identity
+  --token-limit 1000 --token-period minute --token-counter-key Identity &&
+  echo "🛡️ Token limit of 1,000 tokens per minute is on $MODEL"
 ```
 
 ```powershell title="PowerShell"
+# Add a token limit to the model: 1,000 tokens per minute, with its own counter for each caller identity
 az aigateway model policy set-token-limit -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
   --token-limit 1000 --token-period minute --token-counter-key Identity
+if ($?) { Write-Host "🛡️ Token limit of 1,000 tokens per minute is on $MODEL" }
 ```
 
 The command prints the model's policies. `--token-period` accepts `minute` (the default), `hour`, or `day`.
@@ -166,10 +190,14 @@ The command prints the model's policies. `--token-period` accepts `minute` (the 
 ### Confirm the policy
 
 ```bash title="Bash"
+# List the model's policies, to check the token limit
+echo "🛡️ Policies on ${MODEL}:"
 az aigateway model policy list -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" -o json
 ```
 
 ```powershell title="PowerShell"
+# List the model's policies, to check the token limit
+Write-Host "🛡️ Policies on ${MODEL}:"
 az aigateway model policy list -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL -o json
 ```
 
@@ -185,33 +213,50 @@ Policies live inline in the model's `properties.policies` array. A `PATCH` **rep
 always read it first and keep the policies you didn't mean to change.
 
 ```bash
+# Read your subscription ID, and build the model's management URL, with the API version
 SUB="$(az account show --query id -o tsv)"
 URL="https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY/workspaces/default/modelProviders/$PROVIDER/models/$MODEL?api-version=2025-09-01-preview"
+echo "🆔 Subscription: $SUB"
 
+# Read the model's policies, so that you can keep the ones you don't change
+echo "🛡️ Policies on ${MODEL}:"
 az rest --method get --url "$URL" --query properties.policies
 ```
 
 ### Replace the token limit and keep everything else
 
 ```bash title="Bash"
+# Read the model, keep every policy except the token limit, and add the new one:
+# 1,000 tokens per minute, with its own counter for each caller identity
 POLICIES="$(az rest --method get --url "$URL" | jq -c '
   [(.properties.policies // [])[] | select(.type != "tokenLimit")]
   + [{"type":"tokenLimit","count":1000,"period":"minute","counterKey":["identity"]}]')"
+echo "📝 Policies to write: $(jq length <<< "$POLICIES"), including the token limit"
 
-az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}"
+# Replace the model's whole policies array with the merged one
+az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}" &&
+  echo "🛡️ Token limit of 1,000 tokens per minute is on $MODEL"
 ```
 
 ```powershell title="PowerShell"
+# Read your subscription ID, and build the model's management URL, with the API version
 $SUB = az account show --query id -o tsv
 $URL = "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY/workspaces/default/modelProviders/$PROVIDER/models/$MODEL`?api-version=2025-09-01-preview"
+Write-Host "🆔 Subscription: $SUB"
 
+# Read the model, keep every policy except the token limit, and add the new one:
+# 1,000 tokens per minute, with its own counter for each caller identity
 $current  = az rest --method get --url $URL | ConvertFrom-Json
 $policies = @($current.properties.policies | Where-Object { $_ -and $_.type -ne 'tokenLimit' })
 $policies += [pscustomobject]@{ type = 'tokenLimit'; count = 1000; period = 'minute'; counterKey = @('identity') }
+Write-Host "📝 Policies to write: $($policies.Count), including the token limit"
 
+# Write the request body to a file, which --body reads with the @ prefix, so that its quotes reach az intact
+# Then replace the model's whole policies array, and delete the file
 $body = @{ properties = @{ policies = $policies } } | ConvertTo-Json -Depth 10 -Compress
 $body | Set-Content -Path patch.json
 az rest --method patch --url $URL --body '@patch.json'
+if ($?) { Write-Host "🛡️ Token limit of 1,000 tokens per minute is on $MODEL" }
 Remove-Item patch.json
 ```
 
@@ -242,7 +287,9 @@ The lab is a small azd project in the
 [Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
 
 ```bash title="Bash or PowerShell"
-cd ~/ai-gateway/labs/06-token-limits
+# Move into the lab's folder, which holds the azd project and the scripts
+cd ~/ai-gateway/labs/06-token-limits &&
+  echo "📂 Lab folder: ~/ai-gateway/labs/06-token-limits"
 ```
 
 ### Review the templates
@@ -264,13 +311,23 @@ Create an azd environment named `aigw-lab06` in your current subscription, then 
 about three minutes.
 
 ```bash title="Bash"
-azd env new aigw-lab06 --location eastus2 --subscription "$(az account show --query id --output tsv)"
-azd up
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
+azd env new aigw-lab06 --location eastus2 --subscription "$(az account show --query id --output tsv)" &&
+  echo "📝 azd environment aigw-lab06 deploys to eastus2"
+
+# Provision the gateway, the Foundry model, its default alias, the limited alias with its token limit, and the key
+azd up &&
+  echo "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)"
 ```
 
 ```powershell title="PowerShell"
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab06 --location eastus2 --subscription (az account show --query id --output tsv)
+if ($?) { Write-Host "📝 azd environment aigw-lab06 deploys to eastus2" }
+
+# Provision the gateway, the Foundry model, its default alias, the limited alias with its token limit, and the key
 azd up
+if ($?) { Write-Host "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)" }
 ```
 
 For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
@@ -282,18 +339,27 @@ Set the variables that **Verify** uses from azd's environment values, and read t
 never shows on screen.
 
 ```bash title="Bash"
+# Read the template's outputs: the resource group, the gateway, the provider, the backend model, the runtime URL,
+# and the limited alias that apps send in the model field
 export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
 export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
 export PROVIDER="$(azd env get-value AI_GATEWAY_PROVIDER)"
 export MODEL="$(azd env get-value AI_GATEWAY_BACKEND_MODEL)"
 export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
 export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
+echo "📝 Model $MODEL from $PROVIDER, on gateway $GATEWAY in $RG"
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+
+# Read the key from the gateway, so that it never lands in a file or a deployment log
 export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$(azd env get-value AI_GATEWAY_ID)/apiKeys/app-first-call" \
   --query primaryKey --output tsv)"
-echo "$AI_GATEWAY_MODEL"
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
+echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
 ```
 
 ```powershell title="PowerShell"
+# Read the template's outputs: the resource group, the gateway, the provider, the backend model, the runtime URL,
+# the limited alias that apps send in the model field, and the gateway's resource ID
 $RG                     = azd env get-value AZURE_RESOURCE_GROUP
 $GATEWAY                = azd env get-value AI_GATEWAY_NAME
 $PROVIDER               = azd env get-value AI_GATEWAY_PROVIDER
@@ -301,14 +367,20 @@ $MODEL                  = azd env get-value AI_GATEWAY_BACKEND_MODEL
 $env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
 $env:AI_GATEWAY_MODEL   = azd env get-value AI_GATEWAY_MODEL
 $GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
+Write-Host "📝 Model $MODEL from $PROVIDER, on gateway $GATEWAY in $RG"
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+
+# Read the key from the gateway, so that it never lands in a file or a deployment log
 $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" `
   --query primaryKey --output tsv
-$env:AI_GATEWAY_MODEL
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
+Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
 ```
 
 > **Checkpoint**
-> `azd up` ended with `SUCCESS`, and the last command printed the limited alias, `gpt-6-luna-limited`. In the
-> portal, **Models** shows it next to `gpt-6-luna`, and **Policies** lists a **Token rate limit** scoped to it.
+> `azd up` ended with `SUCCESS`, and the last command printed the limited alias,
+> `🏷️ Model alias: gpt-6-luna-limited`. In the portal, **Models** shows it next to `gpt-6-luna`, and **Policies**
+> lists a **Token rate limit** scoped to it.
 
 ### Change the limit
 
@@ -317,13 +389,23 @@ per client IP address instead of per key, set `TOKEN_LIMIT_COUNTER_KEY` to a JSO
 the alias changes. `TOKEN_LIMIT` and `TOKEN_LIMIT_PERIOD` work the same way.
 
 ```bash title="Bash"
-azd env set TOKEN_LIMIT_COUNTER_KEY '["ipAddress"]'
-azd provision
+# Count tokens per client IP address instead of per key, in the azd environment
+azd env set TOKEN_LIMIT_COUNTER_KEY '["ipAddress"]' &&
+  echo "📝 TOKEN_LIMIT_COUNTER_KEY is set to ipAddress"
+
+# Provision again, which updates only the limited alias
+azd provision &&
+  echo "🛡️ The token limit on the limited alias counts tokens per client IP address"
 ```
 
 ```powershell title="PowerShell"
+# Count tokens per client IP address instead of per key, in the azd environment
 azd env set TOKEN_LIMIT_COUNTER_KEY '["ipAddress"]'
+if ($?) { Write-Host "📝 TOKEN_LIMIT_COUNTER_KEY is set to ipAddress" }
+
+# Provision again, which updates only the limited alias
 azd provision
+if ($?) { Write-Host "🛡️ The token limit on the limited alias counts tokens per client IP address" }
 ```
 
 Use `'["identity","ipAddress"]'` for both. Set it back to `'["identity"]'` before **Verify**, which proves the
@@ -344,10 +426,14 @@ From the lab folder, run the script for your shell. For each request it prints t
 tokens used, and the backend deployment's own `x-ratelimit-remaining-tokens` header.
 
 ```bash title="Bash"
+# Send eight chat completions to the alias, and print the status, Retry-After, and tokens of each one
+echo "🚦 Expect 429 Too Many Requests once the 1,000-token allowance runs out:"
 ./infra/trigger-token-limit.sh "$AI_GATEWAY_MODEL" 8
 ```
 
 ```powershell title="PowerShell"
+# Send eight chat completions to the alias, and print the status, Retry-After, and tokens of each one
+Write-Host "🚦 Expect 429 Too Many Requests once the 1,000-token allowance runs out:"
 ./infra/trigger-token-limit.ps1 -Model $env:AI_GATEWAY_MODEL -Requests 8
 ```
 
@@ -357,6 +443,7 @@ On GitHub, open [trigger-token-limit.sh](infra/trigger-token-limit.sh) or
 Expected output (your token counts will differ):
 
 ```text
+🚦 Expect 429 Too Many Requests once the 1,000-token allowance runs out:
 Request  Status  Retry-After  Tokens used  Backend tokens left
 1        200     -            231          9977
 2        200     -            214          9977
@@ -383,6 +470,8 @@ watch the status and `Retry-After`.
 Look at the full headers and body of a single throttled call:
 
 ```bash
+# Send one raw chat completion while you're throttled, and show its status line, headers, and body
+echo "🚦 Expect HTTP 429 with a Retry-After header:"
 curl -i "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions" \
   -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
   -d "{\"model\":\"$AI_GATEWAY_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
@@ -440,13 +529,17 @@ key for testing, revoke it in **Access** › **Keys**.
 ### Remove the policy
 
 ```bash title="Bash"
+# Remove only the token limit from the model, and keep every other policy
 az aigateway model policy remove -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
-  --remove-token-limit true
+  --remove-token-limit true &&
+  echo "🧹 Token limit is removed from $MODEL"
 ```
 
 ```powershell title="PowerShell"
+# Remove only the token limit from the model, and keep every other policy
 az aigateway model policy remove -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
   --remove-token-limit true
+if ($?) { Write-Host "🧹 Token limit is removed from $MODEL" }
 ```
 
 This removes only the token limit and keeps every other policy on the model. To keep a limit for real traffic
@@ -457,8 +550,13 @@ instead, run the **Set the token limit** step again with a production `count`, s
 ### Remove the policy
 
 ```bash
+# Read the model, and keep every policy except the token limit
 POLICIES="$(az rest --method get --url "$URL" | jq -c '[(.properties.policies // [])[] | select(.type != "tokenLimit")]')"
-az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}"
+echo "📝 Policies to keep: $(jq length <<< "$POLICIES")"
+
+# Replace the model's whole policies array with the remaining policies
+az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}" &&
+  echo "🧹 Token limit is removed from $MODEL"
 ```
 
 <!-- track: iac | Bicep + azd -->
@@ -470,7 +568,9 @@ the limited alias. [`--purge`](../SETUP.md#delete-what-azd-created) also purges 
 takes about ten minutes.
 
 ```bash
-azd down --purge --force
+# Delete everything that azd up created, and purge the soft-deleted Foundry account
+azd down --purge --force &&
+  echo "🧹 Everything that azd up created is deleted"
 ```
 
 To keep this gateway for other labs instead, skip `azd down` and raise the limit to a production value:

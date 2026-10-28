@@ -53,27 +53,39 @@ the same name.
 Set these variables once. Every track and the **Verify** section reuse them.
 
 ```bash title="Bash"
+# Name your gateway, the provider that you create in this lab, and the two Anthropic models
 export RG="<resource-group>"
 export GATEWAY="<gateway>"
 export PROVIDER="anthropic"               # the gateway provider you create in this lab
 export FAST_MODEL="claude-haiku-5-5"      # two models that your Anthropic key can call
 export SMART_MODEL="claude-sonnet-5-5"
+echo "📝 Gateway $GATEWAY in $RG, provider $PROVIDER, models $FAST_MODEL and $SMART_MODEL"
 
+# Read the gateway's runtime URL, which apps call
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+
 # Paste the gateway runtime key from lab 02, not the Anthropic key. Don't commit it or write it to a file.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 ```
 
 ```powershell title="PowerShell"
+# Name your gateway, the provider that you create in this lab, and the two Anthropic models
 $RG          = "<resource-group>"
 $GATEWAY     = "<gateway>"
 $PROVIDER    = "anthropic"                # the gateway provider you create in this lab
 $FAST_MODEL  = "claude-haiku-5-5"         # two models that your Anthropic key can call
 $SMART_MODEL = "claude-sonnet-5-5"
+Write-Host "📝 Gateway $GATEWAY in $RG, provider $PROVIDER, models $FAST_MODEL and $SMART_MODEL"
 
+# Read the gateway's runtime URL, which apps call
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+
 # Paste the gateway runtime key from lab 02, not the Anthropic key. Don't commit it or write it to a file.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 ```
 
 ## How it works
@@ -190,6 +202,8 @@ The provider, its models, and the aliases are child resources of the gateway's `
 point at your gateway by listing its model providers. The command is the same in Bash and PowerShell.
 
 ```bash
+# List the gateway's model providers, to check that the variables point at your gateway
+echo "🔌 Model providers on your gateway:"
 az aigateway model-provider list -g "$RG" --gateway-name "$GATEWAY" -o table
 ```
 
@@ -201,26 +215,44 @@ The command reads the Anthropic key from a hidden prompt, so it never lands in y
 output, like `az aigateway model-provider show`, never includes the key.
 
 ```bash title="Bash"
+# Read the Anthropic key from a hidden prompt, so that it never lands in your shell history
 read -rsp "Anthropic API key: " ANTHROPIC_API_KEY && echo
+echo "🔑 Anthropic key: in ANTHROPIC_API_KEY (${#ANTHROPIC_API_KEY} characters, not shown)"
+
+# Add Anthropic as a custom provider: the gateway stores the key and sends it in the x-api-key header
 az aigateway model-provider create -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" \
   --kind Custom --display-name "Anthropic" \
   --custom "$(jq -cn --arg key "$ANTHROPIC_API_KEY" '{
       endpoint: "https://api.anthropic.com",
       authentication: {kind: "ApiKey", apiKey: {headerName: "x-api-key", value: $key}}}')" \
-  --query "{name:name,kind:properties.kind,endpoint:properties.custom.endpoint}"
-unset ANTHROPIC_API_KEY
+  --query "{name:name,kind:properties.kind,endpoint:properties.custom.endpoint}" &&
+  echo "🔌 Model provider $PROVIDER is ready, and its key stays in the gateway"
+
+# Clear the key from your shell, now that the gateway stores it
+unset ANTHROPIC_API_KEY &&
+  echo "🧹 ANTHROPIC_API_KEY is cleared from this shell"
 ```
 
 ```powershell title="PowerShell"
+# Read the Anthropic key from a hidden prompt, so that it never lands in your shell history
 $key = Read-Host "Anthropic API key" -MaskInput
+Write-Host "🔑 Anthropic key: in the key variable ($($key.Length) characters, not shown)"
+
+# Write the provider settings to a file: the endpoint, and the key that the gateway sends in the x-api-key header
 @{
   endpoint       = 'https://api.anthropic.com'
   authentication = @{ kind = 'ApiKey'; apiKey = @{ headerName = 'x-api-key'; value = $key } }
 } | ConvertTo-Json -Depth 10 -Compress | Set-Content -Path custom.json
+
+# Add Anthropic as a custom provider: the gateway stores the key, and apps never receive it
 az aigateway model-provider create -g $RG --gateway-name $GATEWAY -n $PROVIDER `
   --kind Custom --display-name "Anthropic" --custom '@custom.json' `
   --query "{name:name,kind:properties.kind,endpoint:properties.custom.endpoint}"
-Remove-Item custom.json; Remove-Variable key   # the file held the key, so delete it right away
+if ($?) { Write-Host "🔌 Model provider $PROVIDER is ready, and its key stays in the gateway" }
+
+# Delete the file and the variable right away, because they held the key
+Remove-Item custom.json; Remove-Variable key
+if ($?) { Write-Host "🧹 custom.json and the key variable are deleted" }
 ```
 
 For OpenAI, use `https://api.openai.com`, the header `Authorization`, and the value `Bearer <key>`.
@@ -232,18 +264,22 @@ and hyphens. If the provider's model ID contains other characters, replace them 
 real ID in `modelName`.
 
 ```bash title="Bash"
+# Register both Claude models as backend models of the provider, on the Anthropic Messages path, /v1/messages
 for MODEL in "$FAST_MODEL" "$SMART_MODEL"; do
   az aigateway model create -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
     --display-name "$MODEL" --supported-endpoints /v1/messages --deployment-config "{modelName:$MODEL}" \
-    --query "{name:name,endpoints:properties.supportedEndpoints}" -o json
+    --query "{name:name,endpoints:properties.supportedEndpoints}" -o json &&
+    echo "🧠 Backend model $MODEL is published through $PROVIDER"
 done
 ```
 
 ```powershell title="PowerShell"
+# Register both Claude models as backend models of the provider, on the Anthropic Messages path, /v1/messages
 foreach ($model in $FAST_MODEL, $SMART_MODEL) {
   az aigateway model create -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $model `
     --display-name $model --supported-endpoints /v1/messages --deployment-config "{modelName:$model}" `
     --query "{name:name,endpoints:properties.supportedEndpoints}" -o json
+  if ($?) { Write-Host "🧠 Backend model $model is published through $PROVIDER" }
 }
 ```
 
@@ -261,13 +297,23 @@ Callable names may contain `/`, but resource names can't, so the script derives 
 the portal does: `anthropic/claude-sonnet-5-5` is stored as `anthropic-claude-sonnet-5-5`.
 
 ```bash title="Bash"
-./infra/alias.sh put support-chat "$PROVIDER" "$FAST_MODEL"
-./infra/alias.sh put "$PROVIDER/$SMART_MODEL" "$PROVIDER" "$SMART_MODEL"
+# Create the support-chat alias on the fast model
+./infra/alias.sh put support-chat "$PROVIDER" "$FAST_MODEL" &&
+  echo "🏷️ Alias support-chat is ready"
+
+# Create an alias for the bigger model, named after the provider and the model, as the portal does
+./infra/alias.sh put "$PROVIDER/$SMART_MODEL" "$PROVIDER" "$SMART_MODEL" &&
+  echo "🏷️ Alias $PROVIDER/$SMART_MODEL is ready"
 ```
 
 ```powershell title="PowerShell"
+# Create the support-chat alias on the fast model
 ./infra/alias.ps1 -ResourceGroup $RG -Gateway $GATEWAY put support-chat $PROVIDER $FAST_MODEL
+if ($?) { Write-Host "🏷️ Alias support-chat is ready" }
+
+# Create an alias for the bigger model, named after the provider and the model, as the portal does
 ./infra/alias.ps1 -ResourceGroup $RG -Gateway $GATEWAY put "$PROVIDER/$SMART_MODEL" $PROVIDER $SMART_MODEL
+if ($?) { Write-Host "🏷️ Alias $PROVIDER/$SMART_MODEL is ready" }
 ```
 
 On GitHub, open [alias.sh](infra/alias.sh) or [alias.ps1](infra/alias.ps1). For a new alias, each `put` runs a
@@ -314,7 +360,9 @@ The lab is a small azd project in the
 folder. [Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
 
 ```bash title="Bash or PowerShell"
-cd ~/ai-gateway/labs/03-multi-provider-aliases
+# Move into the lab's folder, which holds the azd project
+cd ~/ai-gateway/labs/03-multi-provider-aliases &&
+  echo "📂 Lab folder: ~/ai-gateway/labs/03-multi-provider-aliases"
 ```
 
 ### Review the templates
@@ -338,19 +386,47 @@ hidden prompt, so that it never lands in your shell history. Then provision ever
 minutes.
 
 ```bash title="Bash"
-azd env new aigw-lab03 --location eastus2 --subscription "$(az account show --query id --output tsv)"
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
+azd env new aigw-lab03 --location eastus2 --subscription "$(az account show --query id --output tsv)" &&
+  echo "📝 azd environment aigw-lab03 deploys to eastus2"
+
+# Read the Anthropic key from a hidden prompt, so that it never lands in your shell history
 read -rsp "Anthropic API key: " ANTHROPIC_API_KEY && echo
-azd env set ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY"
-unset ANTHROPIC_API_KEY
-azd up
+echo "🔑 Anthropic key: in ANTHROPIC_API_KEY (${#ANTHROPIC_API_KEY} characters, not shown)"
+
+# Store the key in the azd environment, which passes it to the template's secure parameter
+azd env set ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY" &&
+  echo "📝 ANTHROPIC_API_KEY is set in the azd environment"
+
+# Clear the key from your shell, now that the azd environment holds it
+unset ANTHROPIC_API_KEY &&
+  echo "🧹 ANTHROPIC_API_KEY is cleared from this shell"
+
+# Provision the gateway, the Foundry model, the key, the Anthropic provider, its models, and the aliases
+azd up &&
+  echo "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)"
 ```
 
 ```powershell title="PowerShell"
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab03 --location eastus2 --subscription (az account show --query id --output tsv)
+if ($?) { Write-Host "📝 azd environment aigw-lab03 deploys to eastus2" }
+
+# Read the Anthropic key from a hidden prompt, so that it never lands in your shell history
 $key = Read-Host "Anthropic API key" -MaskInput
+Write-Host "🔑 Anthropic key: in the key variable ($($key.Length) characters, not shown)"
+
+# Store the key in the azd environment, which passes it to the template's secure parameter
 azd env set ANTHROPIC_API_KEY $key
+if ($?) { Write-Host "📝 ANTHROPIC_API_KEY is set in the azd environment" }
+
+# Clear the key from your shell, now that the azd environment holds it
 Remove-Variable key
+if ($?) { Write-Host "🧹 The key variable is cleared from this shell" }
+
+# Provision the gateway, the Foundry model, the key, the Anthropic provider, its models, and the aliases
 azd up
+if ($?) { Write-Host "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)" }
 ```
 
 For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
@@ -364,26 +440,44 @@ Set the variables that the next sections and **Verify** use from azd's environme
 runtime key, not the Anthropic key, from the gateway, so that it never shows on screen.
 
 ```bash title="Bash"
+# Read the template's outputs: the gateway, the provider, the two models, and the runtime URL
 export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
 export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
 export PROVIDER="$(azd env get-value ANTHROPIC_PROVIDER)"
 export FAST_MODEL="$(azd env get-value ANTHROPIC_FAST_MODEL)"
 export SMART_MODEL="$(azd env get-value ANTHROPIC_SMART_MODEL)"
 export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
+echo "📝 Gateway $GATEWAY in $RG, provider $PROVIDER, models $FAST_MODEL and $SMART_MODEL"
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+
+# Read the gateway's runtime key from the gateway, so that it never lands in a file or a deployment log
 export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets \
   --ids "$(azd env get-value AI_GATEWAY_ID)/apiKeys/app-first-call" --query primaryKey --output tsv)"
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
+
+# List the aliases that azd up created, with their backend models and token limits
+echo "🏷️ Aliases on $GATEWAY:"
 ./infra/alias.sh list
 ```
 
 ```powershell title="PowerShell"
+# Read the template's outputs: the gateway, the provider, the two models, and the runtime URL
 $RG                     = azd env get-value AZURE_RESOURCE_GROUP
 $GATEWAY                = azd env get-value AI_GATEWAY_NAME
 $PROVIDER               = azd env get-value ANTHROPIC_PROVIDER
 $FAST_MODEL             = azd env get-value ANTHROPIC_FAST_MODEL
 $SMART_MODEL            = azd env get-value ANTHROPIC_SMART_MODEL
 $env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
+Write-Host "📝 Gateway $GATEWAY in $RG, provider $PROVIDER, models $FAST_MODEL and $SMART_MODEL"
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+
+# Read the gateway's runtime key from the gateway, so that it never lands in a file or a deployment log
 $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets `
   --ids "$(azd env get-value AI_GATEWAY_ID)/apiKeys/app-first-call" --query primaryKey --output tsv
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
+
+# List the aliases that azd up created, with their backend models and token limits
+Write-Host "🏷️ Aliases on ${GATEWAY}:"
 ./infra/alias.ps1 -ResourceGroup $RG -Gateway $GATEWAY list
 ```
 
@@ -401,25 +495,37 @@ call to Anthropic: the URL is the gateway's, the `api-key` header carries your g
 is the alias. Keep the `anthropic-version` header that the Messages API expects.
 
 ```bash title="Bash"
+# Call support-chat with the native Messages API: your runtime key in api-key, and the alias in model
 curl -sS "${AI_GATEWAY_URL%/}/default/models/anthropic/v1/messages" \
   -H "api-key: $AI_GATEWAY_API_KEY" \
   -H "anthropic-version: 2023-06-01" \
   -H "Content-Type: application/json" \
   -d '{"model": "support-chat", "max_tokens": 1024,
        "messages": [{"role": "user", "content": "In one sentence, what is an AI gateway?"}]}' \
-  | jq '{model, text: ([.content[] | select(.type == "text") | .text] | join("")), usage}'
+  | jq -r 'if .content then
+             "🧠 Backend model: \(.model)",
+             "🤖 \([.content[] | select(.type == "text") | .text] | join(""))",
+             "📊 Usage: \(.usage | tojson)"
+           else "⚠️ \(.error.message // .)" end'
 ```
 
 ```powershell title="PowerShell"
+# Build the request: your runtime key in api-key, the Messages API version, and the alias in model
 $headers = @{ 'api-key' = $env:AI_GATEWAY_API_KEY; 'anthropic-version' = '2023-06-01' }
 $body = @{
   model      = 'support-chat'
   max_tokens = 1024
   messages   = @(@{ role = 'user'; content = 'In one sentence, what is an AI gateway?' })
 } | ConvertTo-Json -Depth 5
+
+# Call support-chat on the gateway's Anthropic route, and print the backend model, the reply, and the usage
 $r = Invoke-RestMethod -Method Post -Uri "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/models/anthropic/v1/messages" `
   -Headers $headers -ContentType 'application/json' -Body $body
-[pscustomobject]@{ model = $r.model; text = (@($r.content) | Where-Object type -eq 'text' | ForEach-Object text) -join ''; usage = $r.usage }
+if ($?) {
+  Write-Host "🧠 Backend model: $($r.model)"
+  Write-Host "🤖 $((@($r.content) | Where-Object type -eq 'text' | ForEach-Object text) -join '')"
+  Write-Host "📊 Usage: $($r.usage | ConvertTo-Json -Compress)"
+}
 ```
 
 The response uses Anthropic's own format, with `content` blocks, `stop_reason`, and `usage.input_tokens`. It
@@ -429,7 +535,7 @@ with a `thinking` block, and thinking counts toward `max_tokens`. Read the `text
 `max_tokens`.
 
 > **Checkpoint**
-> The call returns a Claude reply, and `model` is `claude-haiku-5-5`. Your app never sent an Anthropic
+> The call prints a `🤖` Claude reply and `🧠 Backend model: claude-haiku-5-5`. Your app never sent an Anthropic
 > key.
 
 ## Give one backend model two aliases
@@ -475,13 +581,23 @@ The optional fourth argument adds a per-caller token limit to the alias. It's th
 object that models use.
 
 ```bash title="Bash"
-./infra/alias.sh put batch-chat   "$PROVIDER" "$FAST_MODEL" 2000
-./infra/alias.sh put support-chat "$PROVIDER" "$FAST_MODEL" 20000
+# Create batch-chat on the fast model, with a per-caller limit of 2,000 tokens per minute
+./infra/alias.sh put batch-chat   "$PROVIDER" "$FAST_MODEL" 2000 &&
+  echo "🛡️ Token limit of 2,000 tokens per minute is on batch-chat"
+
+# Give support-chat, on the same model, its own per-caller limit of 20,000 tokens per minute
+./infra/alias.sh put support-chat "$PROVIDER" "$FAST_MODEL" 20000 &&
+  echo "🛡️ Token limit of 20,000 tokens per minute is on support-chat"
 ```
 
 ```powershell title="PowerShell"
+# Create batch-chat on the fast model, with a per-caller limit of 2,000 tokens per minute
 ./infra/alias.ps1 -ResourceGroup $RG -Gateway $GATEWAY put batch-chat   $PROVIDER $FAST_MODEL 2000
+if ($?) { Write-Host "🛡️ Token limit of 2,000 tokens per minute is on batch-chat" }
+
+# Give support-chat, on the same model, its own per-caller limit of 20,000 tokens per minute
 ./infra/alias.ps1 -ResourceGroup $RG -Gateway $GATEWAY put support-chat $PROVIDER $FAST_MODEL 20000
+if ($?) { Write-Host "🛡️ Token limit of 20,000 tokens per minute is on support-chat" }
 ```
 
 The command now passes a policy in `--policies`:
@@ -504,10 +620,14 @@ target, use `retarget` in the next section.
 `tokenLimit` policy, the same object that the Azure CLI track passes in `--policies`. Show the `batch-chat` alias.
 
 ```bash title="Bash"
+# Show the policies that the template declared on the batch-chat alias
+echo "🛡️ Policies on batch-chat:"
 ./infra/alias.sh show batch-chat | jq '.properties.policies'
 ```
 
 ```powershell title="PowerShell"
+# Show the policies that the template declared on the batch-chat alias
+Write-Host "🛡️ Policies on batch-chat:"
 (./infra/alias.ps1 -ResourceGroup $RG -Gateway $GATEWAY show batch-chat | ConvertFrom-Json).properties.policies
 ```
 
@@ -552,11 +672,15 @@ On the `support-chat` alias page, select the **Policies** tab.
 properties you pass, so the alias name, description, and policies stay as they are.
 
 ```bash title="Bash"
-./infra/alias.sh retarget support-chat "$PROVIDER" "$SMART_MODEL"
+# Point support-chat at the bigger model, and keep its name, description, and token limit
+./infra/alias.sh retarget support-chat "$PROVIDER" "$SMART_MODEL" &&
+  echo "🏷️ Alias support-chat now points to $PROVIDER/$SMART_MODEL"
 ```
 
 ```powershell title="PowerShell"
+# Point support-chat at the bigger model, and keep its name, description, and token limit
 ./infra/alias.ps1 -ResourceGroup $RG -Gateway $GATEWAY retarget support-chat $PROVIDER $SMART_MODEL
+if ($?) { Write-Host "🏷️ Alias support-chat now points to $PROVIDER/$SMART_MODEL" }
 ```
 
 ```text
@@ -576,14 +700,30 @@ to the bigger model and provision again. The deployment replaces the whole alias
 policy with it, so the limit stays.
 
 ```bash title="Bash"
-azd env set SUPPORT_CHAT_MODEL "$SMART_MODEL"
-azd provision
+# Point support-chat at the bigger model in the azd environment
+azd env set SUPPORT_CHAT_MODEL "$SMART_MODEL" &&
+  echo "📝 SUPPORT_CHAT_MODEL is $SMART_MODEL"
+
+# Deploy the template again: it replaces the alias, with the new backend model and the same token limit
+azd provision &&
+  echo "🚀 Alias support-chat is deployed on $SMART_MODEL"
+
+# List the aliases, to check the backend model and the token limit of support-chat
+echo "🏷️ Aliases on $GATEWAY:"
 ./infra/alias.sh list
 ```
 
 ```powershell title="PowerShell"
+# Point support-chat at the bigger model in the azd environment
 azd env set SUPPORT_CHAT_MODEL $SMART_MODEL
+if ($?) { Write-Host "📝 SUPPORT_CHAT_MODEL is $SMART_MODEL" }
+
+# Deploy the template again: it replaces the alias, with the new backend model and the same token limit
 azd provision
+if ($?) { Write-Host "🚀 Alias support-chat is deployed on $SMART_MODEL" }
+
+# List the aliases, to check the backend model and the token limit of support-chat
+Write-Host "🏷️ Aliases on ${GATEWAY}:"
 ./infra/alias.ps1 -ResourceGroup $RG -Gateway $GATEWAY list
 ```
 
@@ -603,16 +743,21 @@ azd provision
 ### List the aliases
 
 ```bash title="Bash"
+# List the aliases, with their backend models and token limits
+echo "🏷️ Aliases on $GATEWAY:"
 ./infra/alias.sh list
 ```
 
 ```powershell title="PowerShell"
+# List the aliases, with their backend models and token limits
+Write-Host "🏷️ Aliases on ${GATEWAY}:"
 ./infra/alias.ps1 -ResourceGroup $RG -Gateway $GATEWAY list
 ```
 
 Expected output (the order and your Foundry alias differ):
 
 ```text
+🏷️ Aliases on <gateway>:
 ALIAS                        PROVIDER/BACKEND MODEL       ALIAS POLICIES
 anthropic/claude-sonnet-5-5  anthropic/claude-sonnet-5-5  -
 batch-chat                   anthropic/claude-haiku-5-5   tokenLimit 2000/minute
@@ -628,11 +773,15 @@ list.
 The script sends a Messages request and prints the status, the backend model that answered, and the reply.
 
 ```bash title="Bash"
+# Call each alias with the same Messages request, and print the backend model that answered
+echo "🤖 Replies through support-chat and batch-chat:"
 ./infra/call-anthropic.sh support-chat
 ./infra/call-anthropic.sh batch-chat
 ```
 
 ```powershell title="PowerShell"
+# Call each alias with the same Messages request, and print the backend model that answered
+Write-Host "🤖 Replies through support-chat and batch-chat:"
 ./infra/call-anthropic.ps1 -Alias support-chat
 ./infra/call-anthropic.ps1 -Alias batch-chat
 ```
@@ -642,6 +791,7 @@ On GitHub, open [call-anthropic.sh](infra/call-anthropic.sh) or [call-anthropic.
 Expected output (the replies differ):
 
 ```text
+🤖 Replies through support-chat and batch-chat:
 Alias:   support-chat
 Status:  200
 Model:   claude-sonnet-5-5
@@ -658,10 +808,14 @@ Reply:   An AI gateway sits between your apps and AI models to ...
 ### Confirm the alias kept its policy
 
 ```bash title="Bash"
+# Show the policies on support-chat, which kept its token limit when you retargeted it
+echo "🛡️ Policies on support-chat:"
 ./infra/alias.sh show support-chat | jq '.properties.policies'
 ```
 
 ```powershell title="PowerShell"
+# Show the policies on support-chat, which kept its token limit when you retargeted it
+Write-Host "🛡️ Policies on support-chat:"
 (./infra/alias.ps1 -ResourceGroup $RG -Gateway $GATEWAY show support-chat | ConvertFrom-Json).properties.policies
 ```
 
@@ -719,21 +873,32 @@ the two Claude backend models and the `Anthropic` provider.
 Remove what you added in this lab in this order: aliases, then backend models, then the provider.
 
 ```bash title="Bash"
-for ALIAS in support-chat batch-chat "$PROVIDER/$SMART_MODEL"; do ./infra/alias.sh delete "$ALIAS"; done
+# Delete the three aliases first, because an alias points to a backend model
+for ALIAS in support-chat batch-chat "$PROVIDER/$SMART_MODEL"; do ./infra/alias.sh delete "$ALIAS" && echo "🧹 Alias $ALIAS is deleted"; done
+
+# Delete the two Claude backend models, then the provider that publishes them
 for MODEL in "$FAST_MODEL" "$SMART_MODEL"; do
-  az aigateway model delete -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" --yes
+  az aigateway model delete -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" --yes &&
+    echo "🧹 Backend model $MODEL is deleted"
 done
-az aigateway model-provider delete -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --yes
+az aigateway model-provider delete -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" --yes &&
+  echo "🧹 Model provider $PROVIDER is deleted"
 ```
 
 ```powershell title="PowerShell"
+# Delete the three aliases first, because an alias points to a backend model
 foreach ($alias in 'support-chat', 'batch-chat', "$PROVIDER/$SMART_MODEL") {
   ./infra/alias.ps1 -ResourceGroup $RG -Gateway $GATEWAY delete $alias
+  if ($?) { Write-Host "🧹 Alias $alias is deleted" }
 }
+
+# Delete the two Claude backend models, then the provider that publishes them
 foreach ($model in $FAST_MODEL, $SMART_MODEL) {
   az aigateway model delete -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $model --yes
+  if ($?) { Write-Host "🧹 Backend model $model is deleted" }
 }
 az aigateway model-provider delete -g $RG --gateway-name $GATEWAY -n $PROVIDER --yes
+if ($?) { Write-Host "🧹 Model provider $PROVIDER is deleted" }
 ```
 
 <!-- track: iac | Bicep + azd -->
@@ -746,8 +911,13 @@ Foundry account. It takes about ten minutes. Then remove the azd environment, so
 in `.azure/aigw-lab03/.env`.
 
 ```bash
-azd down --purge --force
-azd env remove aigw-lab03 --force
+# Delete the resource group with everything that azd up created, and purge the Foundry account
+azd down --purge --force &&
+  echo "🧹 Everything that azd up created is deleted"
+
+# Remove the azd environment, with the Anthropic key in its .env file
+azd env remove aigw-lab03 --force &&
+  echo "🧹 azd environment aigw-lab03 is removed"
 ```
 
 `azd down` doesn't touch the gateway from earlier labs, because the Bicep + azd track created its own gateway.

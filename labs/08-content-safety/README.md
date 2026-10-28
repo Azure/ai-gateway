@@ -76,34 +76,48 @@ Set these variables once. Every track and the **Verify** section reuse them.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Name your gateway, its model provider, and the backend model that gets the policy
 export RG="<resource-group>"
 export GATEWAY="<gateway>"                 # 24 characters or fewer
 export PROVIDER="<provider-name>"          # for example foundry-models
 export MODEL="<model-name>"                # the backend model name under that provider
 
+# Read the gateway's runtime URL, which apps call
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
-# For Foundry imports, the default alias matches the deployment's model name.
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+
+# Read the alias that apps send in the model field: for Foundry imports, it matches the deployment's model name
 export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" \
   -n "$MODEL" --query properties.deployment.modelName -o tsv)"
-# Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
+echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+
+# Paste the runtime key you created in Access › Keys, without showing it: don't commit it or write it to a file
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Name your gateway, its model provider, and the backend model that gets the policy
 $RG         = "<resource-group>"
 $GATEWAY    = "<gateway>"                 # 24 characters or fewer
 $PROVIDER   = "<provider-name>"           # for example foundry-models
 $MODEL      = "<model-name>"              # the backend model name under that provider
 
+# Read the gateway's runtime URL, which apps call
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
-# For Foundry imports, the default alias matches the deployment's model name.
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+
+# Read the alias that apps send in the model field: for Foundry imports, it matches the deployment's model name
 $env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER `
   -n $MODEL --query properties.deployment.modelName -o tsv
-# Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
+Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+
+# Paste the runtime key you created in Access › Keys, without showing it: don't commit it or write it to a file
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 ```
 </details> <!-- gh -->
 
@@ -186,27 +200,34 @@ content safety policy, or replaces the one that's there, and keeps every other p
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Screen the model at Medium (Balanced) in all four categories, with Low (Strict) for Violence
 az aigateway model policy set-content-safety -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
-  --content-safety Medium --violence-severity Low
+  --content-safety Medium --violence-severity Low --output none &&
+  echo "🛡️ Content safety on $MODEL is Balanced (Medium), with Strict (Low) for Violence"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Screen the model at Medium (Balanced) in all four categories, with Low (Strict) for Violence
 az aigateway model policy set-content-safety -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
-  --content-safety Medium --violence-severity Low
+  --content-safety Medium --violence-severity Low --output none
+if ($?) { Write-Host "🛡️ Content safety on $MODEL is Balanced (Medium), with Strict (Low) for Violence" }
 ```
 </details> <!-- gh -->
 
-The command prints the model's policies. Each threshold accepts `None`, `Low`, `Medium`, or `High`. To override
-another category, add `--hate-severity`, `--self-harm-severity`, or `--sexual-severity`.
+The command prints `🛡️ Content safety on <model-name> is Balanced (Medium), with Strict (Low) for Violence`. Each
+threshold accepts `None`, `Low`, `Medium`, or `High`. To override another category, add `--hate-severity`,
+`--self-harm-severity`, or `--sexual-severity`.
 
 ### Confirm the policy
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# List the model's policies, to check the content safety thresholds
+echo "🛡️ Policies on $MODEL:"
 az aigateway model policy list -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" -o json
 ```
 </details> <!-- gh -->
@@ -214,6 +235,8 @@ az aigateway model policy list -g "$RG" --gateway-name "$GATEWAY" --provider-nam
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# List the model's policies, to check the content safety thresholds
+Write-Host "🛡️ Policies on ${MODEL}:"
 az aigateway model policy list -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL -o json
 ```
 </details> <!-- gh -->
@@ -232,9 +255,13 @@ Policies live inline in the model's `properties.policies` array. A `PATCH` **rep
 always read it first and keep the policies you didn't mean to change.
 
 ```bash
+# Read your subscription ID, and build the management URL of your model, which holds its policies
 SUB="$(az account show --query id -o tsv)"
 URL="https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY/workspaces/default/modelProviders/$PROVIDER/models/$MODEL?api-version=2025-09-01-preview"
+echo "🆔 Subscription: $SUB"
 
+# Read the model's current policies, so that you know what the merge must keep
+echo "🛡️ Policies on $MODEL:"
 az rest --method get --url "$URL" --query properties.policies
 ```
 
@@ -243,29 +270,37 @@ az rest --method get --url "$URL" --query properties.policies
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Read the policies, drop any content safety policy, and add the new one: Medium, with Low for Violence
 POLICIES="$(az rest --method get --url "$URL" | jq -c '
   [(.properties.policies // [])[] | select(.type != "contentSafety")]
   + [{"type":"contentSafety","hateSeverity":"Medium","violenceSeverity":"Low","sexualSeverity":"Medium","selfHarmSeverity":"Medium"}]')"
 
-az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}"
+# Send the merged array back: a PATCH replaces the whole policies array
+az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}" --output none &&
+  echo "🛡️ Content safety on $MODEL is Balanced (Medium), with Strict (Low) for Violence"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Read your subscription ID, and build the management URL of your model, which holds its policies
 $SUB = az account show --query id -o tsv
 $URL = "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY/workspaces/default/modelProviders/$PROVIDER/models/$MODEL`?api-version=2025-09-01-preview"
+Write-Host "🆔 Subscription: $SUB"
 
+# Read the policies, drop any content safety policy, and add the new one: Medium, with Low for Violence
 $current  = az rest --method get --url $URL | ConvertFrom-Json
 $policies = @($current.properties.policies | Where-Object { $_ -and $_.type -ne 'contentSafety' })
 $policies += [pscustomobject]@{
   type = 'contentSafety'; hateSeverity = 'Medium'; violenceSeverity = 'Low'; sexualSeverity = 'Medium'; selfHarmSeverity = 'Medium'
 }
 
+# Send the merged array back from a file, which keeps the JSON quotes intact: a PATCH replaces the whole array
 $body = @{ properties = @{ policies = $policies } } | ConvertTo-Json -Depth 10 -Compress
 $body | Set-Content -Path patch.json
-az rest --method patch --url $URL --body '@patch.json'
+az rest --method patch --url $URL --body '@patch.json' --output none
+if ($?) { Write-Host "🛡️ Content safety on $MODEL is Balanced (Medium), with Strict (Low) for Violence" }
 Remove-Item patch.json
 ```
 </details> <!-- gh -->
@@ -300,7 +335,9 @@ The lab is a small azd project in the
 [Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
 
 ```bash title="Bash or PowerShell"
-cd ~/ai-gateway/labs/08-content-safety
+# Move into the lab's folder, which holds the azd project
+cd ~/ai-gateway/labs/08-content-safety &&
+  echo "📂 Lab folder: ~/ai-gateway/labs/08-content-safety"
 ```
 
 ### Review the templates
@@ -497,16 +534,26 @@ about three minutes.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-azd env new aigw-lab08 --location eastus2 --subscription "$(az account show --query id --output tsv)"
-azd up
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
+azd env new aigw-lab08 --location eastus2 --subscription "$(az account show --query id --output tsv)" &&
+  echo "📝 azd environment aigw-lab08 deploys to eastus2"
+
+# Provision the gateway, the Foundry model, the key, and the screened alias
+azd up &&
+  echo "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab08 --location eastus2 --subscription (az account show --query id --output tsv)
+if ($?) { Write-Host "📝 azd environment aigw-lab08 deploys to eastus2" }
+
+# Provision the gateway, the Foundry model, the key, and the screened alias
 azd up
+if ($?) { Write-Host "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)" }
 ```
 </details> <!-- gh -->
 
@@ -521,36 +568,50 @@ never shows on screen.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Read the template's outputs: the resource group, the gateway, its model provider, and the backend model
 export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
 export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
 export PROVIDER="$(azd env get-value AI_GATEWAY_PROVIDER)"
 export MODEL="$(azd env get-value AI_GATEWAY_BACKEND_MODEL)"
+
+# Read the gateway's runtime URL and the screened alias
 export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
 export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
+
+# Read the key from the gateway, so that it never lands in a file or a deployment log
 export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$(azd env get-value AI_GATEWAY_ID)/apiKeys/app-first-call" \
   --query primaryKey --output tsv)"
-echo "$AI_GATEWAY_MODEL"
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
+echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Read the template's outputs: the resource group, the gateway, its model provider, and the backend model
 $RG                     = azd env get-value AZURE_RESOURCE_GROUP
 $GATEWAY                = azd env get-value AI_GATEWAY_NAME
 $PROVIDER               = azd env get-value AI_GATEWAY_PROVIDER
 $MODEL                  = azd env get-value AI_GATEWAY_BACKEND_MODEL
+
+# Read the gateway's runtime URL, the screened alias, and the gateway's resource ID
 $env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
 $env:AI_GATEWAY_MODEL   = azd env get-value AI_GATEWAY_MODEL
 $GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
+
+# Read the key from the gateway, so that it never lands in a file or a deployment log
 $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" `
   --query primaryKey --output tsv
-$env:AI_GATEWAY_MODEL
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
+Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
 ```
 </details> <!-- gh -->
 
 > **Checkpoint**
-> `azd up` ended with `SUCCESS`, and the last command printed the screened alias, `gpt-6-luna-safe`.
+> `azd up` ended with `SUCCESS`, and the last command printed `🏷️ Model alias: gpt-6-luna-safe`.
 > `az aigateway model-alias show -g "$RG" --gateway-name "$GATEWAY" -n "$AI_GATEWAY_MODEL" --query properties.policies`
 > returns one `contentSafety` entry with `"violenceSeverity": "Low"`, `"Medium"` for the other three categories,
 > and `"scope": "resource"`.
@@ -580,6 +641,8 @@ the error for each one.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Send a neutral prompt and a mild fiction prompt through the screened alias
+echo "🚦 Expect 200 for the neutral prompt, and 200 or 400 for the fiction prompt:"
 ./infra/test-content-safety.sh "$AI_GATEWAY_MODEL"
 ```
 </details> <!-- gh -->
@@ -587,6 +650,8 @@ the error for each one.
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Send a neutral prompt and a mild fiction prompt through the screened alias
+Write-Host "🚦 Expect 200 for the neutral prompt, and 200 or 400 for the fiction prompt:"
 ./infra/test-content-safety.ps1 -Model $env:AI_GATEWAY_MODEL
 ```
 </details> <!-- gh -->
@@ -597,6 +662,7 @@ On GitHub, open [test-content-safety.sh](infra/test-content-safety.sh) or
 Example output:
 
 ```text
+🚦 Expect 200 for the neutral prompt, and 200 or 400 for the fiction prompt:
 Prompt    Status  Finish reason   Response or error
 neutral   200     stop            Teams put an API gateway in front of AI models to centralize access con
 fiction   400     -               <the gateway's content safety error message>
@@ -621,16 +687,20 @@ example, from the command line, set all four categories to `Medium`. The other t
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Set all four categories to Medium (Balanced): only Violence changes, and the other policies stay
 az aigateway model policy set-content-safety -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
-  --content-safety Medium
+  --content-safety Medium --output none &&
+  echo "🛡️ Content safety on $MODEL is Balanced (Medium) for all four categories"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Set all four categories to Medium (Balanced): only Violence changes, and the other policies stay
 az aigateway model policy set-content-safety -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
-  --content-safety Medium
+  --content-safety Medium --output none
+if ($?) { Write-Host "🛡️ Content safety on $MODEL is Balanced (Medium) for all four categories" }
 ```
 </details> <!-- gh -->
 
@@ -639,16 +709,26 @@ On the Bicep + azd track, set the environment value and provision again instead:
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-azd env set CONTENT_SAFETY_VIOLENCE Medium
-azd provision
+# Relax Violence to Medium (Balanced) in the azd environment
+azd env set CONTENT_SAFETY_VIOLENCE Medium &&
+  echo "📝 CONTENT_SAFETY_VIOLENCE is Medium"
+
+# Provision again: only the screened alias changes
+azd provision &&
+  echo "🛡️ Content safety on $AI_GATEWAY_MODEL is Balanced (Medium) for all four categories"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Relax Violence to Medium (Balanced) in the azd environment
 azd env set CONTENT_SAFETY_VIOLENCE Medium
+if ($?) { Write-Host "📝 CONTENT_SAFETY_VIOLENCE is Medium" }
+
+# Provision again: only the screened alias changes
 azd provision
+if ($?) { Write-Host "🛡️ Content safety on $env:AI_GATEWAY_MODEL is Balanced (Medium) for all four categories" }
 ```
 </details> <!-- gh -->
 
@@ -703,16 +783,20 @@ Select **Policies**, open the **Content safety** policy that's scoped to your mo
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Remove only the content safety policy from the model, and keep its other policies
 az aigateway model policy remove -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
-  --remove-content-safety true
+  --remove-content-safety true --output none &&
+  echo "🧹 Content safety is removed from $MODEL"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Remove only the content safety policy from the model, and keep its other policies
 az aigateway model policy remove -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
-  --remove-content-safety true
+  --remove-content-safety true --output none
+if ($?) { Write-Host "🧹 Content safety is removed from $MODEL" }
 ```
 </details> <!-- gh -->
 
@@ -725,8 +809,12 @@ This removes only the content safety policy and keeps every other policy on the 
 ### Remove the policy
 
 ```bash
+# Read the policies and drop the content safety policy, so that the others stay
 POLICIES="$(az rest --method get --url "$URL" | jq -c '[(.properties.policies // [])[] | select(.type != "contentSafety")]')"
-az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}"
+
+# Send the remaining policies back: a PATCH replaces the whole policies array
+az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}" --output none &&
+  echo "🧹 Content safety is removed from $MODEL"
 ```
 
 </details> <!-- gh -->
@@ -740,7 +828,9 @@ and the screened alias. [`--purge`](../SETUP.md#delete-what-azd-created) also pu
 It takes about ten minutes.
 
 ```bash
-azd down --purge --force
+# Delete the resource group and purge the soft-deleted Foundry account, without prompts
+azd down --purge --force &&
+  echo "🧹 Everything that azd up created is deleted"
 ```
 
 </details> <!-- gh -->

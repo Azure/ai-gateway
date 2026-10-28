@@ -51,21 +51,35 @@ Do these one-time tasks from the [Setup guide](../SETUP.md) first. Every later l
 Set these variables once. Every track and the **Verify** section reuse them.
 
 ```bash title="Bash"
-az account set --subscription "<subscription-id>"
+# Make the subscription that you use for the labs the current one, so that every command runs in it
+az account set --subscription "<subscription-id>" &&
+  echo "🆔 Current subscription: $(az account show --query name -o tsv)"
 
+# Name the resource group and the gateway, and choose the region
 export RG="<resource-group>"               # for example rg-ai-gateway-labs
 export GATEWAY="<gateway>"                 # globally unique, 24 characters or fewer, part of the runtime URL
 export LOCATION="<location>"               # a Name from the list of available regions, for example eastus2
+echo "📝 Gateway $GATEWAY in $RG ($LOCATION)"
+
+# Read the subscription ID, which the REST call for the connector gateway uses
 export SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+echo "🆔 Subscription ID: $SUBSCRIPTION_ID"
 ```
 
 ```powershell title="PowerShell"
+# Make the subscription that you use for the labs the current one, so that every command runs in it
 az account set --subscription "<subscription-id>"
+if ($?) { Write-Host "🆔 Current subscription: $(az account show --query name -o tsv)" }
 
+# Name the resource group and the gateway, and choose the region
 $RG              = "<resource-group>"      # for example rg-ai-gateway-labs
 $GATEWAY         = "<gateway>"             # globally unique, 24 characters or fewer, part of the runtime URL
 $LOCATION        = "<location>"            # a Name from the list of available regions, for example eastus2
+Write-Host "📝 Gateway $GATEWAY in $RG ($LOCATION)"
+
+# Read the subscription ID, which the REST call for the connector gateway uses
 $SUBSCRIPTION_ID = az account show --query id -o tsv
+Write-Host "🆔 Subscription ID: $SUBSCRIPTION_ID"
 ```
 
 > [!IMPORTANT]
@@ -148,7 +162,9 @@ subscription: the gateway lives in `Microsoft.ApiManagement` and its connector g
 ### Create a resource group
 
 ```bash
-az group create --name "$RG" --location "$LOCATION"
+# Create the resource group that holds the gateway, in the gateway's region
+az group create --name "$RG" --location "$LOCATION" --output none &&
+  echo "📦 Resource group $RG is ready in $LOCATION"
 ```
 
 ### Create the connector gateway
@@ -158,16 +174,22 @@ can be created first. The `aigateway` extension creates only the AI gateway, so
 create the connector gateway through the Azure Resource Manager REST API with `az rest`.
 
 ```bash title="Bash"
-az rest --method put \
+# Create the companion connector gateway through the REST API, because the aigateway extension doesn't create it
+az rest --method put --output none \
   --url "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Web/connectorGateways/$GATEWAY?api-version=2026-05-01-preview" \
-  --body "$(jq -cn --arg location "$LOCATION" '{location: $location, properties: {}}')"
+  --body "$(jq -cn --arg location "$LOCATION" '{location: $location, properties: {}}')" &&
+  echo "🔌 Connector gateway $GATEWAY is ready"
 ```
 
 ```powershell title="PowerShell"
+# Write the request body to a file, so that PowerShell passes the JSON to az rest unchanged
 @{ location = $LOCATION; properties = @{} } | ConvertTo-Json -Compress | Set-Content body.json
-az rest --method put `
+
+# Create the companion connector gateway through the REST API, because the aigateway extension doesn't create it
+az rest --method put --output none `
   --url "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Web/connectorGateways/${GATEWAY}?api-version=2026-05-01-preview" `
   --body "@body.json"
+if ($?) { Write-Host "🔌 Connector gateway $GATEWAY is ready" }
 Remove-Item body.json
 ```
 
@@ -178,11 +200,15 @@ Remove-Item body.json
 usually within a few minutes.
 
 ```bash title="Bash"
-az aigateway create -g "$RG" -n "$GATEWAY" --location "$LOCATION" --system-assigned true -o none
+# Create the gateway with a system-assigned managed identity, and wait until it's provisioned
+az aigateway create -g "$RG" -n "$GATEWAY" --location "$LOCATION" --system-assigned true -o none &&
+  echo "🚀 Gateway $GATEWAY is ready in $LOCATION"
 ```
 
 ```powershell title="PowerShell"
+# Create the gateway with a system-assigned managed identity, and wait until it's provisioned
 az aigateway create -g $RG -n $GATEWAY --location $LOCATION --system-assigned true -o none
+if ($?) { Write-Host "🚀 Gateway $GATEWAY is ready in $LOCATION" }
 ```
 
 > [!TIP]
@@ -192,12 +218,16 @@ az aigateway create -g $RG -n $GATEWAY --location $LOCATION --system-assigned tr
 ### Read the runtime URL and identity
 
 ```bash title="Bash"
+# Show the gateway's state, its runtime host name, and the principal ID of its managed identity
+echo "📊 Gateway $GATEWAY, its runtime host, and its identity:"
 az aigateway show -g "$RG" -n "$GATEWAY" \
   --query "{name:name, location:location, state:properties.provisioningState, host:properties.frontend.defaultHostname, principalId:identity.principalId}" \
   -o table
 ```
 
 ```powershell title="PowerShell"
+# Show the gateway's state, its runtime host name, and the principal ID of its managed identity
+Write-Host "📊 Gateway $GATEWAY, its runtime host, and its identity:"
 az aigateway show -g $RG -n $GATEWAY `
   --query "{name:name, location:location, state:properties.provisioningState, host:properties.frontend.defaultHostname, principalId:identity.principalId}" `
   -o table
@@ -219,7 +249,9 @@ The lab is a small azd project in the
 [Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder:
 
 ```bash title="Bash or PowerShell"
-cd ~/ai-gateway/labs/01-provision-gateway
+# Move into the lab's folder, which holds the azd project
+cd ~/ai-gateway/labs/01-provision-gateway &&
+  echo "📂 Lab folder: ~/ai-gateway/labs/01-provision-gateway"
 ```
 
 ### Review the template
@@ -258,13 +290,23 @@ Create an azd environment named `aigw-lab01` in your current subscription, then 
 the gateway. It takes about three minutes.
 
 ```bash title="Bash"
-azd env new aigw-lab01 --location eastus2 --subscription "$(az account show --query id --output tsv)"
-azd up
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
+azd env new aigw-lab01 --location eastus2 --subscription "$(az account show --query id --output tsv)" &&
+  echo "📝 azd environment aigw-lab01 deploys to eastus2"
+
+# Provision the resource group, the gateway, and its connector gateway
+azd up &&
+  echo "🚀 Gateway $(azd env get-value AI_GATEWAY_NAME) is deployed"
 ```
 
 ```powershell title="PowerShell"
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab01 --location eastus2 --subscription (az account show --query id --output tsv)
+if ($?) { Write-Host "📝 azd environment aigw-lab01 deploys to eastus2" }
+
+# Provision the resource group, the gateway, and its connector gateway
 azd up
+if ($?) { Write-Host "🚀 Gateway $(azd env get-value AI_GATEWAY_NAME) is deployed" }
 ```
 
 For another region, use its name from [Find the available regions](../SETUP.md#find-the-available-regions).
@@ -275,24 +317,33 @@ Set the variables that **Verify** and **Go further** use from azd's environment 
 and the gateway's principal ID.
 
 ```bash title="Bash"
+# Read the resource group, the gateway name, and the region from azd's environment values
 export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
 export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
 export LOCATION="$(azd env get-value AZURE_LOCATION)"
-azd env get-value AI_GATEWAY_URL
-azd env get-value AI_GATEWAY_PRINCIPAL_ID
+echo "📝 Gateway $GATEWAY in $RG ($LOCATION)"
+
+# Print the gateway's runtime URL and the principal ID of its managed identity
+echo "🌐 Runtime URL: $(azd env get-value AI_GATEWAY_URL)"
+echo "🪪 Gateway identity: $(azd env get-value AI_GATEWAY_PRINCIPAL_ID)"
 ```
 
 ```powershell title="PowerShell"
+# Read the resource group, the gateway name, and the region from azd's environment values
 $RG       = azd env get-value AZURE_RESOURCE_GROUP
 $GATEWAY  = azd env get-value AI_GATEWAY_NAME
 $LOCATION = azd env get-value AZURE_LOCATION
-azd env get-value AI_GATEWAY_URL
-azd env get-value AI_GATEWAY_PRINCIPAL_ID
+Write-Host "📝 Gateway $GATEWAY in $RG ($LOCATION)"
+
+# Print the gateway's runtime URL and the principal ID of its managed identity
+Write-Host "🌐 Runtime URL: $(azd env get-value AI_GATEWAY_URL)"
+Write-Host "🪪 Gateway identity: $(azd env get-value AI_GATEWAY_PRINCIPAL_ID)"
 ```
 
 > **Checkpoint**
 > `azd up` ended with `SUCCESS`. The commands print a runtime URL like
-> `https://aigw-<suffix>.eastus2-01.ai.gateway.azure.com` and a principal ID GUID.
+> `🌐 Runtime URL: https://aigw-<suffix>.eastus2-01.ai.gateway.azure.com`, and `🪪 Gateway identity:` with a
+> principal ID GUID.
 
 <!-- /tracks -->
 
@@ -307,18 +358,23 @@ HTTP status proves that DNS, TLS, and the gateway are up. A new gateway with no 
 add a model and a key in the next lab, a call without a key gets `400` or `401`.
 
 ```bash title="Bash"
+# Read the runtime host name from the gateway, and build the runtime URL from it
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
-echo "$AI_GATEWAY_URL"
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
 
-curl -sS -o /dev/null -w "HTTP %{http_code}\n" "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions"
+# Call the Chat Completions route without a key, and print only the HTTP status that the gateway answers with
+curl -sS -o /dev/null -w "🌐 The gateway answered: HTTP %{http_code}\n" "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions"
 ```
 
 ```powershell title="PowerShell"
+# Read the runtime host name from the gateway, and build the runtime URL from it
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
-$env:AI_GATEWAY_URL
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
 
-(Invoke-WebRequest -Uri "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/models/openai/v1/chat/completions" `
+# Call the Chat Completions route without a key, and print only the HTTP status that the gateway answers with
+$status = (Invoke-WebRequest -Uri "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/models/openai/v1/chat/completions" `
   -SkipHttpErrorCheck).StatusCode
+if ($?) { Write-Host "🌐 The gateway answered: HTTP $status" }
 ```
 
 A `Could not resolve host` error means the gateway isn't ready yet. Wait a minute and try again.
@@ -375,9 +431,11 @@ to any page.
   you have, deploy `infra/gateway.bicep` on its own from the lab folder:
 
   ```bash
-  az deployment group create -g "$RG" --template-file infra/gateway.bicep \
+  # Deploy the gateway's template again with tags, which updates the gateway and its connector gateway in place
+  az deployment group create -g "$RG" --template-file infra/gateway.bicep --output none \
     --parameters gatewayName="$GATEWAY" location="$LOCATION" \
-                 tags='{"workload":"ai-gateway-labs","owner":"platform-team","costCenter":"1234"}'
+                 tags='{"workload":"ai-gateway-labs","owner":"platform-team","costCenter":"1234"}' &&
+    echo "📝 Tags are set on gateway $GATEWAY and its connector gateway"
   ```
 - **Use a user-assigned identity.** When several gateways must share one backend identity, add a
   user-assigned identity on **Managed identities**. See
@@ -396,11 +454,15 @@ When you're done with all the labs, delete the resource group. That removes the 
 and everything else in the group. The command asks for confirmation.
 
 ```bash title="Bash"
-az group delete --name "$RG"
+# Delete the resource group, with the gateway, its connector gateway, and everything else in it, after you confirm
+az group delete --name "$RG" &&
+  echo "🧹 Resource group $RG is deleted"
 ```
 
 ```powershell title="PowerShell"
+# Delete the resource group, with the gateway, its connector gateway, and everything else in it, after you confirm
 az group delete --name $RG
+if ($?) { Write-Host "🧹 Resource group $RG is deleted" }
 ```
 
 ### Delete only the gateway
@@ -409,13 +471,23 @@ To keep the resource group, delete the AI gateway first and then its connector g
 also deletes everything you published on it.
 
 ```bash title="Bash"
-az aigateway delete -g "$RG" -n "$GATEWAY" --yes
-az resource delete -g "$RG" -n "$GATEWAY" --resource-type Microsoft.Web/connectorGateways --api-version 2026-05-01-preview
+# Delete the AI gateway, with everything that you published on it
+az aigateway delete -g "$RG" -n "$GATEWAY" --yes &&
+  echo "🧹 Gateway $GATEWAY is deleted"
+
+# Delete its companion connector gateway, which has the same name
+az resource delete -g "$RG" -n "$GATEWAY" --resource-type Microsoft.Web/connectorGateways --api-version 2026-05-01-preview &&
+  echo "🧹 Connector gateway $GATEWAY is deleted"
 ```
 
 ```powershell title="PowerShell"
+# Delete the AI gateway, with everything that you published on it
 az aigateway delete -g $RG -n $GATEWAY --yes
+if ($?) { Write-Host "🧹 Gateway $GATEWAY is deleted" }
+
+# Delete its companion connector gateway, which has the same name
 az resource delete -g $RG -n $GATEWAY --resource-type Microsoft.Web/connectorGateways --api-version 2026-05-01-preview
+if ($?) { Write-Host "🧹 Connector gateway $GATEWAY is deleted" }
 ```
 
 <!-- track: iac | Bicep + azd -->
@@ -431,7 +503,9 @@ Otherwise, in the `ai-gateway/labs/01-provision-gateway` folder, delete the reso
 connector gateway. It takes up to ten minutes.
 
 ```bash
-azd down --purge --force
+# Delete everything that azd up created, without asking you to confirm
+azd down --purge --force &&
+  echo "🧹 Everything that azd up created is deleted"
 ```
 
 <!-- /tracks -->

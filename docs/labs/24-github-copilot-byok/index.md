@@ -67,6 +67,7 @@ surfaces its tools, with the same key, so Copilot's tool calls get the same cont
 Set these variables once. Every track and the **Verify** section reuse them.
 
 ```bash title="Bash"
+# Name your gateway, the Foundry account behind it, and what this lab publishes on the gateway
 export RG="<resource-group>"
 export GATEWAY="<gateway>"
 export FOUNDRY_RG="<foundry-resource-group>"      # resource group of the Foundry account behind the gateway
@@ -75,14 +76,19 @@ export PROVIDER="foundry-models"                  # the gateway's Foundry provid
 export MODEL="gpt-6-astra"                        # the deployment, the backend model, and the alias
 export KEY_NAME="github-copilot"                  # the runtime key that Copilot uses
 
+# Read the gateway's resource ID and runtime URL, and build the management URL that the az rest calls use
 export API="api-version=2025-09-01-preview"
 export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
 export GW="https://management.azure.com$GATEWAY_ID"
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
 export AI_GATEWAY_MODEL="$MODEL"
+echo "📝 Gateway $GATEWAY in $RG, with Foundry account $FOUNDRY_ACCOUNT in $FOUNDRY_RG"
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
 ```
 
 ```powershell title="PowerShell"
+# Name your gateway, the Foundry account behind it, and what this lab publishes on the gateway
 $RG              = "<resource-group>"
 $GATEWAY         = "<gateway>"
 $FOUNDRY_RG      = "<foundry-resource-group>"     # resource group of the Foundry account behind the gateway
@@ -91,11 +97,15 @@ $PROVIDER        = "foundry-models"               # the gateway's Foundry provid
 $MODEL           = "gpt-6-astra"                  # the deployment, the backend model, and the alias
 $KEY_NAME        = "github-copilot"               # the runtime key that Copilot uses
 
+# Read the gateway's resource ID and runtime URL, and build the management URL that the az rest calls use
 $API        = "api-version=2025-09-01-preview"
 $GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
 $GW         = "https://management.azure.com$GATEWAY_ID"
 $env:AI_GATEWAY_URL   = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
 $env:AI_GATEWAY_MODEL = $MODEL
+Write-Host "📝 Gateway $GATEWAY in $RG, with Foundry account $FOUNDRY_ACCOUNT in $FOUNDRY_RG"
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
 ```
 
 > [!TIP]
@@ -107,6 +117,7 @@ Then create a small practice project with two deliberate problems: `add` subtrac
 zero. The VS Code and CLI sections ask Copilot to work on it. Create it outside any repository:
 
 ```bash title="Bash"
+# Create the practice project's folder, and write calc.py with its two deliberate problems
 mkdir -p ~/contoso-calc
 cat > ~/contoso-calc/calc.py <<'EOF'
 """Tiny calculator used to try GitHub Copilot with a model from Azure AI Gateway."""
@@ -123,9 +134,11 @@ def divide(a: float, b: float) -> float:
 if __name__ == "__main__":
     print(add(2, 3), divide(10, 2))
 EOF
+echo "📄 Practice project is ready: ~/contoso-calc/calc.py"
 ```
 
 ```powershell title="PowerShell"
+# Create the practice project's folder, and write calc.py with its two deliberate problems
 New-Item -ItemType Directory -Force -Path ~/contoso-calc | Out-Null
 @'
 """Tiny calculator used to try GitHub Copilot with a model from Azure AI Gateway."""
@@ -142,6 +155,7 @@ def divide(a: float, b: float) -> float:
 if __name__ == "__main__":
     print(add(2, 3), divide(10, 2))
 '@ | Set-Content -Path ~/contoso-calc/calc.py
+if ($?) { Write-Host "📄 Practice project is ready: ~/contoso-calc/calc.py" }
 ```
 
 ## How it works
@@ -216,11 +230,15 @@ Copilot needs the plain model name, so add an alias called `gpt-6-astra`:
    shell without echoing it:
 
 ```bash title="Bash"
+# Paste the key without showing it, and export it for the test calls and the Copilot surfaces
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 ```
 
 ```powershell title="PowerShell"
+# Paste the key without showing it, and keep it in an environment variable for the test calls and the Copilot surfaces
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 ```
 
 > **Checkpoint**
@@ -234,7 +252,12 @@ $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 If the command fails with `InsufficientQuota`, use `--sku-name DataZoneStandard`, or deploy in another region.
 
 ```bash title="Bash"
+# Read the Foundry account's resource ID, which the gateway's model points at
 export FOUNDRY_ID="$(az cognitiveservices account show -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --query id -o tsv)"
+echo "🆔 Foundry account: $FOUNDRY_ID"
+
+# Deploy gpt-6-astra with 100,000 tokens per minute of Global Standard capacity, and show its state
+echo "🧠 Model deployment $MODEL in $FOUNDRY_ACCOUNT:"
 az cognitiveservices account deployment create -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" \
   --deployment-name "$MODEL" --model-name "$MODEL" --model-version 2026-09-03 \
   --model-format OpenAI --sku-name GlobalStandard --sku-capacity 100 \
@@ -242,7 +265,12 @@ az cognitiveservices account deployment create -g "$FOUNDRY_RG" -n "$FOUNDRY_ACC
 ```
 
 ```powershell title="PowerShell"
+# Read the Foundry account's resource ID, which the gateway's model points at
 $FOUNDRY_ID = az cognitiveservices account show -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT --query id -o tsv
+Write-Host "🆔 Foundry account: $FOUNDRY_ID"
+
+# Deploy gpt-6-astra with 100,000 tokens per minute of Global Standard capacity, and show its state
+Write-Host "🧠 Model deployment $MODEL in ${FOUNDRY_ACCOUNT}:"
 az cognitiveservices account deployment create -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT `
   --deployment-name $MODEL --model-name $MODEL --model-version 2026-09-03 `
   --model-format OpenAI --sku-name GlobalStandard --sku-capacity 100 `
@@ -255,19 +283,29 @@ Register the deployment under the provider, then give the backend model a token 
 for each caller. `az aigateway model policy set-token-limit` keeps any other policy that's already on the model.
 
 ```bash title="Bash"
+# Register the deployment as a model under the provider, with the Chat Completions and Responses endpoints
 az aigateway model create -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
   --display-name "$MODEL" --api-format OpenAIChatCompletions \
   --supported-endpoints /openai/v1/chat/completions /openai/v1/responses \
-  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$MODEL,modelName:$MODEL,modelVersion:2026-09-03}" -o none
+  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$MODEL,modelName:$MODEL,modelVersion:2026-09-03}" -o none &&
+  echo "🧠 Model $MODEL is published through $PROVIDER"
+
+# Give each caller 100,000 tokens per minute on the model, and show the model's policies
+echo "🛡️ Policies on $MODEL:"
 az aigateway model policy set-token-limit -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
   --token-limit 100000
 ```
 
 ```powershell title="PowerShell"
+# Register the deployment as a model under the provider, with the Chat Completions and Responses endpoints
 az aigateway model create -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
   --display-name $MODEL --api-format OpenAIChatCompletions `
   --supported-endpoints /openai/v1/chat/completions /openai/v1/responses `
   --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$MODEL,modelName:$MODEL,modelVersion:2026-09-03}" -o none
+if ($?) { Write-Host "🧠 Model $MODEL is published through $PROVIDER" }
+
+# Give each caller 100,000 tokens per minute on the model, and show the model's policies
+Write-Host "🛡️ Policies on ${MODEL}:"
 az aigateway model policy set-token-limit -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
   --token-limit 100000
 ```
@@ -275,12 +313,16 @@ az aigateway model policy set-token-limit -g $RG --gateway-name $GATEWAY --provi
 ### Publish the gpt-6-astra alias
 
 ```bash title="Bash"
+# Publish the gpt-6-astra alias, which Copilot sends in the model field, and show the model that it points at
+echo "🏷️ Alias $MODEL and its target model:"
 az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$MODEL" \
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" \
   --query "{alias:properties.aliasName, target:properties.backendModels[0].resourceId}"
 ```
 
 ```powershell title="PowerShell"
+# Publish the gpt-6-astra alias, which Copilot sends in the model field, and show the model that it points at
+Write-Host "🏷️ Alias $MODEL and its target model:"
 az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $MODEL `
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" `
   --query "{alias:properties.aliasName, target:properties.backendModels[0].resourceId}"
@@ -296,19 +338,27 @@ two people create the same alias at the same time. If the alias already exists, 
 appears on screen. The service assigns the key's display name itself, so any `--display-name` works.
 
 ```bash title="Bash"
+# Create the runtime key that Copilot uses, and show its state
+echo "🔑 API key github-copilot and its state:"
 az aigateway api-key create -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" --display-name "GitHub Copilot" \
   --query "{name:name, state:properties.state}"
 
+# Read the key's value straight into a variable, so that it never shows on screen
 AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" \
   --query primaryKey -o tsv)" && export AI_GATEWAY_API_KEY
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 ```
 
 ```powershell title="PowerShell"
+# Create the runtime key that Copilot uses, and show its state
+Write-Host "🔑 API key github-copilot and its state:"
 az aigateway api-key create -g $RG --gateway-name $GATEWAY -n $KEY_NAME --display-name "GitHub Copilot" `
   --query "{name:name, state:properties.state}"
 
+# Read the key's value straight into an environment variable, so that it never shows on screen
 $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n $KEY_NAME `
   --query primaryKey -o tsv
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 ```
 
 > **Checkpoint**
@@ -328,7 +378,9 @@ The lab is a small azd project in the
 [Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
 
 ```bash title="Bash or PowerShell"
-cd ~/ai-gateway/labs/24-github-copilot-byok
+# Move into the lab's folder, which holds the azd project
+cd ~/ai-gateway/labs/24-github-copilot-byok &&
+  echo "📂 Lab folder: ~/ai-gateway/labs/24-github-copilot-byok"
 ```
 
 ### Review the templates
@@ -357,13 +409,23 @@ Create an azd environment named `aigw-lab24` in your current subscription, then 
 about four minutes.
 
 ```bash title="Bash"
-azd env new aigw-lab24 --location eastus2 --subscription "$(az account show --query id --output tsv)"
-azd up
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
+azd env new aigw-lab24 --location eastus2 --subscription "$(az account show --query id --output tsv)" &&
+  echo "📝 azd environment aigw-lab24 deploys to eastus2"
+
+# Provision the gateway, Foundry with both models, the alias, the key, and the learn MCP server
+azd up &&
+  echo "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)"
 ```
 
 ```powershell title="PowerShell"
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab24 --location eastus2 --subscription (az account show --query id --output tsv)
+if ($?) { Write-Host "📝 azd environment aigw-lab24 deploys to eastus2" }
+
+# Provision the gateway, Foundry with both models, the alias, the key, and the learn MCP server
 azd up
+if ($?) { Write-Host "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)" }
 ```
 
 For another region, pick one where AI Gateway and the `gpt-6-luna` and `gpt-6-astra` models are available, as in [Find
@@ -371,13 +433,23 @@ the available regions](../SETUP.md#find-the-available-regions). If the Foundry d
 with `InsufficientQuota`, deploy `gpt-6-astra` with the Data Zone Standard SKU instead, and provision again:
 
 ```bash title="Bash"
-azd env set BYOK_MODEL_SKU DataZoneStandard
-azd provision
+# Deploy gpt-6-astra with the Data Zone Standard SKU instead of Global Standard
+azd env set BYOK_MODEL_SKU DataZoneStandard &&
+  echo "📝 BYOK_MODEL_SKU is DataZoneStandard"
+
+# Provision again, with the new SKU
+azd provision &&
+  echo "🚀 Provisioning is done, with gpt-6-astra on Data Zone Standard"
 ```
 
 ```powershell title="PowerShell"
+# Deploy gpt-6-astra with the Data Zone Standard SKU instead of Global Standard
 azd env set BYOK_MODEL_SKU DataZoneStandard
+if ($?) { Write-Host "📝 BYOK_MODEL_SKU is DataZoneStandard" }
+
+# Provision again, with the new SKU
 azd provision
+if ($?) { Write-Host "🚀 Provisioning is done, with gpt-6-astra on Data Zone Standard" }
 ```
 
 ### Read the outputs and the key
@@ -386,40 +458,65 @@ Set the variables that the rest of the lab uses from azd's environment values, a
 the gateway, so that it never shows on screen.
 
 ```bash title="Bash"
+# Read the names of what azd created, the model, and the key from azd's environment values
 export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
 export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
 export PROVIDER="$(azd env get-value AI_GATEWAY_PROVIDER)"
 export MODEL="$(azd env get-value AI_GATEWAY_BACKEND_MODEL)"
 export KEY_NAME="$(azd env get-value AI_GATEWAY_KEY_NAME)"
+
+# Read the gateway's resource ID, runtime URL, and alias, and build the management URL that the az rest calls use
 export API="api-version=2025-09-01-preview"
 export GATEWAY_ID="$(azd env get-value AI_GATEWAY_ID)"
 export GW="https://management.azure.com$GATEWAY_ID"
 export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
 export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
+
+# Read the github-copilot key from the gateway, so that it never lands in a file or a deployment log
 export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/$KEY_NAME" \
   --query primaryKey --output tsv)"
+echo "📝 Gateway $GATEWAY in $RG, with provider $PROVIDER and model $MODEL"
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
+
+# Print the base URL that Copilot needs
+echo "🌐 Base URL for Copilot:"
 azd env get-value AI_GATEWAY_MODEL_ENDPOINT
 ```
 
 ```powershell title="PowerShell"
+# Read the names of what azd created, the model, and the key from azd's environment values
 $RG                     = azd env get-value AZURE_RESOURCE_GROUP
 $GATEWAY                = azd env get-value AI_GATEWAY_NAME
 $PROVIDER               = azd env get-value AI_GATEWAY_PROVIDER
 $MODEL                  = azd env get-value AI_GATEWAY_BACKEND_MODEL
 $KEY_NAME               = azd env get-value AI_GATEWAY_KEY_NAME
+
+# Read the gateway's resource ID, runtime URL, and alias, and build the management URL that the az rest calls use
 $API                    = "api-version=2025-09-01-preview"
 $GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
 $GW                     = "https://management.azure.com$GATEWAY_ID"
 $env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
 $env:AI_GATEWAY_MODEL   = azd env get-value AI_GATEWAY_MODEL
+
+# Read the github-copilot key from the gateway, so that it never lands in a file or a deployment log
 $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/$KEY_NAME" `
   --query primaryKey --output tsv
+Write-Host "📝 Gateway $GATEWAY in $RG, with provider $PROVIDER and model $MODEL"
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
+
+# Print the base URL that Copilot needs
+Write-Host "🌐 Base URL for Copilot:"
 azd env get-value AI_GATEWAY_MODEL_ENDPOINT
 ```
 
 > **Checkpoint**
-> `azd up` ended with `SUCCESS`, and the last command printed the base URL that Copilot needs, ending in
-> `/default/models/openai/v1`. In the portal, **Models** › **Aliases** lists `gpt-6-astra`.
+> `azd up` ended with `SUCCESS`, and the last command printed the base URL that Copilot needs, under
+> `🌐 Base URL for Copilot:`, ending in `/default/models/openai/v1`. In the portal, **Models** › **Aliases** lists
+> `gpt-6-astra`.
 
 <!-- /tracks -->
 
@@ -428,27 +525,32 @@ azd env get-value AI_GATEWAY_MODEL_ENDPOINT
 Before you configure Copilot, call the alias the way Copilot does: the Responses API with a bearer token.
 
 ```bash title="Bash"
+# Call the alias the way Copilot does: the Responses API, with the key as a bearer token
 curl -sS "${AI_GATEWAY_URL%/}/default/models/openai/v1/responses" \
   -H "Authorization: Bearer $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
   -d "{\"model\":\"$AI_GATEWAY_MODEL\",\"input\":\"In one sentence, what is a code review for?\"}" \
-  | jq -r '"model: \(.model)", ([.output[] | select(.type == "message") | .content[] | select(.type == "output_text") | .text] | join(""))'
+  | jq -r 'if .output then "🧠 Model: \(.model)",
+      "🤖 \([.output[] | select(.type == "message") | .content[] | select(.type == "output_text") | .text] | join(""))"
+    else "⚠️ \(.error.message // .)" end'
 ```
 
 ```powershell title="PowerShell"
+# Build the request: the alias in model, and one input
 $body = @{ model = $env:AI_GATEWAY_MODEL; input = "In one sentence, what is a code review for?" } | ConvertTo-Json
 
+# Call the alias the way Copilot does: the Responses API, with the key as a bearer token
 $reply = Invoke-RestMethod -Method Post `
   -Uri "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/models/openai/v1/responses" `
   -Headers @{ Authorization = "Bearer $env:AI_GATEWAY_API_KEY" } -ContentType "application/json" -Body $body
-"model: $($reply.model)"
-($reply.output | Where-Object type -eq "message").content.text -join ""
+if ($?) { Write-Host "🧠 Model: $($reply.model)" }
+if ($?) { Write-Host "🤖 $(($reply.output | Where-Object type -eq 'message').content.text -join '')" }
 ```
 
 Expected output (your text differs):
 
 ```text
-model: gpt-6-astra
-A code review checks changes for bugs, clarity, and consistency before they're merged.
+🧠 Model: gpt-6-astra
+🤖 A code review checks changes for bugs, clarity, and consistency before they're merged.
 ```
 
 > [!NOTE]
@@ -487,7 +589,8 @@ VS Code opens `chatLanguageModels.json` with the new group. The gateway has no m
 model to `models` yourself. Print the URL to paste:
 
 ```bash
-echo "${AI_GATEWAY_URL%/}/default/models/openai/v1/responses"
+# Print the full Responses URL on your gateway, to paste into chatLanguageModels.json
+echo "🌐 Responses URL: ${AI_GATEWAY_URL%/}/default/models/openai/v1/responses"
 ```
 
 Then make the group look like this. Keep the `apiKey` value that VS Code wrote: it points at the secret, not the key
@@ -575,17 +678,29 @@ models per terminal.
 | `COPILOT_OFFLINE` | Optional. `true` also turns off the GitHub sign-in, telemetry, web tools, and the GitHub MCP server. |
 
 ```bash title="Bash"
+# Point the Copilot CLI at the gateway's OpenAI-compatible base URL, over the Responses API
 export COPILOT_PROVIDER_BASE_URL="${AI_GATEWAY_URL%/}/default/models/openai/v1"
 export COPILOT_PROVIDER_WIRE_API="responses"
+
+# Give the CLI the github-copilot key, which it sends as a bearer token, and the alias as its model
 export COPILOT_PROVIDER_API_KEY="$AI_GATEWAY_API_KEY"
 export COPILOT_MODEL="$AI_GATEWAY_MODEL"
+echo "📝 Copilot CLI: $COPILOT_MODEL over the $COPILOT_PROVIDER_WIRE_API API"
+echo "🌐 Base URL: $COPILOT_PROVIDER_BASE_URL"
+echo "🔑 Key: in COPILOT_PROVIDER_API_KEY (${#COPILOT_PROVIDER_API_KEY} characters, not shown)"
 ```
 
 ```powershell title="PowerShell"
+# Point the Copilot CLI at the gateway's OpenAI-compatible base URL, over the Responses API
 $env:COPILOT_PROVIDER_BASE_URL = "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/models/openai/v1"
 $env:COPILOT_PROVIDER_WIRE_API = "responses"
+
+# Give the CLI the github-copilot key, which it sends as a bearer token, and the alias as its model
 $env:COPILOT_PROVIDER_API_KEY  = $env:AI_GATEWAY_API_KEY
 $env:COPILOT_MODEL             = $env:AI_GATEWAY_MODEL
+Write-Host "📝 Copilot CLI: $env:COPILOT_MODEL over the $env:COPILOT_PROVIDER_WIRE_API API"
+Write-Host "🌐 Base URL: $env:COPILOT_PROVIDER_BASE_URL"
+Write-Host "🔑 Key: in COPILOT_PROVIDER_API_KEY ($($env:COPILOT_PROVIDER_API_KEY.Length) characters, not shown)"
 ```
 
 These variables last for the current terminal. Run `copilot help environment` for the full list.
@@ -595,13 +710,20 @@ These variables last for the current terminal. Run `copilot help environment` fo
 `copilot -p` runs one prompt and exits:
 
 ```bash
-cd ~/contoso-calc
+# Move into the practice project
+cd ~/contoso-calc &&
+  echo "📂 Practice project: ~/contoso-calc"
+
+# Run one prompt on the gateway's model, then exit
+echo "🤖 Copilot CLI answer:"
 copilot -p "Which model are you? Answer in one short sentence."
 ```
 
 Expected output (your numbers differ):
 
 ```text
+📂 Practice project: ~/contoso-calc
+🤖 Copilot CLI answer:
 I'm powered by gpt-6-astra (model ID: gpt-6-astra).
 
 Changes    +0 -0
@@ -616,6 +738,8 @@ The **Tokens** line shows how much context even a short question carries.
 Start an interactive session in the project, and select **Yes** when the CLI asks whether you trust the folder:
 
 ```bash
+# Start an interactive Copilot CLI session in the practice project, on the gateway's model
+echo "🚀 Starting the Copilot CLI on $COPILOT_MODEL (type /exit to leave)"
 copilot
 ```
 
@@ -662,20 +786,31 @@ tools without asking, which suits a sample. In an app, decide which tools to all
 Run the commands from the lab folder (`labs/24-github-copilot-byok`).
 
 ```bash title="TypeScript"
+# Install the samples' dependencies in the infra folder: the Copilot SDK, which brings the Copilot runtime with it
 cd infra
 npm install          # @github/copilot-sdk
+echo "🧩 The Copilot SDK for TypeScript is installed"
+
+# Run the sample: the agent says which model it is, and lists the files in the folder
+echo "🤖 Agent reply:"
 npm start            # runs copilot-sdk.ts on Node.js 22.18 or later
 ```
 
 ```bash title="Python"
+# Install the samples' dependencies in the infra folder: the Copilot SDK, which brings the Copilot runtime with it
 cd infra
 pip install -r requirements.txt     # github-copilot-sdk
+echo "🧩 The Copilot SDK for Python is installed"
+
+# Run the sample: the agent says which model it is, and lists the files in the folder
+echo "🤖 Agent reply:"
 python copilot_sdk.py
 ```
 
 Expected output (your text differs):
 
 ```text
+🤖 Agent reply:
 I'm powered by gpt-6-astra (model ID: gpt-6-astra).
 
 Files in this folder:
@@ -804,24 +939,30 @@ When the server is ready, copy the **Endpoint URL** from its details page. It en
 `az aigateway mcp create` registers the MCP server. `--endpoints` takes the backends as a JSON array.
 
 ```bash title="Bash"
-az aigateway mcp create -g "$RG" --gateway-name "$GATEWAY" -n learn \
+# Register the public Microsoft Learn MCP server as learn, with one backend in the learn namespace and no credentials
+MCP_ENDPOINT="$(az aigateway mcp create -g "$RG" --gateway-name "$GATEWAY" -n learn \
   --display-name "Microsoft Learn" \
   --description "Search and fetch official Microsoft documentation and code samples." \
   --endpoints '[{"kind": "mcp", "namespace": "learn", "required": true,
                  "mcp": {"transport": "streamableHttp", "url": "https://learn.microsoft.com/api/mcp"}}]' \
-  --query "properties.gatewayEndpoints[0].url" -o tsv
+  --query "properties.gatewayEndpoints[0].url" -o tsv)" &&
+  echo "🔌 MCP server learn is ready: $MCP_ENDPOINT"
 ```
 
 ```powershell title="PowerShell"
+# Write the backend to a file: the public Microsoft Learn MCP server, in the learn namespace, with no credentials
 ConvertTo-Json -Depth 10 -Compress -InputObject @(
   @{ kind = 'mcp'; namespace = 'learn'; required = $true
      mcp  = @{ transport = 'streamableHttp'; url = 'https://learn.microsoft.com/api/mcp' } }
 ) | Set-Content -Path endpoints.json
-az aigateway mcp create -g $RG --gateway-name $GATEWAY -n learn `
+
+# Register the MCP server as learn with that backend, then remove the file
+$MCP_ENDPOINT = az aigateway mcp create -g $RG --gateway-name $GATEWAY -n learn `
   --display-name "Microsoft Learn" `
   --description "Search and fetch official Microsoft documentation and code samples." `
   --endpoints "@endpoints.json" `
   --query "properties.gatewayEndpoints[0].url" -o tsv
+if ($?) { Write-Host "🔌 MCP server learn is ready: $MCP_ENDPOINT" }
 Remove-Item endpoints.json
 ```
 
@@ -830,7 +971,7 @@ If `learn` already exists, for example from lab 04, `mcp create` fails with the 
 with `az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn --query "properties.gatewayEndpoints[0].url" -o tsv`.
 
 > **Checkpoint**
-> The command prints the endpoint, ending in `/default/toolservers/learn/mcp`.
+> The command prints `🔌 MCP server learn is ready:` and the endpoint, ending in `/default/toolservers/learn/mcp`.
 
 <!-- track: iac | Bicep + azd -->
 
@@ -841,10 +982,14 @@ with `az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn --query 
 one `toolServers` resource, `learn`. Print its endpoint from the lab folder (`ai-gateway/labs/24-github-copilot-byok`):
 
 ```bash title="Bash"
+# Print the endpoint of the learn MCP server that azd up deployed
+echo "🔌 Endpoint of the learn MCP server:"
 azd env get-value AI_GATEWAY_MCP_URL
 ```
 
 ```powershell title="PowerShell"
+# Print the endpoint of the learn MCP server that azd up deployed
+Write-Host "🔌 Endpoint of the learn MCP server:"
 azd env get-value AI_GATEWAY_MCP_URL
 ```
 
@@ -852,7 +997,8 @@ azd env get-value AI_GATEWAY_MCP_URL
 > `azd provision` replaces the whole MCP server, including backends and tool rules that you added in the portal.
 
 > **Checkpoint**
-> The command prints the endpoint, ending in `/default/toolservers/learn/mcp`.
+> The commands print `🔌 Endpoint of the learn MCP server:` and the endpoint, ending in
+> `/default/toolservers/learn/mcp`.
 
 <!-- /tracks -->
 
@@ -862,7 +1008,12 @@ Save the endpoint, then list its tools the way Copilot does: a JSON-RPC `tools/l
 `api-key` header.
 
 ```bash title="Bash"
+# Save the endpoint of the learn MCP server on your gateway
 export AI_GATEWAY_MCP_URL="${AI_GATEWAY_URL%/}/default/toolservers/learn/mcp"
+echo "🔌 MCP endpoint: $AI_GATEWAY_MCP_URL"
+
+# List the server's tools the way Copilot does: a JSON-RPC tools/list request, with the key in the api-key header
+echo "🛠️ Tools on the learn MCP server:"
 curl -sS "$AI_GATEWAY_MCP_URL" \
   -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
@@ -870,7 +1021,12 @@ curl -sS "$AI_GATEWAY_MCP_URL" \
 ```
 
 ```powershell title="PowerShell"
+# Save the endpoint of the learn MCP server on your gateway
 $env:AI_GATEWAY_MCP_URL = "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/toolservers/learn/mcp"
+Write-Host "🔌 MCP endpoint: $env:AI_GATEWAY_MCP_URL"
+
+# List the server's tools the way Copilot does: a JSON-RPC tools/list request, with the key in the api-key header
+Write-Host "🛠️ Tools on the learn MCP server:"
 $reply = Invoke-RestMethod -Method Post -Uri $env:AI_GATEWAY_MCP_URL `
   -Headers @{ "api-key" = $env:AI_GATEWAY_API_KEY; Accept = "application/json, text/event-stream" } `
   -ContentType "application/json" -Body '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
@@ -880,6 +1036,8 @@ $reply.result.tools.name
 Expected output:
 
 ```text
+🔌 MCP endpoint: https://<gateway-host>/default/toolservers/learn/mcp
+🛠️ Tools on the learn MCP server:
 learn_microsoft_docs_search
 learn_microsoft_code_sample_search
 learn_microsoft_docs_fetch
@@ -900,7 +1058,8 @@ once and keep it in its secret storage, so the file holds no secret.
 Print the endpoint to paste:
 
 ```bash
-echo "$AI_GATEWAY_MCP_URL"
+# Print the endpoint of the learn MCP server, to paste into .vscode/mcp.json
+echo "🔌 MCP endpoint: $AI_GATEWAY_MCP_URL"
 ```
 
 In VS Code, create `.vscode/mcp.json` in `contoso-calc` with this content, and replace the URL with yours:
@@ -982,12 +1141,22 @@ Keep the single quotes around the header. They stop the shell from expanding `${
 stores the reference, and the CLI reads the key from its environment each time it connects.
 
 ```bash title="Bash"
-copilot mcp add --transport http --header 'api-key: ${AI_GATEWAY_API_KEY}' ai-gateway-learn "$AI_GATEWAY_MCP_URL"
+# Add the gateway's learn MCP server to the Copilot CLI, with a header that reads the key from the environment
+copilot mcp add --transport http --header 'api-key: ${AI_GATEWAY_API_KEY}' ai-gateway-learn "$AI_GATEWAY_MCP_URL" &&
+  echo "🔌 MCP server ai-gateway-learn is ready in the Copilot CLI"
+
+# List the MCP servers that the Copilot CLI uses
+echo "🔌 MCP servers in the Copilot CLI:"
 copilot mcp list
 ```
 
 ```powershell title="PowerShell"
+# Add the gateway's learn MCP server to the Copilot CLI, with a header that reads the key from the environment
 copilot mcp add --transport http --header 'api-key: ${AI_GATEWAY_API_KEY}' ai-gateway-learn $env:AI_GATEWAY_MCP_URL
+if ($?) { Write-Host "🔌 MCP server ai-gateway-learn is ready in the Copilot CLI" }
+
+# List the MCP servers that the Copilot CLI uses
+Write-Host "🔌 MCP servers in the Copilot CLI:"
 copilot mcp list
 ```
 
@@ -1003,6 +1172,8 @@ ai-gateway-learn
     api-key: ***
   Tools: * (all)
   Source: User
+🔌 MCP server ai-gateway-learn is ready in the Copilot CLI
+🔌 MCP servers in the Copilot CLI:
 User servers:
   ai-gateway-learn (http)
 ```
@@ -1033,7 +1204,12 @@ The `copilot` session needs the BYOK variables from [Connect the Copilot CLI](#c
 files:
 
 ```bash
-cd ~/contoso-calc && rm -f function_app.py host.json requirements.txt
+# Move into the practice project, and remove the files that the VS Code section added, if any
+cd ~/contoso-calc && rm -f function_app.py host.json requirements.txt &&
+  echo "📂 Practice project is ready: ~/contoso-calc"
+
+# Start an interactive Copilot CLI session, on the gateway's model and with the gateway's Learn tools
+echo "🚀 Starting the Copilot CLI with the Learn tools (type /exit to leave)"
 copilot
 ```
 
@@ -1067,12 +1243,15 @@ Type `/exit` to leave the session.
 `copilot -p` can't ask for approval, so allow the server's tools up front with `--allow-tool`:
 
 ```bash
+# Run one prompt that needs the Learn tools, and allow the server's tools up front, because -p can't ask
+echo "🤖 Copilot CLI answer, with the Learn tools:"
 copilot -p "Search Microsoft Learn: how do I run a Python function app locally with Azure Functions Core Tools? Answer in two sentences with a link." --allow-tool='ai-gateway-learn'
 ```
 
 Expected output (shortened, your text differs):
 
 ```text
+🤖 Copilot CLI answer, with the Learn tools:
 ● learn_microsoft_docs_search (MCP: ai-gateway-learn) · run Python Azure Functions app locally Core…
   └ Output too large to read at once (52.0 KB). Saved to: /var/folders/…
 
@@ -1118,16 +1297,21 @@ the tools without asking.
 Run the commands from `labs/24-github-copilot-byok/infra`, in the shell where you set `AI_GATEWAY_MCP_URL`.
 
 ```bash title="TypeScript"
+# Run copilot-sdk.ts with a prompt that asks the agent to use the gateway's Learn tools
+echo "🤖 Agent reply, with the Learn tools:"
 npm start -- "Use the Microsoft Learn tools to answer: how do I run a Python function app locally with Azure Functions Core Tools? Answer in two sentences and cite the Learn page."
 ```
 
 ```bash title="Python"
+# Run copilot_sdk.py with a prompt that asks the agent to use the gateway's Learn tools
+echo "🤖 Agent reply, with the Learn tools:"
 python copilot_sdk.py "Use the Microsoft Learn tools to answer: how do I run a Python function app locally with Azure Functions Core Tools? Answer in two sentences and cite the Learn page."
 ```
 
 Expected output (your text differs):
 
 ```text
+🤖 Agent reply, with the Learn tools:
 Install Azure Functions Core Tools, activate your Python virtual environment, install your app's dependencies, and
 run `func start` from the project root, as described in [Microsoft Learn](https://learn.microsoft.com/en-us/azure/azure-functions/functions-run-local?pivots=programming-language-python#start-the-functions-runtime).
 For an HTTP-triggered function, open the localhost URL printed in the terminal (usually on port 7071) or call it
@@ -1203,23 +1387,41 @@ Suspend the key, then run the CLI again. The settings are unchanged, but the gat
 `aigateway` extension doesn't change a key's state yet, so call the Azure Resource Manager REST API with `az rest`:
 
 ```bash title="Bash"
-az rest --method patch --url "$GW/apiKeys/$KEY_NAME?$API" \
-  --body '{"properties":{"state":"suspended"}}' --query properties.state -o tsv
+# Suspend the github-copilot key with the Azure Resource Manager REST API
+STATE="$(az rest --method patch --url "$GW/apiKeys/$KEY_NAME?$API" \
+  --body '{"properties":{"state":"suspended"}}' --query properties.state -o tsv)" &&
+  echo "🔑 API key github-copilot is $STATE"
+
+# Give the gateway time to apply the change
+echo "⏳ Waiting 30 seconds for the key change to apply"
 sleep 30
+
+# Ask the Copilot CLI again, with the same settings: the gateway now rejects the key
+echo "🚦 Expect HTTP 401 from the gateway, after two retries:"
 cd ~/contoso-calc && copilot -p "Say hi"
 ```
 
 ```powershell title="PowerShell"
+# Suspend the github-copilot key with the Azure Resource Manager REST API, with the body in a file to keep its quotes
 '{"properties":{"state":"suspended"}}' | Set-Content keystate.json
-az rest --method patch --url "$GW/apiKeys/$KEY_NAME`?$API" --body "@keystate.json" --query properties.state -o tsv
+$STATE = az rest --method patch --url "$GW/apiKeys/$KEY_NAME`?$API" --body "@keystate.json" --query properties.state -o tsv
+if ($?) { Write-Host "🔑 API key github-copilot is $STATE" }
+
+# Give the gateway time to apply the change
+Write-Host "⏳ Waiting 30 seconds for the key change to apply"
 Start-Sleep 30
+
+# Ask the Copilot CLI again, with the same settings: the gateway now rejects the key
+Write-Host "🚦 Expect HTTP 401 from the gateway, after two retries:"
 Set-Location ~/contoso-calc; copilot -p "Say hi"
 ```
 
 Expected output, after the CLI retries twice:
 
 ```text
-suspended
+🔑 API key github-copilot is suspended
+⏳ Waiting 30 seconds for the key change to apply
+🚦 Expect HTTP 401 from the gateway, after two retries:
 Request failed due to a transient API error. Retrying...
 Request failed due to a transient API error. Retrying...
 Authentication failed with provider at https://<gateway-host>/default/models/openai/v1 (HTTP 401).
@@ -1235,24 +1437,41 @@ in every surface.
 ### Turn Copilot back on
 
 ```bash title="Bash"
-az rest --method patch --url "$GW/apiKeys/$KEY_NAME?$API" \
-  --body '{"properties":{"state":"active"}}' --query properties.state -o tsv
+# Turn the github-copilot key back on
+STATE="$(az rest --method patch --url "$GW/apiKeys/$KEY_NAME?$API" \
+  --body '{"properties":{"state":"active"}}' --query properties.state -o tsv)" &&
+  echo "🔑 API key github-copilot is $STATE"
+
+# Give the gateway time to apply the change
+echo "⏳ Waiting 30 seconds for the key change to apply"
 sleep 30
+
+# Ask the Copilot CLI again: it answers through the gateway
+echo "🤖 Copilot CLI answer:"
 copilot -p "Say hi in three words"
 ```
 
 ```powershell title="PowerShell"
+# Turn the github-copilot key back on, then remove the body file
 '{"properties":{"state":"active"}}' | Set-Content keystate.json
-az rest --method patch --url "$GW/apiKeys/$KEY_NAME`?$API" --body "@keystate.json" --query properties.state -o tsv
+$STATE = az rest --method patch --url "$GW/apiKeys/$KEY_NAME`?$API" --body "@keystate.json" --query properties.state -o tsv
+if ($?) { Write-Host "🔑 API key github-copilot is $STATE" }
 Remove-Item keystate.json
+
+# Give the gateway time to apply the change
+Write-Host "⏳ Waiting 30 seconds for the key change to apply"
 Start-Sleep 30
+
+# Ask the Copilot CLI again: it answers through the gateway
+Write-Host "🤖 Copilot CLI answer:"
 copilot -p "Say hi in three words"
 ```
 
 <!-- /steps -->
 
 > **Checkpoint**
-> The CLI failed with `HTTP 401` while the key was suspended, and answered again once it was `active`.
+> The CLI failed with `HTTP 401` while the key was suspended, and answered again after
+> `🔑 API key github-copilot is active`.
 
 ## Go further
 
@@ -1314,36 +1533,60 @@ Then delete what you created on the gateway. Pick a track.
 Delete the key:
 
 ```bash title="Bash"
-az aigateway api-key delete -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" --yes
+# Delete the github-copilot key: every Copilot surface that still uses it stops working
+az aigateway api-key delete -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" --yes &&
+  echo "🧹 API key github-copilot is deleted"
 ```
 
 ```powershell title="PowerShell"
+# Delete the github-copilot key: every Copilot surface that still uses it stops working
 az aigateway api-key delete -g $RG --gateway-name $GATEWAY -n $KEY_NAME --yes
+if ($?) { Write-Host "🧹 API key github-copilot is deleted" }
 ```
 
 If you don't need `gpt-6-astra` any more, also delete the alias, the backend model, and the Foundry deployment:
 
 ```bash title="Bash"
-az aigateway model-alias delete -g "$RG" --gateway-name "$GATEWAY" -n "$MODEL" --yes
-az aigateway model delete -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" --yes
-az cognitiveservices account deployment delete -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --deployment-name "$MODEL"
+# Delete the gpt-6-astra alias first, so that nothing points at the model
+az aigateway model-alias delete -g "$RG" --gateway-name "$GATEWAY" -n "$MODEL" --yes &&
+  echo "🧹 Alias $MODEL is deleted"
+
+# Delete the backend model from the provider
+az aigateway model delete -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" --yes &&
+  echo "🧹 Model $MODEL is deleted from $PROVIDER"
+
+# Delete the gpt-6-astra deployment from the Foundry account
+az cognitiveservices account deployment delete -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --deployment-name "$MODEL" &&
+  echo "🧹 Model deployment $MODEL is deleted from $FOUNDRY_ACCOUNT"
 ```
 
 ```powershell title="PowerShell"
+# Delete the gpt-6-astra alias first, so that nothing points at the model
 az aigateway model-alias delete -g $RG --gateway-name $GATEWAY -n $MODEL --yes
+if ($?) { Write-Host "🧹 Alias $MODEL is deleted" }
+
+# Delete the backend model from the provider
 az aigateway model delete -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL --yes
+if ($?) { Write-Host "🧹 Model $MODEL is deleted from $PROVIDER" }
+
+# Delete the gpt-6-astra deployment from the Foundry account
 az cognitiveservices account deployment delete -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT --deployment-name $MODEL
+if ($?) { Write-Host "🧹 Model deployment $MODEL is deleted from $FOUNDRY_ACCOUNT" }
 ```
 
 Keep the gateway and the provider: the other labs reuse them. Keep the `learn` MCP server if you continue with
 [Control which tools agents can call](../05-mcp-tool-controls/README.md), which builds on it. Otherwise, delete it:
 
 ```bash title="Bash"
-az aigateway mcp delete -g "$RG" --gateway-name "$GATEWAY" -n learn --yes
+# Delete the learn MCP server from the gateway
+az aigateway mcp delete -g "$RG" --gateway-name "$GATEWAY" -n learn --yes &&
+  echo "🧹 MCP server learn is deleted"
 ```
 
 ```powershell title="PowerShell"
+# Delete the learn MCP server from the gateway
 az aigateway mcp delete -g $RG --gateway-name $GATEWAY -n learn --yes
+if ($?) { Write-Host "🧹 MCP server learn is deleted" }
 ```
 
 <!-- track: iac | Bicep + azd -->
@@ -1356,7 +1599,9 @@ alias, the `github-copilot` key, the `learn` MCP server, and the Foundry account
 minutes.
 
 ```bash
-azd down --purge --force
+# Delete everything that azd up created, and purge the Foundry account
+azd down --purge --force &&
+  echo "🧹 Everything that azd up created is deleted"
 ```
 
 <!-- /tracks -->

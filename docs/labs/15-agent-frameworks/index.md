@@ -73,17 +73,33 @@ All three use the same two endpoints. The gateway serves both model APIs on the 
 From the lab folder, create a virtual environment in `infra` and install the pinned packages.
 
 ```bash title="Bash"
-cd infra
+# Move into the samples folder
+cd infra &&
+  echo "📂 Samples folder: $(pwd)"
+
+# Create a virtual environment in .venv and activate it, so that the packages stay out of your global Python
 python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+source .venv/bin/activate &&
+  echo "🧩 Virtual environment .venv is active"
+
+# Install the pinned packages for Agent Framework, the OpenAI Agents SDK, LangChain, and LangGraph
+pip install -r requirements.txt &&
+  echo "🧩 The packages in requirements.txt are installed"
 ```
 
 ```powershell title="PowerShell"
+# Move into the samples folder
 cd infra
+if ($?) { Write-Host "📂 Samples folder: $(Get-Location)" }
+
+# Create a virtual environment in .venv and activate it, so that the packages stay out of your global Python
 python -m venv .venv
 .venv\Scripts\Activate.ps1
+if ($?) { Write-Host "🧩 Virtual environment .venv is active" }
+
+# Install the pinned packages for Agent Framework, the OpenAI Agents SDK, LangChain, and LangGraph
 pip install -r requirements.txt
+if ($?) { Write-Host "🧩 The packages in requirements.txt are installed" }
 ```
 
 ### Configure the environment
@@ -97,11 +113,15 @@ Copy `.env.example` to `.env` and fill in your values. The samples build both en
 On GitHub, open [infra/.env.example](infra/.env.example).
 
 ```bash title="Bash"
-cp .env.example .env
+# Copy the template to .env, then open .env and fill in your four values
+cp .env.example .env &&
+  echo "📄 .env is ready to fill in"
 ```
 
 ```powershell title="PowerShell"
+# Copy the template to .env, then open .env and fill in your four values
 Copy-Item .env.example .env
+if ($?) { Write-Host "📄 .env is ready to fill in" }
 ```
 
 > [!IMPORTANT]
@@ -249,15 +269,21 @@ Run the sample for each framework from the `infra` folder, with the virtual envi
 arguments to override the default one.
 
 ```bash title="Agent Framework"
+# Run the Agent Framework agent: its model and MCP tool calls both go through the gateway
 python agent_framework_agent.py
+echo "🤖 The Agent Framework agent's answer is above"
 ```
 
 ```bash title="OpenAI Agents SDK"
+# Run the OpenAI Agents SDK agent: its model and MCP tool calls both go through the gateway
 python openai_agents_agent.py
+echo "🤖 The OpenAI Agents SDK agent's answer is above"
 ```
 
 ```bash title="LangGraph"
+# Run the LangGraph agent: its model and MCP tool calls both go through the gateway
 python langgraph_agent.py
+echo "🤖 The LangGraph agent's answer is above"
 ```
 
 Expected output: a line such as `Model <model-name> and MCP server learn through https://<gateway>.eastus2-01.ai.gateway.azure.com`
@@ -291,10 +317,14 @@ Run one sample with a wrong key. The gateway rejects the agent's first call with
 runs.
 
 ```bash title="Bash"
+# Run the LangGraph sample with a wrong key, for this command only, because your shell's value wins over .env
+echo "🚦 Expect 401 Unauthorized: the gateway rejects the agent's first call"
 AI_GATEWAY_API_KEY="not-a-key" python langgraph_agent.py
 ```
 
 ```powershell title="PowerShell"
+# Run the LangGraph sample with a wrong key, then remove it from your shell so that the samples read .env again
+Write-Host "🚦 Expect 401 Unauthorized: the gateway rejects the agent's first call"
 $env:AI_GATEWAY_API_KEY = "not-a-key"; python langgraph_agent.py; Remove-Item Env:AI_GATEWAY_API_KEY
 ```
 

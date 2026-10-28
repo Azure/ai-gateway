@@ -87,28 +87,42 @@ Set these variables once. The steps and the **Verify** section reuse them.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Set your resource group and gateway, and the MCP server that you protect
 export RG="<resource-group>"
 export GATEWAY="<gateway>"
 export MCP_SERVER="learn"                    # the MCP server you protect in this lab
+echo "📝 Gateway $GATEWAY in $RG, MCP server $MCP_SERVER"
 
+# Read the gateway's resource ID and its runtime URL
 export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
-# Paste the runtime key you created in Access › Keys. You use it once to see a key-only call fail closed.
+echo "🆔 Gateway ID: $GATEWAY_ID"
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+
+# Paste the runtime key from Access › Keys without showing it: you use it once, to see a key-only call fail closed
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Set your resource group and gateway, and the MCP server that you protect
 $RG         = "<resource-group>"
 $GATEWAY    = "<gateway>"
 $MCP_SERVER = "learn"                        # the MCP server you protect in this lab
+Write-Host "📝 Gateway $GATEWAY in $RG, MCP server $MCP_SERVER"
 
+# Read the gateway's resource ID and its runtime URL
 $GATEWAY_ID         = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
-# Paste the runtime key you created in Access › Keys. You use it once to see a key-only call fail closed.
+Write-Host "🆔 Gateway ID: $GATEWAY_ID"
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+
+# Paste the runtime key from Access › Keys without showing it: you use it once, to see a key-only call fail closed
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 ```
 </details> <!-- gh -->
 
@@ -150,19 +164,23 @@ role, scope it to the `learn` MCP server, search for your user, and select **Rev
 The same assignment with the Azure CLI:
 
 ```bash
+# Give your user the AI Gateway Tools User role on the MCP server, so that your token can call its tools
 az role assignment create \
   --assignee-object-id "$(az ad signed-in-user show --query id -o tsv)" \
   --assignee-principal-type User \
   --role "dce03f8d-857f-4e40-a90d-67770fa6ecd2" \
-  --scope "$GATEWAY_ID/workspaces/default/toolServers/$MCP_SERVER"
+  --scope "$GATEWAY_ID/workspaces/default/toolServers/$MCP_SERVER" --output none &&
+  echo "🛡️ You have the AI Gateway Tools User role on the $MCP_SERVER MCP server"
 ```
 
 ```powershell
+# Give your user the AI Gateway Tools User role on the MCP server, so that your token can call its tools
 az role assignment create `
   --assignee-object-id (az ad signed-in-user show --query id -o tsv) `
   --assignee-principal-type User `
   --role "dce03f8d-857f-4e40-a90d-67770fa6ecd2" `
-  --scope "$GATEWAY_ID/workspaces/default/toolServers/$MCP_SERVER"
+  --scope "$GATEWAY_ID/workspaces/default/toolServers/$MCP_SERVER" --output none
+if ($?) { Write-Host "🛡️ You have the AI Gateway Tools User role on the $MCP_SERVER MCP server" }
 ```
 
 If you already have **AI Gateway User** or **AI Gateway Tools User** at the gateway scope, skip this step. Role
@@ -185,7 +203,9 @@ The lab is a small azd project in the
 folder. [Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
 
 ```bash title="Bash or PowerShell"
-cd ~/ai-gateway/labs/19-tool-threat-protection
+# Move into the lab's folder, which holds azure.yaml, the templates, and the test scripts
+cd ~/ai-gateway/labs/19-tool-threat-protection &&
+  echo "📂 Lab folder: ~/ai-gateway/labs/19-tool-threat-protection"
 ```
 
 ### Review the templates
@@ -395,16 +415,26 @@ three to eight minutes. Both stages are off at first, so you can test your token
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-azd env new aigw-lab19 --location eastus2 --subscription "$(az account show --query id --output tsv)"
-azd up
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
+azd env new aigw-lab19 --location eastus2 --subscription "$(az account show --query id --output tsv)" &&
+  echo "📝 azd environment aigw-lab19 deploys to eastus2"
+
+# Provision the gateway, the learn MCP server, your role on it, and the key, with both stages off
+azd up &&
+  echo "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab19 --location eastus2 --subscription (az account show --query id --output tsv)
+if ($?) { Write-Host "📝 azd environment aigw-lab19 deploys to eastus2" }
+
+# Provision the gateway, the learn MCP server, your role on it, and the key, with both stages off
 azd up
+if ($?) { Write-Host "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)" }
 ```
 </details> <!-- gh -->
 
@@ -419,13 +449,22 @@ the key from the gateway, so that it never shows on screen. The last command lis
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Read azd's outputs: the resource group, the gateway, the MCP server, and the gateway's ID and runtime URL
 export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
 export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
 export MCP_SERVER="$(azd env get-value MCP_SERVER)"
 export GATEWAY_ID="$(azd env get-value AI_GATEWAY_ID)"
 export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
+echo "📝 Gateway $GATEWAY in $RG, MCP server $MCP_SERVER"
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+
+# Read the app-first-call key from the gateway, so that it never shows on screen
 export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" \
   --query primaryKey --output tsv)"
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
+
+# List your roles on the MCP server: expect AI Gateway Tools User
+echo "🛡️ Your roles on the $MCP_SERVER MCP server:"
 az role assignment list --assignee "$(az ad signed-in-user show --query id -o tsv)" \
   --scope "$GATEWAY_ID/workspaces/default/toolServers/$MCP_SERVER" --query "[].roleDefinitionName" -o tsv
 ```
@@ -434,21 +473,30 @@ az role assignment list --assignee "$(az ad signed-in-user show --query id -o ts
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Read azd's outputs: the resource group, the gateway, the MCP server, and the gateway's ID and runtime URL
 $RG                     = azd env get-value AZURE_RESOURCE_GROUP
 $GATEWAY                = azd env get-value AI_GATEWAY_NAME
 $MCP_SERVER             = azd env get-value MCP_SERVER
 $GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
 $env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
+Write-Host "📝 Gateway $GATEWAY in $RG, MCP server $MCP_SERVER"
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+
+# Read the app-first-call key from the gateway, so that it never shows on screen
 $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" `
   --query primaryKey --output tsv
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
+
+# List your roles on the MCP server: expect AI Gateway Tools User
+Write-Host "🛡️ Your roles on the $MCP_SERVER MCP server:"
 az role assignment list --assignee (az ad signed-in-user show --query id -o tsv) `
   --scope "$GATEWAY_ID/workspaces/default/toolServers/$MCP_SERVER" --query "[].roleDefinitionName" -o tsv
 ```
 </details> <!-- gh -->
 
 > **Checkpoint**
-> `azd up` ended with `SUCCESS`, and the last command printed `AI Gateway Tools User`. Role assignments can take
-> several minutes to apply.
+> `azd up` ended with `SUCCESS`, and the role listing under `🛡️ Your roles on the learn MCP server:` printed
+> `AI Gateway Tools User`. Role assignments can take several minutes to apply.
 
 </details> <!-- gh -->
 <!-- /tracks -->
@@ -592,15 +640,22 @@ On GitHub, open [infra/call-protected-tool.sh](infra/call-protected-tool.sh) or
 [infra/call-protected-tool.ps1](infra/call-protected-tool.ps1).
 
 ```bash
+# Make the test script executable, once
 chmod +x infra/call-protected-tool.sh
+
+# Call the server's search tool with your delegated user token: the script prints each MCP step and the result
+echo "🛠️ Tool call on $MCP_SERVER with your user token:"
 ./infra/call-protected-tool.sh token "$MCP_SERVER"
 ```
 
 ```powershell
+# Call the server's search tool with your delegated user token: the script prints each MCP step and the result
+Write-Host "🛠️ Tool call on $MCP_SERVER with your user token:"
 ./infra/call-protected-tool.ps1 -Auth token -Server $MCP_SERVER
 ```
 
 ```text title="Expected output"
+🛠️ Tool call on learn with your user token:
 Delegated token for the signed-in user (scp: ...)
 MCP endpoint: https://<gateway>.eastus2-01.ai.gateway.azure.com/default/toolservers/learn/mcp
 tools/list: HTTP 200, <n> tools (discovery isn't evaluated)
@@ -667,18 +722,30 @@ Set both stages to `true` and provision again. Only the MCP server changes: the 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-azd env set TOOL_THREAT_PRE_INVOCATION true
-azd env set TOOL_THREAT_POST_INVOCATION true
-azd provision
+# Turn on both evaluation stages in the azd environment
+azd env set TOOL_THREAT_PRE_INVOCATION true &&
+  echo "📝 TOOL_THREAT_PRE_INVOCATION: true"
+azd env set TOOL_THREAT_POST_INVOCATION true &&
+  echo "📝 TOOL_THREAT_POST_INVOCATION: true"
+
+# Deploy again: the template adds a toolThreatProtection policy to the learn MCP server
+azd provision &&
+  echo "🛡️ Tool threat protection is on for the learn MCP server, before and after each tool call"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Turn on both evaluation stages in the azd environment
 azd env set TOOL_THREAT_PRE_INVOCATION true
+if ($?) { Write-Host "📝 TOOL_THREAT_PRE_INVOCATION: true" }
 azd env set TOOL_THREAT_POST_INVOCATION true
+if ($?) { Write-Host "📝 TOOL_THREAT_POST_INVOCATION: true" }
+
+# Deploy again: the template adds a toolThreatProtection policy to the learn MCP server
 azd provision
+if ($?) { Write-Host "🛡️ Tool threat protection is on for the learn MCP server, before and after each tool call" }
 ```
 </details> <!-- gh -->
 
@@ -693,10 +760,14 @@ The new policy appears in the portal's **Policies** overview. The policy is stor
 also read it with `az aigateway mcp show`:
 
 ```bash
+# Read the MCP server's policies: expect one toolThreatProtection entry with both stages on
+echo "🛡️ Policies on the $MCP_SERVER MCP server:"
 az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n "$MCP_SERVER" --query properties.policies
 ```
 
 ```powershell
+# Read the MCP server's policies: expect one toolThreatProtection entry with both stages on
+Write-Host "🛡️ Policies on the $MCP_SERVER MCP server:"
 az aigateway mcp show -g $RG --gateway-name $GATEWAY -n $MCP_SERVER --query properties.policies
 ```
 
@@ -771,14 +842,19 @@ Run the same benign call as before. Allow a few seconds per call, because each e
 round trip.
 
 ```bash
+# Call the protected tool again with your delegated user token: both stages evaluate the call
+echo "🛠️ Tool call on $MCP_SERVER with your user token:"
 ./infra/call-protected-tool.sh token "$MCP_SERVER"
 ```
 
 ```powershell
+# Call the protected tool again with your delegated user token: both stages evaluate the call
+Write-Host "🛠️ Tool call on $MCP_SERVER with your user token:"
 ./infra/call-protected-tool.ps1 -Auth token -Server $MCP_SERVER
 ```
 
 ```text title="Expected output"
+🛠️ Tool call on learn with your user token:
 ...
 tools/list: HTTP 200, <n> tools (discovery isn't evaluated)
 tools/call: learn_microsoft_docs_search with query: What is Azure API Management?
@@ -798,14 +874,19 @@ Now call the same tool with the API key and no bearer token. The key still authe
 gateway can't run one, so it fails closed.
 
 ```bash
+# Call the same tool with the runtime key and no bearer token: the gateway can't evaluate it, so it fails closed
+echo "🚦 Key-only tool call on $MCP_SERVER, expect a ToolEvaluationIdentityRequired denial:"
 ./infra/call-protected-tool.sh key "$MCP_SERVER"
 ```
 
 ```powershell
+# Call the same tool with the runtime key and no bearer token: the gateway can't evaluate it, so it fails closed
+Write-Host "🚦 Key-only tool call on $MCP_SERVER, expect a ToolEvaluationIdentityRequired denial:"
 ./infra/call-protected-tool.ps1 -Auth key -Server $MCP_SERVER
 ```
 
 ```text title="Expected output"
+🚦 Key-only tool call on learn, expect a ToolEvaluationIdentityRequired denial:
 ...
 tools/list: HTTP 200, <n> tools (discovery isn't evaluated)
 tools/call: learn_microsoft_docs_search with query: What is Azure API Management?
@@ -853,11 +934,15 @@ steps. Find your calls by time and compare the allowed call with the key-only ca
   <details open><summary>Bash</summary> <!-- gh -->
 
   ```bash title="Bash"
+  # Write the server's other policies, plus a toolThreatProtection policy with both stages on, to a file
   az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n "$MCP_SERVER" --query properties -o json \
     | jq -c '[(.policies // [])[] | select(.type != "toolThreatProtection") | del(.scope)]
         + [{type:"toolThreatProtection",preInvocation:true,postInvocation:true}]' > policies.json
+
+  # Replace the server's whole policy array with the file's, print the new array, then delete the file
   az aigateway mcp update -g "$RG" --gateway-name "$GATEWAY" -n "$MCP_SERVER" --policies @policies.json \
-    --query properties.policies
+    --query properties.policies &&
+    echo "🛡️ Tool threat protection is on for the $MCP_SERVER MCP server, before and after each tool call"
   rm policies.json
   ```
   </details> <!-- gh -->
@@ -865,13 +950,17 @@ steps. Find your calls by time and compare the allowed call with the key-only ca
   <details><summary>PowerShell</summary> <!-- gh -->
 
   ```powershell title="PowerShell"
+  # Write the server's other policies, plus a toolThreatProtection policy with both stages on, to a file
   $p = az aigateway mcp show -g $RG --gateway-name $GATEWAY -n $MCP_SERVER --query properties.policies -o json |
        ConvertFrom-Json
   $p = @($p | Where-Object { $_ -and $_.type -ne 'toolThreatProtection' } | Select-Object * -ExcludeProperty scope) +
        @(@{ type = 'toolThreatProtection'; preInvocation = $true; postInvocation = $true })
   ConvertTo-Json -Depth 10 -Compress -InputObject $p | Set-Content policies.json
+
+  # Replace the server's whole policy array with the file's, print the new array, then delete the file
   az aigateway mcp update -g $RG --gateway-name $GATEWAY -n $MCP_SERVER --policies "@policies.json" `
     --query properties.policies
+  if ($?) { Write-Host "🛡️ Tool threat protection is on for the $MCP_SERVER MCP server, before and after each tool call" }
   Remove-Item policies.json
   ```
   </details> <!-- gh -->
@@ -894,17 +983,21 @@ In the AI Gateway portal, select **Policies**, select the **Agent 365 tool threa
 If you added **AI Gateway Tools User** only for this lab, remove it in **Access**, or run:
 
 ```bash
+# Remove your AI Gateway Tools User role on the MCP server
 az role assignment delete \
   --assignee "$(az ad signed-in-user show --query id -o tsv)" \
   --role "dce03f8d-857f-4e40-a90d-67770fa6ecd2" \
-  --scope "$GATEWAY_ID/workspaces/default/toolServers/$MCP_SERVER"
+  --scope "$GATEWAY_ID/workspaces/default/toolServers/$MCP_SERVER" &&
+  echo "🧹 Your AI Gateway Tools User role on the $MCP_SERVER MCP server is removed"
 ```
 
 ```powershell
+# Remove your AI Gateway Tools User role on the MCP server
 az role assignment delete `
   --assignee (az ad signed-in-user show --query id -o tsv) `
   --role "dce03f8d-857f-4e40-a90d-67770fa6ecd2" `
   --scope "$GATEWAY_ID/workspaces/default/toolServers/$MCP_SERVER"
+if ($?) { Write-Host "🧹 Your AI Gateway Tools User role on the $MCP_SERVER MCP server is removed" }
 ```
 
 </details> <!-- gh -->
@@ -918,15 +1011,22 @@ server, its role assignment, and the key. [`--purge`](../SETUP.md#delete-what-az
 resources. It takes about ten minutes.
 
 ```bash
-azd down --purge --force
+# Delete everything that azd up created, and purge the soft-deleted resources
+azd down --purge --force &&
+  echo "🧹 Everything that azd up created is deleted"
 ```
 
 To keep this gateway for other labs instead, skip `azd down` and remove the policy:
 
 ```bash
+# Turn off both evaluation stages in the azd environment
 azd env set TOOL_THREAT_PRE_INVOCATION false
-azd env set TOOL_THREAT_POST_INVOCATION false
-azd provision
+azd env set TOOL_THREAT_POST_INVOCATION false &&
+  echo "📝 Both evaluation stages are off in the azd environment"
+
+# Deploy again, which removes the toolThreatProtection policy from the learn MCP server
+azd provision &&
+  echo "🧹 The tool threat protection policy is removed from the learn MCP server"
 ```
 
 </details> <!-- gh -->

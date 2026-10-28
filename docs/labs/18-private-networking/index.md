@@ -72,59 +72,79 @@ track sets the ones it needs from azd's outputs. The lab puts the new gateway an
 resource group, so clean-up is one command.
 
 ```bash title="Bash"
+# Name the lab's resource group, region, and new gateway, and build the gateway's resource ID from your subscription
 export RG="rg-ai-gateway-private"            # a new resource group for this lab
 export LOCATION="eastus2"                    # a region where AI Gateway is available
 export GATEWAY="<private-gateway>"           # a NEW, globally unique name, 24 characters or fewer
 export SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
 export GATEWAY_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
+echo "📝 Gateway $GATEWAY in $RG ($LOCATION)"
+echo "🆔 Subscription: $SUBSCRIPTION_ID"
 
+# Name the virtual network, its two subnets, the NSG of the integration subnet, and Foundry's private endpoint
 export VNET="vnet-aigw"
 export INTEGRATION_SUBNET="snet-aigw-integration"
 export PE_SUBNET="snet-private-endpoints"
 export NSG="nsg-aigw-integration"
 export FOUNDRY_PE="pe-foundry-$GATEWAY"
+echo "📝 Network $VNET with subnets $INTEGRATION_SUBNET and $PE_SUBNET, NSG $NSG, private endpoint $FOUNDRY_PE"
 
-# The Foundry resource and deployment from the earlier labs
+# Point at the Foundry resource and deployment from the earlier labs, and read the account's resource ID and endpoint
 export FOUNDRY_RG="<foundry-resource-group>"
 export FOUNDRY_ACCOUNT="<foundry-account-name>"
 export DEPLOYMENT="gpt-6-luna"
 export FOUNDRY_ID="$(az cognitiveservices account show -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --query id -o tsv)"
 export FOUNDRY_ENDPOINT="$(az cognitiveservices account show -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --query properties.endpoint -o tsv)"
+echo "🆔 Foundry account: $FOUNDRY_ID"
+echo "🌐 Foundry endpoint: $FOUNDRY_ENDPOINT"
 
-# What the lab publishes on the new gateway
+# Name what the lab publishes on the new gateway: a model provider, an alias, and a runtime API key
 export PROVIDER="foundry-private"
 export ALIAS="private-chat"
 export KEY_NAME="private-net-lab"
+echo "📝 Provider $PROVIDER, alias $ALIAS, and API key private-net-lab on the new gateway"
 
-az group create -n "$RG" -l "$LOCATION" -o none
+# Create the resource group that holds the new gateway and the network, so that clean-up is one command
+az group create -n "$RG" -l "$LOCATION" -o none &&
+  echo "📦 Resource group $RG is ready in $LOCATION"
 ```
 
 ```powershell title="PowerShell"
+# Name the lab's resource group, region, and new gateway, and build the gateway's resource ID from your subscription
 $RG              = "rg-ai-gateway-private"   # a new resource group for this lab
 $LOCATION        = "eastus2"                 # a region where AI Gateway is available
 $GATEWAY         = "<private-gateway>"       # a NEW, globally unique name, 24 characters or fewer
 $SUBSCRIPTION_ID = az account show --query id -o tsv
 $GATEWAY_ID      = "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.ApiManagement/aigateways/$GATEWAY"
+Write-Host "📝 Gateway $GATEWAY in $RG ($LOCATION)"
+Write-Host "🆔 Subscription: $SUBSCRIPTION_ID"
 
+# Name the virtual network, its two subnets, the NSG of the integration subnet, and Foundry's private endpoint
 $VNET               = "vnet-aigw"
 $INTEGRATION_SUBNET = "snet-aigw-integration"
 $PE_SUBNET          = "snet-private-endpoints"
 $NSG                = "nsg-aigw-integration"
 $FOUNDRY_PE         = "pe-foundry-$GATEWAY"
+Write-Host "📝 Network $VNET with subnets $INTEGRATION_SUBNET and $PE_SUBNET, NSG $NSG, private endpoint $FOUNDRY_PE"
 
-# The Foundry resource and deployment from the earlier labs
+# Point at the Foundry resource and deployment from the earlier labs, and read the account's resource ID and endpoint
 $FOUNDRY_RG       = "<foundry-resource-group>"
 $FOUNDRY_ACCOUNT  = "<foundry-account-name>"
 $DEPLOYMENT       = "gpt-6-luna"
 $FOUNDRY_ID       = az cognitiveservices account show -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT --query id -o tsv
 $FOUNDRY_ENDPOINT = az cognitiveservices account show -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT --query properties.endpoint -o tsv
+Write-Host "🆔 Foundry account: $FOUNDRY_ID"
+Write-Host "🌐 Foundry endpoint: $FOUNDRY_ENDPOINT"
 
-# What the lab publishes on the new gateway
+# Name what the lab publishes on the new gateway: a model provider, an alias, and a runtime API key
 $PROVIDER = "foundry-private"
 $ALIAS    = "private-chat"
 $KEY_NAME = "private-net-lab"
+Write-Host "📝 Provider $PROVIDER, alias $ALIAS, and API key private-net-lab on the new gateway"
 
+# Create the resource group that holds the new gateway and the network, so that clean-up is one command
 az group create -n $RG -l $LOCATION -o none
+if ($?) { Write-Host "📦 Resource group $RG is ready in $LOCATION" }
 ```
 
 > [!TIP]
@@ -193,35 +213,49 @@ address space `10.20.0.0/16`. Add the two subnets from the table above. On `snet
 ### Create the network security group
 
 ```bash
-az network nsg create -g "$RG" -n "$NSG" -l "$LOCATION"
+# Create the network security group that the integration subnet uses
+az network nsg create -g "$RG" -n "$NSG" -l "$LOCATION" -o none &&
+  echo "🔒 NSG $NSG is ready"
 
+# Allow outbound HTTPS (TCP 443) from the subnet to the Storage service tag, as the gateway's subnet checks require
 az network nsg rule create -g "$RG" --nsg-name "$NSG" -n AllowStorageOutbound \
   --priority 100 --direction Outbound --access Allow --protocol Tcp \
   --source-address-prefixes VirtualNetwork \
-  --destination-address-prefixes Storage --destination-port-ranges 443
+  --destination-address-prefixes Storage --destination-port-ranges 443 -o none &&
+  echo "🔒 NSG rule AllowStorageOutbound allows outbound TCP 443 to Storage"
 
+# Allow outbound HTTPS (TCP 443) to the AzureKeyVault service tag, the other rule that the subnet checks require
 az network nsg rule create -g "$RG" --nsg-name "$NSG" -n AllowKeyVaultOutbound \
   --priority 110 --direction Outbound --access Allow --protocol Tcp \
   --source-address-prefixes VirtualNetwork \
-  --destination-address-prefixes AzureKeyVault --destination-port-ranges 443
+  --destination-address-prefixes AzureKeyVault --destination-port-ranges 443 -o none &&
+  echo "🔒 NSG rule AllowKeyVaultOutbound allows outbound TCP 443 to AzureKeyVault"
 ```
 
 ### Create the virtual network and subnets
 
 ```bash
-az network vnet create -g "$RG" -n "$VNET" -l "$LOCATION" --address-prefixes 10.20.0.0/16
+# Create the virtual network, with an address space that holds both subnets
+az network vnet create -g "$RG" -n "$VNET" -l "$LOCATION" --address-prefixes 10.20.0.0/16 -o none &&
+  echo "🔒 Virtual network $VNET is ready in $LOCATION"
 
+# Create the integration subnet for the gateway alone: delegated to Microsoft.App/environments, with the NSG
 az network vnet subnet create -g "$RG" --vnet-name "$VNET" -n "$INTEGRATION_SUBNET" \
   --address-prefixes 10.20.0.0/24 \
-  --delegations Microsoft.App/environments --network-security-group "$NSG"
+  --delegations Microsoft.App/environments --network-security-group "$NSG" -o none &&
+  echo "🔒 Integration subnet $INTEGRATION_SUBNET (10.20.0.0/24) is ready"
 
-az network vnet subnet create -g "$RG" --vnet-name "$VNET" -n "$PE_SUBNET" --address-prefixes 10.20.1.0/24
+# Create the subnet that holds the private endpoints to backends such as Foundry
+az network vnet subnet create -g "$RG" --vnet-name "$VNET" -n "$PE_SUBNET" --address-prefixes 10.20.1.0/24 -o none &&
+  echo "🔒 Private endpoint subnet $PE_SUBNET (10.20.1.0/24) is ready"
 ```
 
 > **Checkpoint**
 > This command shows the `/24` prefix, the `Microsoft.App/environments` delegation, and the NSG:
 >
 > ```bash
+> # Show the integration subnet's prefix, delegation, and NSG
+> echo "🔒 Prefix, delegation, and NSG of $INTEGRATION_SUBNET, the integration subnet:"
 > az network vnet subnet show -g "$RG" --vnet-name "$VNET" -n "$INTEGRATION_SUBNET" \
 >   --query "{prefix:addressPrefix, delegation:delegations[0].serviceName, nsg:networkSecurityGroup.id}"
 > ```
@@ -240,7 +274,9 @@ The lab is a small azd project in the
 [Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
 
 ```bash title="Bash or PowerShell"
-cd ~/ai-gateway/labs/18-private-networking
+# Move into the lab's folder, which holds the azd project
+cd ~/ai-gateway/labs/18-private-networking &&
+  echo "📂 Lab folder: ~/ai-gateway/labs/18-private-networking"
 ```
 
 ### Review the templates
@@ -323,16 +359,20 @@ extension creates only the AI gateway, so create the connector gateway through t
 with `az rest`.
 
 ```bash title="Bash"
+# Create the gateway's companion connector gateway, which the aigateway extension doesn't create
 az rest --method put \
   --url "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Web/connectorGateways/$GATEWAY?api-version=2026-05-01-preview" \
-  --body "$(jq -cn --arg location "$LOCATION" '{location: $location, properties: {}}')" -o none
+  --body "$(jq -cn --arg location "$LOCATION" '{location: $location, properties: {}}')" -o none &&
+  echo "🔌 Connector gateway $GATEWAY is ready"
 ```
 
 ```powershell title="PowerShell"
+# Create the gateway's companion connector gateway, which the aigateway extension doesn't create
 @{ location = $LOCATION; properties = @{} } | ConvertTo-Json -Compress | Set-Content body.json
 az rest --method put `
   --url "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.Web/connectorGateways/${GATEWAY}?api-version=2026-05-01-preview" `
   --body "@body.json" -o none
+if ($?) { Write-Host "🔌 Connector gateway $GATEWAY is ready" }
 Remove-Item body.json
 ```
 
@@ -342,21 +382,32 @@ The command is the same as in lab 01, plus `--subnet`, which sets `properties.ba
 provisioning finishes, usually within a few minutes.
 
 ```bash title="Bash"
+# Read the resource ID of the integration subnet
 SUBNET_ID="$(az network vnet subnet show -g "$RG" --vnet-name "$VNET" -n "$INTEGRATION_SUBNET" --query id -o tsv)"
+echo "🆔 Integration subnet: $SUBNET_ID"
 
+# Create the gateway with a system-assigned managed identity and private routing through the integration subnet,
+# which you can't change later; the command waits until provisioning finishes
 az aigateway create -g "$RG" -n "$GATEWAY" --location "$LOCATION" --system-assigned true \
-  --subnet "$SUBNET_ID" -o none
+  --subnet "$SUBNET_ID" -o none &&
+  echo "🚀 Gateway $GATEWAY is ready, with private routing through $INTEGRATION_SUBNET"
 ```
 
 ```powershell title="PowerShell"
+# Read the resource ID of the integration subnet
 $SUBNET_ID = az network vnet subnet show -g $RG --vnet-name $VNET -n $INTEGRATION_SUBNET --query id -o tsv
+Write-Host "🆔 Integration subnet: $SUBNET_ID"
 
+# Create the gateway with a system-assigned managed identity and private routing through the integration subnet,
+# which you can't change later; the command waits until provisioning finishes
 az aigateway create -g $RG -n $GATEWAY --location $LOCATION --system-assigned true `
   --subnet $SUBNET_ID -o none
+if ($?) { Write-Host "🚀 Gateway $GATEWAY is ready, with private routing through $INTEGRATION_SUBNET" }
 ```
 
 > **Checkpoint**
-> `az aigateway create` returns without an error, usually within a few minutes.
+> `az aigateway create` returns without an error, usually within a few minutes, and the commands print
+> `🚀 Gateway <private-gateway> is ready, with private routing through snet-aigw-integration`.
 
 <!-- track: iac | Bicep + azd -->
 
@@ -366,13 +417,23 @@ In the `ai-gateway/labs/18-private-networking` folder, create an azd environment
 current subscription, then provision everything. It takes about seven minutes.
 
 ```bash title="Bash"
-azd env new aigw-lab18 --location eastus2 --subscription "$(az account show --query id --output tsv)"
-azd up
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
+azd env new aigw-lab18 --location eastus2 --subscription "$(az account show --query id --output tsv)" &&
+  echo "📝 azd environment aigw-lab18 deploys to eastus2"
+
+# Provision the network, the gateway with private routing, Foundry with its private endpoint, and the model
+azd up &&
+  echo "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)"
 ```
 
 ```powershell title="PowerShell"
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab18 --location eastus2 --subscription (az account show --query id --output tsv)
+if ($?) { Write-Host "📝 azd environment aigw-lab18 deploys to eastus2" }
+
+# Provision the network, the gateway with private routing, Foundry with its private endpoint, and the model
 azd up
+if ($?) { Write-Host "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)" }
 ```
 
 For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
@@ -389,6 +450,8 @@ Set the variables that the next sections and **Verify** use from azd's environme
 the gateway so that it never shows on screen:
 
 ```bash title="Bash"
+# Read azd's outputs: the resource group, the gateway, the key's name, Foundry's private endpoint and endpoint,
+# the gateway's runtime URL, and the alias
 export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
 export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
 export GATEWAY_ID="$(azd env get-value AI_GATEWAY_ID)"
@@ -397,13 +460,20 @@ export FOUNDRY_PE="$(azd env get-value FOUNDRY_PRIVATE_ENDPOINT_NAME)"
 export FOUNDRY_ENDPOINT="$(azd env get-value FOUNDRY_ENDPOINT)"
 export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
 export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
+
+# Read the key from the gateway, so that it never lands in a file or a deployment log
 export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/$KEY_NAME" \
   --query primaryKey --output tsv)"
 
-echo "$GATEWAY  $FOUNDRY_PE  $AI_GATEWAY_MODEL"
+echo "📝 Gateway $GATEWAY in $RG"
+echo "🔒 Foundry private endpoint: $FOUNDRY_PE"
+echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 ```
 
 ```powershell title="PowerShell"
+# Read azd's outputs: the resource group, the gateway, the key's name, Foundry's private endpoint and endpoint,
+# the gateway's runtime URL, and the alias
 $RG                     = azd env get-value AZURE_RESOURCE_GROUP
 $GATEWAY                = azd env get-value AI_GATEWAY_NAME
 $GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
@@ -412,35 +482,50 @@ $FOUNDRY_PE             = azd env get-value FOUNDRY_PRIVATE_ENDPOINT_NAME
 $FOUNDRY_ENDPOINT       = azd env get-value FOUNDRY_ENDPOINT
 $env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
 $env:AI_GATEWAY_MODEL   = azd env get-value AI_GATEWAY_MODEL
+
+# Read the key from the gateway, so that it never lands in a file or a deployment log
 $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/$KEY_NAME" `
   --query primaryKey --output tsv
 
-"$GATEWAY  $FOUNDRY_PE  $env:AI_GATEWAY_MODEL"
+Write-Host "📝 Gateway $GATEWAY in $RG"
+Write-Host "🔒 Foundry private endpoint: $FOUNDRY_PE"
+Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 ```
 
 > **Checkpoint**
-> `azd up` ended with `SUCCESS`, and the last command printed the gateway name, the private endpoint name, and the
-> alias, for example `aigw-abc123  pe-foundry-aigw-abc123  private-chat`.
+> `azd up` ended with `SUCCESS`, and the last commands printed the gateway name, the private endpoint name, and
+> the alias, for example `📝 Gateway aigw-abc123 in rg-aigw-lab18`,
+> `🔒 Foundry private endpoint: pe-foundry-aigw-abc123`, and `🏷️ Model alias: private-chat`.
 
 <!-- /tracks -->
 
 Whichever track you used, load the runtime URL and confirm that the gateway uses the integration subnet:
 
 ```bash title="Bash"
+# Read the gateway's runtime URL
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
 
+# Show the gateway's provisioning state, the subnet that its outbound calls go through, and its host name
+echo "🔒 Gateway $GATEWAY and its private routing:"
 az aigateway show -g "$RG" -n "$GATEWAY" \
   --query "{state:properties.provisioningState, backendSubnet:properties.backend.subnet.id, host:properties.frontend.defaultHostname}"
 ```
 
 ```powershell title="PowerShell"
+# Read the gateway's runtime URL
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
 
+# Show the gateway's provisioning state, the subnet that its outbound calls go through, and its host name
+Write-Host "🔒 Gateway $GATEWAY and its private routing:"
 az aigateway show -g $RG -n $GATEWAY `
   --query "{state:properties.provisioningState, backendSubnet:properties.backend.subnet.id, host:properties.frontend.defaultHostname}"
 ```
 
-Expected output:
+The commands print the runtime URL, for example
+`🌐 Runtime URL: https://<private-gateway>.eastus2-01.ai.gateway.azure.com`, and then the gateway's settings:
 
 ```json
 {
@@ -472,9 +557,11 @@ For the full walkthrough, see
 ### Add a private endpoint to Foundry
 
 ```bash
+# Create a private endpoint in the private endpoint subnet to the Foundry account's account sub-resource
 az network private-endpoint create -g "$RG" -n "$FOUNDRY_PE" -l "$LOCATION" \
   --vnet-name "$VNET" --subnet "$PE_SUBNET" \
-  --private-connection-resource-id "$FOUNDRY_ID" --group-id account --connection-name foundry
+  --private-connection-resource-id "$FOUNDRY_ID" --group-id account --connection-name foundry -o none &&
+  echo "🔒 Private endpoint $FOUNDRY_PE connects $PE_SUBNET to Foundry"
 ```
 
 ### Link the Foundry private DNS zones
@@ -482,24 +569,38 @@ az network private-endpoint create -g "$RG" -n "$FOUNDRY_PE" -l "$LOCATION" \
 Create each zone, link it to the virtual network, and add it to the endpoint's DNS zone group:
 
 ```bash title="Bash"
+# For each Foundry private DNS zone: the first one creates the endpoint's DNS zone group, the others join it
 first=true
 for zone in privatelink.cognitiveservices.azure.com privatelink.openai.azure.com privatelink.services.ai.azure.com; do
-  az network private-dns zone create -g "$RG" -n "$zone" -o none
-  az network private-dns link vnet create -g "$RG" -z "$zone" -n "$VNET-link" -v "$VNET" -e false -o none
+  # Create the zone, and link it to the virtual network without auto-registration of records (-e false)
+  az network private-dns zone create -g "$RG" -n "$zone" -o none &&
+    echo "🔒 Private DNS zone $zone is ready"
+  az network private-dns link vnet create -g "$RG" -z "$zone" -n "$VNET-link" -v "$VNET" -e false -o none &&
+    echo "🔒 $zone is linked to $VNET"
+
+  # Add the zone to the private endpoint's DNS zone group, so that Foundry's private IP gets an A record in it
   if $first; then action=create; first=false; else action=add; fi
   az network private-endpoint dns-zone-group "$action" -g "$RG" --endpoint-name "$FOUNDRY_PE" \
-    -n default --private-dns-zone "$zone" --zone-name "${zone//./-}" -o none
+    -n default --private-dns-zone "$zone" --zone-name "${zone//./-}" -o none &&
+    echo "🔒 $zone is in the DNS zone group of $FOUNDRY_PE"
 done
 ```
 
 ```powershell title="PowerShell"
+# For each Foundry private DNS zone: the first one creates the endpoint's DNS zone group, the others join it
 $zones = "privatelink.cognitiveservices.azure.com", "privatelink.openai.azure.com", "privatelink.services.ai.azure.com"
 foreach ($zone in $zones) {
+  # Create the zone, and link it to the virtual network without auto-registration of records (-e false)
   az network private-dns zone create -g $RG -n $zone -o none
+  if ($?) { Write-Host "🔒 Private DNS zone $zone is ready" }
   az network private-dns link vnet create -g $RG -z $zone -n "$VNET-link" -v $VNET -e false -o none
+  if ($?) { Write-Host "🔒 $zone is linked to $VNET" }
+
+  # Add the zone to the private endpoint's DNS zone group, so that Foundry's private IP gets an A record in it
   $action = if ($zone -eq $zones[0]) { "create" } else { "add" }
   az network private-endpoint dns-zone-group $action -g $RG --endpoint-name $FOUNDRY_PE `
     -n default --private-dns-zone $zone --zone-name $zone.Replace('.', '-') -o none
+  if ($?) { Write-Host "🔒 $zone is in the DNS zone group of $FOUNDRY_PE" }
 }
 ```
 
@@ -517,13 +618,18 @@ Check them with the commands in the next checkpoint.
 > The private endpoint is approved, and the Foundry host has an `A` record in the `10.20.1.0/24` range:
 >
 > ```bash
+> # Show the status of the private endpoint's connection to Foundry
+> echo "🔒 Status of the connection from $FOUNDRY_PE to Foundry:"
 > az network private-endpoint show -g "$RG" -n "$FOUNDRY_PE" \
 >   --query "privateLinkServiceConnections[0].privateLinkServiceConnectionState.status" -o tsv
+>
+> # List the A records in the Foundry private DNS zone: the account's name and its private IP
+> echo "🔒 A records in privatelink.cognitiveservices.azure.com:"
 > az network private-dns record-set a list -g "$RG" -z privatelink.cognitiveservices.azure.com \
 >   --query "[].{name:name, ip:aRecords[0].ipv4Address}" -o table
 > ```
 >
-> The first command prints `Approved`, and the table shows `<foundry-account-name>` with an IP like `10.20.1.4`.
+> The connection status is `Approved`, and the table shows `<foundry-account-name>` with an IP like `10.20.1.4`.
 
 ## Publish a model on the new gateway
 
@@ -548,13 +654,21 @@ Select **Access** › **Keys** › **Create API key**, enter `private-net-lab` i
 and copy the value. Then set both values in your shell without echoing the key:
 
 ```bash title="Bash"
+# Set the alias that apps send in the model field
 export AI_GATEWAY_MODEL="<model-name>"    # the alias from the Aliases tab
+echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+
+# Read the key without showing it, and export it for the next commands
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 ```
 
 ```powershell title="PowerShell"
+# Set the alias that apps send in the model field, and read the key without showing it
 $env:AI_GATEWAY_MODEL   = "<model-name>"  # the alias from the Aliases tab
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
+Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 ```
 
 <!-- track: cli | Azure CLI -->
@@ -562,15 +676,25 @@ $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 ### Grant the gateway access to Foundry
 
 ```bash title="Bash"
+# Read the principal ID of the new gateway's managed identity
 PRINCIPAL_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query identity.principalId -o tsv)"
+echo "🪪 Gateway identity: $PRINCIPAL_ID"
+
+# Give the gateway's identity the Foundry User role on the account, so that it can call the model
 az role assignment create --assignee-object-id "$PRINCIPAL_ID" --assignee-principal-type ServicePrincipal \
-  --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope "$FOUNDRY_ID" -o none
+  --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope "$FOUNDRY_ID" -o none &&
+  echo "🛡️ The gateway's identity has the Foundry User role on $FOUNDRY_ACCOUNT"
 ```
 
 ```powershell title="PowerShell"
+# Read the principal ID of the new gateway's managed identity
 $PRINCIPAL_ID = az aigateway show -g $RG -n $GATEWAY --query identity.principalId -o tsv
+Write-Host "🪪 Gateway identity: $PRINCIPAL_ID"
+
+# Give the gateway's identity the Foundry User role on the account, so that it can call the model
 az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principal-type ServicePrincipal `
   --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope $FOUNDRY_ID -o none
+if ($?) { Write-Host "🛡️ The gateway's identity has the Foundry User role on $FOUNDRY_ACCOUNT" }
 ```
 
 `53ca6127-db72-4b80-b1b0-d745d6d5456d` is the **Foundry User** role.
@@ -581,24 +705,31 @@ Create a provider that signs in to Foundry with the gateway's managed identity, 
 and publish an alias.
 
 ```bash title="Bash"
+# Add a model provider that points at the Foundry account and signs in with the gateway's managed identity
 az aigateway model-provider create -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" \
   --kind Foundry --display-name "Foundry (private)" \
   --foundry "$(jq -cn --arg endpoint "$FOUNDRY_ENDPOINT" --arg id "$FOUNDRY_ID" '{
       endpoint: $endpoint, resourceIds: [$id],
       authentication: {kind: "ManagedIdentity",
-                       managedIdentity: {resource: "https://cognitiveservices.azure.com/"}}}')" -o none
+                       managedIdentity: {resource: "https://cognitiveservices.azure.com/"}}}')" -o none &&
+  echo "🔌 Model provider $PROVIDER points at $FOUNDRY_ACCOUNT"
 
+# Add a model for the deployment, with the endpoints that apps can call
 az aigateway model create -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$DEPLOYMENT" \
   --display-name "$DEPLOYMENT" --api-format OpenAIChatCompletions \
   --supported-endpoints /openai/v1/chat/completions /openai/v1/responses \
-  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$DEPLOYMENT,modelName:$DEPLOYMENT}" -o none
+  --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$DEPLOYMENT,modelName:$DEPLOYMENT}" -o none &&
+  echo "🧠 Model $DEPLOYMENT is published through $PROVIDER"
 
+# Build the model's resource ID, and publish the alias that apps send in the model field
 MODEL_ID="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT"
 az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" \
-  --backend-model resource-id="$MODEL_ID" --only-show-errors -o none
+  --backend-model resource-id="$MODEL_ID" --only-show-errors -o none &&
+  echo "🏷️ Alias $ALIAS is ready"
 ```
 
 ```powershell title="PowerShell"
+# Add a model provider that points at the Foundry account and signs in with the gateway's managed identity
 @{
   endpoint       = $FOUNDRY_ENDPOINT
   resourceIds    = @($FOUNDRY_ID)
@@ -606,16 +737,21 @@ az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" \
 } | ConvertTo-Json -Depth 10 -Compress | Set-Content foundry.json
 az aigateway model-provider create -g $RG --gateway-name $GATEWAY -n $PROVIDER `
   --kind Foundry --display-name "Foundry (private)" --foundry "@foundry.json" -o none
+if ($?) { Write-Host "🔌 Model provider $PROVIDER points at $FOUNDRY_ACCOUNT" }
 Remove-Item foundry.json
 
+# Add a model for the deployment, with the endpoints that apps can call
 az aigateway model create -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $DEPLOYMENT `
   --display-name $DEPLOYMENT --api-format OpenAIChatCompletions `
   --supported-endpoints /openai/v1/chat/completions /openai/v1/responses `
   --deployment-config "{resourceId:$FOUNDRY_ID/deployments/$DEPLOYMENT,modelName:$DEPLOYMENT}" -o none
+if ($?) { Write-Host "🧠 Model $DEPLOYMENT is published through $PROVIDER" }
 
+# Build the model's resource ID, and publish the alias that apps send in the model field
 $MODEL_ID = "$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$DEPLOYMENT"
 az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $ALIAS `
   --backend-model resource-id="$MODEL_ID" --only-show-errors -o none
+if ($?) { Write-Host "🏷️ Alias $ALIAS is ready" }
 ```
 
 If the alias already exists, `create` fails; change it with `az aigateway model-alias update` and the same
@@ -627,17 +763,29 @@ arguments instead.
 it never appears on screen.
 
 ```bash title="Bash"
-az aigateway api-key create -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" --display-name "$KEY_NAME" -o none
+# Create a runtime API key for your app
+az aigateway api-key create -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" --display-name "$KEY_NAME" -o none &&
+  echo "🔑 API key private-net-lab is ready"
+
+# Read the key straight into a variable, so that it never shows on screen, and set the alias for the next calls
 AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" \
   --query primaryKey -o tsv)" && export AI_GATEWAY_API_KEY
 export AI_GATEWAY_MODEL="$ALIAS"
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
+echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
 ```
 
 ```powershell title="PowerShell"
+# Create a runtime API key for your app
 az aigateway api-key create -g $RG --gateway-name $GATEWAY -n $KEY_NAME --display-name $KEY_NAME -o none
+if ($?) { Write-Host "🔑 API key private-net-lab is ready" }
+
+# Read the key straight into a variable, so that it never shows on screen, and set the alias for the next calls
 $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n $KEY_NAME `
   --query primaryKey -o tsv
 $env:AI_GATEWAY_MODEL   = $ALIAS
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
+Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
 ```
 
 <!-- track: iac | Bicep + azd -->
@@ -650,6 +798,8 @@ on the lab's Foundry resource, and the gateway has the `foundry-private` provide
 and `AI_GATEWAY_API_KEY` in the previous section. Check where the alias points:
 
 ```bash
+# Show the resource ID of the model that the alias points at
+echo "🏷️ Alias $AI_GATEWAY_MODEL points at this model:"
 az aigateway model-alias show -g "$RG" --gateway-name "$GATEWAY" -n "$AI_GATEWAY_MODEL" \
   --query "properties.backendModels[0].resourceId" -o tsv
 ```
@@ -663,14 +813,20 @@ The output ends with `/modelProviders/foundry-private/models/gpt-6-luna`.
 > gateway, the model, and the key work before you lock anything down:
 >
 > ```bash title="Bash"
+> # Call the model through the new gateway, and print only the HTTP status code
+> echo "🔒 Model call through the gateway, which reaches Foundry over the private endpoint:"
 > curl -sS -o /dev/null -w 'HTTP %{http_code}\n' "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions" \
 >   -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
 >   -d "{\"model\":\"$AI_GATEWAY_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply with exactly one word: ok\"}],\"max_completion_tokens\":128}"
 > ```
 >
 > ```powershell title="PowerShell"
+> # Build a short request with the alias in model
 > $body = @{ model = $env:AI_GATEWAY_MODEL; max_completion_tokens = 128
 >   messages = @(@{ role = "user"; content = "Reply with exactly one word: ok" }) } | ConvertTo-Json -Depth 5
+>
+> # Call the model through the new gateway; -SkipHttpErrorCheck returns error responses instead of throwing
+> Write-Host "🔒 Model call through the gateway, which reaches Foundry over the private endpoint:"
 > $r = Invoke-WebRequest -Method Post -Uri "$env:AI_GATEWAY_URL/default/models/openai/v1/chat/completions" `
 >   -Headers @{ "api-key" = $env:AI_GATEWAY_API_KEY } -ContentType "application/json" -Body $body -SkipHttpErrorCheck
 > "HTTP $($r.StatusCode)"
@@ -697,6 +853,8 @@ and disable public network access. See
 ### Disable public network access on Foundry
 
 ```bash
+# Turn off public network access on the Foundry account, so that the private endpoint is the only way in
+echo "🔒 Public network access of the Foundry account, after the update:"
 az resource update --ids "$FOUNDRY_ID" --set properties.publicNetworkAccess=Disabled \
   --query properties.publicNetworkAccess -o tsv
 ```
@@ -710,8 +868,13 @@ environment value. Set it to `Disabled` and provision again. azd updates the Fou
 its private routing, because the template passes the same subnet:
 
 ```bash
-azd env set FOUNDRY_PUBLIC_NETWORK_ACCESS Disabled
-azd provision
+# Set Foundry's public network access to Disabled in the azd environment
+azd env set FOUNDRY_PUBLIC_NETWORK_ACCESS Disabled &&
+  echo "📝 FOUNDRY_PUBLIC_NETWORK_ACCESS is Disabled in the azd environment"
+
+# Provision again: azd updates the Foundry resource, and the gateway keeps its private routing
+azd provision &&
+  echo "🔒 Foundry's public network access is off"
 ```
 
 <!-- /tracks -->
@@ -725,6 +888,8 @@ The change can take a few minutes to apply.
 ### Check the gateway's private routing
 
 ```bash
+# Show the subnet that the gateway's outbound calls go through
+echo "🔒 Gateway $GATEWAY routes its outbound calls through this subnet:"
 az aigateway show -g "$RG" -n "$GATEWAY" --query "properties.backend.subnet.id" -o tsv
 ```
 
@@ -733,6 +898,8 @@ The output ends with `/virtualNetworks/vnet-aigw/subnets/snet-aigw-integration`.
 ### Check name resolution for Foundry
 
 ```bash
+# List the A records that the private endpoint registered in the zone
+echo "🔒 A records in privatelink.cognitiveservices.azure.com:"
 az network private-dns record-set a list -g "$RG" -z privatelink.cognitiveservices.azure.com \
   --query "[].{name:name, ip:aRecords[0].ipv4Address}" -o table
 ```
@@ -743,14 +910,20 @@ virtual network's DNS, including the gateway.
 ### Call the model through the gateway
 
 ```bash title="Bash"
+# Call the model through the gateway, and print only the HTTP status code
+echo "🔒 Model call through the gateway, with Foundry's public access off:"
 curl -sS -o /dev/null -w 'HTTP %{http_code}\n' "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions" \
   -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
   -d "{\"model\":\"$AI_GATEWAY_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply with exactly one word: ok\"}],\"max_completion_tokens\":128}"
 ```
 
 ```powershell title="PowerShell"
+# Build a short request with the alias in model
 $body = @{ model = $env:AI_GATEWAY_MODEL; max_completion_tokens = 128
   messages = @(@{ role = "user"; content = "Reply with exactly one word: ok" }) } | ConvertTo-Json -Depth 5
+
+# Call the model through the gateway; -SkipHttpErrorCheck returns error responses instead of throwing
+Write-Host "🔒 Model call through the gateway, with Foundry's public access off:"
 $r = Invoke-WebRequest -Method Post -Uri "$env:AI_GATEWAY_URL/default/models/openai/v1/chat/completions" `
   -Headers @{ "api-key" = $env:AI_GATEWAY_API_KEY } -ContentType "application/json" -Body $body -SkipHttpErrorCheck
 "HTTP $($r.StatusCode)"
@@ -762,12 +935,22 @@ reaches Foundry through the integration subnet and the private endpoint.
 ### Call Foundry directly from your workstation
 
 ```bash title="Bash"
+# Get a Microsoft Entra token for Foundry with your own sign-in
 TOKEN="$(az account get-access-token --resource https://cognitiveservices.azure.com --query accessToken -o tsv)"
+echo "🪪 Token acquired: in TOKEN (${#TOKEN} characters, not shown)"
+
+# Call Foundry's public endpoint directly, and print the response and the HTTP status code
+echo "🚦 Direct call to Foundry from your workstation (expect HTTP 403):"
 curl -sS -w '\nHTTP %{http_code}\n' "${FOUNDRY_ENDPOINT%/}/openai/v1/models" -H "Authorization: Bearer $TOKEN"
 ```
 
 ```powershell title="PowerShell"
+# Get a Microsoft Entra token for Foundry with your own sign-in
 $TOKEN = az account get-access-token --resource https://cognitiveservices.azure.com --query accessToken -o tsv
+Write-Host "🪪 Token acquired: in TOKEN ($($TOKEN.Length) characters, not shown)"
+
+# Call Foundry's public endpoint directly; -SkipHttpErrorCheck returns error responses instead of throwing
+Write-Host "🚦 Direct call to Foundry from your workstation (expect HTTP 403):"
 $r = Invoke-WebRequest -Uri "$($FOUNDRY_ENDPOINT.TrimEnd('/'))/openai/v1/models" `
   -Headers @{ Authorization = "Bearer $TOKEN" } -SkipHttpErrorCheck
 "HTTP $($r.StatusCode)"; $r.Content
@@ -821,23 +1004,39 @@ network, and the NSG.
 ### Delete the lab's resources
 
 ```bash title="Bash"
+# Turn Foundry's public network access back on, for the gateway from the earlier labs and other callers
+echo "🔒 Public network access of the Foundry account, after the update:"
 az resource update --ids "$FOUNDRY_ID" --set properties.publicNetworkAccess=Enabled \
   --query properties.publicNetworkAccess -o tsv
 
+# Read the new gateway's identity, and remove its Foundry User role on the account
 PRINCIPAL_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query identity.principalId -o tsv)"
-az role assignment delete --assignee "$PRINCIPAL_ID" --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope "$FOUNDRY_ID"
+echo "🪪 Gateway identity: $PRINCIPAL_ID"
+az role assignment delete --assignee "$PRINCIPAL_ID" --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope "$FOUNDRY_ID" &&
+  echo "🧹 The gateway's Foundry User role on $FOUNDRY_ACCOUNT is removed"
 
-az group delete -n "$RG" --yes
+# Delete the resource group: the gateway, its connector gateway, the private endpoint,
+# the private DNS zones, the virtual network, and the NSG
+az group delete -n "$RG" --yes &&
+  echo "🧹 Resource group $RG is deleted"
 ```
 
 ```powershell title="PowerShell"
+# Turn Foundry's public network access back on, for the gateway from the earlier labs and other callers
+Write-Host "🔒 Public network access of the Foundry account, after the update:"
 az resource update --ids $FOUNDRY_ID --set properties.publicNetworkAccess=Enabled `
   --query properties.publicNetworkAccess -o tsv
 
+# Read the new gateway's identity, and remove its Foundry User role on the account
 $PRINCIPAL_ID = az aigateway show -g $RG -n $GATEWAY --query identity.principalId -o tsv
+Write-Host "🪪 Gateway identity: $PRINCIPAL_ID"
 az role assignment delete --assignee $PRINCIPAL_ID --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" --scope $FOUNDRY_ID
+if ($?) { Write-Host "🧹 The gateway's Foundry User role on $FOUNDRY_ACCOUNT is removed" }
 
+# Delete the resource group: the gateway, its connector gateway, the private endpoint,
+# the private DNS zones, the virtual network, and the NSG
 az group delete -n $RG --yes
+if ($?) { Write-Host "🧹 Resource group $RG is deleted" }
 ```
 
 If you put the lab's resources in a resource group you want to keep, delete them in this order instead: the
@@ -845,13 +1044,19 @@ gateway and its connector gateway, then the private endpoint, the private DNS zo
 network, and the NSG.
 
 ```bash title="Bash"
-az aigateway delete -g "$RG" -n "$GATEWAY" --yes
-az resource delete -g "$RG" -n "$GATEWAY" --resource-type Microsoft.Web/connectorGateways --api-version 2026-05-01-preview
+# Delete the gateway first, then its connector gateway
+az aigateway delete -g "$RG" -n "$GATEWAY" --yes &&
+  echo "🧹 Gateway $GATEWAY is deleted"
+az resource delete -g "$RG" -n "$GATEWAY" --resource-type Microsoft.Web/connectorGateways --api-version 2026-05-01-preview &&
+  echo "🧹 Connector gateway $GATEWAY is deleted"
 ```
 
 ```powershell title="PowerShell"
+# Delete the gateway first, then its connector gateway
 az aigateway delete -g $RG -n $GATEWAY --yes
+if ($?) { Write-Host "🧹 Gateway $GATEWAY is deleted" }
 az resource delete -g $RG -n $GATEWAY --resource-type Microsoft.Web/connectorGateways --api-version 2026-05-01-preview
+if ($?) { Write-Host "🧹 Connector gateway $GATEWAY is deleted" }
 ```
 
 <!-- track: iac | Bicep + azd -->
@@ -863,7 +1068,9 @@ private endpoint and DNS zones, and the lab's Foundry resource. [`--purge`](../S
 purges the soft-deleted Foundry resource. It takes about ten minutes.
 
 ```bash
-azd down --purge --force
+# Delete everything that azd up created, and purge the soft-deleted Foundry resource
+azd down --purge --force &&
+  echo "🧹 Everything that azd up created is deleted"
 ```
 
 <!-- /tracks -->

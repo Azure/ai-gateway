@@ -55,23 +55,35 @@ enforce each decision on live traffic.
 Set these variables once. The steps and the **Verify** section reuse them.
 
 ```bash title="Bash"
+# Set your resource group and gateway, and the MCP server that this lab governs
 export RG="<resource-group>"
 export GATEWAY="<gateway>"
 export MCP_SERVER="learn"
+echo "📝 MCP server $MCP_SERVER on gateway $GATEWAY in $RG"
 
+# Read the gateway's runtime URL, which the test script calls
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
-# Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+
+# Paste the runtime key you created in Access › Keys without showing it, and don't commit it or write it to a file
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 ```
 
 ```powershell title="PowerShell"
+# Set your resource group and gateway, and the MCP server that this lab governs
 $RG         = "<resource-group>"
 $GATEWAY    = "<gateway>"
 $MCP_SERVER = "learn"
+Write-Host "📝 MCP server $MCP_SERVER on gateway $GATEWAY in $RG"
 
+# Read the gateway's runtime URL, which the test script calls
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
-# Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+
+# Paste the runtime key you created in Access › Keys without showing it, and don't commit it or write it to a file
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 ```
 
 ## How it works
@@ -138,15 +150,23 @@ gateway's answer even when a call is blocked.
 On GitHub, open [infra/call-tool.sh](infra/call-tool.sh) or [infra/call-tool.ps1](infra/call-tool.ps1).
 
 ```bash
-chmod +x infra/call-tool.sh
+# Make the script executable, once
+chmod +x infra/call-tool.sh &&
+  echo "✅ infra/call-tool.sh is executable"
+
+# Run the MCP handshake with your runtime key, and list the tools that the server publishes
+echo "🛠️ Tools on MCP server $MCP_SERVER:"
 ./infra/call-tool.sh "$MCP_SERVER"
 ```
 
 ```powershell
+# Run the MCP handshake with your runtime key, and list the tools that the server publishes
+Write-Host "🛠️ Tools on MCP server ${MCP_SERVER}:"
 ./infra/call-tool.ps1 -Server $MCP_SERVER
 ```
 
 ```text title="Expected output"
+🛠️ Tools on MCP server learn:
 MCP endpoint: https://<gateway>.eastus2-01.ai.gateway.azure.com/default/toolservers/learn/mcp
 tools/list: HTTP 200
   learn_microsoft_docs_search
@@ -203,16 +223,21 @@ running.
 ### Call the blocked tool
 
 ```bash
+# Call the tool that Agent 365 turned off: the gateway answers with a denial instead of running it
+echo "🚦 Expect ToolNotAvailable from learn_microsoft_docs_fetch:"
 ./infra/call-tool.sh "$MCP_SERVER" learn_microsoft_docs_fetch \
   '{"url":"https://learn.microsoft.com/azure/api-management/agent-365"}'
 ```
 
 ```powershell
+# Call the tool that Agent 365 turned off: the gateway answers with a denial instead of running it
+Write-Host "🚦 Expect ToolNotAvailable from learn_microsoft_docs_fetch:"
 ./infra/call-tool.ps1 -Server $MCP_SERVER -Tool learn_microsoft_docs_fetch `
   -Arguments '{"url":"https://learn.microsoft.com/azure/api-management/agent-365"}'
 ```
 
 ```text title="Expected output"
+🚦 Expect ToolNotAvailable from learn_microsoft_docs_fetch:
 ...
 tools/call: learn_microsoft_docs_fetch {"url":"https://learn.microsoft.com/azure/api-management/agent-365"}
 HTTP status: 200
@@ -248,10 +273,14 @@ purpose, so a well-behaved agent stops retrying it. The documented response, for
 ### Call a tool that's still allowed
 
 ```bash
+# Call a tool that's still allowed: the search runs and returns results
+echo "🛠️ Calling learn_microsoft_docs_search on MCP server $MCP_SERVER:"
 ./infra/call-tool.sh "$MCP_SERVER" learn_microsoft_docs_search '{"query":"What is Microsoft Agent 365?"}'
 ```
 
 ```powershell
+# Call a tool that's still allowed: the search runs and returns results
+Write-Host "🛠️ Calling learn_microsoft_docs_search on MCP server ${MCP_SERVER}:"
 ./infra/call-tool.ps1 -Server $MCP_SERVER -Tool learn_microsoft_docs_search `
   -Arguments '{"query":"What is Microsoft Agent 365?"}'
 ```
@@ -282,14 +311,19 @@ In the admin center, under **Agents**, select **Tools**, select the `learn` serv
 ### Try to connect
 
 ```bash
+# Try the MCP handshake again: the gateway rejects every request to the blocked server
+echo "🚦 Expect 403 AccessBlockedByGateway from MCP server $MCP_SERVER:"
 ./infra/call-tool.sh "$MCP_SERVER"
 ```
 
 ```powershell
+# Try the MCP handshake again: the gateway rejects every request to the blocked server
+Write-Host "🚦 Expect 403 AccessBlockedByGateway from MCP server ${MCP_SERVER}:"
 ./infra/call-tool.ps1 -Server $MCP_SERVER
 ```
 
 ```text title="Expected output"
+🚦 Expect 403 AccessBlockedByGateway from MCP server learn:
 MCP endpoint: https://<gateway>.eastus2-01.ai.gateway.azure.com/default/toolservers/learn/mcp
 initialize: HTTP 403 (x-correlation-id: <guid>)
 {
@@ -328,10 +362,14 @@ publisher, isn't blocked, and its **Tools** tab shows all three tools enabled.
 ### Confirm the server works end to end
 
 ```bash
+# List the tools and call the search tool, to confirm that no Agent 365 block is left on the server
+echo "🛠️ Tools on MCP server $MCP_SERVER, and a call to learn_microsoft_docs_search:"
 ./infra/call-tool.sh "$MCP_SERVER" learn_microsoft_docs_search '{"query":"What is Microsoft Agent 365?"}'
 ```
 
 ```powershell
+# List the tools and call the search tool, to confirm that no Agent 365 block is left on the server
+Write-Host "🛠️ Tools on MCP server ${MCP_SERVER}, and a call to learn_microsoft_docs_search:"
 ./infra/call-tool.ps1 -Server $MCP_SERVER -Tool learn_microsoft_docs_search `
   -Arguments '{"query":"What is Microsoft Agent 365?"}'
 ```

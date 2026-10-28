@@ -76,30 +76,48 @@ Set these variables once. Every track and the **Verify** section reuse them.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Name your gateway and its resource group
 export RG="<resource-group>"
 export GATEWAY="<gateway>"
+echo "📝 Gateway $GATEWAY in $RG"
 
+# Read the gateway's resource ID, for the management API calls that later sections make with az rest
 export API="api-version=2025-09-01-preview"
 export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
 export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
+echo "🆔 Gateway: $GATEWAY_ID"
+
+# Read the gateway's runtime URL, which MCP clients call
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Name your gateway and its resource group
 $RG         = "<resource-group>"
 $GATEWAY    = "<gateway>"
+Write-Host "📝 Gateway $GATEWAY in $RG"
 
+# Read the gateway's resource ID, for the management API calls that later sections make with az rest
 $API        = "api-version=2025-09-01-preview"
 $GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
 $WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
+Write-Host "🆔 Gateway: $GATEWAY_ID"
+
+# Read the gateway's runtime URL, which MCP clients call
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+
 # Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 ```
 </details> <!-- gh -->
 
@@ -194,27 +212,33 @@ The server's details page opens. When **Provisioning** shows that the server is 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Register the learn MCP server, with the public Learn MCP server as its one backend, under the namespace learn
 az aigateway mcp create -g "$RG" --gateway-name "$GATEWAY" -n learn \
   --display-name "Microsoft Learn" \
   --description "Search and fetch official Microsoft documentation and code samples." \
   --endpoints '[{"kind": "mcp", "namespace": "learn", "required": true,
                  "mcp": {"transport": "streamableHttp", "url": "https://learn.microsoft.com/api/mcp"}}]' \
-  --query "{name:name,mcpEndpoint:properties.gatewayEndpoints[0].url}"
+  --query "{name:name,mcpEndpoint:properties.gatewayEndpoints[0].url}" &&
+  echo "🔌 MCP server learn is ready"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Write the backends to a file, so that PowerShell passes the JSON to az unchanged
 ConvertTo-Json -Depth 10 -Compress -InputObject @(
   @{ kind = 'mcp'; namespace = 'learn'; required = $true
      mcp  = @{ transport = 'streamableHttp'; url = 'https://learn.microsoft.com/api/mcp' } }
 ) | Set-Content -Path endpoints.json
+
+# Register the learn MCP server, with the public Learn MCP server as its one backend, under the namespace learn
 az aigateway mcp create -g $RG --gateway-name $GATEWAY -n learn `
   --display-name "Microsoft Learn" `
   --description "Search and fetch official Microsoft documentation and code samples." `
   --endpoints "@endpoints.json" `
   --query "{name:name,mcpEndpoint:properties.gatewayEndpoints[0].url}"
+if ($?) { Write-Host "🔌 MCP server learn is ready" }
 Remove-Item endpoints.json
 ```
 </details> <!-- gh -->
@@ -228,9 +252,13 @@ commands, as in the next section.
 The commands are the same in Bash and PowerShell.
 
 ```bash
+# List the MCP servers on your gateway
+echo "🔌 MCP servers on your gateway:"
 az aigateway mcp list -g "$RG" --gateway-name "$GATEWAY" -o table
-az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn \
-  --query "properties.{endpoints:endpoints,url:gatewayEndpoints[0].url}"
+
+# Show the backends and the endpoint URL of learn
+echo "🔌 Backends and endpoint of learn:"
+az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn --query "properties.{endpoints:endpoints,url:gatewayEndpoints[0].url}"
 ```
 
 > **Checkpoint**
@@ -253,7 +281,9 @@ The lab is a small azd project in the
 [Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
 
 ```bash title="Bash or PowerShell"
-cd ~/ai-gateway/labs/04-federate-mcp-tools
+# Move into the lab's folder, which holds the azd project
+cd ~/ai-gateway/labs/04-federate-mcp-tools &&
+  echo "📂 Lab folder: ~/ai-gateway/labs/04-federate-mcp-tools"
 ```
 
 ### Review the templates
@@ -457,16 +487,26 @@ about three minutes.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-azd env new aigw-lab04 --location eastus2 --subscription "$(az account show --query id --output tsv)"
-azd up
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
+azd env new aigw-lab04 --location eastus2 --subscription "$(az account show --query id --output tsv)" &&
+  echo "📝 azd environment aigw-lab04 deploys to eastus2"
+
+# Provision the gateway, the learn MCP server, and the app-first-call key
+azd up &&
+  echo "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab04 --location eastus2 --subscription (az account show --query id --output tsv)
+if ($?) { Write-Host "📝 azd environment aigw-lab04 deploys to eastus2" }
+
+# Provision the gateway, the learn MCP server, and the app-first-call key
 azd up
+if ($?) { Write-Host "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)" }
 ```
 </details> <!-- gh -->
 
@@ -481,30 +521,46 @@ the gateway, so that it never shows on screen.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Read the template's outputs: the resource group, the gateway, and its runtime URL
 export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
 export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
 export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
+echo "📝 Gateway $GATEWAY in $RG"
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+
+# Read the gateway's runtime key from the gateway, so that it never lands in a file or a deployment log
 export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$(azd env get-value AI_GATEWAY_ID)/apiKeys/app-first-call" \
   --query primaryKey --output tsv)"
-azd env get-value MCP_ENDPOINT
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
+
+# Print the endpoint of the learn MCP server, which MCP clients call
+echo "🌐 MCP endpoint: $(azd env get-value MCP_ENDPOINT)"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Read the template's outputs: the resource group, the gateway, its runtime URL, and its resource ID
 $RG                     = azd env get-value AZURE_RESOURCE_GROUP
 $GATEWAY                = azd env get-value AI_GATEWAY_NAME
 $env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
 $GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
+Write-Host "📝 Gateway $GATEWAY in $RG"
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+
+# Read the gateway's runtime key from the gateway, so that it never lands in a file or a deployment log
 $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" `
   --query primaryKey --output tsv
-azd env get-value MCP_ENDPOINT
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
+
+# Print the endpoint of the learn MCP server, which MCP clients call
+Write-Host "🌐 MCP endpoint: $(azd env get-value MCP_ENDPOINT)"
 ```
 </details> <!-- gh -->
 
 > **Checkpoint**
-> `azd up` ended with `SUCCESS`, and the last command printed the MCP endpoint, ending in
+> `azd up` ended with `SUCCESS`, and the last line is `🌐 MCP endpoint:` with a URL that ends in
 > `/default/toolservers/learn/mcp`. In the portal, **MCP servers** lists `learn` with one backend, `learn`.
 
 </details> <!-- gh -->
@@ -538,21 +594,27 @@ the description and policies, stay as they are.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Add the Learn MCP server again as an optional backend, under the namespace docs, and list the backends
 az aigateway mcp source add -g "$RG" --gateway-name "$GATEWAY" -n learn \
   --namespace docs --kind mcp --required false \
   --mcp '{"transport": "streamableHttp", "url": "https://learn.microsoft.com/api/mcp"}' \
-  --query "[].{namespace:namespace,required:required,url:mcp.url}" -o table
+  --query "[].{namespace:namespace,required:required,url:mcp.url}" -o table &&
+  echo "🔌 Backend docs is added to learn, as optional"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Write the backend's settings to a file, so that PowerShell passes the JSON to az unchanged
 @{ transport = 'streamableHttp'; url = 'https://learn.microsoft.com/api/mcp' } |
   ConvertTo-Json -Compress | Set-Content -Path mcp.json
+
+# Add the Learn MCP server again as an optional backend, under the namespace docs, and list the backends
 az aigateway mcp source add -g $RG --gateway-name $GATEWAY -n learn `
   --namespace docs --kind mcp --required false --mcp "@mcp.json" `
   --query "[].{namespace:namespace,required:required,url:mcp.url}" -o table
+if ($?) { Write-Host "🔌 Backend docs is added to learn, as optional" }
 Remove-Item mcp.json
 ```
 </details> <!-- gh -->
@@ -573,16 +635,26 @@ environment and provision again. Only the MCP server changes.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-azd env set MCP_SECOND_NAMESPACE docs
-azd provision
+# Add the second namespace in the azd environment
+azd env set MCP_SECOND_NAMESPACE docs &&
+  echo "📝 MCP_SECOND_NAMESPACE is docs"
+
+# Deploy the template again: it adds the optional docs backend to the learn MCP server
+azd provision &&
+  echo "🔌 MCP server learn now has the optional docs backend"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Add the second namespace in the azd environment
 azd env set MCP_SECOND_NAMESPACE docs
+if ($?) { Write-Host "📝 MCP_SECOND_NAMESPACE is docs" }
+
+# Deploy the template again: it adds the optional docs backend to the learn MCP server
 azd provision
+if ($?) { Write-Host "🔌 MCP server learn now has the optional docs backend" }
 ```
 </details> <!-- gh -->
 
@@ -648,16 +720,22 @@ The `aigateway` extension doesn't set MCP protocol versions yet, so call the Azu
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Pin learn to MCP version 2025-06-18 with a PATCH that changes only properties.versions
 az rest --method patch --url "$WS/toolServers/learn?$API" \
-  --body '{"properties": {"versions": ["2025-06-18"]}}' --query properties.versions
+  --body '{"properties": {"versions": ["2025-06-18"]}}' --query properties.versions &&
+  echo "📝 MCP server learn supports only MCP version 2025-06-18"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Write the request body to a file, so that PowerShell passes the JSON to az unchanged
 @{ properties = @{ versions = @('2025-06-18') } } | ConvertTo-Json -Depth 5 -Compress | Set-Content -Path body.json
+
+# Pin learn to MCP version 2025-06-18 with a PATCH that changes only properties.versions
 az rest --method patch --url "$WS/toolServers/learn?$API" --body '@body.json' --query properties.versions
+if ($?) { Write-Host "📝 MCP server learn supports only MCP version 2025-06-18" }
 Remove-Item body.json
 ```
 </details> <!-- gh -->
@@ -679,8 +757,16 @@ and azd fills it from `MCP_SUPPORTED_VERSIONS`. Set it and provision again. The 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-azd env set MCP_SUPPORTED_VERSIONS 2025-06-18
-azd provision
+# Pin learn to MCP version 2025-06-18 in the azd environment
+azd env set MCP_SUPPORTED_VERSIONS 2025-06-18 &&
+  echo "📝 MCP_SUPPORTED_VERSIONS is 2025-06-18"
+
+# Deploy the template again: it sets the supported versions of the learn MCP server
+azd provision &&
+  echo "🚀 MCP server learn is deployed with MCP version 2025-06-18"
+
+# Show the versions that learn supports now
+echo "📝 Supported MCP versions of learn:"
 az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn --query properties.versions
 ```
 </details> <!-- gh -->
@@ -688,8 +774,16 @@ az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn --query proper
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Pin learn to MCP version 2025-06-18 in the azd environment
 azd env set MCP_SUPPORTED_VERSIONS 2025-06-18
+if ($?) { Write-Host "📝 MCP_SUPPORTED_VERSIONS is 2025-06-18" }
+
+# Deploy the template again: it sets the supported versions of the learn MCP server
 azd provision
+if ($?) { Write-Host "🚀 MCP server learn is deployed with MCP version 2025-06-18" }
+
+# Show the versions that learn supports now
+Write-Host "📝 Supported MCP versions of learn:"
 az aigateway mcp show -g $RG --gateway-name $GATEWAY -n learn --query properties.versions
 ```
 </details> <!-- gh -->
@@ -707,6 +801,8 @@ Ask for an older version. The gateway answers with the version it will use:
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Send an initialize request that asks for 2025-03-26, with your runtime key in api-key
+echo "🔌 initialize response from learn:"
 curl -sS "${AI_GATEWAY_URL%/}/default/toolservers/learn/mcp" \
   -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
@@ -718,10 +814,14 @@ curl -sS "${AI_GATEWAY_URL%/}/default/toolservers/learn/mcp" \
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Build an initialize request that asks for 2025-03-26, with your runtime key in api-key
 $mcp     = "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/toolservers/learn/mcp"
 $headers = @{ 'api-key' = $env:AI_GATEWAY_API_KEY; Accept = 'application/json, text/event-stream' }
 $body    = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26",
              "capabilities":{},"clientInfo":{"name":"pwsh","version":"1.0"}}}'
+
+# Send it, and print the response, with the version that the gateway chose
+Write-Host "🔌 initialize response from learn:"
 (Invoke-WebRequest -Method Post -Uri $mcp -Headers $headers -ContentType 'application/json' -Body $body).Content
 ```
 </details> <!-- gh -->
@@ -731,7 +831,9 @@ The result includes `"protocolVersion":"2025-06-18"`. Now send a request that na
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-curl -sS -w "\nHTTP %{http_code}\n" "${AI_GATEWAY_URL%/}/default/toolservers/learn/mcp" \
+# Send tools/list with MCP version 2026-07-28, which isn't in the list
+echo "🚦 Expect 400 Bad Request for MCP version 2026-07-28:"
+curl -sS -w "\n🚦 HTTP %{http_code}\n" "${AI_GATEWAY_URL%/}/default/toolservers/learn/mcp" \
   -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" -H "MCP-Protocol-Version: 2026-07-28" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
@@ -741,13 +843,15 @@ curl -sS -w "\nHTTP %{http_code}\n" "${AI_GATEWAY_URL%/}/default/toolservers/lea
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Send tools/list with MCP version 2026-07-28, which isn't in the list
+Write-Host "🚦 Expect 400 Bad Request for MCP version 2026-07-28:"
 $r = Invoke-WebRequest -Method Post -Uri $mcp -SkipHttpErrorCheck -ContentType 'application/json' `
   -Headers ($headers + @{ 'MCP-Protocol-Version' = '2026-07-28' }) -Body '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
-"HTTP $($r.StatusCode) $($r.Content)"
+if ($?) { Write-Host "🚦 HTTP $($r.StatusCode) $($r.Content)" }
 ```
 </details> <!-- gh -->
 
-The gateway rejects it with `400` and `Unsupported MCP-Protocol-Version` before any backend is called.
+The gateway rejects it with `🚦 HTTP 400` and `Unsupported MCP-Protocol-Version` before any backend is called.
 
 > **Checkpoint**
 > **Supported MCP versions** shows `2025-06-18` on the details page and in **Catalog**, an `initialize` request
@@ -904,8 +1008,16 @@ On GitHub, open [infra/list_tools.py](infra/list_tools.py).
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-python -m venv .venv && source .venv/bin/activate
-pip install -r infra/requirements.txt
+# Create a virtual environment in .venv and activate it, so that the packages stay out of your global Python
+python -m venv .venv && source .venv/bin/activate &&
+  echo "🧩 Virtual environment .venv is active"
+
+# Install the MCP Python SDK and httpx, which the script uses
+pip install -r infra/requirements.txt &&
+  echo "🧩 The packages in infra/requirements.txt are installed"
+
+# List the tools on learn through your gateway, then call learn_microsoft_docs_search
+echo "🛠️ Tools on learn, and a call to learn_microsoft_docs_search:"
 python infra/list_tools.py learn learn_microsoft_docs_search "How do I add a token limit in AI Gateway?"
 ```
 </details> <!-- gh -->
@@ -913,8 +1025,16 @@ python infra/list_tools.py learn learn_microsoft_docs_search "How do I add a tok
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Create a virtual environment in .venv and activate it, so that the packages stay out of your global Python
 python -m venv .venv; .venv/Scripts/Activate.ps1
+if ($?) { Write-Host "🧩 Virtual environment .venv is active" }
+
+# Install the MCP Python SDK and httpx, which the script uses
 pip install -r infra/requirements.txt
+if ($?) { Write-Host "🧩 The packages in infra/requirements.txt are installed" }
+
+# List the tools on learn through your gateway, then call learn_microsoft_docs_search
+Write-Host "🛠️ Tools on learn, and a call to learn_microsoft_docs_search:"
 python infra/list_tools.py learn learn_microsoft_docs_search "How do I add a token limit in AI Gateway?"
 ```
 </details> <!-- gh -->
@@ -935,6 +1055,8 @@ every published tool. Run it from the lab folder.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Run the MCP handshake through your gateway, and list every tool that learn publishes
+echo "🛠️ Tools on learn:"
 ./infra/list-tools.sh learn
 ```
 </details> <!-- gh -->
@@ -942,6 +1064,8 @@ every published tool. Run it from the lab folder.
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Run the MCP handshake through your gateway, and list every tool that learn publishes
+Write-Host "🛠️ Tools on learn:"
 ./infra/list-tools.ps1 -Server learn
 ```
 </details> <!-- gh -->
@@ -951,6 +1075,7 @@ On GitHub, open [list-tools.sh](infra/list-tools.sh) or [list-tools.ps1](infra/l
 Expected output (descriptions are shortened, and the tool list can change as the Learn server evolves):
 
 ```text
+🛠️ Tools on learn:
 MCP endpoint: https://<gateway>.eastus2-01.ai.gateway.azure.com/default/toolservers/learn/mcp
 Server: <server-name-reported-by-the-gateway>  protocol: <negotiated-version>
 
@@ -972,6 +1097,8 @@ Each tool carries its backend's namespace. Use the exact names that your output 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# List the tools again, then call learn_microsoft_docs_search with a question
+echo "🛠️ Tools on learn, and a call to learn_microsoft_docs_search:"
 ./infra/list-tools.sh learn learn_microsoft_docs_search "How do I add a token limit in AI Gateway?"
 ```
 </details> <!-- gh -->
@@ -979,6 +1106,8 @@ Each tool carries its backend's namespace. Use the exact names that your output 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# List the tools again, then call learn_microsoft_docs_search with a question
+Write-Host "🛠️ Tools on learn, and a call to learn_microsoft_docs_search:"
 ./infra/list-tools.ps1 -Server learn -Tool learn_microsoft_docs_search -Query "How do I add a token limit in AI Gateway?"
 ```
 </details> <!-- gh -->
@@ -992,6 +1121,8 @@ The docs show the smallest possible request: a single JSON-RPC `tools/list` call
 should also accept both JSON and SSE responses.
 
 ```bash
+# Send a single tools/list request, with your runtime key in api-key
+echo "🛠️ tools/list response from learn:"
 curl -sS "${AI_GATEWAY_URL%/}/default/toolservers/learn/mcp" \
   -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
@@ -1006,12 +1137,14 @@ The answer is JSON or an SSE `data:` line with a `result.tools` array. If the se
 Send the same request without the key:
 
 ```bash
-curl -sS -o /dev/null -w "HTTP %{http_code}\n" "${AI_GATEWAY_URL%/}/default/toolservers/learn/mcp" \
+# Send the same request without the api-key header
+echo "🚦 Expect 401 Unauthorized without a key:"
+curl -sS -o /dev/null -w "🚦 HTTP %{http_code}\n" "${AI_GATEWAY_URL%/}/default/toolservers/learn/mcp" \
   -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
-The gateway rejects the request, typically with `401`, and no backend is called. Microsoft Learn is public,
+The gateway rejects the request, typically with `🚦 HTTP 401`, and no backend is called. Microsoft Learn is public,
 but your MCP endpoint isn't.
 
 <!-- /steps -->
@@ -1058,10 +1191,12 @@ and select **Save**. To remove the whole server, select **Delete** on the detail
 
 ```bash title="Bash"
 # Remove only the optional backend
-az aigateway mcp source remove -g "$RG" --gateway-name "$GATEWAY" -n learn --namespace docs --query "[].namespace"
+az aigateway mcp source remove -g "$RG" --gateway-name "$GATEWAY" -n learn --namespace docs --query "[].namespace" &&
+  echo "🧹 Backend docs is removed from learn"
 
 # Or remove the whole MCP server
-az aigateway mcp delete -g "$RG" --gateway-name "$GATEWAY" -n learn --yes
+az aigateway mcp delete -g "$RG" --gateway-name "$GATEWAY" -n learn --yes &&
+  echo "🧹 MCP server learn is deleted"
 ```
 </details> <!-- gh -->
 
@@ -1070,9 +1205,11 @@ az aigateway mcp delete -g "$RG" --gateway-name "$GATEWAY" -n learn --yes
 ```powershell title="PowerShell"
 # Remove only the optional backend
 az aigateway mcp source remove -g $RG --gateway-name $GATEWAY -n learn --namespace docs --query "[].namespace"
+if ($?) { Write-Host "🧹 Backend docs is removed from learn" }
 
 # Or remove the whole MCP server
 az aigateway mcp delete -g $RG --gateway-name $GATEWAY -n learn --yes
+if ($?) { Write-Host "🧹 MCP server learn is deleted" }
 ```
 </details> <!-- gh -->
 
@@ -1090,7 +1227,9 @@ server, and the key. [`--purge`](../SETUP.md#delete-what-azd-created) also purge
 about ten minutes.
 
 ```bash
-azd down --purge --force
+# Delete the resource group with everything that azd up created, and purge soft-deleted resources
+azd down --purge --force &&
+  echo "🧹 Everything that azd up created is deleted"
 ```
 
 To keep this gateway instead, skip `azd down`. To go back to one backend, run

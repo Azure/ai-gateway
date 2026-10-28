@@ -76,36 +76,58 @@ Set these variables once. If you named the Application Insights resource differe
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Name your gateway and the alias to call, and pin the API version of the REST calls
 export RG="<resource-group>"
 export GATEWAY="<gateway>"
 export AI_GATEWAY_MODEL="<model-name>"     # a callable alias
 export API="api-version=2025-09-01-preview"
+echo "📝 Gateway $GATEWAY in $RG, alias $AI_GATEWAY_MODEL"
 
+# Read the gateway's resource ID, the URL of its default workspace for the REST calls, and its runtime URL
 export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
 export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
-read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
+echo "🆔 Gateway: $GATEWAY_ID"
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
 
+# Read your API key without showing it, and export it for the scripts
+read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
+
+# Find the Application Insights resource from lab 13, and the Log Analytics workspace behind it
 APPI_ID="$(az resource show -g "$RG" -n "$GATEWAY-insights" --resource-type Microsoft.Insights/components --query id -o tsv)"
 LAW_ID="$(az resource show --ids "$APPI_ID" --api-version 2020-02-02 --query properties.WorkspaceResourceId -o tsv)"
+echo "🆔 Application Insights: $APPI_ID"
+echo "🆔 Log Analytics workspace: $LAW_ID"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Name your gateway and the alias to call, and pin the API version of the REST calls
 $RG      = "<resource-group>"
 $GATEWAY = "<gateway>"
 $env:AI_GATEWAY_MODEL = "<model-name>"     # a callable alias
 $API     = "api-version=2025-09-01-preview"
+Write-Host "📝 Gateway $GATEWAY in $RG, alias $env:AI_GATEWAY_MODEL"
 
+# Read the gateway's resource ID, the URL of its default workspace for the REST calls, and its runtime URL
 $GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
 $WS         = "https://management.azure.com$GATEWAY_ID/workspaces/default"
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
-$env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
+Write-Host "🆔 Gateway: $GATEWAY_ID"
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
 
+# Read your API key without showing it, and keep it in an environment variable for the scripts
+$env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
+
+# Find the Application Insights resource from lab 13, and the Log Analytics workspace behind it
 $APPI_ID = az resource show -g $RG -n "$GATEWAY-insights" --resource-type Microsoft.Insights/components --query id -o tsv
 $LAW_ID  = az resource show --ids $APPI_ID --api-version 2020-02-02 --query properties.WorkspaceResourceId -o tsv
+Write-Host "🆔 Application Insights: $APPI_ID"
+Write-Host "🆔 Log Analytics workspace: $LAW_ID"
 ```
 </details> <!-- gh -->
 
@@ -173,6 +195,8 @@ exporters yet, so call the Azure Resource Manager REST API with `az rest`. List 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# List the gateway's telemetry exporters, with the kind of each one and the token claims it exports
+echo "📊 Telemetry exporters and their claims:"
 az rest --method get --url "$WS/telemetryExporters?$API" \
   --query "value[].{name:name, kind:properties.kind, claims:properties.telemetry.attributes}"
 ```
@@ -181,6 +205,8 @@ az rest --method get --url "$WS/telemetryExporters?$API" \
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# List the gateway's telemetry exporters, with the kind of each one and the token claims it exports
+Write-Host "📊 Telemetry exporters and their claims:"
 az rest --method get --url "$WS/telemetryExporters?$API" `
   --query "value[].{name:name, kind:properties.kind, claims:properties.telemetry.attributes}"
 ```
@@ -228,7 +254,9 @@ The lab is a small azd project in the
 sections run the lab's scripts from this folder.
 
 ```bash title="Bash or PowerShell"
-cd ~/ai-gateway/labs/14-otel-chargeback
+# Move into the lab's folder, which holds the azd project and the scripts
+cd ~/ai-gateway/labs/14-otel-chargeback &&
+  echo "📂 Lab folder: ~/ai-gateway/labs/14-otel-chargeback"
 ```
 
 ### Review the templates
@@ -411,16 +439,26 @@ about four minutes.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-azd env new aigw-lab14 --location eastus2 --subscription "$(az account show --query id --output tsv)"
-azd up
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
+azd env new aigw-lab14 --location eastus2 --subscription "$(az account show --query id --output tsv)" &&
+  echo "📝 azd environment aigw-lab14 deploys to eastus2"
+
+# Provision the gateway, the model, the key, Application Insights, the exporter with its claims, and your role
+azd up &&
+  echo "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab14 --location eastus2 --subscription (az account show --query id --output tsv)
+if ($?) { Write-Host "📝 azd environment aigw-lab14 deploys to eastus2" }
+
+# Provision the gateway, the model, the key, Application Insights, the exporter with its claims, and your role
 azd up
+if ($?) { Write-Host "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)" }
 ```
 </details> <!-- gh -->
 
@@ -435,6 +473,7 @@ that it never shows on screen. The last command lists the exporter's claims.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Read the names and URLs that azd up created, and pin the API version of the REST calls
 export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
 export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
 export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
@@ -442,10 +481,22 @@ export API="api-version=2025-09-01-preview"
 export GATEWAY_ID="$(azd env get-value AI_GATEWAY_ID)"
 export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
 export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
+echo "📝 Gateway $GATEWAY in $RG, alias $AI_GATEWAY_MODEL"
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+
+# Read the key from the gateway, so that it never shows on screen or lands in a file
 export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" \
   --query primaryKey --output tsv)"
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
+
+# Read the IDs of the Application Insights resource and the Log Analytics workspace behind it
 APPI_ID="$(azd env get-value APP_INSIGHTS_ID)"
 LAW_ID="$(azd env get-value LOG_ANALYTICS_WORKSPACE_ID)"
+echo "🆔 Application Insights: $APPI_ID"
+echo "🆔 Log Analytics workspace: $LAW_ID"
+
+# List the gateway's telemetry exporters, with the kind of each one and the token claims it exports
+echo "📊 Telemetry exporters and their claims:"
 az rest --method get --url "$WS/telemetryExporters?$API" \
   --query "value[].{name:name, kind:properties.kind, claims:properties.telemetry.attributes}"
 ```
@@ -454,6 +505,7 @@ az rest --method get --url "$WS/telemetryExporters?$API" \
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Read the names and URLs that azd up created, and pin the API version of the REST calls
 $RG                     = azd env get-value AZURE_RESOURCE_GROUP
 $GATEWAY                = azd env get-value AI_GATEWAY_NAME
 $env:AI_GATEWAY_MODEL   = azd env get-value AI_GATEWAY_MODEL
@@ -461,10 +513,22 @@ $API                    = "api-version=2025-09-01-preview"
 $GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
 $WS                     = "https://management.azure.com$GATEWAY_ID/workspaces/default"
 $env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
+Write-Host "📝 Gateway $GATEWAY in $RG, alias $env:AI_GATEWAY_MODEL"
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+
+# Read the key from the gateway, so that it never shows on screen or lands in a file
 $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" `
   --query primaryKey --output tsv
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
+
+# Read the IDs of the Application Insights resource and the Log Analytics workspace behind it
 $APPI_ID                = azd env get-value APP_INSIGHTS_ID
 $LAW_ID                 = azd env get-value LOG_ANALYTICS_WORKSPACE_ID
+Write-Host "🆔 Application Insights: $APPI_ID"
+Write-Host "🆔 Log Analytics workspace: $LAW_ID"
+
+# List the gateway's telemetry exporters, with the kind of each one and the token claims it exports
+Write-Host "📊 Telemetry exporters and their claims:"
 az rest --method get --url "$WS/telemetryExporters?$API" `
   --query "value[].{name:name, kind:properties.kind, claims:properties.telemetry.attributes}"
 ```
@@ -484,16 +548,26 @@ so that the PromQL section can split metrics by client app.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-azd env set CLIENT_APP_METRICS false
-azd provision
+# Export the client app claims, appid and azp, to logs and traces only, as in the recommended preset
+azd env set CLIENT_APP_METRICS false &&
+  echo "📝 CLIENT_APP_METRICS is false"
+
+# Apply the claims in infra/main.bicep to the gateway's exporter again
+azd provision &&
+  echo "🚀 Provisioned: appid and azp export to logs and traces only"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Export the client app claims, appid and azp, to logs and traces only, as in the recommended preset
 azd env set CLIENT_APP_METRICS false
+if ($?) { Write-Host "📝 CLIENT_APP_METRICS is false" }
+
+# Apply the claims in infra/main.bicep to the gateway's exporter again
 azd provision
+if ($?) { Write-Host "🚀 Provisioned: appid and azp export to logs and traces only" }
 ```
 </details> <!-- gh -->
 
@@ -518,6 +592,8 @@ A claim only appears in telemetry if the validated token has it. Decode your own
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Get a token for AI Gateway's audience, and decode its claims locally, including the custom cost_center claim
+echo "🪪 Claims in your token for AI Gateway:"
 az account get-access-token --resource https://azure-api.net/aigateway --query accessToken -o tsv \
   | python3 infra/show_claims.py cost_center
 ```
@@ -526,6 +602,8 @@ az account get-access-token --resource https://azure-api.net/aigateway --query a
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Get a token for AI Gateway's audience, and decode its claims locally, including the custom cost_center claim
+Write-Host "🪪 Claims in your token for AI Gateway:"
 az account get-access-token --resource https://azure-api.net/aigateway --query accessToken -o tsv |
   python infra/show_claims.py cost_center
 ```
@@ -550,6 +628,8 @@ Run the script for your shell. It sends five requests with your API key and five
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Send five requests with your API key and five with your Entra token, and print the status of each one
+echo "📊 Requests by caller:"
 ./infra/send-attributed-traffic.sh "$AI_GATEWAY_MODEL" 5
 ```
 </details> <!-- gh -->
@@ -557,6 +637,8 @@ Run the script for your shell. It sends five requests with your API key and five
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Send five requests with your API key and five with your Entra token, and print the status of each one
+Write-Host "📊 Requests by caller:"
 ./infra/send-attributed-traffic.ps1 -Model $env:AI_GATEWAY_MODEL -Requests 5
 ```
 </details> <!-- gh -->
@@ -675,14 +757,20 @@ Select **Export** and choose CSV with all columns. Save the file as `usage.csv` 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-python3 infra/chargeback_report.py usage.csv prices.json --by Tenant,ClientApp,ApiKeyId --out chargeback.csv
+# Price the exported usage with your price list, group it by tenant, client app, and API key, and save the report
+echo "📊 Chargeback by tenant, client app, and API key:"
+python3 infra/chargeback_report.py usage.csv prices.json --by Tenant,ClientApp,ApiKeyId --out chargeback.csv &&
+  echo "📄 Report saved to chargeback.csv"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Price the exported usage with your price list, group it by tenant, client app, and API key, and save the report
+Write-Host "📊 Chargeback by tenant, client app, and API key:"
 python infra/chargeback_report.py usage.csv prices.json --by Tenant,ClientApp,ApiKeyId --out chargeback.csv
+if ($?) { Write-Host "📄 Report saved to chargeback.csv" }
 ```
 </details> <!-- gh -->
 
@@ -697,20 +785,30 @@ Send the query to the Log Analytics query API through Azure Resource Manager and
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-jq -n --rawfile q infra/chargeback.kql '{query: $q}' > query.json
+# Wrap the KQL query in a JSON request body, in a file because the query spans many lines
+jq -n --rawfile q infra/chargeback.kql '{query: $q}' > query.json &&
+  echo "📄 Query body written to query.json"
+
+# Run the query on the Log Analytics workspace through Azure Resource Manager, and save the response
 az rest --method post \
   --url "https://management.azure.com${LAW_ID}/query?api-version=2017-10-01" \
-  --body @query.json > usage.json
+  --body @query.json > usage.json &&
+  echo "📄 Usage by caller saved to usage.json"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Wrap the KQL query in a JSON request body, in a file because the query spans many lines
 @{ query = Get-Content infra/chargeback.kql -Raw } | ConvertTo-Json | Set-Content query.json
+if ($?) { Write-Host "📄 Query body written to query.json" }
+
+# Run the query on the Log Analytics workspace through Azure Resource Manager, and save the response
 az rest --method post `
   --url "https://management.azure.com$LAW_ID/query?api-version=2017-10-01" `
   --body "@query.json" | Set-Content usage.json
+if ($?) { Write-Host "📄 Usage by caller saved to usage.json" }
 ```
 </details> <!-- gh -->
 
@@ -721,14 +819,20 @@ The response holds a `tables` array with `columns` and `rows`, which the report 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-python3 infra/chargeback_report.py usage.json prices.json --by Tenant,ClientApp,ApiKeyId --out chargeback.csv
+# Price the usage with your price list, group it by tenant, client app, and API key, and save the report
+echo "📊 Chargeback by tenant, client app, and API key:"
+python3 infra/chargeback_report.py usage.json prices.json --by Tenant,ClientApp,ApiKeyId --out chargeback.csv &&
+  echo "📄 Report saved to chargeback.csv"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Price the usage with your price list, group it by tenant, client app, and API key, and save the report
+Write-Host "📊 Chargeback by tenant, client app, and API key:"
 python infra/chargeback_report.py usage.json prices.json --by Tenant,ClientApp,ApiKeyId --out chargeback.csv
+if ($?) { Write-Host "📄 Report saved to chargeback.csv" }
 ```
 </details> <!-- gh -->
 
@@ -762,18 +866,28 @@ dashboard reads, and they carry the claims you enabled for **Metrics** as labels
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Find the Azure Monitor workspace (managed Prometheus) linked to Application Insights, and its query endpoint
 AMW_ID="$(az resource show --ids "$APPI_ID" --api-version 2020-02-02 --query properties.AzureMonitorWorkspaceResourceId -o tsv)"
 PROM_URL="$(az resource show --ids "$AMW_ID" --api-version 2023-04-03 --query properties.metrics.prometheusQueryEndpoint -o tsv)"
+echo "🌐 Prometheus endpoint: $PROM_URL"
+
+# Get a Microsoft Entra token for the Prometheus query API
 PROM_TOKEN="$(az account get-access-token --resource https://prometheus.monitor.azure.com --query accessToken -o tsv)"
+echo "🪪 Token acquired: in PROM_TOKEN (${#PROM_TOKEN} characters, not shown)"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Find the Azure Monitor workspace (managed Prometheus) linked to Application Insights, and its query endpoint
 $AMW_ID     = az resource show --ids $APPI_ID --api-version 2020-02-02 --query properties.AzureMonitorWorkspaceResourceId -o tsv
 $PROM_URL   = az resource show --ids $AMW_ID --api-version 2023-04-03 --query properties.metrics.prometheusQueryEndpoint -o tsv
+Write-Host "🌐 Prometheus endpoint: $PROM_URL"
+
+# Get a Microsoft Entra token for the Prometheus query API
 $PROM_TOKEN = az account get-access-token --resource https://prometheus.monitor.azure.com --query accessToken -o tsv
+Write-Host "🪪 Token acquired: in PROM_TOKEN ($($PROM_TOKEN.Length) characters, not shown)"
 ```
 </details> <!-- gh -->
 
@@ -785,7 +899,11 @@ query to your Application Insights resource.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Select the token usage metric of your Application Insights resource, with quoted names because they contain dots
 SELECTOR="{__name__=\"azure.ai_gateway.client.token.usage\",\"microsoft.appresourceid\"=\"$(echo "$APPI_ID" | tr '[:upper:]' '[:lower:]')\"}"
+
+# Query the tokens of the last day, and print one row per model, token type, API key, tenant, and client app
+echo "📊 Tokens in the last day, by model, token type, API key, tenant, and client app:"
 curl -sS -G "${PROM_URL%/}/api/v1/query" -H "Authorization: Bearer $PROM_TOKEN" \
   --data-urlencode "query=increase(${SELECTOR}[1d])" \
   | jq -r '.data.result[] | [.metric["gen_ai.response.model"], .metric["gen_ai.token.type"],
@@ -798,9 +916,15 @@ curl -sS -G "${PROM_URL%/}/api/v1/query" -H "Authorization: Bearer $PROM_TOKEN" 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Select the token usage metric of your Application Insights resource, with quoted names because they contain dots
 $selector = '{__name__="azure.ai_gateway.client.token.usage","microsoft.appresourceid"="' + $APPI_ID.ToLower() + '"}'
+
+# Query the tokens of the last day from the Prometheus query API
 $result = Invoke-RestMethod -Uri "$($PROM_URL.TrimEnd('/'))/api/v1/query" `
   -Headers @{ Authorization = "Bearer $PROM_TOKEN" } -Body @{ query = 'increase(' + $selector + '[1d])' }
+
+# Print one row per model, token type, API key, tenant, and client app
+if ($?) { Write-Host "📊 Tokens in the last day, by model, token type, API key, tenant, and client app:" }
 $result.data.result | ForEach-Object { [pscustomobject]@{
   Model     = $_.metric.'gen_ai.response.model'
   TokenType = $_.metric.'gen_ai.token.type'
@@ -895,14 +1019,18 @@ In **Monitoring** › **Settings** › **Logging** › **Token claim attributes*
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-rm -f query.json usage.json prices.json chargeback.csv
+# Delete the query, the usage, the price list, and the report, because they hold tenant and object IDs
+rm -f query.json usage.json prices.json chargeback.csv &&
+  echo "🧹 The exported files are deleted"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Delete the query, the usage, the price list, and the report, because they hold tenant and object IDs
 Remove-Item query.json, usage.json, prices.json, chargeback.csv -ErrorAction SilentlyContinue
+Write-Host "🧹 The exported files are deleted"
 ```
 </details> <!-- gh -->
 
@@ -917,14 +1045,18 @@ In the `ai-gateway/labs/14-otel-chargeback` folder, delete the files the report 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-rm -f query.json usage.json prices.json chargeback.csv
+# Delete the query, the usage, the price list, and the report, because they hold tenant and object IDs
+rm -f query.json usage.json prices.json chargeback.csv &&
+  echo "🧹 The exported files are deleted"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Delete the query, the usage, the price list, and the report, because they hold tenant and object IDs
 Remove-Item query.json, usage.json, prices.json, chargeback.csv -ErrorAction SilentlyContinue
+Write-Host "🧹 The exported files are deleted"
 ```
 </details> <!-- gh -->
 
@@ -936,7 +1068,9 @@ resource group with it. [`--purge`](../SETUP.md#delete-what-azd-created) also pu
 It takes about ten minutes.
 
 ```bash
-azd down --purge --force
+# Delete everything that azd up created, and purge the Foundry account
+azd down --purge --force &&
+  echo "🧹 Everything that azd up created is deleted"
 ```
 
 To keep this gateway for other labs instead, skip `azd down` and restore the preset:

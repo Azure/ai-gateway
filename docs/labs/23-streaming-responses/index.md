@@ -52,35 +52,53 @@ Set these variables once, from the lab folder (`labs/23-streaming-responses`). E
 section reuse them.
 
 ```bash title="Bash"
+# Name your gateway, its model provider, and the backend model from lab 02, and the alias that this lab creates
 export RG="<resource-group>"
 export GATEWAY="<gateway>"                 # 24 characters or fewer
 export PROVIDER="<provider-name>"          # for example foundry-models
 export MODEL="<model-name>"                # the backend model name under that provider
 export STREAM_ALIAS="$MODEL-stream"        # the token-limited alias that this lab creates
+echo "📝 Gateway $GATEWAY in $RG, model $MODEL on $PROVIDER, streaming alias $STREAM_ALIAS"
 
+# Read the gateway's resource ID and its runtime URL
 export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
-# A starting guess for the alias. Confirm it on the model's Aliases tab (lab 02) and replace it if it differs.
+echo "🆔 Gateway ID: $GATEWAY_ID"
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+
+# Read a starting guess for the alias: confirm it on the model's Aliases tab (lab 02), and replace it if it differs
 export AI_GATEWAY_MODEL="$(az aigateway model show -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
   --query properties.deployment.modelName -o tsv)"
-# Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
+echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+
+# Paste the runtime key that you created in Access › Keys, without showing it: don't commit it or write it to a file
 read -rsp "AI Gateway API key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 ```
 
 ```powershell title="PowerShell"
+# Name your gateway, its model provider, and the backend model from lab 02, and the alias that this lab creates
 $RG           = "<resource-group>"
 $GATEWAY      = "<gateway>"                 # 24 characters or fewer
 $PROVIDER     = "<provider-name>"           # for example foundry-models
 $MODEL        = "<model-name>"              # the backend model name under that provider
 $STREAM_ALIAS = "$MODEL-stream"             # the token-limited alias that this lab creates
+Write-Host "📝 Gateway $GATEWAY in $RG, model $MODEL on $PROVIDER, streaming alias $STREAM_ALIAS"
 
+# Read the gateway's resource ID and its runtime URL
 $GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
-# A starting guess for the alias. Confirm it on the model's Aliases tab (lab 02) and replace it if it differs.
+Write-Host "🆔 Gateway ID: $GATEWAY_ID"
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+
+# Read a starting guess for the alias: confirm it on the model's Aliases tab (lab 02), and replace it if it differs
 $env:AI_GATEWAY_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
   --query properties.deployment.modelName -o tsv
-# Paste the runtime key you created in Access › Keys. Don't commit it or write it to a file.
+Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+
+# Paste the runtime key that you created in Access › Keys, without showing it: don't commit it or write it to a file
 $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 ```
 
 > [!TIP]
@@ -138,18 +156,23 @@ curl buffers its output by default; `-N` turns that off, so each event prints th
 with `HttpClient`.
 
 ```bash title="Bash"
+# Ask for a streamed reply: -N turns off curl's buffering, so that each event prints the moment it arrives
+echo "🤖 Raw server-sent events from the $AI_GATEWAY_MODEL alias:"
 curl -sSN "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions" \
   -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
   -d "{\"model\":\"$AI_GATEWAY_MODEL\",\"stream\":true,\"messages\":[{\"role\":\"user\",\"content\":\"Say hello in five words.\"}]}"
 ```
 
 ```powershell title="PowerShell"
+# Ask for a streamed reply: with -Raw, the script prints every server-sent event line the moment it arrives
+Write-Host "🤖 Raw server-sent events from the $env:AI_GATEWAY_MODEL alias:"
 ./infra/stream-chat.ps1 -Raw -Prompt "Say hello in five words."
 ```
 
 Expected output (shortened; your text and IDs differ):
 
 ```text
+🤖 Raw server-sent events from the gpt-6-luna alias:
 data: {"choices":[],"created":0,"id":"","model":"","object":"","prompt_filter_results":[{"prompt_index":0,"content_filter_results":{…}}]}
 
 data: {"choices":[{"delta":{"content":"","refusal":null,"role":"assistant"},"finish_reason":null,"index":0,…}],"model":"gpt-6-luna-2026-09-22","object":"chat.completion.chunk",…,"usage":null}
@@ -173,10 +196,14 @@ the usage chunk if the stream had one.
 <!-- include: infra/stream-chat.sh -->
 
 ```bash title="Bash"
+# Stream a reply, then print the event count, the time to the first token, the usage chunk, and the headers
+echo "🤖 Reply from the $AI_GATEWAY_MODEL alias, as it streams:"
 ./infra/stream-chat.sh
 ```
 
 ```powershell title="PowerShell"
+# Stream a reply, then print the event count, the time to the first token, the usage chunk, and the headers
+Write-Host "🤖 Reply from the $env:AI_GATEWAY_MODEL alias, as it streams:"
 ./infra/stream-chat.ps1
 ```
 
@@ -185,6 +212,7 @@ On GitHub, open [stream-chat.sh](infra/stream-chat.sh) or [stream-chat.ps1](infr
 Expected output (your text and numbers differ):
 
 ```text
+🤖 Reply from the gpt-6-luna alias, as it streams:
 Streaming shows replies as they're generated, so users see progress right away. They can start reading before the full answer is ready. That makes the app feel more responsive than waiting for one complete message.
 
 Events              43 (1 with an empty choices array)
@@ -200,16 +228,21 @@ Served by           gpt-6-luna-2026-09-22
 Run the script again with the option that sets `"stream_options": {"include_usage": true}`:
 
 ```bash title="Bash"
+# Stream again with stream_options.include_usage set, so that the stream ends with a usage chunk
+echo "🤖 Reply from the $AI_GATEWAY_MODEL alias, with a usage chunk at the end:"
 ./infra/stream-chat.sh --usage
 ```
 
 ```powershell title="PowerShell"
+# Stream again with stream_options.include_usage set, so that the stream ends with a usage chunk
+Write-Host "🤖 Reply from the $env:AI_GATEWAY_MODEL alias, with a usage chunk at the end:"
 ./infra/stream-chat.ps1 -Usage
 ```
 
 Expected output:
 
 ```text
+🤖 Reply from the gpt-6-luna alias, with a usage chunk at the end:
 Streaming shows the reply as it's generated instead of waiting for the whole answer. You can start reading right away. That makes the app feel more responsive.
 
 Events              35 (2 with an empty choices array)
@@ -228,22 +261,40 @@ together with `"stream": true`; without it, the gateway returns `400`.
 The Responses API names every event. List the event types in order, then read the usage from `response.completed`:
 
 ```bash title="Bash"
+# Stream a Responses API reply into a file, so that you can count its events
 curl -sSN "${AI_GATEWAY_URL%/}/default/models/openai/v1/responses" \
   -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
-  -d "{\"model\":\"$AI_GATEWAY_MODEL\",\"stream\":true,\"input\":\"Say hello in five words.\"}" > events.txt
+  -d "{\"model\":\"$AI_GATEWAY_MODEL\",\"stream\":true,\"input\":\"Say hello in five words.\"}" > events.txt &&
+  echo "🤖 Stream received from the $AI_GATEWAY_MODEL alias"
+
+# Count each run of the same event type, in order
+echo "📊 Event types, in order:"
 grep '^event:' events.txt | uniq -c
+
+# Read the usage from the response.completed event, then delete the file
+echo "📊 Usage from response.completed:"
 sed -n 's/^data: {/{/p' events.txt | jq -c 'select(.type == "response.completed") | .response.usage'
 rm events.txt
 ```
 
 ```powershell title="PowerShell"
+# Build a streamed Responses API request
 $body = @{ model = $env:AI_GATEWAY_MODEL; stream = $true; input = "Say hello in five words." } | ConvertTo-Json
+
+# Send it: Invoke-WebRequest waits for the whole stream, which is fine here because you only count its events
 $r = Invoke-WebRequest -Method Post -Uri "$($env:AI_GATEWAY_URL.TrimEnd('/'))/default/models/openai/v1/responses" `
   -Headers @{ "api-key" = $env:AI_GATEWAY_API_KEY } -ContentType "application/json" -Body $body
+if ($?) { Write-Host "🤖 Stream received from the $env:AI_GATEWAY_MODEL alias" }
+
+# Count each run of the same event type, in order, the way uniq -c does
+Write-Host "📊 Event types, in order:"
 $lines = $r.Content -split "`n"
 $prev = $null; $n = 0
 foreach ($e in $lines -match '^event:') { if ($e -eq $prev) { $n++ } else { if ($prev) { '{0,4} {1}' -f $n, $prev }; $prev = $e; $n = 1 } }
 '{0,4} {1}' -f $n, $prev
+
+# Read the usage from the response.completed event
+Write-Host "📊 Usage from response.completed:"
 ($lines -match '^data: \{' | ForEach-Object { $_.Substring(6) | ConvertFrom-Json } |
   Where-Object type -eq 'response.completed').response.usage | ConvertTo-Json -Compress
 ```
@@ -251,6 +302,8 @@ foreach ($e in $lines -match '^event:') { if ($e -eq $prev) { $n++ } else { if (
 Expected output (your counts differ):
 
 ```text
+🤖 Stream received from the gpt-6-luna alias
+📊 Event types, in order:
    1 event: response.created
    1 event: response.in_progress
    1 event: response.output_item.added
@@ -262,6 +315,7 @@ Expected output (your counts differ):
    1 event: response.content_part.done
    1 event: response.output_item.done
    1 event: response.completed
+📊 Usage from response.completed:
 {"input_tokens":12,"input_tokens_details":{"cache_write_tokens":0,"cached_tokens":0},"output_tokens":66,"output_tokens_details":{"reasoning_tokens":53},"total_tokens":78}
 ```
 
@@ -276,13 +330,17 @@ Each sample reads `AI_GATEWAY_URL`, `AI_GATEWAY_MODEL`, and `AI_GATEWAY_API_KEY`
 commands from the lab folder.
 
 ```bash title="Python"
+# Move into the samples' folder, and install their requirements
 cd infra
 pip install -r requirements.txt     # the openai package
+echo "🧩 The OpenAI SDK is installed"
 ```
 
 ```bash title="TypeScript"
+# Move into the samples' folder, and install their dependencies
 cd infra
 npm install                         # the openai npm package
+echo "🧩 The OpenAI SDK is installed"
 ```
 
 ### Stream from code
@@ -348,16 +406,21 @@ and [stream.ts](infra/stream.ts).
 ### Run the sample
 
 ```bash title="Python"
+# Run the sample: it streams a Chat Completions reply, then a Responses API reply
+echo "🤖 Streamed replies through the gateway:"
 python stream.py
 ```
 
 ```bash title="TypeScript"
+# Run the sample: it streams a Chat Completions reply, then a Responses API reply
+echo "🤖 Streamed replies through the gateway:"
 node stream.ts      # Node.js 22.18 or later; on older versions run: npx tsx stream.ts
 ```
 
 Expected output (your text differs):
 
 ```text
+🤖 Streamed replies through the gateway:
 Chat Completions:
 Streaming shows each response as it's generated instead of making you wait for the whole message, so you see progress right away. It also lets you start reading or reacting before the response is complete.
 First token:      1.77 s
@@ -410,6 +473,9 @@ lab 02, so clients that call that alias aren't affected.
 An alias carries its own `policies` array, so one command creates the alias and its limit together.
 
 ```bash title="Bash"
+# Create the streaming alias for the same backend model, with its own token limit of 1,000 tokens per minute
+# for each caller identity, and show the alias and its policies
+echo "🏷️ Alias $STREAM_ALIAS and its policies:"
 az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$STREAM_ALIAS" \
   --description "Streaming lab: 1,000 tokens per minute for each caller" \
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" \
@@ -418,9 +484,14 @@ az aigateway model-alias create -g "$RG" --gateway-name "$GATEWAY" -n "$STREAM_A
 ```
 
 ```powershell title="PowerShell"
+# Write the token limit of 1,000 tokens per minute for each caller identity to a file, so that PowerShell
+# passes the JSON to az unchanged
 ConvertTo-Json -Depth 10 -Compress -InputObject @(
   @{ type = "tokenLimit"; count = 1000; period = "minute"; counterKey = @("identity") }
 ) | Set-Content policies.json
+
+# Create the streaming alias for the same backend model, with that limit, and show the alias and its policies
+Write-Host "🏷️ Alias $STREAM_ALIAS and its policies:"
 az aigateway model-alias create -g $RG --gateway-name $GATEWAY -n $STREAM_ALIAS `
   --description "Streaming lab: 1,000 tokens per minute for each caller" `
   --backend-model resource-id="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models/$MODEL" `
@@ -449,7 +520,9 @@ The lab is a small azd project in the
 [Clone the labs repo](../SETUP.md#clone-the-labs-repo) if you haven't yet, then move into the lab's folder.
 
 ```bash title="Bash or PowerShell"
-cd ~/ai-gateway/labs/23-streaming-responses
+# Move into the lab's folder, which holds the azd project
+cd ~/ai-gateway/labs/23-streaming-responses &&
+  echo "📂 Lab folder: ~/ai-gateway/labs/23-streaming-responses"
 ```
 
 ### Review the template
@@ -469,13 +542,23 @@ Create an azd environment named `aigw-lab23` in your current subscription, then 
 about three minutes.
 
 ```bash title="Bash"
-azd env new aigw-lab23 --location eastus2 --subscription "$(az account show --query id --output tsv)"
-azd up
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
+azd env new aigw-lab23 --location eastus2 --subscription "$(az account show --query id --output tsv)" &&
+  echo "📝 azd environment aigw-lab23 deploys to eastus2"
+
+# Provision the gateway, the Foundry model, its default alias, the key, and the token-limited streaming alias
+azd up &&
+  echo "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)"
 ```
 
 ```powershell title="PowerShell"
+# Create an azd environment in your current subscription, so that azd doesn't prompt you
 azd env new aigw-lab23 --location eastus2 --subscription (az account show --query id --output tsv)
+if ($?) { Write-Host "📝 azd environment aigw-lab23 deploys to eastus2" }
+
+# Provision the gateway, the Foundry model, its default alias, the key, and the token-limited streaming alias
 azd up
+if ($?) { Write-Host "🚀 Gateway deployed: $(azd env get-value AI_GATEWAY_URL)" }
 ```
 
 For another region, pick one where AI Gateway and the `gpt-6-luna` model are available, as in [Find the available
@@ -487,6 +570,7 @@ Set the variables that the rest of the lab uses from azd's environment values, a
 so that it never shows on screen.
 
 ```bash title="Bash"
+# Read the template's outputs into the variables that the rest of the lab uses
 export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
 export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
 export PROVIDER="$(azd env get-value AI_GATEWAY_PROVIDER)"
@@ -495,12 +579,19 @@ export STREAM_ALIAS="$(azd env get-value AI_GATEWAY_STREAM_ALIAS)"
 export GATEWAY_ID="$(azd env get-value AI_GATEWAY_ID)"
 export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
 export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
+
+# Read the key from the gateway, so that it never shows on screen or lands in a file
 export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" \
   --query primaryKey --output tsv)"
-echo "$STREAM_ALIAS"
+echo "📝 Gateway $GATEWAY in $RG"
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
+echo "🏷️ Streaming alias: $STREAM_ALIAS"
 ```
 
 ```powershell title="PowerShell"
+# Read the template's outputs into the variables that the rest of the lab uses
 $RG                     = azd env get-value AZURE_RESOURCE_GROUP
 $GATEWAY                = azd env get-value AI_GATEWAY_NAME
 $PROVIDER               = azd env get-value AI_GATEWAY_PROVIDER
@@ -509,17 +600,23 @@ $STREAM_ALIAS           = azd env get-value AI_GATEWAY_STREAM_ALIAS
 $GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
 $env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
 $env:AI_GATEWAY_MODEL   = azd env get-value AI_GATEWAY_MODEL
+
+# Read the key from the gateway, so that it never shows on screen or lands in a file
 $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" `
   --query primaryKey --output tsv
-$STREAM_ALIAS
+Write-Host "📝 Gateway $GATEWAY in $RG"
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
+Write-Host "🏷️ Streaming alias: $STREAM_ALIAS"
 ```
 
 `AI_GATEWAY_MODEL` is the default alias, `gpt-6-luna`, which has no token limit, so the steps in
 [Stream a response](#stream-a-response) aren't throttled. **Verify** calls the streaming alias.
 
 > **Checkpoint**
-> `azd up` ended with `SUCCESS`, and the last command printed the streaming alias, `gpt-6-luna-stream`. In the
-> portal, **Models** › **Aliases** lists it next to `gpt-6-luna`, and **Policies** lists a **Token rate limit**
+> `azd up` ended with `SUCCESS`, and the last command printed `🏷️ Streaming alias: gpt-6-luna-stream`. In
+> the portal, **Models** › **Aliases** lists it next to `gpt-6-luna`, and **Policies** lists a **Token rate limit**
 > scoped to it. If you came here from **Before you begin**, go back to [Stream a response](#stream-a-response) now.
 
 <!-- /tracks -->
@@ -536,10 +633,14 @@ gateway only counted the tokens that clients report, the first burst would never
 For each request, the script prints the status, `Retry-After`, the number of events, and the usage chunk, if any.
 
 ```bash title="Bash"
+# Send 8 streamed requests to the streaming alias, without asking for usage
+echo "🚦 Expect 429 Too Many Requests after about 1,000 tokens, with no usage chunks:"
 ./infra/stream-burst.sh "$STREAM_ALIAS" 8
 ```
 
 ```powershell title="PowerShell"
+# Send 8 streamed requests to the streaming alias, without asking for usage
+Write-Host "🚦 Expect 429 Too Many Requests after about 1,000 tokens, with no usage chunks:"
 ./infra/stream-burst.ps1 -Model $STREAM_ALIAS -Requests 8
 ```
 
@@ -548,6 +649,7 @@ On GitHub, open [stream-burst.sh](infra/stream-burst.sh) or [stream-burst.ps1](i
 Expected output (your counts differ):
 
 ```text
+🚦 Expect 429 Too Many Requests after about 1,000 tokens, with no usage chunks:
 Request  Status  Retry-After  Events  Usage chunk
 1        200     -            209     none
 2        200     -            187     none
@@ -571,18 +673,30 @@ counted only the prompts, about 25 tokens each, the alias would have allowed rou
 Wait a minute for the window to reset, then run the same burst with `include_usage`:
 
 ```bash title="Bash"
+# Wait a minute, so that the token limit's window resets
+echo "⏳ Waiting 60 seconds for the token limit's window to reset"
 sleep 60
+
+# Send the same burst with stream_options.include_usage, so that each stream ends with a usage chunk
+echo "🚦 Expect 429 Too Many Requests at the same point, now with usage chunks:"
 ./infra/stream-burst.sh --usage "$STREAM_ALIAS" 8
 ```
 
 ```powershell title="PowerShell"
+# Wait a minute, so that the token limit's window resets
+Write-Host "⏳ Waiting 60 seconds for the token limit's window to reset"
 Start-Sleep 60
+
+# Send the same burst with stream_options.include_usage, so that each stream ends with a usage chunk
+Write-Host "🚦 Expect 429 Too Many Requests at the same point, now with usage chunks:"
 ./infra/stream-burst.ps1 -Model $STREAM_ALIAS -Requests 8 -Usage
 ```
 
 Expected output:
 
 ```text
+⏳ Waiting 60 seconds for the token limit's window to reset
+🚦 Expect 429 Too Many Requests at the same point, now with usage chunks:
 Request  Status  Retry-After  Events  Usage chunk
 1        200     -            196     218 tokens
 2        200     -            186     208 tokens
@@ -602,6 +716,8 @@ usage. Request 8 succeeds again because it was sent after the `Retry-After` wait
 Run the burst once more and, while the alias is throttled, look at a full response:
 
 ```bash
+# Send one streamed request while the alias is throttled: -i prints the status line and the headers too
+echo "🚦 Expect 429 Too Many Requests while the limit is active, as plain JSON:"
 curl -sS -i "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions" \
   -H "api-key: $AI_GATEWAY_API_KEY" -H "Content-Type: application/json" \
   -d "{\"model\":\"$STREAM_ALIAS\",\"stream\":true,\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
@@ -610,6 +726,7 @@ curl -sS -i "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions" \
 Expected output, when the limit is active:
 
 ```text
+🚦 Expect 429 Too Many Requests while the limit is active, as plain JSON:
 HTTP/2 429
 content-type: application/json
 retry-after: 3
@@ -659,11 +776,15 @@ Open `<model-name>-stream` in **Models** › **Aliases** and select **Delete**.
 ### Delete the streaming alias
 
 ```bash title="Bash"
-az aigateway model-alias delete -g "$RG" --gateway-name "$GATEWAY" -n "$STREAM_ALIAS" --yes
+# Delete the streaming alias, with its token limit: the backend model and your alias from lab 02 stay
+az aigateway model-alias delete -g "$RG" --gateway-name "$GATEWAY" -n "$STREAM_ALIAS" --yes &&
+  echo "🧹 Alias $STREAM_ALIAS is deleted"
 ```
 
 ```powershell title="PowerShell"
+# Delete the streaming alias, with its token limit: the backend model and your alias from lab 02 stay
 az aigateway model-alias delete -g $RG --gateway-name $GATEWAY -n $STREAM_ALIAS --yes
+if ($?) { Write-Host "🧹 Alias $STREAM_ALIAS is deleted" }
 ```
 
 <!-- track: iac | Bicep + azd -->
@@ -675,7 +796,9 @@ account, and both aliases. [`--purge`](../SETUP.md#delete-what-azd-created) also
 account. It takes about ten minutes.
 
 ```bash
-azd down --purge --force
+# Delete everything that azd up created, and purge the Foundry account
+azd down --purge --force &&
+  echo "🧹 Everything that azd up created is deleted"
 ```
 
 <!-- /tracks -->

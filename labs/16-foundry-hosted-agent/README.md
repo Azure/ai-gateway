@@ -127,18 +127,30 @@ lab 02:
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Paste the hosted-agent key without showing it, and export it for azd
 read -rsp "hosted-agent key: " AI_GATEWAY_API_KEY && export AI_GATEWAY_API_KEY && echo
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
+
+# Set the gateway's runtime URL from its Overview page, and the alias that the agent sends as its model
 export AI_GATEWAY_URL="https://<gateway>.<region>-01.ai.gateway.azure.com"
 export AI_GATEWAY_MODEL="<model-alias>"    # the alias from lab 02
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
+echo "🏷️ Model alias: $AI_GATEWAY_MODEL"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Paste the hosted-agent key without showing it
 $env:AI_GATEWAY_API_KEY = Read-Host "hosted-agent key" -MaskInput
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
+
+# Set the gateway's runtime URL from its Overview page, and the alias that the agent sends as its model
 $env:AI_GATEWAY_URL = "https://<gateway>.<region>-01.ai.gateway.azure.com"
 $env:AI_GATEWAY_MODEL = "<model-alias>"    # the alias from lab 02
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
+Write-Host "🏷️ Model alias: $env:AI_GATEWAY_MODEL"
 ```
 </details> <!-- gh -->
 
@@ -151,22 +163,30 @@ $env:AI_GATEWAY_MODEL = "<model-alias>"    # the alias from lab 02
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Set your resource group, your gateway, and the alias that the agent sends as its model
 export RG="<resource-group>"
 export GATEWAY="<gateway>"
 export AI_GATEWAY_MODEL="<model-alias>"    # the alias from lab 02
+echo "📝 Gateway $GATEWAY in $RG, alias $AI_GATEWAY_MODEL"
 
+# Read the gateway's runtime URL, which the agent calls for its model and its tools
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
+echo "🌐 Runtime URL: $AI_GATEWAY_URL"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Set your resource group, your gateway, and the alias that the agent sends as its model
 $RG                   = "<resource-group>"
 $GATEWAY              = "<gateway>"
 $env:AI_GATEWAY_MODEL = "<model-alias>"    # the alias from lab 02
+Write-Host "📝 Gateway $GATEWAY in $RG, alias $env:AI_GATEWAY_MODEL"
 
+# Read the gateway's runtime URL, which the agent calls for its model and its tools
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
+Write-Host "🌐 Runtime URL: $env:AI_GATEWAY_URL"
 ```
 </details> <!-- gh -->
 
@@ -178,18 +198,28 @@ appears on screen.
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-az aigateway api-key create -g "$RG" --gateway-name "$GATEWAY" -n hosted-agent --display-name hosted-agent -o none
+# Create the hosted-agent key, which makes the agent a caller identity of its own
+az aigateway api-key create -g "$RG" --gateway-name "$GATEWAY" -n hosted-agent --display-name hosted-agent -o none &&
+  echo "🔑 API key hosted-agent is ready"
+
+# Read the key's value straight into a variable, so that it never shows on screen
 export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n hosted-agent \
   --query primaryKey -o tsv)"
+echo "🔑 Key: in AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Create the hosted-agent key, which makes the agent a caller identity of its own
 az aigateway api-key create -g $RG --gateway-name $GATEWAY -n hosted-agent --display-name hosted-agent -o none
+if ($?) { Write-Host "🔑 API key hosted-agent is ready" }
+
+# Read the key's value straight into a variable, so that it never shows on screen
 $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n hosted-agent `
   --query primaryKey -o tsv
+Write-Host "🔑 Key: in AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)"
 ```
 </details> <!-- gh -->
 
@@ -210,8 +240,13 @@ $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-nam
 and install the Foundry extensions for azd:
 
 ```bash
-cd ~/ai-gateway/labs/16-foundry-hosted-agent/infra
-azd ext install microsoft.foundry
+# Move into the lab's azd project
+cd ~/ai-gateway/labs/16-foundry-hosted-agent/infra &&
+  echo "📂 Lab folder: ~/ai-gateway/labs/16-foundry-hosted-agent/infra"
+
+# Install the Foundry extensions for azd, which add the azd ai agent commands
+azd ext install microsoft.foundry &&
+  echo "🧩 The Foundry extensions for azd are installed"
 ```
 
 `microsoft.foundry` installs the Foundry extensions for azd, including `azure.ai.agents`, which adds the
@@ -223,7 +258,9 @@ The environment name also names the resource group, `rg-<env>`, and the Foundry 
 Foundry Hosted Agents are available, for example `eastus2`.
 
 ```bash
-azd env new aigw-lab16 --location eastus2
+# Create the azd environment, which also names the resource group, rg-aigw-lab16, and the Foundry project
+azd env new aigw-lab16 --location eastus2 &&
+  echo "📝 azd environment aigw-lab16 deploys to eastus2"
 ```
 
 ### Pass the gateway settings to the agent
@@ -243,20 +280,38 @@ Set them from your shell:
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-azd env set AI_GATEWAY_URL "$AI_GATEWAY_URL"
-azd env set AI_GATEWAY_MODEL "$AI_GATEWAY_MODEL"
-azd env set AI_GATEWAY_API_KEY "$AI_GATEWAY_API_KEY"
-azd env set AI_GATEWAY_MCP_SERVER learn
+# Store the gateway's runtime URL and the alias in the azd environment
+azd env set AI_GATEWAY_URL "$AI_GATEWAY_URL" &&
+  echo "📝 AI_GATEWAY_URL: $AI_GATEWAY_URL"
+azd env set AI_GATEWAY_MODEL "$AI_GATEWAY_MODEL" &&
+  echo "📝 AI_GATEWAY_MODEL: $AI_GATEWAY_MODEL"
+
+# Store the hosted-agent key, which azd passes to the agent as an environment variable
+azd env set AI_GATEWAY_API_KEY "$AI_GATEWAY_API_KEY" &&
+  echo "🔑 Key: in the azd environment as AI_GATEWAY_API_KEY (${#AI_GATEWAY_API_KEY} characters, not shown)"
+
+# Point the agent at the learn MCP server from lab 04
+azd env set AI_GATEWAY_MCP_SERVER learn &&
+  echo "📝 AI_GATEWAY_MCP_SERVER: learn"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Store the gateway's runtime URL and the alias in the azd environment
 azd env set AI_GATEWAY_URL $env:AI_GATEWAY_URL
+if ($?) { Write-Host "📝 AI_GATEWAY_URL: $env:AI_GATEWAY_URL" }
 azd env set AI_GATEWAY_MODEL $env:AI_GATEWAY_MODEL
+if ($?) { Write-Host "📝 AI_GATEWAY_MODEL: $env:AI_GATEWAY_MODEL" }
+
+# Store the hosted-agent key, which azd passes to the agent as an environment variable
 azd env set AI_GATEWAY_API_KEY $env:AI_GATEWAY_API_KEY
+if ($?) { Write-Host "🔑 Key: in the azd environment as AI_GATEWAY_API_KEY ($($env:AI_GATEWAY_API_KEY.Length) characters, not shown)" }
+
+# Point the agent at the learn MCP server from lab 04
 azd env set AI_GATEWAY_MCP_SERVER learn
+if ($?) { Write-Host "📝 AI_GATEWAY_MCP_SERVER: learn" }
 ```
 </details> <!-- gh -->
 
@@ -387,6 +442,8 @@ On GitHub, open [main.py](infra/src/gateway-agent/main.py) and [azure.yaml](infr
 From the `infra` folder:
 
 ```bash
+# Start the agent locally: azd installs requirements.txt in a virtual environment and opens Agent Inspector
+echo "🚀 Starting the agent on http://localhost:8088 (Ctrl+C to stop)"
 azd ai agent run
 ```
 
@@ -399,12 +456,15 @@ Inspector.
 In a second terminal, from the same folder:
 
 ```bash
+# Ask the local agent a question: it calls the model and the Learn tools through the gateway
+echo "🤖 The local agent's answer:"
 azd ai agent invoke --local "Which Learn page explains Azure API Management key concepts? One sentence and the URL."
 ```
 
 Expected output: an answer that cites a `learn.microsoft.com` URL, for example:
 
 ```text
+🤖 The local agent's answer:
 [local] The Learn page "What is Azure API Management?" explains its key concepts.
 URL: https://learn.microsoft.com/azure/api-management/api-management-key-concepts
 ```
@@ -424,7 +484,9 @@ call that wrote the answer, all through the gateway. Stop the agent with **Ctrl+
 ### Provision and deploy
 
 ```bash
-azd up
+# Provision the Foundry resource and project, upload the agent's code, and create the hosted agent
+azd up &&
+  echo "🚀 The hosted agent gateway-agent is deployed to Foundry"
 ```
 
 azd asks for a subscription if the environment doesn't have one. Then it creates `rg-aigw-lab16` with a Foundry
@@ -433,11 +495,14 @@ hosted agent. Foundry builds it from `requirements.txt`. It takes about five min
 
 ```text
 SUCCESS: Your application was deployed to Azure in 2 minutes 31 seconds.
+🚀 The hosted agent gateway-agent is deployed to Foundry
 ```
 
 ### Invoke the hosted agent
 
 ```bash
+# Ask the hosted agent the same question in Foundry, where its calls still go through the gateway
+echo "🤖 The hosted agent's answer:"
 azd ai agent invoke gateway-agent "Which Learn page explains Azure API Management key concepts? One sentence and the URL."
 ```
 
@@ -445,6 +510,7 @@ Expected output: the same kind of answer, now from Foundry. The first call can t
 agent starts.
 
 ```text
+🤖 The hosted agent's answer:
 Agent:        gateway-agent (remote)
 ...
 [gateway-agent] The Learn page titled "What is Azure API Management?" explains Azure API Management key concepts.
@@ -457,6 +523,8 @@ azd keeps the conversation, so a second `invoke`, such as `"Shorten that to ten 
 ### Find the agent in Foundry
 
 ```bash
+# Show the hosted agent's status, its identity, its Responses endpoint, and its Playground URL
+echo "📊 Hosted agent gateway-agent:"
 azd ai agent show gateway-agent
 ```
 
@@ -509,27 +577,41 @@ other policies:
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Find the alias's resource name from the name that apps send
 ALIAS_NAME="$(az aigateway model-alias list -g "$RG" --gateway-name "$GATEWAY" \
   --query "[?properties.aliasName=='$AI_GATEWAY_MODEL'].name | [0]" -o tsv)"
+echo "🏷️ Alias resource name: $ALIAS_NAME"
+
+# Write the alias's other policies, plus a limit of 1,000 tokens per minute counted per caller identity, to a file
 az aigateway model-alias show -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS_NAME" -o json \
   | jq -c '[(.properties.policies // [])[] | select(.type != "tokenLimit") | del(.scope)] + [{type:"tokenLimit",period:"minute",count:1000,counterKey:["identity"]}]' > policies.json
+
+# Replace the alias's whole policy array with the file's, and print the new array
 az aigateway model-alias update -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS_NAME" --policies @policies.json \
-  --query properties.policies
+  --query properties.policies &&
+  echo "🛡️ Token limit of 1,000 tokens per minute per caller identity is on $AI_GATEWAY_MODEL"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Find the alias's resource name from the name that apps send
 $ALIAS_NAME = az aigateway model-alias list -g $RG --gateway-name $GATEWAY `
   --query "[?properties.aliasName=='$($env:AI_GATEWAY_MODEL)'].name | [0]" -o tsv
+Write-Host "🏷️ Alias resource name: $ALIAS_NAME"
+
+# Write the alias's other policies, plus a limit of 1,000 tokens per minute counted per caller identity, to a file
 $alias = az aigateway model-alias show -g $RG --gateway-name $GATEWAY -n $ALIAS_NAME -o json | ConvertFrom-Json
 $p = @($alias.properties.policies | Where-Object { $_ -and $_.type -ne 'tokenLimit' } |
   Select-Object * -ExcludeProperty scope) +
   @(@{ type = 'tokenLimit'; period = 'minute'; count = 1000; counterKey = @('identity') })
 ConvertTo-Json -InputObject $p -Depth 10 -Compress | Set-Content policies.json
+
+# Replace the alias's whole policy array with the file's, and print the new array
 az aigateway model-alias update -g $RG --gateway-name $GATEWAY -n $ALIAS_NAME --policies "@policies.json" `
   --query properties.policies
+if ($?) { Write-Host "🛡️ Token limit of 1,000 tokens per minute per caller identity is on $env:AI_GATEWAY_MODEL" }
 ```
 </details> <!-- gh -->
 
@@ -543,6 +625,8 @@ az aigateway model-alias update -g $RG --gateway-name $GATEWAY -n $ALIAS_NAME --
 Wait about 30 seconds for the policy to apply, then invoke the hosted agent twice:
 
 ```bash
+# Invoke the hosted agent twice, each time in a new conversation: the first invoke uses well over 1,000 tokens
+echo "🚦 Expect the second invoke to fail with a 429 from the gateway's token limit"
 azd ai agent invoke gateway-agent --new-conversation "Summarize Azure API Management in three sentences with Learn links."
 azd ai agent invoke gateway-agent --new-conversation "Summarize Azure API Management in three sentences with Learn links."
 ```
@@ -566,10 +650,14 @@ the CLI, remove the `tokenLimit` policy the same way you added it:
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
+# Write the alias's policies, without the token limit, to a file
 az aigateway model-alias show -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS_NAME" -o json \
   | jq -c '[(.properties.policies // [])[] | select(.type != "tokenLimit") | del(.scope)]' > policies.json
+
+# Replace the alias's whole policy array with the file's, then delete the file
 az aigateway model-alias update -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS_NAME" --policies @policies.json \
-  --query properties.policies
+  --query properties.policies &&
+  echo "🧹 The token limit is removed from $AI_GATEWAY_MODEL"
 rm policies.json
 ```
 </details> <!-- gh -->
@@ -577,18 +665,22 @@ rm policies.json
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
+# Write the alias's policies, without the token limit, to a file
 $alias = az aigateway model-alias show -g $RG --gateway-name $GATEWAY -n $ALIAS_NAME -o json | ConvertFrom-Json
 $p = @($alias.properties.policies | Where-Object { $_ -and $_.type -ne 'tokenLimit' } |
   Select-Object * -ExcludeProperty scope)
 ConvertTo-Json -InputObject $p -Depth 10 -Compress | Set-Content policies.json
+
+# Replace the alias's whole policy array with the file's, then delete the file
 az aigateway model-alias update -g $RG --gateway-name $GATEWAY -n $ALIAS_NAME --policies "@policies.json" `
   --query properties.policies
+if ($?) { Write-Host "🧹 The token limit is removed from $env:AI_GATEWAY_MODEL" }
 Remove-Item policies.json
 ```
 </details> <!-- gh -->
 
 If your alias had its own token limit before this lab, the CLI commands remove it too: add it back with the count
-it had. When the alias has no policies left, the update prints nothing.
+it had. When the alias has no policies left, the update prints no policies, only the 🧹 line.
 
 <!-- /steps -->
 
@@ -623,7 +715,9 @@ Delete the Foundry resource group and the hosted agent. `--purge` also purges th
 you can reuse its name:
 
 ```bash
-azd down --purge
+# Delete the resource group with the Foundry resource and the hosted agent, and purge the soft-deleted resource
+azd down --purge &&
+  echo "🧹 The Foundry resource group and the hosted agent are deleted"
 ```
 
 Then delete the `hosted-agent` key: in **Access** › **Keys**, select **…** (**More actions**) on its row and delete

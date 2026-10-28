@@ -209,9 +209,11 @@ the labs.
 Install it as a personal skill for GitHub Copilot:
 
 ```bash
+# Download the skill into your personal GitHub Copilot skills folder
 mkdir -p ~/.copilot/skills/azure-ai-gateway-labs
 curl -fsSL https://azure.github.io/ai-gateway/skills/azure-ai-gateway-labs/SKILL.md \
-  -o ~/.copilot/skills/azure-ai-gateway-labs/SKILL.md
+  -o ~/.copilot/skills/azure-ai-gateway-labs/SKILL.md &&
+  echo "🧩 The azure-ai-gateway-labs skill is installed in ~/.copilot/skills"
 ```
 
 To share it with a project, save it to `.github/skills/azure-ai-gateway-labs/SKILL.md` in that repository instead,
@@ -247,8 +249,11 @@ generated parts sit between `<!-- gh:begin -->` and `<!-- gh:end -->` comments o
 them, and the site ignores them.
 
 ```bash
+# Install the site's dependencies, once
 cd labs
-npm install
+npm install && echo "🧩 The labs site's dependencies are installed"
+
+# Then run the command that you need
 npm run dev        # build, watch, and serve at http://localhost:4173/ai-gateway/
 npm run sync       # refresh the generated GitHub navigation in the lab READMEs and this page
 npm run check      # strict build: fails on broken links, anchors, images, front matter, or unsynced READMEs

@@ -60,6 +60,10 @@ When the workspace is a clone of `Azure/ai-gateway`, read `labs/<slug>/README.md
    **Checkpoint** that follows. `<!-- include: infra/<file> -->` means the step uses that file from the lab folder.
    `<!-- widget: … -->` marks an interactive simulator on the site, which you can skip.
    `<!-- video: … -->` marks an optional narrated walkthrough; the steps in the text are complete without it.
+   Every command has a `#` comment that says what it does. In the Bash and PowerShell tabs, it prints an emoji
+   status line, such as `🚀 Gateway aigw-1a2b3c is ready`, only when it succeeds, so a missing status line means
+   that the command failed: read the error above it. 🚦 marks a failure that the lab causes on purpose, such as a
+   `429` from a token limit. Keys and tokens print only their length.
 6. **Verify** with the lab's **Verify** section, and tell the user what you checked.
 7. **Clean up.** Labs create billable resources. Offer the lab's **Clean up** section, or the chosen track's
    **Clean up** step, and delete only what this lab created, because later labs reuse the gateway and the model.

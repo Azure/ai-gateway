@@ -35,6 +35,7 @@ Quick start: [Your first model call in 5 minutes](quickstart/README.md)
 | `401` | The key is missing, wrong, or in the wrong header | Send it in the `api-key` header, or as `Authorization: Bearer <key>`. In the portal, copy it again from **Access** › **Keys**. |
 | `400` that mentions authentication | The request has both an `api-key` and an `Authorization` header | Send only one of them. |
 | `The subscription is not registered to use namespace` | A resource provider isn't registered yet | Run the `az provider register` loop from **Start creating the gateway**, then try again. |
+| `GatewayTimeout`: `The gateway did not receive a response from 'Microsoft.Web'` when you create the connector gateway | Azure Resource Manager stopped waiting for the connector gateway, which is usually created anyway | Run `az rest --method get` with the same `--url`, and add `--query properties.provisioningState`. If it prints `Succeeded`, continue with the next command. |
 
 ## Lab 00: How AI Gateway works
 
