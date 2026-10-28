@@ -117,6 +117,10 @@ const VALUE_FIELDS = [
   ['foundry-account-name', 'Foundry account', 'ai-labs-foundry'],
 ];
 const getValues = () => store.get('values', {});
+// Safari ignores autocomplete="off" and can offer saved cards on GUID fields; it skips fields named "search…".
+// The data-* attributes opt out of 1Password, LastPass, Bitwarden, and Dashlane.
+const NO_AUTOFILL = 'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" '
+  + 'data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other"';
 
 function applyValues(root = document) {
   const v = getValues();
@@ -137,24 +141,24 @@ function openValues() {
       <div class="drawer-card">
         <div class="drawer-head"><h2 id="values-title">${IC.sliders}Your values</h2><button class="icon-btn" type="button" data-close aria-label="Close">${IC.close}</button></div>
         <p class="drawer-note">Fill these in once and every command in the labs uses them. Values stay in this browser. <strong>Never enter keys or secrets here.</strong></p>
-        <form class="values-form">${VALUE_FIELDS.map(([k, label, ex]) => `<label class="field"><span>${label}<code>&lt;${k}&gt;</code></span><input name="${k}" value="${escHtml(v[k] || '')}" placeholder="${ex}" autocomplete="off" spellcheck="false"></label>`).join('')}</form>
+        <div class="values-form" role="group" aria-labelledby="values-title">${VALUE_FIELDS.map(([k, label, ex]) => `<label class="field"><span>${label}<code>&lt;${k}&gt;</code></span><input type="text" id="search-value-${k}" name="search-value-${k}" data-k="${k}" value="${escHtml(v[k] || '')}" placeholder="${ex}" ${NO_AUTOFILL}></label>`).join('')}</div>
         <div class="drawer-foot"><button class="btn btn-ghost btn-sm" type="button" data-clear>${IC.reset}Clear all</button><button class="btn btn-primary btn-sm" type="button" data-close>Done</button></div>
       </div></div>`);
     document.body.append(drawer);
-    const form = $('form', drawer);
+    const form = $('.values-form', drawer);
     form.addEventListener('input', () => {
-      const vals = Object.fromEntries(new FormData(form).entries());
-      Object.keys(vals).forEach((k) => { vals[k] = vals[k].trim(); if (!vals[k]) delete vals[k]; });
+      const vals = {};
+      $$('input[data-k]', form).forEach((i) => { const val = i.value.trim(); if (val) vals[i.dataset.k] = val; });
       store.set('values', vals); applyValues();
     });
-    form.addEventListener('submit', (e) => { e.preventDefault(); closeValues(); });
+    form.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('input')) { e.preventDefault(); closeValues(); } });
     $('[data-clear]', drawer).addEventListener('click', () => { $$('input', form).forEach((i) => { i.value = ''; }); store.del('values'); applyValues(); });
     $$('[data-close]', drawer).forEach((b) => b.addEventListener('click', closeValues));
     drawer.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeValues(); trapFocus(e, $('.drawer-card', drawer)); });
   }
   drawer.lastFocus = document.activeElement;
   drawer.hidden = false;
-  setTimeout(() => $('input', drawer)?.focus(), 30);
+  setTimeout(() => $('[data-close].icon-btn', drawer)?.focus({ preventScroll: true }), 30);
 }
 function closeValues() { if (!drawer) return; drawer.hidden = true; drawer.lastFocus?.focus?.(); }
 
