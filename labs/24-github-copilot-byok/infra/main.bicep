@@ -1,72 +1,99 @@
-// Publishes gpt-6-astra through an existing AI Gateway so GitHub Copilot can use it as a bring-your-own-key model.
-// Adds a gpt-6-astra deployment to the Foundry account the gateway already uses, then reuses the
-// first-model-call lab's main.bicep to register the deployment, publish the gpt-6-astra alias with a
-// per-caller token limit, and create the github-copilot runtime API key. The key value is never an output.
-targetScope = 'resourceGroup'
+// Lab 24 with azd: "azd up" creates the resource group rg-<environment name>, the quick start's gateway, Foundry
+// account, and default model, then publishes gpt-6-astra for GitHub Copilot with its token limit and the
+// github-copilot runtime API key, and registers the Microsoft Learn MCP server as learn. The key value is never an output.
+targetScope = 'subscription'
 
-@description('Name of the existing AI Gateway (Microsoft.ApiManagement/aigateways) in this resource group.')
-param gatewayName string
+@description('azd environment name. The resource group is rg-<environmentName>.')
+@minLength(1)
+@maxLength(60)
+param environmentName string
 
-@description('Resource ID of the Foundry (Azure AI Services) account that the gateway uses. It can be in another resource group.')
-param foundryAccountId string
+@description('Region for every resource. During the preview, AI Gateway runs in East US 2 and Sweden Central.')
+@allowed([
+  'eastus2'
+  'swedencentral'
+])
+@metadata({ azd: { type: 'location' } })
+param location string
 
-@description('Model to deploy and publish. The deployment and the alias both use this name.')
-param modelName string = 'gpt-6-astra'
+@description('Model to deploy and publish for Copilot. The deployment, the backend model, and the alias use this name. azd reads it from BYOK_MODEL.')
+param byokModelName string = 'gpt-6-astra'
 
-@description('Version of the model to deploy.')
-param modelVersion string = '2026-09-03'
+@description('Version of that model. azd reads it from BYOK_MODEL_VERSION.')
+param byokModelVersion string = '2026-09-03'
 
-@description('Deployment SKU. Use DataZoneStandard if your GlobalStandard quota for the model is used up.')
+@description('Deployment SKU. Use DataZoneStandard if your GlobalStandard quota for the model is used up. azd reads it from BYOK_MODEL_SKU.')
 @allowed([
   'GlobalStandard'
   'DataZoneStandard'
 ])
-param skuName string = 'GlobalStandard'
+param byokModelSku string = 'GlobalStandard'
 
-@description('Deployment capacity in thousands of tokens per minute. Coding agents send large prompts, so give them room.')
+@description('Deployment capacity in thousands of tokens per minute. azd reads it from BYOK_MODEL_CAPACITY.')
 @minValue(1)
-param capacity int = 100
+param byokModelCapacity int = 100
 
-@description('Tokens per minute that each caller identity can use on the model through the gateway.')
+@description('Tokens per minute that each caller identity can use on the model through the gateway. azd reads it from BYOK_TOKENS_PER_MINUTE.')
 @minValue(1000)
 param tokensPerMinute int = 100000
 
-@description('Name of the Foundry provider in the gateway. Use the name from lab 02 so the deployment registers under the same provider.')
-param providerName string = 'foundry-models'
+var suffix = take(uniqueString(subscription().id, environmentName, location), 6)
+var tags = { 'azd-env-name': environmentName }
 
-@description('Name of the runtime API key that GitHub Copilot uses.')
-param apiKeyName string = 'github-copilot'
+resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
+  name: 'rg-${environmentName}'
+  location: location
+  tags: tags
+}
 
-var foundrySubscriptionId = split(foundryAccountId, '/')[2]
-var foundryResourceGroup = split(foundryAccountId, '/')[4]
-
-module deployment 'deployment.bicep' = {
-  name: take('deploy-${modelName}', 64)
-  scope: resourceGroup(foundrySubscriptionId, foundryResourceGroup)
+// The quick start's template: a gateway, a Foundry account with gpt-6-luna, the foundry-models provider, and a key.
+module base '../../quickstart/infra/resources.bicep' = {
+  name: 'aigw-base'
+  scope: rg
   params: {
-    accountName: last(split(foundryAccountId, '/'))
-    modelName: modelName
-    modelVersion: modelVersion
-    skuName: skuName
-    capacity: capacity
+    location: location
+    tags: tags
+    gatewayName: 'aigw-${suffix}'
+    foundryName: 'aigw${suffix}'
   }
 }
 
-module publish '../../02-first-model-call/infra/main.bicep' = {
-  name: take('publish-${modelName}', 64)
+// gpt-6-astra in the same Foundry account, under the same provider, with its token limit and the github-copilot key.
+module copilot 'copilot-model.bicep' = {
+  name: 'aigw-copilot-model'
+  scope: rg
   params: {
-    gatewayName: gatewayName
-    foundryAccountId: foundryAccountId
-    deploymentName: deployment.outputs.deploymentName
-    modelVersion: modelVersion
-    providerName: providerName
-    aliasName: modelName
-    apiKeyName: apiKeyName
-    apiKeyDisplayName: 'GitHub Copilot'
+    gatewayName: base.outputs.gatewayName
+    foundryAccountId: base.outputs.foundryId
+    providerName: base.outputs.providerName
+    modelName: byokModelName
+    modelVersion: byokModelVersion
+    skuName: byokModelSku
+    capacity: byokModelCapacity
     tokensPerMinute: tokensPerMinute
+    apiKeyName: 'github-copilot'
   }
 }
 
-output aliasName string = publish.outputs.aliasName
-output apiKeyName string = publish.outputs.apiKeyName
-output modelEndpoint string = publish.outputs.modelEndpoint
+// Lab 04's template: the public Microsoft Learn MCP server, published as learn.
+module learn '../../04-federate-mcp-tools/infra/tool-server.bicep' = {
+  name: 'aigw-learn-mcp'
+  scope: rg
+  params: {
+    gatewayName: base.outputs.gatewayName
+    serverName: 'learn'
+    namespace: 'learn'
+  }
+}
+
+output AZURE_RESOURCE_GROUP string = rg.name
+output AI_GATEWAY_NAME string = base.outputs.gatewayName
+output AI_GATEWAY_ID string = base.outputs.gatewayId
+output AI_GATEWAY_URL string = base.outputs.gatewayUrl
+output AI_GATEWAY_PROVIDER string = base.outputs.providerName
+output AI_GATEWAY_BACKEND_MODEL string = byokModelName
+output AI_GATEWAY_MODEL string = copilot.outputs.aliasName
+output AI_GATEWAY_KEY_NAME string = copilot.outputs.apiKeyName
+output AI_GATEWAY_MODEL_ENDPOINT string = copilot.outputs.modelEndpoint
+output AI_GATEWAY_MCP_URL string = learn.outputs.mcpEndpoint
+output FOUNDRY_ACCOUNT_NAME string = base.outputs.foundryName

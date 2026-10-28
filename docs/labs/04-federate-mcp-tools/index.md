@@ -10,7 +10,7 @@ illustration: diagrams/mcp-federation.svg
 tags: [MCP, tools, federation, toolServers, Streamable HTTP, namespace, protocol versions, VS Code]
 objectives:
   - Explain the four tool source types and how AI Gateway namespaces the tools of each backend
-  - Register the public Microsoft Learn MCP server in the portal, with the Azure CLI, or with Bicep
+  - Register the public Microsoft Learn MCP server in the portal, with the Azure CLI, or with Bicep and azd
   - Federate a second backend into the same MCP server and mark it optional
   - Choose the MCP protocol versions the server supports and check what clients negotiate
   - Connect curl, VS Code, and a Python MCP client to the governed endpoint with a runtime key
@@ -29,6 +29,11 @@ Learn MCP server, so agents get tools through the same front door they already u
 
 ## Before you begin
 
+> [!TIP]
+> On the **Bicep + azd** track, `azd up` creates its own gateway, the `learn` MCP server, and a key, so you can skip
+> this section. You need only [Azure Cloud Shell](https://shell.azure.com), or the Azure Developer CLI (`azd`), the
+> Azure CLI, and Git on your machine.
+
 - Complete [Provision your AI Gateway](../01-provision-gateway/README.md).
 - A runtime API key, for example `app-first-call` from [lab 02](../02-first-model-call/README.md). If you don't have
   one yet, create it in the portal under **Access** › **Keys**, or, after
@@ -36,7 +41,7 @@ Learn MCP server, so agents get tools through the same front door they already u
   `az aigateway api-key create -g "$RG" --gateway-name "$GATEWAY" -n app-first-call --display-name app-first-call`
   and read its value with
   `az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n app-first-call --query primaryKey -o tsv`.
-- For the CLI and IaC tracks: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or
+- For the CLI track: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or
   later, signed in with `az login`, the `aigateway` extension
   ([install it](../01-provision-gateway/README.md#before-you-begin)), and `jq` for the Bash snippets.
 - For the **Verify** scripts: `curl` and `jq` (Bash) or PowerShell 7 or later. The Code track also uses
@@ -195,41 +200,94 @@ az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn \
 > The second command returns one endpoint with `"namespace": "learn"` and `"kind": "mcp"`, and a `url` that ends
 > in `/default/toolservers/learn/mcp`.
 
-<!-- track: iac | Bicep -->
+<!-- track: iac | Bicep + azd -->
 
-### Review the template
+**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
+the Azure CLI with the `aigateway` extension, and Git on your machine, signed in with `azd auth login` and `az login`.
+This track doesn't use your gateway from lab 01: `azd up` creates a new one, so it works on its own.
 
-The template references your existing gateway and its `default` workspace, then declares one
-`toolServers` resource. The optional `secondNamespace` parameter is used in the next section.
+### Clone the lab
 
-<!-- include: infra/main.bicep -->
-
-On GitHub, open [infra/main.bicep](infra/main.bicep).
-
-> [!WARNING]
-> A Bicep deployment sends a `PUT`, which replaces the whole MCP server, including backends and tool rules
-> that you added in the portal. Deploy the template to a new server name, or keep the template as the only
-> source of truth for this server.
-
-### Deploy it
+The lab is a small azd project in the
+[`labs/04-federate-mcp-tools`](https://github.com/Azure/ai-gateway/tree/main/labs/04-federate-mcp-tools) folder of
+the GitHub repo. Clone the repo and move into that folder. If you cloned it for an earlier lab, move into
+`ai-gateway/labs/04-federate-mcp-tools` instead.
 
 ```bash title="Bash"
-az deployment group create -g "$RG" \
-  --template-file infra/main.bicep \
-  --parameters gatewayName="$GATEWAY" serverName=learn namespace=learn \
-  --query properties.outputs
+git clone https://github.com/Azure/ai-gateway.git
+cd ai-gateway/labs/04-federate-mcp-tools
 ```
 
 ```powershell title="PowerShell"
-az deployment group create -g $RG `
-  --template-file infra/main.bicep `
-  --parameters gatewayName=$GATEWAY serverName=learn namespace=learn `
-  --query properties.outputs
+git clone https://github.com/Azure/ai-gateway.git
+Set-Location ai-gateway/labs/04-federate-mcp-tools
+```
+
+### Review the templates
+
+`infra/main.bicep` creates the resource group `rg-<environment name>` and calls lab 01's
+[gateway.bicep](../01-provision-gateway/infra/gateway.bicep) for a gateway with no model. Then it calls
+`infra/tool-server.bicep` for the `learn` MCP server and the `app-first-call` key. azd fills the `secondNamespace`
+and `supportedVersions` parameters from the environment values `MCP_SECOND_NAMESPACE` and `MCP_SUPPORTED_VERSIONS`,
+which the next sections set. Empty, they register one backend and keep the legacy MCP versions.
+
+<!-- include: infra/main.bicep -->
+
+`infra/tool-server.bicep` references the gateway and its `default` workspace, then declares one `toolServers`
+resource and, when `apiKeyName` is set, the runtime key. The key's value is never an output. You can also deploy
+the module on its own to a gateway you already have, with `az deployment group create`, as lab 24 does.
+
+<!-- include: infra/tool-server.bicep -->
+
+> [!WARNING]
+> A Bicep deployment sends a `PUT`, which replaces the whole MCP server, including backends and tool rules
+> that you added in the portal. Keep the template as the only source of truth for this server, and change it with
+> `azd provision`.
+
+### Deploy with azd up
+
+Create an azd environment named `aigw-lab04` in your current subscription, then provision everything. It takes
+about three minutes.
+
+```bash title="Bash"
+azd env new aigw-lab04 --location eastus2 --subscription "$(az account show --query id --output tsv)"
+azd up
+```
+
+```powershell title="PowerShell"
+azd env new aigw-lab04 --location eastus2 --subscription (az account show --query id --output tsv)
+azd up
+```
+
+For Sweden Central, use `--location swedencentral`.
+
+### Read the outputs and the key
+
+Set the variables that the next sections and **Verify** use from azd's environment values, and read the key from
+the gateway, so that it never shows on screen.
+
+```bash title="Bash"
+export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
+export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
+export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
+export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$(azd env get-value AI_GATEWAY_ID)/apiKeys/app-first-call" \
+  --query primaryKey --output tsv)"
+azd env get-value MCP_ENDPOINT
+```
+
+```powershell title="PowerShell"
+$RG                     = azd env get-value AZURE_RESOURCE_GROUP
+$GATEWAY                = azd env get-value AI_GATEWAY_NAME
+$env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
+$GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" `
+  --query primaryKey --output tsv
+azd env get-value MCP_ENDPOINT
 ```
 
 > **Checkpoint**
-> The outputs include `mcpEndpoint`, ending in `/default/toolservers/learn/mcp`, and **MCP servers** in the
-> portal lists `learn`.
+> `azd up` ended with `SUCCESS`, and the last command printed the MCP endpoint, ending in
+> `/default/toolservers/learn/mcp`. In the portal, **MCP servers** lists `learn` with one backend, `learn`.
 
 <!-- /tracks -->
 
@@ -275,18 +333,22 @@ The table lists every backend of the server. The command fails with "A source wi
 exists on this MCP server registration." if you run it twice. For a backend that needs a key, pass the key with
 `--credentials`.
 
-<!-- track: iac | Bicep -->
+<!-- track: iac | Bicep + azd -->
 
-### Redeploy with a second namespace
+### Add the second namespace
 
-```bash
-az deployment group create -g "$RG" \
-  --template-file infra/main.bicep \
-  --parameters gatewayName="$GATEWAY" serverName=learn namespace=learn secondNamespace=docs \
-  --query properties.outputs
+When `secondNamespace` isn't empty, the template adds a second endpoint with `required: false`. Set it in the azd
+environment and provision again. Only the MCP server changes.
+
+```bash title="Bash"
+azd env set MCP_SECOND_NAMESPACE docs
+azd provision
 ```
 
-The template adds the second endpoint with `required: false`.
+```powershell title="PowerShell"
+azd env set MCP_SECOND_NAMESPACE docs
+azd provision
+```
 
 <!-- /tracks -->
 
@@ -358,28 +420,28 @@ Unlike the portal, the API doesn't ask the backends which versions they support.
 backend can't speak, the `PATCH` succeeds and clients that negotiate that version fail. See
 [Troubleshooting](#troubleshooting).
 
-<!-- track: iac | Bicep -->
+<!-- track: iac | Bicep + azd -->
 
-### Redeploy with pinned versions
+### Pin the versions
 
-The `supportedVersions` parameter takes a comma-separated list, such as `2025-06-18` or
-`2026-07-28,2025-06-18`. Leave it empty to keep the legacy defaults.
+The `supportedVersions` parameter takes a comma-separated list, such as `2025-06-18` or `2026-07-28,2025-06-18`,
+and azd fills it from `MCP_SUPPORTED_VERSIONS`. Set it and provision again. The azd environment keeps
+`MCP_SECOND_NAMESPACE`, so both backends stay.
 
 ```bash title="Bash"
-az deployment group create -g "$RG" \
-  --template-file infra/main.bicep \
-  --parameters gatewayName="$GATEWAY" serverName=learn namespace=learn secondNamespace=docs \
-               supportedVersions=2025-06-18 \
-  --query properties.outputs.supportedVersions.value
+azd env set MCP_SUPPORTED_VERSIONS 2025-06-18
+azd provision
+az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn --query properties.versions
 ```
 
 ```powershell title="PowerShell"
-az deployment group create -g $RG `
-  --template-file infra/main.bicep `
-  --parameters gatewayName=$GATEWAY serverName=learn namespace=learn secondNamespace=docs `
-               supportedVersions=2025-06-18 `
-  --query properties.outputs.supportedVersions.value
+azd env set MCP_SUPPORTED_VERSIONS 2025-06-18
+azd provision
+az aigateway mcp show -g $RG --gateway-name $GATEWAY -n learn --query properties.versions
 ```
+
+The last command prints a list that holds only `2025-06-18`. An empty value doesn't clear a list that the server already has, so
+to change the versions later, set another list.
 
 <!-- /tracks -->
 
@@ -611,15 +673,20 @@ az aigateway mcp delete -g $RG --gateway-name $GATEWAY -n learn --yes
 `mcp source remove` prints the backends that remain. An MCP server needs at least one backend, so the command
 refuses to remove the last one with "Cannot remove the last source." Delete the server instead.
 
-<!-- track: iac | Bicep -->
+<!-- track: iac | Bicep + azd -->
 
-### Redeploy or delete
+### Delete everything azd created
 
-Redeploy without `secondNamespace` to go back to one backend, or delete the server:
+In the `ai-gateway/labs/04-federate-mcp-tools` folder, delete the resource group with the gateway, the `learn` MCP
+server, and the key. `--purge` also purges soft-deleted resources, and `--force` skips the confirmation. It takes
+about ten minutes.
 
 ```bash
-az aigateway mcp delete -g "$RG" --gateway-name "$GATEWAY" -n learn --yes
+azd down --purge --force
 ```
+
+To keep this gateway instead, skip `azd down`. To go back to one backend, run
+`azd env set MCP_SECOND_NAMESPACE ""`, then `azd provision`.
 
 <!-- track: code | Code -->
 
@@ -628,6 +695,9 @@ az aigateway mcp delete -g "$RG" --gateway-name "$GATEWAY" -n learn --yes
 Delete the `ai-gateway-learn` entry from `.vscode/mcp.json` and the `.venv` folder you created.
 
 <!-- /tracks -->
+
+Keep your gateway from lab 01: the next labs reuse it. `azd down` doesn't touch it, because the Bicep + azd track
+created its own gateway.
 
 ## Troubleshooting
 

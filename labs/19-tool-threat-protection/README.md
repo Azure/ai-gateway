@@ -4,14 +4,14 @@ summary: Have Microsoft Defender and Microsoft Purview evaluate every tool call 
 category: production
 level: Advanced
 duration: 30
-tracks: [portal]
+tracks: [portal, iac]
 order: 19
 status: emerging
 illustration: diagrams/threat-protection.svg
 tags: [Agent 365, tool threat protection, Microsoft Defender, Microsoft Purview, prompt injection, MCP, on-behalf-of, Entra ID]
 objectives:
   - Explain what the before-invocation and after-invocation stages evaluate and what each one can and can't prevent
-  - Add an Agent 365 tool threat protection policy to an MCP server in the AI Gateway portal
+  - Add an Agent 365 tool threat protection policy to an MCP server in the AI Gateway portal or with Bicep and azd
   - Call a protected tool with a delegated Microsoft Entra ID token and read the result
   - Recognize the documented denial codes and why a key-only call fails closed
 prereqs:
@@ -29,12 +29,12 @@ prereqs:
 
 | ⏱️ Time | 📶 Level | 🧭 Tracks | ✅ Before you start |
 | :-- | :-- | :-- | :-- |
-| 30 min | Advanced | Portal | [04 · Federate MCP tools](../04-federate-mcp-tools/README.md)<br>[11 · Entra ID & RBAC](../11-entra-rbac/README.md) |
+| 30 min | Advanced | Portal · Bicep + azd | [04 · Federate MCP tools](../04-federate-mcp-tools/README.md)<br>[11 · Entra ID & RBAC](../11-entra-rbac/README.md) |
 
 **You'll learn to**
 
 - Explain what the before-invocation and after-invocation stages evaluate and what each one can and can't prevent
-- Add an Agent 365 tool threat protection policy to an MCP server in the AI Gateway portal
+- Add an Agent 365 tool threat protection policy to an MCP server in the AI Gateway portal or with Bicep and azd
 - Call a protected tool with a delegated Microsoft Entra ID token and read the result
 - Recognize the documented denial codes and why a key-only call fails closed
 
@@ -57,6 +57,12 @@ allowed calls through.
 <!-- gh:end -->
 
 ## Before you begin
+
+> [!TIP]
+> On the **Bicep + azd** track, `azd up` creates its own gateway, the `learn` MCP server, your **AI Gateway Tools
+> User** role assignment on it, and a key, so you can skip this section except for the Microsoft Defender or
+> Microsoft Purview license. You need only [Azure Cloud Shell](https://shell.azure.com), or the Azure Developer CLI
+> (`azd`), the Azure CLI, and Git on your machine, signed in as a user, plus `curl` and `jq` for the Bash script.
 
 - Complete [Federate MCP tools behind one endpoint](../04-federate-mcp-tools/README.md). This lab protects the
   `learn` MCP server from that lab. Any MCP server in your gateway works.
@@ -132,7 +138,8 @@ The policy evaluates each call on behalf of the signed-in user, so you test it w
 your user permission to call tools on the server, then make one call **before** you add the policy. That proves
 the token and the role work, so any later failure comes from the policy.
 
-<!-- steps -->
+<!-- track: portal | Portal -->
+<details open><summary><b>🖥️ Portal</b></summary> <!-- gh -->
 
 ### Grant yourself the AI Gateway Tools User role
 
@@ -160,6 +167,309 @@ az role assignment create `
 
 If you already have **AI Gateway User** or **AI Gateway Tools User** at the gateway scope, skip this step. Role
 assignments can take several minutes to apply.
+
+</details> <!-- gh -->
+<!-- track: iac | Bicep + azd -->
+<details><summary><b>🏗️ Bicep + azd</b></summary> <!-- gh -->
+
+**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
+the Azure CLI with the `aigateway` extension, and Git on your machine, signed in as a **user** with
+`azd auth login` and `az login`, plus `curl` and `jq` for the Bash script. This track doesn't use your gateway or `learn` server from lab 04: `azd up` creates
+a new gateway with its own `learn` server, so it works on its own. You still need the Microsoft Defender or
+Microsoft Purview license.
+
+### Clone the lab
+
+The lab is a small azd project in the
+[`labs/19-tool-threat-protection`](https://github.com/Azure/ai-gateway/tree/main/labs/19-tool-threat-protection)
+folder of the GitHub repo. Clone the repo and move into that folder. If you cloned it for an earlier lab, move into
+`ai-gateway/labs/19-tool-threat-protection` instead.
+
+<details open><summary>Bash</summary> <!-- gh -->
+
+```bash title="Bash"
+git clone https://github.com/Azure/ai-gateway.git
+cd ai-gateway/labs/19-tool-threat-protection
+```
+</details> <!-- gh -->
+
+<details><summary>PowerShell</summary> <!-- gh -->
+
+```powershell title="PowerShell"
+git clone https://github.com/Azure/ai-gateway.git
+Set-Location ai-gateway/labs/19-tool-threat-protection
+```
+</details> <!-- gh -->
+
+### Review the templates
+
+`infra/main.bicep` creates the resource group `rg-<environment name>` and calls lab 01's
+[gateway.bicep](../01-provision-gateway/infra/gateway.bicep) for a gateway with no model. Then it calls
+`infra/protected-tool-server.bicep`, which azd fills from environment values:
+
+| Parameter | azd environment value | Default |
+|---|---|---|
+| `preInvocation` | `TOOL_THREAT_PRE_INVOCATION` | `false` |
+| `postInvocation` | `TOOL_THREAT_POST_INVOCATION` | `false` |
+| `principalId` | `AZURE_PRINCIPAL_ID`, which azd sets to the signed-in user | Your user's object ID |
+
+<!-- include: infra/main.bicep -->
+<!-- gh:begin include: generated by "npm run sync" from the metadata, do not edit -->
+📄 [`infra/main.bicep`](infra/main.bicep)
+
+<details><summary>Show all 67 lines</summary>
+
+```bicep
+// Lab 19 with azd: "azd up" creates the resource group rg-<environment name>, a gateway with lab 01's template, then
+// the learn MCP server, the AI Gateway Tools User role on it for the signed-in user, and the runtime API key
+// app-first-call. The tool threat protection stages are off until you turn them on and run "azd provision".
+// The runtime API key is never an output.
+targetScope = 'subscription'
+
+@description('azd environment name. The resource group is rg-<environmentName>.')
+@minLength(1)
+@maxLength(60)
+param environmentName string
+
+@description('Region for every resource. During the preview, AI Gateway runs in East US 2 and Sweden Central.')
+@allowed([
+  'eastus2'
+  'swedencentral'
+])
+@metadata({ azd: { type: 'location' } })
+param location string
+
+@description('Evaluate each tool request before the tool runs. azd reads it from TOOL_THREAT_PRE_INVOCATION.')
+param preInvocation bool = false
+
+@description('Evaluate each tool result after the tool returns. azd reads it from TOOL_THREAT_POST_INVOCATION.')
+param postInvocation bool = false
+
+@description('Object ID of the user who calls the tools. azd sets AZURE_PRINCIPAL_ID to the signed-in user.')
+param principalId string = ''
+
+var suffix = take(uniqueString(subscription().id, environmentName, location), 6)
+var tags = { 'azd-env-name': environmentName }
+
+resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
+  name: 'rg-${environmentName}'
+  location: location
+  tags: tags
+}
+
+// Lab 01's template: the gateway and its connector gateway, with no model.
+module gateway '../../01-provision-gateway/infra/gateway.bicep' = {
+  name: 'aigw-gateway'
+  scope: rg
+  params: {
+    gatewayName: 'aigw-${suffix}'
+    location: location
+    tags: tags
+  }
+}
+
+module toolServer 'protected-tool-server.bicep' = {
+  name: 'aigw-protected-tool-server'
+  scope: rg
+  params: {
+    gatewayName: gateway.outputs.gatewayName
+    serverName: 'learn'
+    preInvocation: preInvocation
+    postInvocation: postInvocation
+    principalId: principalId
+    apiKeyName: 'app-first-call'
+  }
+}
+
+output AZURE_RESOURCE_GROUP string = rg.name
+output AI_GATEWAY_NAME string = gateway.outputs.gatewayName
+output AI_GATEWAY_ID string = gateway.outputs.gatewayId
+output AI_GATEWAY_URL string = gateway.outputs.gatewayUrl
+output MCP_SERVER string = 'learn'
+output MCP_ENDPOINT string = toolServer.outputs.mcpEndpoint
+```
+
+</details>
+<!-- gh:end -->
+
+`infra/protected-tool-server.bicep` declares the `learn` server of lab 04 with its `learn` backend. Its `policies`
+array holds one `toolThreatProtection` policy with `preInvocation` and `postInvocation` when at least one stage is
+on, and nothing when both are off. It assigns **AI Gateway Tools User** on the server to `principalId`, as the
+portal step does, and creates the `app-first-call` key.
+
+<!-- include: infra/protected-tool-server.bicep -->
+<!-- gh:begin include: generated by "npm run sync" from the metadata, do not edit -->
+📄 [`infra/protected-tool-server.bicep`](infra/protected-tool-server.bicep)
+
+<details><summary>Show all 90 lines</summary>
+
+```bicep
+// Declares the learn MCP server of lab 04 with an optional Agent 365 tool threat protection policy, which has Microsoft
+// Defender and Microsoft Purview evaluate each tool request (preInvocation), each tool result (postInvocation), or
+// both. It assigns AI Gateway Tools User on the server to a user, so that user can call tools with a delegated token,
+// and creates a runtime API key. The key is never an output.
+// A deployment sends a PUT, which replaces the whole MCP server, so keep this template as its only source of truth.
+
+@description('Name of the existing AI Gateway (Microsoft.ApiManagement/aigateways).')
+param gatewayName string
+
+@description('MCP server name. It becomes part of the endpoint URL and cannot be changed after creation.')
+param serverName string = 'learn'
+
+@description('Evaluate the tool name and arguments before the tool runs.')
+param preInvocation bool = true
+
+@description('Evaluate the tool result after the tool returns. The tool has already run.')
+param postInvocation bool = true
+
+@description('Object ID of the user who gets AI Gateway Tools User on the MCP server. Empty skips the role assignment.')
+param principalId string = ''
+
+@description('Runtime API key to create for the key-only test call.')
+param apiKeyName string = 'app-first-call'
+
+// AI Gateway Tools User: call the tools of an MCP server with a Microsoft Entra ID token.
+var toolsUserRoleId = 'dce03f8d-857f-4e40-a90d-67770fa6ecd2'
+
+#disable-next-line BCP081
+resource gateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' existing = {
+  name: gatewayName
+}
+
+#disable-next-line BCP081
+resource workspace 'Microsoft.ApiManagement/aigateways/workspaces@2025-09-01-preview' existing = {
+  parent: gateway
+  name: 'default'
+}
+
+#disable-next-line BCP081
+resource toolServer 'Microsoft.ApiManagement/aigateways/workspaces/toolServers@2025-09-01-preview' = {
+  parent: workspace
+  name: serverName
+  properties: {
+    displayName: 'Microsoft Learn'
+    description: 'Search and fetch official Microsoft documentation and code samples.'
+    type: 'mcp'
+    failureMode: 'failClosed'
+    endpoints: [
+      {
+        namespace: 'learn'
+        kind: 'mcp'
+        mcp: {
+          url: 'https://learn.microsoft.com/api/mcp'
+          transport: 'streamableHttp'
+        }
+        required: true
+      }
+    ]
+    // A tool threat protection policy needs at least one stage.
+    policies: preInvocation || postInvocation
+      ? [
+          {
+            type: 'toolThreatProtection'
+            preInvocation: preInvocation
+            postInvocation: postInvocation
+          }
+        ]
+      : []
+  }
+}
+
+resource toolsUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(principalId)) {
+  name: guid(toolServer.id, principalId, toolsUserRoleId)
+  scope: toolServer
+  properties: {
+    principalId: principalId
+    principalType: 'User'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', toolsUserRoleId)
+  }
+}
+
+#disable-next-line BCP081
+resource apiKey 'Microsoft.ApiManagement/aigateways/apiKeys@2025-09-01-preview' = {
+  parent: gateway
+  name: apiKeyName
+  properties: {}
+}
+
+output toolServerId string = toolServer.id
+output mcpEndpoint string = 'https://${gateway.properties.frontend.defaultHostname}/default/toolservers/${serverName}/mcp'
+```
+
+</details>
+<!-- gh:end -->
+
+> [!WARNING]
+> A Bicep deployment sends a `PUT`, which replaces the whole MCP server, including backends and policies that you
+> added in the portal. Keep the template as the only source of truth for this server, and change it with
+> `azd provision`.
+
+### Deploy with azd up
+
+Create an azd environment named `aigw-lab19` in your current subscription, then provision everything. It takes
+three to eight minutes. Both stages are off at first, so you can test your token before you add the policy.
+
+<details open><summary>Bash</summary> <!-- gh -->
+
+```bash title="Bash"
+azd env new aigw-lab19 --location eastus2 --subscription "$(az account show --query id --output tsv)"
+azd up
+```
+</details> <!-- gh -->
+
+<details><summary>PowerShell</summary> <!-- gh -->
+
+```powershell title="PowerShell"
+azd env new aigw-lab19 --location eastus2 --subscription (az account show --query id --output tsv)
+azd up
+```
+</details> <!-- gh -->
+
+For Sweden Central, use `--location swedencentral`.
+
+### Read the outputs and the key
+
+Set the variables that the next steps, **Verify**, and **Clean up** use from azd's environment values, and read
+the key from the gateway, so that it never shows on screen. The last command lists your roles on the MCP server.
+
+<details open><summary>Bash</summary> <!-- gh -->
+
+```bash title="Bash"
+export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
+export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
+export MCP_SERVER="$(azd env get-value MCP_SERVER)"
+export GATEWAY_ID="$(azd env get-value AI_GATEWAY_ID)"
+export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
+export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" \
+  --query primaryKey --output tsv)"
+az role assignment list --assignee "$(az ad signed-in-user show --query id -o tsv)" \
+  --scope "$GATEWAY_ID/workspaces/default/toolServers/$MCP_SERVER" --query "[].roleDefinitionName" -o tsv
+```
+</details> <!-- gh -->
+
+<details><summary>PowerShell</summary> <!-- gh -->
+
+```powershell title="PowerShell"
+$RG                     = azd env get-value AZURE_RESOURCE_GROUP
+$GATEWAY                = azd env get-value AI_GATEWAY_NAME
+$MCP_SERVER             = azd env get-value MCP_SERVER
+$GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
+$env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" `
+  --query primaryKey --output tsv
+az role assignment list --assignee (az ad signed-in-user show --query id -o tsv) `
+  --scope "$GATEWAY_ID/workspaces/default/toolServers/$MCP_SERVER" --query "[].roleDefinitionName" -o tsv
+```
+</details> <!-- gh -->
+
+> **Checkpoint**
+> `azd up` ended with `SUCCESS`, and the last command printed `AI Gateway Tools User`. Role assignments can take
+> several minutes to apply.
+
+</details> <!-- gh -->
+<!-- /tracks -->
+
+<!-- steps -->
 
 ### Call a tool with your user token
 
@@ -326,10 +636,11 @@ the role before you continue.
 
 ## Add tool threat protection
 
-You add the policy in the AI Gateway portal. Each MCP server can have only one tool threat protection policy,
-and you can't set it at gateway scope or on a single tool.
+Pick one track. Both add the same policy to the `learn` server, with both stages turned on. Each MCP server can
+have only one tool threat protection policy, and you can't set it at gateway scope or on a single tool.
 
-<!-- steps -->
+<!-- track: portal | Portal -->
+<details open><summary><b>🖥️ Portal</b></summary> <!-- gh -->
 
 ### Start a new policy
 
@@ -359,10 +670,43 @@ evaluation runs on behalf of the caller. Select both stages:
 
 You must select at least one stage. Then select **Create**.
 
+</details> <!-- gh -->
+<!-- track: iac | Bicep + azd -->
+<details><summary><b>🏗️ Bicep + azd</b></summary> <!-- gh -->
+
+### Turn on both stages
+
+Set both stages to `true` and provision again. Only the MCP server changes: the template adds one
+`toolThreatProtection` entry to its `policies` array. To evaluate only the requests, leave
+`TOOL_THREAT_POST_INVOCATION` at `false`.
+
+<details open><summary>Bash</summary> <!-- gh -->
+
+```bash title="Bash"
+azd env set TOOL_THREAT_PRE_INVOCATION true
+azd env set TOOL_THREAT_POST_INVOCATION true
+azd provision
+```
+</details> <!-- gh -->
+
+<details><summary>PowerShell</summary> <!-- gh -->
+
+```powershell title="PowerShell"
+azd env set TOOL_THREAT_PRE_INVOCATION true
+azd env set TOOL_THREAT_POST_INVOCATION true
+azd provision
+```
+</details> <!-- gh -->
+
+</details> <!-- gh -->
+<!-- /tracks -->
+
+<!-- steps -->
+
 ### Confirm the policy
 
-The new policy appears in the **Policies** overview. The policy is stored on the MCP server, so you can also read
-it with `az aigateway mcp show`:
+The new policy appears in the portal's **Policies** overview. The policy is stored on the MCP server, so you can
+also read it with `az aigateway mcp show`:
 
 ```bash
 az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n "$MCP_SERVER" --query properties.policies
@@ -516,6 +860,7 @@ steps. Find your calls by time and compare the allowed call with the key-only ca
 - **Automate the policy.** The policy is the `toolThreatProtection` entry in the MCP server's
   `properties.policies`, as described in
   [Protect tool calls with Defender and Purview](https://learn.microsoft.com/azure/api-management/ai-gateway-policy-tool-threat).
+  The Bicep + azd track declares it in `infra/protected-tool-server.bicep`. With the Azure CLI,
   `az aigateway mcp update --policies` replaces the whole `policies` array, so read the current array first and
   keep any other policies, such as the request rate limits from
   [Control which tools agents can call](../05-mcp-tool-controls/README.md):
@@ -551,7 +896,8 @@ steps. Find your calls by time and compare the allowed call with the key-only ca
 
 ## Clean up
 
-<!-- steps -->
+<!-- track: portal | Portal -->
+<details open><summary><b>🖥️ Portal</b></summary> <!-- gh -->
 
 ### Delete the policy
 
@@ -576,7 +922,33 @@ az role assignment delete `
   --scope "$GATEWAY_ID/workspaces/default/toolServers/$MCP_SERVER"
 ```
 
-<!-- /steps -->
+</details> <!-- gh -->
+<!-- track: iac | Bicep + azd -->
+<details><summary><b>🏗️ Bicep + azd</b></summary> <!-- gh -->
+
+### Delete everything azd created
+
+In the `ai-gateway/labs/19-tool-threat-protection` folder, delete the resource group with the gateway, the `learn`
+MCP server, its role assignment, and the key. `--purge` also purges soft-deleted resources, and `--force` skips
+the confirmation. It takes about ten minutes.
+
+```bash
+azd down --purge --force
+```
+
+To keep this gateway for other labs instead, skip `azd down` and remove the policy:
+
+```bash
+azd env set TOOL_THREAT_PRE_INVOCATION false
+azd env set TOOL_THREAT_POST_INVOCATION false
+azd provision
+```
+
+</details> <!-- gh -->
+<!-- /tracks -->
+
+Keep the gateway and the `learn` MCP server from lab 04: the next labs reuse them. `azd down` doesn't touch them,
+because the Bicep + azd track created its own gateway.
 
 ## Troubleshooting
 
@@ -588,6 +960,8 @@ az role assignment delete `
 | A benign call returns `ToolEvaluationDenied` | Defender or Purview flagged the request or the result | Review the call with your security team using the `correlationId`. If the tool already ran (after-invocation stage), don't retry it automatically. |
 | You can't add a second tool threat protection policy to the server | Each MCP server can have only one tool threat protection policy | Keep the existing policy, or delete it and add a new one with the stages you want |
 | Tool calls got noticeably slower | Each enabled stage adds an evaluation round trip | Keep both stages where you need them, and use only **Before tool invocation** where results are trusted |
+| A script stops with HTTP `503` and `{"error":"App port is not ready"}` | The gateway is still starting after `azd up` or `azd provision` | Wait 30 seconds and run the script again. |
+| A policy you added in the portal vanished after `azd provision` | A Bicep deployment sends a `PUT`, which replaces the whole MCP server | Change the azd environment values and run `azd provision` instead of editing the server in the portal. |
 
 ## Next steps
 

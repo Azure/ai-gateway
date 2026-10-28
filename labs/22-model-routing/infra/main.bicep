@@ -1,135 +1,93 @@
-// Routes one callable alias across two Foundry backend models.
-// Registers a candidate deployment under the existing Foundry provider from lab 02, then publishes an alias that
-// either splits traffic between the primary and the candidate by weight, or prefers the primary by priority.
-// The primary backend model is only referenced, so its policies from lab 02 stay untouched.
-targetScope = 'resourceGroup'
+// Lab 22 with azd: "azd up" creates the resource group rg-<environment name>, the quick start's gateway, Foundry
+// model, default alias, and runtime API key, then deploys a candidate model in the same Foundry account and publishes
+// the chat alias, which routes across both models by weight or by priority. The runtime API key is never an output.
+targetScope = 'subscription'
 
-@description('Name of the existing AI Gateway (Microsoft.ApiManagement/aigateways) in this resource group.')
-param gatewayName string
+@description('azd environment name. The resource group is rg-<environmentName>.')
+@minLength(1)
+@maxLength(60)
+param environmentName string
 
-@description('Name of the existing Foundry model provider in the gateway, for example foundry-models from lab 02.')
-param providerName string = 'foundry-models'
+@description('Region for every resource. During the preview, AI Gateway runs in East US 2 and Sweden Central.')
+@allowed([
+  'eastus2'
+  'swedencentral'
+])
+@metadata({ azd: { type: 'location' } })
+param location string
 
-@description('Name of the existing backend model that takes most of the traffic, for example gpt-6-luna.')
-param primaryModelName string = 'gpt-6-luna'
+@description('Candidate model to deploy in Foundry and route to. azd reads it from CANDIDATE_MODEL.')
+param candidateModelName string = 'gpt-6.1-sol'
 
-@description('Resource ID of the Foundry account that hosts the candidate deployment.')
-param foundryAccountId string
+@description('Version of the candidate model. azd reads it from CANDIDATE_MODEL_VERSION.')
+param candidateModelVersion string = '2026-09-29'
 
-@description('Name of the candidate deployment in that account, for example gpt-6.1-sol.')
-param candidateDeploymentName string = 'gpt-6.1-sol'
-
-@description('Version of the candidate model, for example 2026-09-29. Optional.')
-param candidateModelVersion string = ''
-
-@description('Callable alias that clients send in the request "model" field.')
-param aliasName string = 'chat'
-
-@description('weighted: both backends share priority 0 and split traffic by weight. priority: the primary is preferred, and the candidate gets priority 1.')
+@description('weighted: both models share priority 0 and split traffic by weight. priority: the primary is preferred. azd reads it from ROUTING_STRATEGY.')
 @allowed([
   'weighted'
   'priority'
 ])
 param strategy string = 'weighted'
 
-@description('Weighted strategy only: the candidate weight. The primary gets 100 minus this value.')
+@description('Weighted strategy only: the candidate weight. The primary gets 100 minus this value. azd reads it from ROUTING_CANDIDATE_WEIGHT.')
 @minValue(1)
 @maxValue(99)
 param candidateWeight int = 20
 
-type route = {
-  @description('Resource ID of the backend model.')
-  resourceId: string
+var suffix = take(uniqueString(subscription().id, environmentName, location), 6)
+var tags = { 'azd-env-name': environmentName }
 
-  @description('Lower numbers are preferred. 0 to 100.')
-  @minValue(0)
-  @maxValue(100)
-  priority: int
-
-  @description('Share of traffic among backends with the same priority. 1 to 100.')
-  @minValue(1)
-  @maxValue(100)
-  weight: int
+resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
+  name: 'rg-${environmentName}'
+  location: location
+  tags: tags
 }
 
-#disable-next-line BCP081
-resource aiGateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' existing = {
-  name: gatewayName
-}
-
-#disable-next-line BCP081
-resource defaultWorkspace 'Microsoft.ApiManagement/aigateways/workspaces@2025-09-01-preview' existing = {
-  parent: aiGateway
-  name: 'default'
-}
-
-#disable-next-line BCP081
-resource provider 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders@2025-09-01-preview' existing = {
-  parent: defaultWorkspace
-  name: providerName
-}
-
-#disable-next-line BCP081
-resource primary 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders/models@2025-09-01-preview' existing = {
-  parent: provider
-  name: primaryModelName
-}
-
-#disable-next-line BCP081
-resource candidate 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders/models@2025-09-01-preview' = {
-  parent: provider
-  name: candidateDeploymentName
-  properties: {
-    displayName: candidateDeploymentName
-    description: 'Candidate deployment that the ${aliasName} alias routes to.'
-    apiFormat: 'OpenAIChatCompletions'
-    supportedEndpoints: [
-      '/openai/v1/chat/completions'
-      '/openai/v1/responses'
-    ]
-    deployment: {
-      resourceId: '${foundryAccountId}/deployments/${candidateDeploymentName}'
-      modelName: candidateDeploymentName
-      modelVersion: empty(candidateModelVersion) ? null : candidateModelVersion
-    }
+// The quick start's template: a gateway, gpt-6-luna behind the default alias, and the app-first-call key.
+module base '../../quickstart/infra/resources.bicep' = {
+  name: 'aigw-base'
+  scope: rg
+  params: {
+    location: location
+    tags: tags
+    gatewayName: 'aigw-${suffix}'
+    foundryName: 'aigw${suffix}'
   }
 }
 
-var routes route[] = strategy == 'weighted'
-  ? [
-      { resourceId: primary.id, priority: 0, weight: 100 - candidateWeight }
-      { resourceId: candidate.id, priority: 0, weight: candidateWeight }
-    ]
-  : [
-      { resourceId: primary.id, priority: 0, weight: 1 }
-      { resourceId: candidate.id, priority: 1, weight: 1 }
-    ]
-
-#disable-next-line BCP081
-resource alias 'Microsoft.ApiManagement/aigateways/workspaces/aliases@2025-09-01-preview' = {
-  parent: defaultWorkspace
-  name: aliasName
-  properties: {
-    description: strategy == 'weighted'
-      ? 'Splits traffic ${100 - candidateWeight}/${candidateWeight} between ${primaryModelName} and ${candidateDeploymentName}.'
-      : 'Prefers ${primaryModelName}. ${candidateDeploymentName} has a lower preference.'
-    backendModels: [
-      for r in routes: {
-        resourceId: r.resourceId
-        priority: r.priority
-        weight: r.weight
-      }
-    ]
+// The candidate deployment, in the same Foundry account. The gateway's Foundry User role already covers it.
+module candidate 'candidate-deployment.bicep' = {
+  name: 'aigw-candidate-deployment'
+  scope: rg
+  params: {
+    foundryName: base.outputs.foundryName
+    modelName: candidateModelName
+    modelVersion: candidateModelVersion
   }
 }
 
-output aliasName string = alias.name
-output candidateModelName string = candidate.name
-output routes array = [
-  for r in routes: {
-    model: last(split(r.resourceId, '/'))
-    priority: r.priority
-    weight: r.weight
+module routing 'alias-routing.bicep' = {
+  name: 'aigw-alias-routing'
+  scope: rg
+  params: {
+    gatewayName: base.outputs.gatewayName
+    providerName: base.outputs.providerName
+    primaryModelName: base.outputs.modelName
+    foundryAccountId: candidate.outputs.foundryId
+    candidateDeploymentName: candidate.outputs.deploymentName
+    candidateModelVersion: candidateModelVersion
+    aliasName: 'chat'
+    strategy: strategy
+    candidateWeight: candidateWeight
   }
-]
-output chatCompletionsUrl string = 'https://${aiGateway.properties.frontend.defaultHostname}/default/models/openai/v1/chat/completions'
+}
+
+output AZURE_RESOURCE_GROUP string = rg.name
+output AI_GATEWAY_NAME string = base.outputs.gatewayName
+output AI_GATEWAY_ID string = base.outputs.gatewayId
+output AI_GATEWAY_URL string = base.outputs.gatewayUrl
+output AI_GATEWAY_PROVIDER string = base.outputs.providerName
+output AI_GATEWAY_BACKEND_MODEL string = base.outputs.modelName
+output AI_GATEWAY_CANDIDATE_MODEL string = routing.outputs.candidateModelName
+output AI_GATEWAY_MODEL string = routing.outputs.aliasName
+output FOUNDRY_ACCOUNT_NAME string = base.outputs.foundryName

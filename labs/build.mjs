@@ -112,6 +112,9 @@ function loadLabs(catalog) {
     const quick = slug === 'quickstart';
     const num = quick ? '⚡' : slug.slice(0, 2);
     if (data.category && !cats.has(data.category)) warn(`${slug}: unknown category "${data.category}"`);
+    // The iac track's name: its first marker's label, else "Bicep + azd" for an azd template, else "Bicep".
+    const iacLabel = body.match(/<!-- track: iac \| ([^>]+?) -->/)?.[1].trim()
+      || (fs.existsSync(path.join(LABS, slug, 'azure.yaml')) ? 'Bicep + azd' : 'Bicep');
     return {
       ...data,
       slug,
@@ -120,6 +123,7 @@ function loadLabs(catalog) {
       label: quick ? 'Quick start' : `Lab ${num}`,
       short: catalog.shortTitles?.[slug] || data.title,
       tracks: data.tracks || [],
+      iacLabel,
       tags: (data.tags || []).map(String),
       duration: Number(data.duration) || 0,
       order: data.order ?? Number(slug.slice(0, 2)),

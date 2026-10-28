@@ -74,6 +74,40 @@ template but no code block clones the repo, or when a clone block doesn't move i
 branch. The clone works once the lab is on `main`. Keep secrets out of the template's outputs, because azd
 saves them in `.azure/<environment>/.env`.
 
+Every lab's **Bicep + azd** track is a self-contained azd template, so it never needs a gateway from an earlier
+lab. Follow [lab 06](06-token-limits/) and the quick start:
+
+```text
+06-token-limits/
+├── azure.yaml                   # name: aigw-lab06, infra: { provider: bicep, path: infra }
+└── infra/
+    ├── main.bicep               # targetScope = 'subscription': rg-<env>, the base module, then the lab's modules
+    ├── main.parameters.json     # environmentName, location, and the lab's knobs as "${VAR=default}"
+    └── limited-alias.bicep      # the lab's own resource-group-scoped module, named after what it declares
+```
+
+- `main.bicep` takes `environmentName` and `location` (allowed `eastus2` and `swedencentral`), names resources with
+  `take(uniqueString(subscription().id, environmentName, location), 6)`, tags them with `azd-env-name`, and creates
+  the resource group `rg-<environment>`.
+- Reuse a base module rather than copying resources: [`quickstart/infra/resources.bicep`](quickstart/infra/resources.bicep)
+  for a gateway with the `foundry-models` provider, the `gpt-6-luna` alias, and the `app-first-call` key, or
+  [lab 01's `gateway.bicep`](01-provision-gateway/infra/gateway.bicep) for a gateway alone. Keep the parameters of
+  shared modules backward compatible, because other labs and the notebooks call them.
+- Name outputs the same way in every lab: `AZURE_RESOURCE_GROUP`, `AI_GATEWAY_NAME`, `AI_GATEWAY_ID`,
+  `AI_GATEWAY_URL`, `AI_GATEWAY_PROVIDER`, `AI_GATEWAY_BACKEND_MODEL`, `AI_GATEWAY_MODEL`, and
+  `FOUNDRY_ACCOUNT_NAME`, plus the lab's own in `UPPER_SNAKE_CASE`. The track reads them with
+  `azd env get-value` into the variables that the lab's **Verify** section uses, and reads the key with
+  `az aigateway api-key list-secrets`.
+- To change a setting, the reader runs `azd env set <VAR> <value>` and `azd provision`. azd converts the value to
+  the parameter's type, including integers and JSON arrays such as `'["ipAddress"]'`. Feed secrets to `@secure()`
+  parameters the same way, and the signed-in user's object ID with `${AZURE_PRINCIPAL_ID}`.
+- The track's sections are **Clone the lab**, **Review the templates** (with `<!-- include: -->`), **Deploy with
+  azd up** (`azd env new aigw-labNN --location eastus2 --subscription …`, then `azd up`), and **Read the outputs and
+  the key**. Its **Clean up** section runs `azd down --purge --force`, which deletes the resource group and purges
+  the Foundry account. Add a `[!TIP]` to **Before you begin** saying the track needs no earlier lab.
+- The track's label is **Bicep + azd**. The site shows the label of the lab's first `iac` marker instead when a lab
+  uses another one, such as **Policy as code** in lab 09 or **Bicep** in lab 21.
+
 ## GitHub view
 
 `npm run sync` (also run by `npm run build`) reads the metadata and `catalog.json` and adds GitHub-only chrome to
@@ -249,13 +283,13 @@ Keep the video optional: every step it shows must also be written in the lab.
 ## Infrastructure as code
 
 - Bicep files live in the lab's `infra/` folder and must compile without warnings:
-  `az bicep build --file infra/main.bicep --stdout > /dev/null`. Bicep has no types yet for
+  `az bicep build --file infra/<file>.bicep --stdout > /dev/null`. Bicep has no types yet for
   `Microsoft.ApiManagement/aigateways` and `Microsoft.Web/connectorGateways`, so put `#disable-next-line BCP081` on
   the line before each of their `resource` declarations, including `existing` ones.
 - Use API version `2025-09-01-preview` for `Microsoft.ApiManagement/*` resources.
 - Gateways are the dedicated `Microsoft.ApiManagement/aigateways` type, never `Microsoft.ApiManagement/service`.
   Follow the product's [reference sample](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway/blob/main/infra/ai-gateway/main.bicep), as
-  [lab 01's template](01-provision-gateway/infra/main.bicep) does: set `sku: { name: 'Consumption' }` (without it,
+  [lab 01's template](01-provision-gateway/infra/gateway.bicep) does: set `sku: { name: 'Consumption' }` (without it,
   the gateway is created in the `Premium` SKU) and no publisher properties, then create a
   `Microsoft.Web/connectorGateways` resource with the same name (API version `2026-05-01-preview`) that depends on
   the gateway. A subscription can have at most five gateways in each region.
@@ -273,9 +307,11 @@ Keep the video optional: every step it shows must also be written in the lab.
   takes one value; to count by `identity` and `ipAddress` together, pass the whole array with
   `az aigateway model update --policies`. `PATCH` and `--policies` replace whole arrays such as
   `properties.policies`, so read, edit, then write.
-- Parameterize names and locations; default `location` to `resourceGroup().location`.
-- Mirror the structure of the existing labs: lab 01 for a single template, lab 21 for modules, and lab 16 for an
-  azd project.
+- Parameterize names and locations; default `location` to `resourceGroup().location` in resource-group-scoped
+  modules.
+- Mirror the structure of the existing labs: lab 06 for a Bicep + azd track (see [azd templates](#azd-templates)),
+  lab 21 for an enterprise template with parameter files and a pipeline, and lab 16 for an azd project that deploys
+  a hosted agent.
 - Python hosted agents ship a pinned `requirements.txt`. Don't ship a `pyproject.toml` without its `uv.lock`, because
   the Foundry remote build then treats the project as Poetry and fails. Never commit lock files that point to a private
   package index.
@@ -303,7 +339,8 @@ cells short by importing [`shared/utils.py`](shared/utils.py):
 - `lab = utils.Lab("NN-slug")` reads the `az login` sign-in and the shared defaults (resource group
   `rg-ai-gateway-labs`, gateway `aigw-labs-<6 characters of the SHA-1 of the subscription ID>`, region `eastus2`)
   that the `AIGW_*` environment variables override. It stops with a clear `❌` message when the gateway is missing.
-- `lab.deploy("infra/main.bicep", **params)` runs `az deployment group create` and returns the template's outputs.
+- `lab.deploy("infra/limited-alias.bicep", **params)` runs `az deployment group create` and returns the template's
+  outputs. Deploy the lab's resource-group-scoped modules, not the azd track's subscription-scoped `main.bicep`.
   When a step needs a resource that no lab template declares, add a small template to the lab's `infra/` folder
   (for example `11-entra-rbac/infra/role-assignment.bicep`) rather than writing ARM request bodies in the notebook.
 - `lab.require`, `lab.delete`, `lab.api_key`, `utils.retry`, `utils.wait_for_status`, and the `mcp_*` helpers cover

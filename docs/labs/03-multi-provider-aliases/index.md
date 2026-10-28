@@ -4,7 +4,7 @@ summary: Connect Anthropic or another non-Azure provider with a credential that 
 category: models
 level: Intermediate
 duration: 30
-tracks: [portal, cli]
+tracks: [portal, cli, iac]
 order: 3
 illustration: diagrams/aliases.svg
 tags: [model alias, custom provider, Anthropic, OpenAI, AWS Bedrock, Google Vertex AI, Anthropic Messages, retarget]
@@ -14,6 +14,7 @@ objectives:
   - Call an Anthropic model through the gateway with the native Messages API
   - Give one backend model several aliases, each with its own token limit
   - Retarget an alias to another backend model without changing clients or losing its policies
+  - Declare the provider, its models, and the aliases with Bicep and azd, with the provider key as a secure parameter
 prereqs:
   - 02-first-model-call
 ---
@@ -31,6 +32,11 @@ the same name.
 <!-- widget: alias-retarget {"alias":"team-chat","targets":[{"provider":"Microsoft Foundry","model":"gpt-6-luna","note":"Lower cost","logo":"microsoft-foundry"},{"provider":"Microsoft Foundry","model":"gpt-6.1-sol","note":"Higher quality","logo":"microsoft-foundry"},{"provider":"OpenAI","model":"gpt-6-luna","note":"Custom provider","logo":"openai"}]} -->
 
 ## Before you begin
+
+> [!TIP]
+> On the **Bicep + azd** track, `azd up` creates its own gateway, Foundry model, and key, so you can skip this
+> section, except for the Anthropic key. You need only that key and [Azure Cloud Shell](https://shell.azure.com), or
+> the Azure Developer CLI (`azd`), the Azure CLI, Git, and `jq` on your machine.
 
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need the
   gateway, a runtime API key, and the Foundry alias you created there.
@@ -110,8 +116,9 @@ identity. Every other provider is a custom provider, and the gateway stores its 
 | <img src="../assets/providers/google-vertex.png" alt="" height="24"> | Google Vertex AI | **Models from a custom provider** | API key |
 | <img src="../assets/providers/custom-models.png" alt="" height="24"> | Any other OpenAI-compatible endpoint | **Models from a custom provider** | API key |
 
-Pick one track. Both tracks create the same result: a provider named `anthropic`, two backend models, and two
-aliases. `support-chat` points to the fast model, and `anthropic/claude-sonnet-5-5` points to the bigger one.
+Pick one track. Every track creates the same result: a provider named `anthropic`, two backend models, and two
+aliases. `support-chat` points to the fast model, and `anthropic/claude-sonnet-5-5` points to the bigger one. The
+Bicep + azd track also declares the `batch-chat` alias and the token limits of the next section.
 
 <!-- track: portal | Portal -->
 
@@ -277,6 +284,119 @@ az aigateway model-alias create -g <resource-group> --gateway-name <gateway> -n 
 > `./infra/alias.sh list` shows `support-chat` → `anthropic/claude-haiku-5-5` and
 > `anthropic/claude-sonnet-5-5` → `anthropic/claude-sonnet-5-5`, next to your Foundry alias from lab 02.
 
+<!-- track: iac | Bicep + azd -->
+
+**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
+the Azure CLI with the `aigateway` extension, Git, and `jq` on your machine, signed in with `azd auth login` and
+`az login`. This track doesn't use your gateway from earlier labs: `azd up` creates a new one, so it works on its own.
+
+### Choose what to declare
+
+The provider, its models, and the aliases are child resources of the gateway's `default` workspace:
+`modelProviders`, `modelProviders/models`, and `aliases`. The template declares the same bodies as the Azure CLI
+track. The Anthropic key is a `@secure()` parameter: the gateway stores it, and it never shows in the deployment
+history, the outputs, or the `az aigateway model-provider show` output.
+
+| azd environment value | Parameter | Default |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | `anthropicApiKey` | None. `azd up` asks for it if you don't set it. |
+| `FAST_MODEL` | `fastModel` | `claude-haiku-5-5` |
+| `SMART_MODEL` | `smartModel` | `claude-sonnet-5-5` |
+| `SUPPORT_CHAT_MODEL` | `supportChatModel` | The fast model |
+| `SUPPORT_CHAT_TOKENS_PER_MINUTE` | `supportChatTokensPerMinute` | `20000` |
+| `BATCH_CHAT_TOKENS_PER_MINUTE` | `batchChatTokensPerMinute` | `2000` |
+
+### Clone the lab
+
+The lab is a small azd project in the
+[`labs/03-multi-provider-aliases`](https://github.com/Azure/ai-gateway/tree/main/labs/03-multi-provider-aliases)
+folder of the GitHub repo. Clone the repo and move into that folder. If you cloned it for the quick start, move
+into `ai-gateway/labs/03-multi-provider-aliases` instead.
+
+```bash title="Bash"
+git clone https://github.com/Azure/ai-gateway.git
+cd ai-gateway/labs/03-multi-provider-aliases
+```
+
+```powershell title="PowerShell"
+git clone https://github.com/Azure/ai-gateway.git
+Set-Location ai-gateway/labs/03-multi-provider-aliases
+```
+
+### Review the templates
+
+`infra/main.bicep` creates the resource group `rg-<environment name>` and calls the quick start's
+[resources.bicep](../quickstart/infra/resources.bicep) for the gateway, the Foundry model, its default alias, and the
+runtime key. Then it calls `infra/anthropic-aliases.bicep` with the Anthropic key and the model names:
+
+<!-- include: infra/main.bicep -->
+
+`infra/anthropic-aliases.bicep` declares the provider, the two backend models, and the three aliases, each with its
+callable name in `aliasName` and its token limit in `policies`. It only references the gateway, so you can also
+deploy it on its own to a gateway you already have, with `az deployment group create`:
+
+<!-- include: infra/anthropic-aliases.bicep -->
+
+### Deploy with azd up
+
+Create an azd environment named `aigw-lab03` in your current subscription, and give it the Anthropic key from a
+hidden prompt, so that it never lands in your shell history. Then provision everything. It takes about three
+minutes.
+
+```bash title="Bash"
+azd env new aigw-lab03 --location eastus2 --subscription "$(az account show --query id --output tsv)"
+read -rsp "Anthropic API key: " ANTHROPIC_API_KEY && echo
+azd env set ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY"
+unset ANTHROPIC_API_KEY
+azd up
+```
+
+```powershell title="PowerShell"
+azd env new aigw-lab03 --location eastus2 --subscription (az account show --query id --output tsv)
+$key = Read-Host "Anthropic API key" -MaskInput
+azd env set ANTHROPIC_API_KEY $key
+Remove-Variable key
+azd up
+```
+
+For Sweden Central, use `--location swedencentral`. azd keeps the key in `.azure/aigw-lab03/.env`, which
+`.azure/.gitignore` keeps out of Git. If your Claude Console key can't call the default models, set `FAST_MODEL`
+and `SMART_MODEL` with `azd env set` before `azd up`.
+
+### Read the outputs and the key
+
+Set the variables that the next sections and **Verify** use from azd's environment values, and read the gateway's
+runtime key, not the Anthropic key, from the gateway, so that it never shows on screen.
+
+```bash title="Bash"
+export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
+export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
+export PROVIDER="$(azd env get-value ANTHROPIC_PROVIDER)"
+export FAST_MODEL="$(azd env get-value ANTHROPIC_FAST_MODEL)"
+export SMART_MODEL="$(azd env get-value ANTHROPIC_SMART_MODEL)"
+export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
+export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets \
+  --ids "$(azd env get-value AI_GATEWAY_ID)/apiKeys/app-first-call" --query primaryKey --output tsv)"
+./infra/alias.sh list
+```
+
+```powershell title="PowerShell"
+$RG                     = azd env get-value AZURE_RESOURCE_GROUP
+$GATEWAY                = azd env get-value AI_GATEWAY_NAME
+$PROVIDER               = azd env get-value ANTHROPIC_PROVIDER
+$FAST_MODEL             = azd env get-value ANTHROPIC_FAST_MODEL
+$SMART_MODEL            = azd env get-value ANTHROPIC_SMART_MODEL
+$env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets `
+  --ids "$(azd env get-value AI_GATEWAY_ID)/apiKeys/app-first-call" --query primaryKey --output tsv
+./infra/alias.ps1 -ResourceGroup $RG -Gateway $GATEWAY list
+```
+
+> **Checkpoint**
+> `azd up` ended with `SUCCESS`. The list shows `support-chat` → `anthropic/claude-haiku-5-5`, `batch-chat` →
+> `anthropic/claude-haiku-5-5`, and `anthropic/claude-sonnet-5-5` → `anthropic/claude-sonnet-5-5`, next to the
+> quick start's `gpt-6-luna` → `foundry-models/gpt-6-luna`.
+
 <!-- /tracks -->
 
 ## Call Claude through the gateway
@@ -381,6 +501,28 @@ target, use `retarget` in the next section.
 > **Checkpoint**
 > Each command prints the alias with `tokenLimit 2000/minute` or `tokenLimit 20000/minute`.
 
+<!-- track: iac | Bicep + azd -->
+
+### Check the declared limits
+
+`azd up` already created `batch-chat` and both limits: `anthropic-aliases.bicep` declares each alias with a
+`tokenLimit` policy, the same object that the Azure CLI track passes in `--policies`. Show the `batch-chat` alias.
+
+```bash title="Bash"
+./infra/alias.sh show batch-chat | jq '.properties.policies'
+```
+
+```powershell title="PowerShell"
+(./infra/alias.ps1 -ResourceGroup $RG -Gateway $GATEWAY show batch-chat | ConvertFrom-Json).properties.policies
+```
+
+To change a limit, set `BATCH_CHAT_TOKENS_PER_MINUTE` or `SUPPORT_CHAT_TOKENS_PER_MINUTE` with `azd env set`, then
+run `azd provision`.
+
+> **Checkpoint**
+> The output lists one `tokenLimit` policy with `"count": 2000`, `"period": "minute"`, and
+> `"counterKey": ["identity"]`.
+
 <!-- /tracks -->
 
 ## Retarget an alias without touching clients
@@ -425,6 +567,29 @@ properties you pass, so the alias name, description, and policies stay as they a
 ```text
 az aigateway model-alias update -g <resource-group> --gateway-name <gateway> -n support-chat \
   --backend-model resource-id=.../modelProviders/anthropic/models/claude-sonnet-5-5 --only-show-errors -o none
+```
+
+> **Checkpoint**
+> The output shows `support-chat` → `anthropic/claude-sonnet-5-5` and still `tokenLimit 20000/minute`.
+
+<!-- track: iac | Bicep + azd -->
+
+### Change the backend model in the environment
+
+The template points `support-chat` at the model in `SUPPORT_CHAT_MODEL`, and the fast model when it's empty. Set it
+to the bigger model and provision again. The deployment replaces the whole alias, but the template declares the
+policy with it, so the limit stays.
+
+```bash title="Bash"
+azd env set SUPPORT_CHAT_MODEL "$SMART_MODEL"
+azd provision
+./infra/alias.sh list
+```
+
+```powershell title="PowerShell"
+azd env set SUPPORT_CHAT_MODEL $SMART_MODEL
+azd provision
+./infra/alias.ps1 -ResourceGroup $RG -Gateway $GATEWAY list
 ```
 
 > **Checkpoint**
@@ -542,13 +707,21 @@ open `support-chat` and select **Policies**.
 
 ## Clean up
 
-Keep the gateway, the runtime key, and the Foundry model from lab 02. Later labs use them. Remove what you added
-in this lab in this order: aliases, then backend models, then the provider.
+Keep the gateway, the runtime key, and the Foundry model from lab 02. Later labs use them.
 
-In the portal, open each of the `support-chat`, `batch-chat`, and `anthropic/claude-sonnet-5-5` aliases in
-**Models** and delete them. Then delete the two Claude backend models and the `Anthropic` provider.
+<!-- track: portal | Portal -->
 
-From a shell:
+### Delete the aliases, models, and provider
+
+Remove what you added in this lab in this order: aliases, then backend models, then the provider. Open each of the
+`support-chat`, `batch-chat`, and `anthropic/claude-sonnet-5-5` aliases in **Models** and delete them. Then delete
+the two Claude backend models and the `Anthropic` provider.
+
+<!-- track: cli | Azure CLI -->
+
+### Delete the aliases, models, and provider
+
+Remove what you added in this lab in this order: aliases, then backend models, then the provider.
 
 ```bash title="Bash"
 for ALIAS in support-chat batch-chat "$PROVIDER/$SMART_MODEL"; do ./infra/alias.sh delete "$ALIAS"; done
@@ -567,6 +740,24 @@ foreach ($model in $FAST_MODEL, $SMART_MODEL) {
 }
 az aigateway model-provider delete -g $RG --gateway-name $GATEWAY -n $PROVIDER --yes
 ```
+
+<!-- track: iac | Bicep + azd -->
+
+### Delete everything azd created
+
+In the `ai-gateway/labs/03-multi-provider-aliases` folder, delete the resource group with the gateway, the Foundry
+account, and the Anthropic provider. `--purge` also purges the Foundry account, which would otherwise stay
+soft-deleted for 48 hours and keep counting against your quota. It takes about ten minutes. Then remove the azd
+environment, so that the Anthropic key doesn't stay in `.azure/aigw-lab03/.env`.
+
+```bash
+azd down --purge --force
+azd env remove aigw-lab03 --force
+```
+
+`azd down` doesn't touch the gateway from earlier labs, because the Bicep + azd track created its own gateway.
+
+<!-- /tracks -->
 
 Deleting the provider removes the stored Anthropic key from the gateway. It doesn't revoke the key itself. If
 you created the key only for this lab, delete it in the Claude Console.

@@ -10,7 +10,7 @@ illustration: diagrams/observability.svg
 tags: [OpenTelemetry, OTLP, Application Insights, traces, estimated cost, KQL, GenAI semantic conventions]
 objectives:
   - Explain how the gateway exports metrics, logs, and traces independently over OTLP
-  - Connect the gateway to Application Insights in the portal, or provision the destination with Bicep
+  - Connect the gateway to Application Insights in the portal, or with Bicep and azd
   - Read health, outcomes, policy impact, tokens, and estimated cost on the Monitoring dashboard
   - Follow one request through the trace waterfall, including its policy child spans
   - Query gateway telemetry in Log Analytics with KQL
@@ -31,13 +31,19 @@ send the gateway's OpenTelemetry signals to Application Insights and answer all 
 
 ## Before you begin
 
+> [!TIP]
+> On the **Bicep + azd** track, `azd up` creates its own gateway, model, key, and Application Insights, so you can
+> skip this section. You need only [Azure Cloud Shell](https://shell.azure.com), or the Azure Developer CLI (`azd`),
+> the Azure CLI, and Git on your machine, and permission to create role assignments, for example **Owner** on the
+> subscription.
+
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need a gateway,
   an imported model, a callable alias, and a runtime API key from **Access** › **Keys**.
 - Permission to change the gateway, for example **Contributor** on its resource group, **and** permission to
   create role assignments, for example **Owner** or **Role Based Access Control Administrator**. Setup grants the
   gateway's managed identity a role on the telemetry destination. To reuse an existing Application Insights
   resource, you also need **Application Insights Contributor** on it.
-- To generate traffic: `curl` (Bash) or PowerShell 7. For the variable block below and the IaC track: the
+- To generate traffic: `curl` (Bash) or PowerShell 7. For the variable block below: the
   [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with `az login`,
   and the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)).
 
@@ -111,7 +117,7 @@ On **Destination**, select **New Azure Application Insights resource** and keep 
 `<gateway>-insights`. Select **Next**.
 
 > [!TIP]
-> The other choices are **Existing Azure Application Insights resource** (the IaC track uses it) and
+> The other choices are **Existing Azure Application Insights resource**, for a component you already have, and
 > **Custom OpenTelemetry destination**, which takes separate **Metrics endpoint**, **Logs endpoint**, and
 > **Traces endpoint** URLs. Leave an endpoint empty to turn that signal off. The built-in dashboard only reads
 > Application Insights, so with a custom destination you use your own platform's views.
@@ -138,56 +144,125 @@ the denied operation.
 > The **Monitoring** page shows the **Overview**, **Models**, **Tools**, **Policies**, and **Traces** tabs, with
 > **Open in Azure portal** and **Settings** in the header.
 
-<!-- track: iac | Bicep -->
+<!-- track: iac | Bicep + azd -->
+
+**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
+the Azure CLI with the `aigateway` extension, and Git on your machine, signed in with `azd auth login` and `az login`.
+This track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
 
 ### Choose what to declare
 
-A complete monitoring setup declares three resources: a Log Analytics workspace, a workspace-based Application
-Insights component, and a gateway telemetry exporter of kind `applicationInsights`. The current portal treats that exporter kind as
-**legacy**: it no longer activates the OTLP signals the dashboard needs. The OpenTelemetry exporter that replaces it
-depends on OTLP endpoints and a role assignment that Azure creates on the fly, and that wiring isn't documented for
-automation yet.
+The templates declare what the portal's wizard sets up: a Log Analytics workspace, a workspace-based Application
+Insights component with OTLP ingestion turned on, and a gateway telemetry exporter of kind `OpenTelemetry` that
+sends metrics, logs, and traces to the component's OTLP endpoints with the recommended token claims. When OTLP
+ingestion turns on, Azure creates a managed resource group, `ai_<component>_<id>_managed`, with the Data Collection
+Rule and the Azure Monitor workspace for the metrics. The template reads the endpoints back from the component.
 
-So this template declares the destination exactly as the sample does, and you connect it in the portal in one step.
-The sample's exporter block is in the file for reference, switched off by `deployLegacyExporter`.
+The gateway's managed identity also needs **Monitoring Metrics Publisher** on that Data Collection Rule. Azure locks
+the managed resource group with a deny assignment that blocks deployments, so Bicep can't assign the role there.
+Instead, `azure.yaml` assigns it with the Azure CLI in a `postprovision` hook, which azd runs after each deployment.
 
-### Review the template
+The sample's exporter kind, `applicationInsights`, is legacy: the portal flags it because it no longer activates the
+OTLP signals the dashboard needs. `infra/monitoring.bicep` keeps it for reference, switched off by
+`deployLegacyExporter`.
 
-<!-- include: infra/main.bicep -->
+### Clone the lab
 
-On GitHub, open [infra/main.bicep](infra/main.bicep).
-
-### Deploy it
+The lab is a small azd project in the
+[`labs/13-monitoring`](https://github.com/Azure/ai-gateway/tree/main/labs/13-monitoring) folder of the GitHub
+repo. Clone the repo and move into that folder. If you cloned it for an earlier lab, move into
+`ai-gateway/labs/13-monitoring` instead.
 
 ```bash title="Bash"
-az deployment group create -g "$RG" \
-  --template-file infra/main.bicep \
-  --parameters gatewayName="$GATEWAY" \
-  --query properties.outputs
+git clone https://github.com/Azure/ai-gateway.git
+cd ai-gateway/labs/13-monitoring
 ```
 
 ```powershell title="PowerShell"
-az deployment group create -g $RG `
-  --template-file infra/main.bicep `
-  --parameters gatewayName=$GATEWAY `
-  --query properties.outputs
+git clone https://github.com/Azure/ai-gateway.git
+Set-Location ai-gateway/labs/13-monitoring
 ```
 
-The outputs list `appInsightsName` (`<gateway>-insights`) and the Log Analytics workspace ID.
+### Review the templates
 
-### Connect the gateway to it
+`infra/main.bicep` creates the resource group `rg-<environment name>` and calls the quick start's
+[resources.bicep](../quickstart/infra/resources.bicep) for the gateway, the Foundry model, its default alias, and the
+`app-first-call` key. Then it calls `infra/monitoring.bicep` for the destination and `infra/otel-exporter.bicep` to
+connect the gateway to it:
 
-In the [AI Gateway portal](https://ai.gateway.azure.com), select your gateway, then **Monitoring** ›
-**Configure telemetry**. On **Destination**, select **Existing Azure Application Insights resource**, and pick
-`<gateway>-insights` in **Application Insights resource**. The wizard checks OTLP support and tells you it will be
-enabled automatically when you apply. Select **Next**.
+<!-- include: infra/main.bicep -->
 
-On **Authentication**, leave **Include recommended token claims in telemetry** selected and select **Next**. On
-**Review and apply**, select **Apply** and wait for every step, ending with **Create telemetry exporter**.
+`infra/monitoring.bicep` creates the Log Analytics workspace and the Application Insights component, and turns on
+OTLP ingestion when `enableOtlpIngestion` is `true`. You can also deploy it on its own to your gateway's resource
+group with `az deployment group create`, then connect it in the portal with **Existing Azure Application Insights
+resource**:
+
+<!-- include: infra/monitoring.bicep -->
+
+`infra/otel-exporter.bicep` creates the exporter. The `claimAttributes` parameter lists the token claims to add to
+the telemetry, and the signals that carry each one. Its default matches **Include recommended token claims in
+telemetry**:
+
+<!-- include: infra/otel-exporter.bicep -->
+
+`azure.yaml` holds the `postprovision` hook that grants the role:
+
+<!-- include: azure.yaml -->
+
+### Deploy with azd up
+
+Create an azd environment named `aigw-lab13` in your current subscription, then provision everything. It takes
+about four minutes.
+
+```bash title="Bash"
+azd env new aigw-lab13 --location eastus2 --subscription "$(az account show --query id --output tsv)"
+azd up
+```
+
+```powershell title="PowerShell"
+azd env new aigw-lab13 --location eastus2 --subscription (az account show --query id --output tsv)
+azd up
+```
+
+For Sweden Central, use `--location swedencentral`.
+
+### Read the outputs and the key
+
+Set the variables that the next sections and **Verify** use from azd's environment values, and read the key from
+the gateway, so that it never shows on screen. The last command lists the gateway's telemetry exporters.
+
+```bash title="Bash"
+export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
+export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
+export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
+export API="api-version=2025-09-01-preview"
+export GATEWAY_ID="$(azd env get-value AI_GATEWAY_ID)"
+export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
+export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
+export LAW_CUSTOMER_ID="$(azd env get-value LOG_ANALYTICS_CUSTOMER_ID)"
+export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" \
+  --query primaryKey --output tsv)"
+az rest --url "$WS/telemetryExporters?$API" --query "value[].{name:name, kind:properties.kind}" -o table
+```
+
+```powershell title="PowerShell"
+$RG                     = azd env get-value AZURE_RESOURCE_GROUP
+$GATEWAY                = azd env get-value AI_GATEWAY_NAME
+$env:AI_GATEWAY_MODEL   = azd env get-value AI_GATEWAY_MODEL
+$API                    = "api-version=2025-09-01-preview"
+$GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
+$WS                     = "https://management.azure.com$GATEWAY_ID/workspaces/default"
+$env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
+$LAW_CUSTOMER_ID        = azd env get-value LOG_ANALYTICS_CUSTOMER_ID
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" `
+  --query primaryKey --output tsv
+az rest --url "$WS/telemetryExporters?$API" --query "value[].{name:name, kind:properties.kind}" -o table
+```
 
 > **Checkpoint**
-> The **Monitoring** page shows the **Overview**, **Models**, **Tools**, **Policies**, and **Traces** tabs. In
-> **Settings**, the destination is your `<gateway>-insights` resource and no legacy exporter warning is shown.
+> `azd up` ended with `SUCCESS`, and the list shows one exporter, `appinsights`, of kind `OpenTelemetry`. In the
+> portal, the gateway's **Monitoring** page shows the **Overview**, **Models**, **Tools**, **Policies**, and
+> **Traces** tabs.
 
 <!-- /tracks -->
 
@@ -326,7 +401,7 @@ You can query them directly to build your own reports and alerts.
 ### Open Logs
 
 In the [Azure portal](https://portal.azure.com), open the Log Analytics workspace linked to your Application Insights
-resource (`<gateway>-logs` if you used the Bicep template) and select **Logs**. Switch the editor to **KQL mode**.
+resource (`<gateway>-logs` if you used the Bicep + azd track) and select **Logs**. Switch the editor to **KQL mode**.
 
 ### Run the starter queries
 
@@ -336,6 +411,22 @@ model, and API key) and query 3 (token usage per model and API key).
 <!-- include: infra/queries.kql kusto -->
 
 On GitHub, open [infra/queries.kql](infra/queries.kql).
+
+To run a query from the command line instead, pass the workspace's customer ID to
+`az monitor log-analytics query`. The command comes from the `log-analytics` extension, which the Azure CLI offers to
+install the first time. On the Bicep + azd track, `LAW_CUSTOMER_ID` already holds the ID. Otherwise, set it to the
+**Workspace ID** on the workspace's **Overview** page. This short query counts the model calls of the last hour by
+alias and status code:
+
+```bash title="Bash"
+az monitor log-analytics query -w "$LAW_CUSTOMER_ID" -o table --analytics-query \
+  'OTelSpans | where TimeGenerated > ago(1h) | where Kind =~ "Server" and tostring(Attributes["http.route"]) contains "/models/" | summarize Calls = count() by Model = tostring(Attributes["gen_ai.request.model"]), Status = toint(Attributes["http.response.status_code"])'
+```
+
+```powershell title="PowerShell"
+az monitor log-analytics query -w $LAW_CUSTOMER_ID -o table --analytics-query `
+  'OTelSpans | where TimeGenerated > ago(1h) | where Kind =~ "Server" and tostring(Attributes["http.route"]) contains "/models/" | summarize Calls = count() by Model = tostring(Attributes["gen_ai.request.model"]), Status = toint(Attributes["http.response.status_code"])'
+```
 
 These queries are starting points. Attribute names follow the OpenTelemetry GenAI conventions plus gateway
 attributes. Run `OTelSpans | take 10` to see what your data carries, and adapt names before you build alerts on
@@ -372,7 +463,7 @@ az rest --url "$WS/telemetryExporters?$API" --query "value[].{name:name, kind:pr
 az rest --url "$WS/telemetryExporters?$API" --query "value[].{name:name, kind:properties.kind}" -o table
 ```
 
-The exporter that the portal creates has kind `openTelemetry`. Kind `applicationInsights` is the legacy exporter
+The exporter that the portal and the Bicep + azd track create has kind `OpenTelemetry`. Kind `applicationInsights` is the legacy exporter
 from [Troubleshooting](#troubleshooting).
 
 <!-- /steps -->
@@ -409,24 +500,26 @@ In the [Azure portal](https://portal.azure.com), delete the `<gateway>-insights`
 Log Analytics workspace if nothing else uses them. Enabling OTLP can also create an Azure Monitor workspace and a
 Data Collection Rule for the metrics. Check the resource group for them and delete them if they're unused.
 
-<!-- track: iac | Bicep -->
+<!-- track: iac | Bicep + azd -->
 
-### Disable monitoring
+### Delete everything azd created
 
-On the **Monitoring** page, select **Settings** › **General** › **Disable monitoring**.
-
-### Delete the destination
+In the `ai-gateway/labs/13-monitoring` folder, delete the resource group with the gateway, the Foundry account, the
+Application Insights component, and the Log Analytics workspace. Azure deletes the component's managed resource group
+with it. `--purge` also purges the Foundry account, which would otherwise stay soft-deleted for 48 hours and keep
+counting against your quota. It takes about ten minutes.
 
 ```bash
-az resource delete -g "$RG" -n "$GATEWAY-insights" --resource-type Microsoft.Insights/components
-az resource delete -g "$RG" -n "$GATEWAY-logs" --resource-type Microsoft.OperationalInsights/workspaces
+azd down --purge --force
 ```
 
-If OTLP setup created an Azure Monitor workspace and a Data Collection Rule, delete them too if they're unused.
+The Bicep + azd track of [Attribute tokens and cost with OpenTelemetry](../14-otel-chargeback/README.md) creates its
+own gateway and destination, so you don't need to keep these for it.
 
 <!-- /tracks -->
 
-Keep the gateway, model, and key. The next labs reuse them.
+Keep the gateway, model, and key from lab 02: the next labs reuse them. `azd down` doesn't touch them, because the
+Bicep + azd track created its own gateway.
 
 ## Troubleshooting
 

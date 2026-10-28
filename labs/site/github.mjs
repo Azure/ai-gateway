@@ -25,7 +25,7 @@ const WIDGET_RE = /^<!--\s*widget:\s*([\w-]+)/;
 export const VIDEO_RE = /^<!--\s*video:\s*(\S+)\s*(?:\|\s*([^>]*?))?\s*-->[ \t]*$/;
 const LONG_INCLUDE = 28;
 
-export const GH_TRACK_LABELS = { portal: 'Portal', cli: 'Azure CLI', rest: 'REST API', iac: 'Bicep', code: 'Code' };
+export const GH_TRACK_LABELS = { portal: 'Portal', cli: 'Azure CLI', rest: 'REST API', iac: 'Bicep + azd', code: 'Code' };
 const SHORT_TRACK_LABELS = { portal: 'Portal', cli: 'CLI', rest: 'REST', iac: 'Bicep', code: 'Code' };
 const TRACK_EMOJI = { portal: '🖥️', cli: '⌨️', rest: '🔗', iac: '🏗️', code: '🧑‍💻' };
 const WIDGET_TITLES = {
@@ -217,7 +217,7 @@ export function syncLab(raw, { lab, labs, catalog, site }) {
     `[AI Gateway labs](../README.md) › [${cat?.title || lab.category}](../README.md#${ghSlug(cat?.title || lab.category)}) › ${lab.label}`,
   ]), '');
   const prereqs = (lab.prereqs || []).map((s) => byId[s]).filter(Boolean);
-  const tracks = (lab.tracks || []).map((t) => GH_TRACK_LABELS[t] || t).join(' · ');
+  const tracks = (lab.tracks || []).map((t) => (t === 'iac' && lab.iacLabel) || GH_TRACK_LABELS[t] || t).join(' · ');
   const run = [`🌐 [Interactive version](${siteUrl}) with your own values filled in`];
   const video = findVideo(lines.join('\n'));
   if (video) run.push(`🎬 [Video walkthrough](${siteUrl}#${video.id})`);

@@ -1,6 +1,7 @@
 // Optional: creates a Microsoft Foundry (Azure AI Services) account with one gpt-6-luna deployment
 // to use as the backend for this lab. Skip it if you already have a Foundry or Azure OpenAI deployment.
 // Mirrors infra/foundry-models/main.bicep in the reference sample. Model inference is billed.
+// The lab's main.bicep calls it with azd. You can also deploy it on its own with "az deployment group create".
 targetScope = 'resourceGroup'
 
 @description('Foundry account name. It is also used as the custom subdomain, so it must be globally unique.')
@@ -27,9 +28,13 @@ param skuName string = 'GlobalStandard'
 @minValue(1)
 param capacity int = 10
 
+@description('Tags applied to the account.')
+param tags object = {}
+
 resource account 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
   name: accountName
   location: location
+  tags: tags
   kind: 'AIServices'
   sku: {
     name: 'S0'

@@ -4,12 +4,13 @@ summary: Give every app its own runtime API key, keep the value out of your code
 category: security
 level: Beginner
 duration: 15
-tracks: [portal, cli]
+tracks: [portal, cli, iac]
 order: 10
 illustration: diagrams/identity-boundaries.svg
 tags: [API keys, rotation, revocation, Key Vault, secrets, cost attribution, runtime access]
 objectives:
   - Create one runtime API key for each app and keep its value in a secret store, not in code
+  - Declare the keys with Bicep and azd, and keep rotation and revocation as operations
   - Rotate a key without downtime by moving clients between its primary and secondary values
   - Revoke a leaked key and confirm that the gateway rejects it with 401
   - Find usage and estimated cost for each key in Monitoring
@@ -28,11 +29,12 @@ prereqs:
 
 | ⏱️ Time | 📶 Level | 🧭 Tracks | ✅ Before you start |
 | :-- | :-- | :-- | :-- |
-| 15 min | Beginner | Portal · Azure CLI | [01 · Provision a gateway](../01-provision-gateway/README.md) |
+| 15 min | Beginner | Portal · Azure CLI · Bicep + azd | [01 · Provision a gateway](../01-provision-gateway/README.md) |
 
 **You'll learn to**
 
 - Create one runtime API key for each app and keep its value in a secret store, not in code
+- Declare the keys with Bicep and azd, and keep rotation and revocation as operations
 - Rotate a key without downtime by moving clients between its primary and secondary values
 - Revoke a leaked key and confirm that the gateway rejects it with 401
 - Find usage and estimated cost for each key in Monitoring
@@ -56,6 +58,11 @@ leaked notebook key. Because every key is a separate caller identity, you can al
 <!-- gh:end -->
 
 ## Before you begin
+
+> [!TIP]
+> On the **Bicep + azd** track, `azd up` creates its own gateway, model, and keys, so you can skip this section. You
+> need only [Azure Cloud Shell](https://shell.azure.com), or the Azure Developer CLI (`azd`), the Azure CLI, and Git
+> on your machine.
 
 - Complete [Provision your AI Gateway](../01-provision-gateway/README.md). You need the gateway, its resource
   group, and its runtime URL.
@@ -150,13 +157,13 @@ A key is gateway-scoped: it grants access to every published model and MCP serve
 also a separate caller identity, which token limits, cost limits, and Monitoring use to tell callers apart.
 That's why every app, agent, or user should get its own key.
 
-| Task | Portal (**Access** › **Keys**) | Azure CLI (`az aigateway api-key`) |
-|---|---|---|
-| Create a key | **Create API key** | `create` |
-| Read a value | **View keys** (primary value) | `list-secrets` (primary and secondary values) |
-| Rotate | **Rotate key** (primary value) | `regenerate --key-type primary` or `--key-type secondary` |
-| Block temporarily | — | `az rest` `PATCH` with `state` set to `suspended`, then back to `active` |
-| Revoke | **Delete** | `delete` |
+| Task | Portal (**Access** › **Keys**) | Azure CLI (`az aigateway api-key`) | Bicep (`aigateways/apiKeys`) |
+|---|---|---|---|
+| Create a key | **Create API key** | `create` | Declare the key |
+| Read a value | **View keys** (primary value) | `list-secrets` (primary and secondary values) | — (never an output) |
+| Rotate | **Rotate key** (primary value) | `regenerate --key-type primary` or `--key-type secondary` | — |
+| Block temporarily | — | `az rest` `PATCH` with `state` set to `suspended`, then back to `active` | — |
+| Revoke | **Delete** | `delete` | — (removing the key from the template doesn't delete it) |
 
 The gateway also has a built-in key named `master`. Don't hand it out; create named keys instead.
 
@@ -254,6 +261,262 @@ $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-nam
   --query primaryKey -o tsv
 ```
 </details> <!-- gh -->
+
+</details> <!-- gh -->
+<!-- track: iac | Bicep + azd -->
+<details><summary><b>🏗️ Bicep + azd</b></summary> <!-- gh -->
+
+**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
+the Azure CLI with the `aigateway` extension, and Git on your machine, signed in with `azd auth login` and `az login`.
+This track doesn't use your gateway from earlier labs: `azd up` creates a new one, so it works on its own.
+
+### Choose what to declare
+
+A key is a child resource of the gateway, `Microsoft.ApiManagement/aigateways/apiKeys`, so a template can declare
+which keys exist. Their values aren't in the template: the gateway generates them, and a later deployment keeps
+them. Rotating and revoking a key are operations, not declarations, so you run them with the Azure CLI in the next
+sections.
+
+### Clone the lab
+
+The lab is a small azd project in the
+[`labs/10-api-keys`](https://github.com/Azure/ai-gateway/tree/main/labs/10-api-keys) folder of the GitHub
+repo. Clone the repo and move into that folder. If you cloned it for the quick start, move into
+`ai-gateway/labs/10-api-keys` instead.
+
+<details open><summary>Bash</summary> <!-- gh -->
+
+```bash title="Bash"
+git clone https://github.com/Azure/ai-gateway.git
+cd ai-gateway/labs/10-api-keys
+```
+</details> <!-- gh -->
+
+<details><summary>PowerShell</summary> <!-- gh -->
+
+```powershell title="PowerShell"
+git clone https://github.com/Azure/ai-gateway.git
+Set-Location ai-gateway/labs/10-api-keys
+```
+</details> <!-- gh -->
+
+### Review the templates
+
+`infra/main.bicep` creates the resource group `rg-<environment name>` and calls the quick start's
+[resources.bicep](../quickstart/infra/resources.bicep) for the gateway, the Foundry model, its default alias, and the
+`app-first-call` key, so the checks have an alias to call. Then it calls `infra/api-keys.bicep` with the key names:
+
+<!-- include: infra/main.bicep -->
+<!-- gh:begin include: generated by "npm run sync" from the metadata, do not edit -->
+📄 [`infra/main.bicep`](infra/main.bicep)
+
+<details><summary>Show all 63 lines</summary>
+
+```bicep
+// Lab 10 with azd: "azd up" creates the resource group rg-<environment name>, the quick start's gateway, Foundry
+// model, default alias, and runtime API key, then a runtime API key for each caller. Key values are never outputs.
+targetScope = 'subscription'
+
+@description('azd environment name. The resource group is rg-<environmentName>.')
+@minLength(1)
+@maxLength(60)
+param environmentName string
+
+@description('Region for every resource. During the preview, AI Gateway runs in East US 2 and Sweden Central.')
+@allowed([
+  'eastus2'
+  'swedencentral'
+])
+@metadata({ azd: { type: 'location' } })
+param location string
+
+@description('Key names, one for each caller. azd reads them from AI_GATEWAY_API_KEYS, a JSON array.')
+param apiKeyNames array = [
+  'app-dev'
+  'support-bot'
+  'old-notebook'
+]
+
+var suffix = take(uniqueString(subscription().id, environmentName, location), 6)
+var tags = { 'azd-env-name': environmentName }
+
+resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
+  name: 'rg-${environmentName}'
+  location: location
+  tags: tags
+}
+
+// The quick start's template: a gateway, a Foundry model behind the default alias, and the app-first-call key.
+module base '../../quickstart/infra/resources.bicep' = {
+  name: 'aigw-base'
+  scope: rg
+  params: {
+    location: location
+    tags: tags
+    gatewayName: 'aigw-${suffix}'
+    foundryName: 'aigw${suffix}'
+  }
+}
+
+module apiKeys 'api-keys.bicep' = {
+  name: 'aigw-api-keys'
+  scope: rg
+  params: {
+    gatewayName: base.outputs.gatewayName
+    apiKeyNames: apiKeyNames
+  }
+}
+
+output AZURE_RESOURCE_GROUP string = rg.name
+output AI_GATEWAY_NAME string = base.outputs.gatewayName
+output AI_GATEWAY_ID string = base.outputs.gatewayId
+output AI_GATEWAY_URL string = base.outputs.gatewayUrl
+output AI_GATEWAY_PROVIDER string = base.outputs.providerName
+output AI_GATEWAY_BACKEND_MODEL string = base.outputs.modelName
+output AI_GATEWAY_MODEL string = base.outputs.aliasName
+output FOUNDRY_ACCOUNT_NAME string = base.outputs.foundryName
+output AI_GATEWAY_API_KEY_NAMES array = apiKeys.outputs.apiKeyNames
+```
+
+</details>
+<!-- gh:end -->
+
+`infra/api-keys.bicep` declares one key for each name. It only references the gateway, so you can also deploy it on
+its own to a gateway you already have, with `az deployment group create`:
+
+<!-- include: infra/api-keys.bicep -->
+<!-- gh:begin include: generated by "npm run sync" from the metadata, do not edit -->
+📄 [`infra/api-keys.bicep`](infra/api-keys.bicep)
+
+<details><summary>Show all 34 lines</summary>
+
+```bicep
+// Creates one runtime API key for each caller of an existing AI Gateway. main.bicep calls it after the quick
+// start's template, and you can also deploy it on its own to a gateway you already have. Each key is a separate
+// caller identity in metrics and logs, and the gateway generates its primary and secondary values. Key values are
+// never outputs: read them with "az aigateway api-key list-secrets", which needs the
+// Microsoft.ApiManagement/aigateways/apiKeys/listSecrets/action permission.
+
+@description('Name of the existing AI Gateway (Microsoft.ApiManagement/aigateways).')
+param gatewayName string
+
+@description('Key names, one for each caller. Names must be unique, ignoring case.')
+param apiKeyNames array = [
+  'app-dev'
+  'support-bot'
+  'old-notebook'
+]
+
+#disable-next-line BCP081
+resource gateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' existing = {
+  name: gatewayName
+}
+
+// Redeploying keeps each key's values: rotation and revocation are operations, not part of the template.
+#disable-next-line BCP081
+resource apiKeys 'Microsoft.ApiManagement/aigateways/apiKeys@2025-09-01-preview' = [for name in apiKeyNames: {
+  parent: gateway
+  name: name
+  properties: {
+    // Like the CLI's --display-name: the service replaces it with its own, so identify keys by name.
+    displayName: name
+  }
+}]
+
+output apiKeyNames array = [for (name, i) in apiKeyNames: apiKeys[i].name]
+output apiKeyIds array = [for (name, i) in apiKeyNames: apiKeys[i].id]
+```
+
+</details>
+<!-- gh:end -->
+
+### Deploy with azd up
+
+Create an azd environment named `aigw-lab10` in your current subscription, then provision everything. It takes
+about three minutes.
+
+<details open><summary>Bash</summary> <!-- gh -->
+
+```bash title="Bash"
+azd env new aigw-lab10 --location eastus2 --subscription "$(az account show --query id --output tsv)"
+azd up
+```
+</details> <!-- gh -->
+
+<details><summary>PowerShell</summary> <!-- gh -->
+
+```powershell title="PowerShell"
+azd env new aigw-lab10 --location eastus2 --subscription (az account show --query id --output tsv)
+azd up
+```
+</details> <!-- gh -->
+
+For Sweden Central, use `--location swedencentral`.
+
+### Read the outputs and the key
+
+Set the variables that the next sections and **Verify** use from azd's environment values, and read the `app-dev`
+key from the gateway, so that it never shows on screen.
+
+<details open><summary>Bash</summary> <!-- gh -->
+
+```bash title="Bash"
+export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
+export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
+export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
+export API="api-version=2025-09-01-preview"
+export GATEWAY_ID="$(azd env get-value AI_GATEWAY_ID)"
+export GW="https://management.azure.com$GATEWAY_ID"
+export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
+export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-dev" \
+  --query primaryKey --output tsv)"
+az aigateway api-key list -g "$RG" --gateway-name "$GATEWAY" --query "[].{name:name, state:properties.state}" -o table
+```
+</details> <!-- gh -->
+
+<details><summary>PowerShell</summary> <!-- gh -->
+
+```powershell title="PowerShell"
+$RG                     = azd env get-value AZURE_RESOURCE_GROUP
+$GATEWAY                = azd env get-value AI_GATEWAY_NAME
+$env:AI_GATEWAY_MODEL   = azd env get-value AI_GATEWAY_MODEL
+$API                    = "api-version=2025-09-01-preview"
+$GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
+$GW                     = "https://management.azure.com$GATEWAY_ID"
+$env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-dev" `
+  --query primaryKey --output tsv
+az aigateway api-key list -g $RG --gateway-name $GATEWAY --query "[].{name:name, state:properties.state}" -o table
+```
+</details> <!-- gh -->
+
+> **Checkpoint**
+> `azd up` ended with `SUCCESS`. The table lists the built-in `master` key, the quick start's `app-first-call`,
+> and `app-dev`, `support-bot`, and `old-notebook`, all `active`.
+
+### Change the keys
+
+The key names come from the `AI_GATEWAY_API_KEYS` environment value, a JSON array, with the default in
+`infra/main.parameters.json`. To add a key, set the whole list and provision again. Existing keys keep their values.
+
+<details open><summary>Bash</summary> <!-- gh -->
+
+```bash title="Bash"
+azd env set AI_GATEWAY_API_KEYS '["app-dev","support-bot","old-notebook","batch-job"]'
+azd provision
+```
+</details> <!-- gh -->
+
+<details><summary>PowerShell</summary> <!-- gh -->
+
+```powershell title="PowerShell"
+azd env set AI_GATEWAY_API_KEYS '["app-dev","support-bot","old-notebook","batch-job"]'
+azd provision
+```
+</details> <!-- gh -->
+
+Removing a name from the list doesn't delete the key: the deployment only creates and updates what the template
+declares. Delete a key with the CLI, as in [Revoke a leaked key](#revoke-a-leaked-key).
 
 </details> <!-- gh -->
 <!-- /tracks -->
@@ -405,6 +668,8 @@ $env:AI_GATEWAY_API_KEY = az keyvault secret show --vault-name $KEY_VAULT -n app
 
 Rotate keys on a schedule, and whenever someone who had a value leaves the team. Regenerating a value invalidates
 that value only, and right away. The trick is to regenerate the value that no client is using.
+
+On the Bicep + azd track, follow the **Azure CLI** track. A later `azd provision` keeps the regenerated values.
 
 <!-- track: portal | Portal -->
 <details open><summary><b>🖥️ Portal</b></summary> <!-- gh -->
@@ -599,6 +864,23 @@ automatically.
 
 When a key leaks, revoke it first and investigate afterward. Deleting a key invalidates both of its values
 immediately, and anyone who holds them gets `401`. Pick one track.
+
+On the Bicep + azd track, follow the **Azure CLI** track. Then remove `old-notebook` from the template's list, and
+keep any names you added, so that a later `azd provision` doesn't create it again, with new values:
+
+<details open><summary>Bash</summary> <!-- gh -->
+
+```bash title="Bash"
+azd env set AI_GATEWAY_API_KEYS '["app-dev","support-bot"]'
+```
+</details> <!-- gh -->
+
+<details><summary>PowerShell</summary> <!-- gh -->
+
+```powershell title="PowerShell"
+azd env set AI_GATEWAY_API_KEYS '["app-dev","support-bot"]'
+```
+</details> <!-- gh -->
 
 <!-- track: portal | Portal -->
 <details open><summary><b>🖥️ Portal</b></summary> <!-- gh -->
@@ -812,12 +1094,45 @@ $SUPPORT_BOT = Read-Host "Current support-bot value" -MaskInput
 
 Keep `app-dev` and `support-bot`:
 [Enforce cost budgets with per-caller overrides](../07-cost-budgets/README.md) gives them different budgets.
+
+<!-- track: portal | Portal -->
+<details open><summary><b>🖥️ Portal</b></summary> <!-- gh -->
+
+### Delete the test keys
+
 Delete any other keys you created for testing, such as `support-bot-v2`, in **Access** › **Keys** (check box,
-then **Delete**), or with the CLI:
+then **Delete**).
+
+</details> <!-- gh -->
+<!-- track: cli | Azure CLI -->
+<details><summary><b>⌨️ Azure CLI</b></summary> <!-- gh -->
+
+### Delete the test keys
+
+Delete any other keys you created for testing, such as `support-bot-v2`:
 
 ```bash
 az aigateway api-key delete -g "$RG" --gateway-name "$GATEWAY" -n support-bot-v2 --yes
 ```
+
+</details> <!-- gh -->
+<!-- track: iac | Bicep + azd -->
+<details><summary><b>🏗️ Bicep + azd</b></summary> <!-- gh -->
+
+### Delete everything azd created
+
+In the `ai-gateway/labs/10-api-keys` folder, delete the resource group with the gateway, the Foundry account, and
+the keys. `--purge` also purges the Foundry account, which would otherwise stay soft-deleted for 48 hours and keep
+counting against your quota. It takes about ten minutes.
+
+```bash
+azd down --purge --force
+```
+
+The Bicep + azd track of lab 07 creates its own `app-dev` and `support-bot` keys, so you don't need to keep these.
+
+</details> <!-- gh -->
+<!-- /tracks -->
 
 If you created a Key Vault only for this lab, delete it. Key Vault keeps deleted vaults for a retention period
 and reserves the name; purge it if you want to reuse the name right away:
@@ -829,8 +1144,9 @@ az keyvault purge -n "$KEY_VAULT"
 
 Clear the key values from your shell with `unset AI_GATEWAY_API_KEY OLD_SUPPORT_BOT LEAKED_KEY SUPPORT_BOT`
 (Bash) or `Remove-Variable OLD_SUPPORT_BOT, LEAKED_KEY, SUPPORT_BOT; Remove-Item Env:AI_GATEWAY_API_KEY`
-(PowerShell). Delete the gateway only when you finish all labs, as described in
-[Provision your AI Gateway](../01-provision-gateway/README.md#clean-up).
+(PowerShell). Delete the gateway from earlier labs only when you finish all labs, as described in
+[Provision your AI Gateway](../01-provision-gateway/README.md#clean-up). `azd down` doesn't touch it, because the
+Bicep + azd track created its own gateway.
 
 ## Troubleshooting
 

@@ -233,7 +233,7 @@ const TRACK_ICONS = {
   code: '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 6-4 4 4 4M13 6l4 4-4 4"/></svg>',
   rest: '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 7h14M3 13h14"/><path d="m13 4 4 3-4 3M7 10l-4 3 4 3"/></svg>',
 };
-export const TRACK_LABELS = { portal: 'Portal', cli: 'Azure CLI', iac: 'Bicep / azd', code: 'Code', rest: 'REST' };
+export const TRACK_LABELS = { portal: 'Portal', cli: 'Azure CLI', iac: 'Bicep + azd', code: 'Code', rest: 'REST' };
 export { TRACK_ICONS };
 
 export async function renderLab(markdown, ctx) {

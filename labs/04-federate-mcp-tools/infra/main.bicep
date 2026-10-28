@@ -1,82 +1,62 @@
-// Registers the public Microsoft Learn MCP server as a federated MCP server in an existing AI Gateway.
-// Clients call one governed endpoint, https://<gateway>.eastus2-01.ai.gateway.azure.com/default/toolservers/<serverName>/mcp,
-// and the gateway publishes each backend's tools with a namespace prefix (<namespace>_<tool>).
-// Set secondNamespace to add the same public server as a second, optional backend and see namespacing at work.
-// Set supportedVersions to pin the MCP protocol versions that clients can negotiate.
+// Lab 04 with azd: "azd up" creates the resource group rg-<environment name>, a gateway with lab 01's template, then
+// the learn MCP server that federates the public Microsoft Learn MCP server, and the runtime API key app-first-call.
+// The runtime API key is never an output.
+targetScope = 'subscription'
 
-@description('Name of the existing AI Gateway (Microsoft.ApiManagement/aigateways).')
-param gatewayName string
+@description('azd environment name. The resource group is rg-<environmentName>.')
+@minLength(1)
+@maxLength(60)
+param environmentName string
 
-@description('MCP server name. It becomes part of the endpoint URL and cannot be changed after creation.')
-param serverName string = 'learn'
+@description('Region for every resource. During the preview, AI Gateway runs in East US 2 and Sweden Central.')
+@allowed([
+  'eastus2'
+  'swedencentral'
+])
+@metadata({ azd: { type: 'location' } })
+param location string
 
-@description('Display name shown in the portal catalog and details page.')
-param displayName string = 'Microsoft Learn'
-
-@description('Description that helps people and agents understand what the tools do.')
-param serverDescription string = 'Search and fetch official Microsoft documentation and code samples.'
-
-@description('Namespace for the first backend. Its tools are published as <namespace>_<tool>.')
-param namespace string = 'learn'
-
-@description('URL of the first backend MCP server (Streamable HTTP).')
-param mcpUrl string = 'https://learn.microsoft.com/api/mcp'
-
-@description('Optional namespace for a second backend. Leave empty to register one backend only.')
+@description('Namespace for a second, optional Learn backend, such as docs. Empty registers one backend. azd reads it from MCP_SECOND_NAMESPACE.')
 param secondNamespace string = ''
 
-@description('URL of the optional second backend MCP server (Streamable HTTP).')
-param secondMcpUrl string = 'https://learn.microsoft.com/api/mcp'
-
-@description('Comma-separated MCP protocol versions the server supports, for example 2025-06-18 or 2026-07-28,2025-06-18. Every MCP backend must support every version you list. Leave empty to keep the legacy defaults: 2025-06-18, 2025-03-26, and 2024-11-05.')
+@description('Comma-separated MCP protocol versions, such as 2025-06-18. Empty keeps the current list, or the legacy defaults on a new server. azd reads it from MCP_SUPPORTED_VERSIONS.')
 param supportedVersions string = ''
 
-var versions = empty(supportedVersions) ? {} : { versions: split(replace(supportedVersions, ' ', ''), ',') }
+var suffix = take(uniqueString(subscription().id, environmentName, location), 6)
+var tags = { 'azd-env-name': environmentName }
 
-var primaryEndpoint = {
-  namespace: namespace
-  kind: 'mcp'
-  mcp: {
-    url: mcpUrl
-    transport: 'streamableHttp'
+resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
+  name: 'rg-${environmentName}'
+  location: location
+  tags: tags
+}
+
+// Lab 01's template: the gateway and its connector gateway, with no model.
+module gateway '../../01-provision-gateway/infra/gateway.bicep' = {
+  name: 'aigw-gateway'
+  scope: rg
+  params: {
+    gatewayName: 'aigw-${suffix}'
+    location: location
+    tags: tags
   }
-  required: true
 }
 
-var secondEndpoint = {
-  namespace: secondNamespace
-  kind: 'mcp'
-  mcp: {
-    url: secondMcpUrl
-    transport: 'streamableHttp'
+module toolServer 'tool-server.bicep' = {
+  name: 'aigw-tool-server'
+  scope: rg
+  params: {
+    gatewayName: gateway.outputs.gatewayName
+    serverName: 'learn'
+    namespace: 'learn'
+    secondNamespace: secondNamespace
+    supportedVersions: supportedVersions
+    apiKeyName: 'app-first-call'
   }
-  required: false
 }
 
-#disable-next-line BCP081
-resource gateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' existing = {
-  name: gatewayName
-}
-
-#disable-next-line BCP081
-resource workspace 'Microsoft.ApiManagement/aigateways/workspaces@2025-09-01-preview' existing = {
-  parent: gateway
-  name: 'default'
-}
-
-#disable-next-line BCP081
-resource toolServer 'Microsoft.ApiManagement/aigateways/workspaces/toolServers@2025-09-01-preview' = {
-  parent: workspace
-  name: serverName
-  properties: union({
-    displayName: displayName
-    description: serverDescription
-    type: 'mcp'
-    failureMode: 'failClosed'
-    endpoints: empty(secondNamespace) ? [ primaryEndpoint ] : [ primaryEndpoint, secondEndpoint ]
-  }, versions)
-}
-
-output toolServerId string = toolServer.id
-output supportedVersions array = toolServer.properties.?versions ?? []
-output mcpEndpoint string = 'https://${gateway.properties.frontend.defaultHostname}/default/toolservers/${serverName}/mcp'
+output AZURE_RESOURCE_GROUP string = rg.name
+output AI_GATEWAY_NAME string = gateway.outputs.gatewayName
+output AI_GATEWAY_ID string = gateway.outputs.gatewayId
+output AI_GATEWAY_URL string = gateway.outputs.gatewayUrl
+output MCP_ENDPOINT string = toolServer.outputs.mcpEndpoint

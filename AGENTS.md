@@ -78,8 +78,8 @@ Show the user the mapping as a table and confirm it before you write, unless the
 
 ### 3. Verify on a live gateway
 
-Deploy a throwaway gateway with [lab 01's Bicep](labs/01-provision-gateway/infra/main.bicep), plus what the
-labs need (for example a Foundry account with the lab models). Then run every new or changed step: CLI and REST
+Deploy a throwaway gateway with [lab 01's Bicep](labs/01-provision-gateway/infra/gateway.bicep), plus what the
+labs need (for example a Foundry account with the lab models), or run `azd up` in the lab's folder. Then run every new or changed step: CLI and REST
 calls, `az bicep build` and a real deployment of each changed template, scripts, code samples, and notebooks.
 Use the real outputs and error messages in the checkpoints and troubleshooting tables. Check portal steps in the
 live portal at <https://ai.gateway.azure.com> and capture new screenshots into `labs/assets/screens/`.

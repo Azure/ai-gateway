@@ -265,7 +265,7 @@ export function homePage({ rel, site, catalog, labs, totals, latest }) {
   const trackCards = [
     { id: 'portal', title: 'Portal', text: 'Click-by-click guides in the AI Gateway portal, with exact labels and screenshots.' },
     { id: 'cli', title: 'Azure CLI', text: 'Repeatable az aigateway and az deployment commands you can paste into Bash or PowerShell.' },
-    { id: 'iac', title: 'Bicep & azd', text: 'Infrastructure as code that compiles, deploys, and cleans up in one command.' },
+    { id: 'iac', title: 'Bicep + azd', text: 'Self-contained azd templates: clone a lab, run azd up, and clean up with azd down.' },
     { id: 'code', title: 'Code & REST', text: 'Python, TypeScript, and .NET clients, agent frameworks, and REST calls.' },
   ];
 
@@ -516,7 +516,7 @@ export function labPage({ rel, site, catalog, labs, lab, html, toc, prev, next }
       <div class="overview-col">
         <h2>${I.book}Before you start</h2>
         ${prereqs.length ? `<ul class="prereq-list">${prereqs.map((p) => `<li><a href="${labUrl(rel, p.slug)}" data-lab-link="${p.slug}"><span class="side-num">${numHtml(p)}</span>${esc(p.title)}<span class="side-state" aria-hidden="true"></span></a></li>`).join('')}</ul>` : '<p class="muted">No prerequisite labs. Start here.</p>'}
-        <p class="overview-tracks">Tracks: ${lab.tracks.map((t) => `<span>${esc(TRACK_LABELS[t] || t)}</span>`).join(', ')}</p>
+        <p class="overview-tracks">Tracks: ${lab.tracks.map((t) => `<span>${esc((t === 'iac' && lab.iacLabel) || TRACK_LABELS[t] || t)}</span>`).join(', ')}</p>
       </div>
     </section>
     <article class="prose" id="lab-content">

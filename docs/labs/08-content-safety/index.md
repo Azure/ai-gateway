@@ -4,7 +4,7 @@ summary: Add a content safety policy that screens prompts, tool inputs, and resp
 category: governance
 level: Beginner
 duration: 20
-tracks: [portal, cli, rest]
+tracks: [portal, cli, rest, iac]
 order: 8
 illustration: diagrams/request-lifecycle.svg
 tags: [contentSafety, Azure AI Content Safety, responsible AI, severity threshold, "400", content filter]
@@ -12,6 +12,7 @@ objectives:
   - Explain how content safety severity thresholds decide what the gateway blocks
   - Add a content safety policy to a model in the portal, with the Azure CLI, or with the REST API
   - Override the threshold for one category without changing the others
+  - Publish a screened alias with Bicep and azd, without touching existing clients
   - Test the policy with benign prompts and tell a gateway block from a Foundry content filter result
 prereqs:
   - 02-first-model-call
@@ -29,6 +30,11 @@ gateway, tune it per category, and see what a blocked call looks like to a clien
 <!-- widget: request-lifecycle {"focus":"contentSafety"} -->
 
 ## Before you begin
+
+> [!TIP]
+> On the **Bicep + azd** track, `azd up` creates its own gateway, model, and key, so you can skip this section. You
+> need only [Azure Cloud Shell](https://shell.azure.com), or the Azure Developer CLI (`azd`), the Azure CLI, and Git
+> on your machine.
 
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need a
   gateway, an imported model, a callable alias, and a runtime API key from **Access** › **Keys**.
@@ -96,8 +102,9 @@ can block the call.
 
 ## Add content safety to the model
 
-Pick one track. Each track produces the same policy on your model: **Balanced** (`Medium`) for Hate,
-Self-harm, and Sexual, and **Strict** (`Low`) for Violence. The stricter Violence threshold makes the test in
+Pick one track. Each track produces the same policy: **Balanced** (`Medium`) for Hate, Self-harm, and Sexual,
+and **Strict** (`Low`) for Violence. The portal, CLI, and REST tracks put it on your model. The Bicep + azd track
+creates a new gateway and puts it on a new alias of the model. The stricter Violence threshold makes the test in
 **Verify** more likely to show a block, using only a mild, non-graphic prompt.
 
 <!-- track: portal | Portal -->
@@ -211,6 +218,112 @@ Remove-Item patch.json
 > Running the `GET` again returns your other policies unchanged plus one `contentSafety` entry with
 > `"violenceSeverity": "Low"` and `"scope": "resource"`.
 
+<!-- track: iac | Bicep + azd -->
+
+**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
+the Azure CLI with the `aigateway` extension, and Git on your machine, signed in with `azd auth login` and `az login`.
+This track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
+
+### Choose what to declare
+
+A Bicep deployment sends a `PUT`, which replaces the whole resource. Redeclaring a model you imported in the
+portal risks dropping settings you didn't copy. Instead, this template **adds a new alias**,
+`<model-name>-safe`, that targets the same backend model and carries the content safety policy. Existing clients
+keep calling the original alias. Callers that you move to the new alias get screened.
+
+The policy is one `contentSafety` object with a threshold for each category: `hateSeverity`, `selfHarmSeverity`,
+`sexualSeverity`, and `violenceSeverity`. Each accepts the API values from [How it works](#how-it-works): `Low`,
+`Medium`, `High`, or `None`.
+
+### Clone the lab
+
+The lab is a small azd project in the
+[`labs/08-content-safety`](https://github.com/Azure/ai-gateway/tree/main/labs/08-content-safety) folder of the GitHub
+repo. Clone the repo and move into that folder. If you cloned it for the quick start, move into
+`ai-gateway/labs/08-content-safety` instead.
+
+```bash title="Bash"
+git clone https://github.com/Azure/ai-gateway.git
+cd ai-gateway/labs/08-content-safety
+```
+
+```powershell title="PowerShell"
+git clone https://github.com/Azure/ai-gateway.git
+Set-Location ai-gateway/labs/08-content-safety
+```
+
+### Review the templates
+
+`infra/main.bicep` creates the resource group `rg-<environment name>` and calls the quick start's
+[resources.bicep](../quickstart/infra/resources.bicep) for the gateway, the Foundry model, its default alias, and the
+`app-first-call` key. Then it calls `infra/safe-alias.bicep` with the four thresholds:
+
+<!-- include: infra/main.bicep -->
+
+`infra/safe-alias.bicep` adds the alias. It only references the gateway, the provider, and the model, so you can
+also deploy it on its own to a gateway you already have, with `az deployment group create`:
+
+<!-- include: infra/safe-alias.bicep -->
+
+### Deploy with azd up
+
+Create an azd environment named `aigw-lab08` in your current subscription, then provision everything. It takes
+about three minutes.
+
+```bash title="Bash"
+azd env new aigw-lab08 --location eastus2 --subscription "$(az account show --query id --output tsv)"
+azd up
+```
+
+```powershell title="PowerShell"
+azd env new aigw-lab08 --location eastus2 --subscription (az account show --query id --output tsv)
+azd up
+```
+
+For Sweden Central, use `--location swedencentral`.
+
+### Read the outputs and the key
+
+Set the variables that **Verify** uses from azd's environment values, and read the key from the gateway, so that it
+never shows on screen.
+
+```bash title="Bash"
+export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
+export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
+export PROVIDER="$(azd env get-value AI_GATEWAY_PROVIDER)"
+export MODEL="$(azd env get-value AI_GATEWAY_BACKEND_MODEL)"
+export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
+export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
+export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$(azd env get-value AI_GATEWAY_ID)/apiKeys/app-first-call" \
+  --query primaryKey --output tsv)"
+echo "$AI_GATEWAY_MODEL"
+```
+
+```powershell title="PowerShell"
+$RG                     = azd env get-value AZURE_RESOURCE_GROUP
+$GATEWAY                = azd env get-value AI_GATEWAY_NAME
+$PROVIDER               = azd env get-value AI_GATEWAY_PROVIDER
+$MODEL                  = azd env get-value AI_GATEWAY_BACKEND_MODEL
+$env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
+$env:AI_GATEWAY_MODEL   = azd env get-value AI_GATEWAY_MODEL
+$GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" `
+  --query primaryKey --output tsv
+$env:AI_GATEWAY_MODEL
+```
+
+> **Checkpoint**
+> `azd up` ended with `SUCCESS`, and the last command printed the screened alias, `gpt-6-luna-safe`.
+> `az aigateway model-alias show -g "$RG" --gateway-name "$GATEWAY" -n "$AI_GATEWAY_MODEL" --query properties.policies`
+> returns one `contentSafety` entry with `"violenceSeverity": "Low"`, `"Medium"` for the other three categories,
+> and `"scope": "resource"`.
+
+### Change the thresholds
+
+The parameters come from azd environment values, with the defaults in `infra/main.parameters.json`:
+`CONTENT_SAFETY_HATE`, `CONTENT_SAFETY_SELF_HARM`, `CONTENT_SAFETY_SEXUAL`, and `CONTENT_SAFETY_VIOLENCE`. Change one
+with `azd env set` and run `azd provision`: only the alias changes. **Verify** relaxes Violence this way.
+
 <!-- /tracks -->
 
 ## Verify
@@ -269,6 +382,18 @@ az aigateway model policy set-content-safety -g "$RG" --gateway-name "$GATEWAY" 
 ```powershell title="PowerShell"
 az aigateway model policy set-content-safety -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL `
   --content-safety Medium
+```
+
+On the Bicep + azd track, set the environment value and provision again instead:
+
+```bash title="Bash"
+azd env set CONTENT_SAFETY_VIOLENCE Medium
+azd provision
+```
+
+```powershell title="PowerShell"
+azd env set CONTENT_SAFETY_VIOLENCE Medium
+azd provision
 ```
 
 A prompt that **Strict** blocked is more likely to pass at **Balanced**. Prompts that passed before still pass.
@@ -337,9 +462,22 @@ POLICIES="$(az rest --method get --url "$URL" | jq -c '[(.properties.policies //
 az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}"
 ```
 
+<!-- track: iac | Bicep + azd -->
+
+### Delete everything azd created
+
+In the `ai-gateway/labs/08-content-safety` folder, delete the resource group with the gateway, the Foundry account,
+and the screened alias. `--purge` also purges the Foundry account, which would otherwise stay soft-deleted for 48
+hours and keep counting against your quota. It takes about ten minutes.
+
+```bash
+azd down --purge --force
+```
+
 <!-- /tracks -->
 
-Keep the gateway, model, and key. The next labs reuse them.
+Keep the gateway, model, and key from lab 02: the next labs reuse them. `azd down` doesn't touch them, because
+the Bicep + azd track created its own gateway.
 
 ## Troubleshooting
 

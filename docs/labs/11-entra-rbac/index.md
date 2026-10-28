@@ -34,6 +34,11 @@ is missing.
 
 ## Before you begin
 
+> [!TIP]
+> On the **Bicep + azd** track, `azd up` creates its own gateway and model and grants you the role, so you can skip
+> this section. You need only [Azure Cloud Shell](https://shell.azure.com), or the Azure Developer CLI (`azd`), the
+> Azure CLI, and Git on your machine.
+
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need a gateway with at least
   one model alias.
 - The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
@@ -217,41 +222,131 @@ az role assignment list --scope $GATEWAY_ID `
 > **Checkpoint**
 > The list shows **AI Gateway Models User** with the gateway's resource ID as the scope.
 
-<!-- track: iac | Bicep -->
+<!-- track: iac | Bicep + azd -->
 
-### Review the template
+**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
+the Azure CLI with the `aigateway` extension, and Git on your machine, signed in with `azd auth login` and `az login`.
+This track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
+
+### Choose what to declare
 
 The template grants one AI Gateway role to one principal at the gateway, a model alias, or an MCP server. It
-names the assignment with `guid()` of the scope, principal, and role, so redeploying it changes nothing.
+names the assignment with `guid()` of the scope, principal, and role, so redeploying it changes nothing. azd
+passes your signed-in identity as the principal: it sets `AZURE_PRINCIPAL_ID` to your object ID before every
+deployment.
 
-<!-- include: infra/role-assignment.bicep -->
+### Clone the lab
 
-### Deploy it
+The lab is a small azd project in the
+[`labs/11-entra-rbac`](https://github.com/Azure/ai-gateway/tree/main/labs/11-entra-rbac) folder of the GitHub
+repo. Clone the repo and move into that folder. If you cloned it for an earlier lab, move into
+`ai-gateway/labs/11-entra-rbac` instead.
 
 ```bash title="Bash"
-az deployment group create -g "$RG" \
-  --template-file infra/role-assignment.bicep \
-  --parameters gatewayName="$GATEWAY" principalId="$MY_OBJECT_ID" principalType=User role=models \
-  --query properties.outputs
+git clone https://github.com/Azure/ai-gateway.git
+cd ai-gateway/labs/11-entra-rbac
 ```
 
 ```powershell title="PowerShell"
-az deployment group create -g $RG `
-  --template-file infra/role-assignment.bicep `
-  --parameters gatewayName=$GATEWAY principalId=$MY_OBJECT_ID principalType=User role=models `
-  --query properties.outputs
+git clone https://github.com/Azure/ai-gateway.git
+Set-Location ai-gateway/labs/11-entra-rbac
 ```
 
-To grant one alias only, add `scope=alias scopeName="$AI_GATEWAY_MODEL"`. For an MCP server, use `role=tools
-scope=mcp scopeName=<mcp-server-name>`. For a group or managed identity, pass its object ID with
-`principalType=Group` or `principalType=ServicePrincipal`.
+### Review the templates
 
-If you already hold the role at the same scope from another track, the deployment fails with
-`RoleAssignmentExists`, because that assignment has a different name. You have the access you need, so carry on.
+`infra/main.bicep` creates the resource group `rg-<environment name>` and calls the quick start's
+[resources.bicep](../quickstart/infra/resources.bicep) for the gateway, the Foundry model, its default alias, and the
+`app-first-call` key, which this lab doesn't use. Then it calls `infra/role-assignment.bicep` with your object ID:
+
+<!-- include: infra/main.bicep -->
+
+`infra/role-assignment.bicep` creates the assignment. It only references the gateway, so you can also deploy it
+on its own to your gateway from lab 02, with `az deployment group create -g <resource-group> --template-file
+infra/role-assignment.bicep --parameters gatewayName=<gateway> principalId=<object-id>`:
+
+<!-- include: infra/role-assignment.bicep -->
+
+For a group or managed identity, pass its object ID with `principalType=Group` or `principalType=ServicePrincipal`.
+If you already hold the role at the same scope, that deployment fails with `RoleAssignmentExists`, because the
+existing assignment has a different name. You have the access you need, so carry on.
+
+### Deploy with azd up
+
+Create an azd environment named `aigw-lab11` in your current subscription, then provision everything. It takes
+about three minutes.
+
+```bash title="Bash"
+azd env new aigw-lab11 --location eastus2 --subscription "$(az account show --query id --output tsv)"
+azd up
+```
+
+```powershell title="PowerShell"
+azd env new aigw-lab11 --location eastus2 --subscription (az account show --query id --output tsv)
+azd up
+```
+
+For Sweden Central, use `--location swedencentral`.
+
+### Read the outputs
+
+Set the variables that the next sections and **Verify** use from azd's environment values. This lab is keyless, so
+you don't read the key. The last command lists your role assignments on the gateway.
+
+```bash title="Bash"
+export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
+export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
+export PROVIDER="$(azd env get-value AI_GATEWAY_PROVIDER)"
+export MODEL="$(azd env get-value AI_GATEWAY_BACKEND_MODEL)"
+export GATEWAY_ID="$(azd env get-value AI_GATEWAY_ID)"
+export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
+export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
+export MY_OBJECT_ID="$(az ad signed-in-user show --query id -o tsv)"
+# Prove that nothing in this lab uses a key.
+unset AI_GATEWAY_API_KEY
+az role assignment list --scope "$GATEWAY_ID" \
+  --query "[?principalId=='$MY_OBJECT_ID'].{Role:roleDefinitionName, Scope:scope}" -o table
+```
+
+```powershell title="PowerShell"
+$RG                   = azd env get-value AZURE_RESOURCE_GROUP
+$GATEWAY              = azd env get-value AI_GATEWAY_NAME
+$PROVIDER             = azd env get-value AI_GATEWAY_PROVIDER
+$MODEL                = azd env get-value AI_GATEWAY_BACKEND_MODEL
+$GATEWAY_ID           = azd env get-value AI_GATEWAY_ID
+$env:AI_GATEWAY_URL   = azd env get-value AI_GATEWAY_URL
+$env:AI_GATEWAY_MODEL = azd env get-value AI_GATEWAY_MODEL
+$MY_OBJECT_ID         = az ad signed-in-user show --query id -o tsv
+# Prove that nothing in this lab uses a key.
+Remove-Item Env:AI_GATEWAY_API_KEY -ErrorAction SilentlyContinue
+az role assignment list --scope $GATEWAY_ID `
+  --query "[?principalId=='$MY_OBJECT_ID'].{Role:roleDefinitionName, Scope:scope}" -o table
+```
 
 > **Checkpoint**
-> The `roleAssignmentId` output ends with a GUID under the gateway's resource ID, and
-> **Access** › **Entra ID** in the portal lists you with **AI Gateway Models User**.
+> `azd up` ended with `SUCCESS`, and the list shows **AI Gateway Models User** with the gateway's resource ID as
+> the scope. In the portal, **Access** › **Entra ID** lists you with that role.
+
+### Change the role or the scope
+
+The parameters come from azd environment values, with the defaults in `infra/main.parameters.json`.
+`DATA_PLANE_ROLE` picks the role (`user`, `models`, or `tools`), and `DATA_PLANE_ROLE_SCOPE` picks where to grant
+it (`gateway`, or `alias` for the default alias only). To grant only the alias, set the scope and provision again:
+
+```bash title="Bash"
+azd env set DATA_PLANE_ROLE_SCOPE alias
+azd provision
+```
+
+```powershell title="PowerShell"
+azd env set DATA_PLANE_ROLE_SCOPE alias
+azd provision
+```
+
+A Bicep deployment only adds or updates resources, so you now hold the role on the gateway **and** on the alias.
+To test the narrower scope, remove the gateway-wide assignment with the command in **Remove the role and try
+again** under **Verify**: calls to the alias still return `200`. Set `DATA_PLANE_ROLE_SCOPE` back to `gateway` and
+run `azd provision` before **Verify**, which re-creates the gateway-wide assignment. For an MCP server, deploy
+`infra/role-assignment.bicep` on its own with `role=tools scope=mcp scopeName=<mcp-server-name>`.
 
 <!-- /tracks -->
 
@@ -484,7 +579,9 @@ playground, the same error offers **Review access**, which opens the role assign
 ### Restore access
 
 Assign the role again (portal, `az role assignment create`, or `./infra/assign-roles.sh models`), wait for it
-to apply, and confirm the call returns `200`.
+to apply, and confirm the call returns `200`. On the Bicep + azd track, run `azd provision --no-state`: azd skips
+a deployment when the templates and parameters haven't changed, and `--no-state` forces it, so the template
+re-creates the assignment.
 
 <!-- /steps -->
 
@@ -540,7 +637,22 @@ az role assignment delete --assignee $MY_OBJECT_ID `
 Delete `infra/.venv`, `infra/node_modules`, or `infra/bin` and `infra/obj`. Then remove the role assignment
 with the Portal or Azure CLI track.
 
+<!-- track: iac | Bicep + azd -->
+
+### Delete everything azd created
+
+In the `ai-gateway/labs/11-entra-rbac` folder, delete the resource group with the gateway, the Foundry account, and
+your role assignment. `--purge` also purges the Foundry account, which would otherwise stay soft-deleted for 48 hours
+and keep counting against your quota. It takes about ten minutes.
+
+```bash
+azd down --purge --force
+```
+
 <!-- /tracks -->
+
+`azd down` doesn't touch your gateway from lab 02 or its role assignments, because the Bicep + azd track created its
+own gateway.
 
 ## Troubleshooting
 

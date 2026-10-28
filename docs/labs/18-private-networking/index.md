@@ -39,6 +39,12 @@ while the internet can't.
 
 ## Before you begin
 
+> [!TIP]
+> On the **Bicep + azd** track, `azd up` creates its own resource group, network, gateway, and a Foundry resource
+> with `gpt-6-luna` that only this lab uses, so you can skip this section, including the variables. You need only
+> [Azure Cloud Shell](https://shell.azure.com), or the Azure Developer CLI (`azd`), the Azure CLI with the
+> `aigateway` extension, Git, and `jq` on your machine.
+
 - Complete [Provision your AI Gateway](../01-provision-gateway/README.md) and
   [Call backends with managed identities](../12-backend-identity/README.md). You need a Foundry resource with a
   chat model deployment, for example `gpt-6-luna`.
@@ -62,8 +68,9 @@ while the internet can't.
 > This lab creates billable resources: a private endpoint and private DNS zones. The AI Gateway tier is free
 > during the preview. Follow [Clean up](#clean-up) when you finish.
 
-Set these variables once. Every track and the **Verify** section reuse them. The lab puts the new gateway and
-the network in their own resource group, so clean-up is one command.
+Set these variables once. The portal and Azure CLI tracks and the **Verify** section reuse them; the Bicep + azd
+track sets the ones it needs from azd's outputs. The lab puts the new gateway and the network in their own
+resource group, so clean-up is one command.
 
 ```bash title="Bash"
 export RG="rg-ai-gateway-private"            # a new resource group for this lab
@@ -157,8 +164,8 @@ backend private endpoints get their own subnet.
 | `snet-aigw-integration` | `10.20.0.0/24` | Gateway private routing (outbound) | NSG `nsg-aigw-integration`, delegated to `Microsoft.App/environments`, nothing else deployed in it |
 | `snet-private-endpoints` | `10.20.1.0/24` | Private endpoints to backends such as Foundry | None |
 
-Pick one track. The IaC track declares the network, the gateway, and the Foundry private endpoint in one
-template, so you deploy it once in the next section.
+Pick one track. The Bicep + azd track declares the network, the gateway, the Foundry resource and its private
+endpoint, and the model in one azd project, so you deploy everything once in the next section.
 
 <!-- track: portal | Portal -->
 
@@ -220,27 +227,61 @@ az network vnet subnet create -g "$RG" --vnet-name "$VNET" -n "$PE_SUBNET" --add
 >   --query "{prefix:addressPrefix, delegation:delegations[0].serviceName, nsg:networkSecurityGroup.id}"
 > ```
 
-<!-- track: iac | Bicep -->
+<!-- track: iac | Bicep + azd -->
 
-### Review the template
+**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
+the Azure CLI with the `aigateway` extension, Git, and `jq` on your machine, signed in with `azd auth login` and
+`az login`. This track doesn't use your gateway or Foundry resource from the earlier labs: `azd up` creates new
+ones, so it works on its own.
 
-The template declares the NSG, the virtual network and its two subnets, and the gateway itself. It creates the
-gateway with the template from [Provision your AI Gateway](../01-provision-gateway/README.md), used as a module,
-and passes the integration subnet in its `backendSubnetId` parameter, which becomes
-`properties.backend.subnet.id`. When you pass a Foundry resource ID in `foundryAccountId`, it also adds a private
-endpoint to Foundry with the `account` group ID, the three Foundry private DNS zones, their virtual network
-links, and a DNS zone group.
+### Clone the lab
 
-There's no inbound private endpoint and no `publicNetworkAccess: 'Disabled'` in the template, because the
-`aigateways` resource type doesn't support them yet.
+The lab is a small azd project in the
+[`labs/18-private-networking`](https://github.com/Azure/ai-gateway/tree/main/labs/18-private-networking) folder of
+the GitHub repo. Clone the repo and move into that folder. If you cloned it for the quick start, move into
+`ai-gateway/labs/18-private-networking` instead.
+
+```bash title="Bash"
+git clone https://github.com/Azure/ai-gateway.git
+cd ai-gateway/labs/18-private-networking
+```
+
+```powershell title="PowerShell"
+git clone https://github.com/Azure/ai-gateway.git
+Set-Location ai-gateway/labs/18-private-networking
+```
+
+### Review the templates
+
+`infra/main.bicep` creates the resource group `rg-<environment name>` and calls three modules: a Foundry resource
+for this lab, the network with the gateway, and the template from
+[Make your first model call](../02-first-model-call/README.md),
+[publish-model.bicep](../02-first-model-call/infra/publish-model.bicep). That last one grants the gateway's
+identity the **Foundry User** role on the Foundry resource, creates the `foundry-private` provider and the
+`gpt-6-luna` model, publishes the `private-chat` alias, and creates the `private-net-lab` runtime key:
 
 <!-- include: infra/main.bicep -->
 
-On GitHub, open [infra/main.bicep](infra/main.bicep).
+`infra/private-network.bicep` declares the NSG, the virtual network and its two subnets, and the gateway itself.
+It creates the gateway with the template from [Provision your AI Gateway](../01-provision-gateway/README.md),
+[gateway.bicep](../01-provision-gateway/infra/gateway.bicep), used as a module, and passes the integration subnet
+in its `backendSubnetId` parameter, which becomes `properties.backend.subnet.id`. When you pass a Foundry resource
+ID in `foundryAccountId`, it also adds a private endpoint to Foundry with the `account` group ID, the three Foundry
+private DNS zones, their virtual network links, and a DNS zone group. You can also deploy it on its own to an
+existing resource group.
+
+There's no inbound private endpoint and no `publicNetworkAccess: 'Disabled'` for the gateway in the template,
+because the `aigateways` resource type doesn't support them yet.
+
+<!-- include: infra/private-network.bicep -->
+
+`infra/foundry.bicep` creates the Foundry resource with local authentication turned off and a `gpt-6-luna`
+deployment. Its `publicNetworkAccess` parameter starts as `Enabled`, and you turn it off later in the lab:
+
+<!-- include: infra/foundry.bicep -->
 
 > **Checkpoint**
-> You know which parameters you pass: `gatewayName`, `location`, and `foundryAccountId`. You deploy the template
-> in the next section.
+> You know what `azd up` creates. You deploy it in the next section.
 
 <!-- /tracks -->
 
@@ -329,38 +370,67 @@ az aigateway create -g $RG -n $GATEWAY --location $LOCATION --system-assigned tr
 > **Checkpoint**
 > `az aigateway create` returns without an error, usually within a few minutes.
 
-<!-- track: iac | Bicep -->
+<!-- track: iac | Bicep + azd -->
 
-### Deploy the network, the gateway, and the Foundry private endpoint
+### Deploy with azd up
 
-From the lab folder, register the resource providers once, then deploy the template:
+In the `ai-gateway/labs/18-private-networking` folder, create an azd environment named `aigw-lab18` in your
+current subscription, then provision everything. It takes about seven minutes.
 
 ```bash title="Bash"
-az provider register -n Microsoft.ApiManagement --wait
-az provider register -n Microsoft.Web --wait
-
-az deployment group create -g "$RG" \
-  --template-file infra/main.bicep \
-  --parameters gatewayName="$GATEWAY" location="$LOCATION" foundryAccountId="$FOUNDRY_ID" \
-  --query properties.outputs
+azd env new aigw-lab18 --location eastus2 --subscription "$(az account show --query id --output tsv)"
+azd up
 ```
 
 ```powershell title="PowerShell"
-az provider register -n Microsoft.ApiManagement --wait
-az provider register -n Microsoft.Web --wait
-
-az deployment group create -g $RG `
-  --template-file infra/main.bicep `
-  --parameters gatewayName=$GATEWAY location=$LOCATION foundryAccountId=$FOUNDRY_ID `
-  --query properties.outputs
+azd env new aigw-lab18 --location eastus2 --subscription (az account show --query id --output tsv)
+azd up
 ```
 
+For Sweden Central, use `--location swedencentral`. The Foundry resource's public access comes from the
+`FOUNDRY_PUBLIC_NETWORK_ACCESS` azd environment value, with the default `Enabled` in `infra/main.parameters.json`.
+
 Bicep has no type definitions yet for `Microsoft.ApiManagement/aigateways` and `Microsoft.Web/connectorGateways`,
-so lab 01's template silences the `BCP081` warnings about them with `#disable-next-line BCP081`.
+so the templates silence the `BCP081` warnings about them with `#disable-next-line BCP081`.
+
+### Read the outputs and the key
+
+Set the variables that the next sections and **Verify** use from azd's environment values, and read the key from
+the gateway so that it never shows on screen:
+
+```bash title="Bash"
+export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
+export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
+export GATEWAY_ID="$(azd env get-value AI_GATEWAY_ID)"
+export KEY_NAME="$(azd env get-value AI_GATEWAY_KEY_NAME)"
+export FOUNDRY_PE="$(azd env get-value FOUNDRY_PRIVATE_ENDPOINT_NAME)"
+export FOUNDRY_ENDPOINT="$(azd env get-value FOUNDRY_ENDPOINT)"
+export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
+export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
+export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/$KEY_NAME" \
+  --query primaryKey --output tsv)"
+
+echo "$GATEWAY  $FOUNDRY_PE  $AI_GATEWAY_MODEL"
+```
+
+```powershell title="PowerShell"
+$RG                     = azd env get-value AZURE_RESOURCE_GROUP
+$GATEWAY                = azd env get-value AI_GATEWAY_NAME
+$GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
+$KEY_NAME               = azd env get-value AI_GATEWAY_KEY_NAME
+$FOUNDRY_PE             = azd env get-value FOUNDRY_PRIVATE_ENDPOINT_NAME
+$FOUNDRY_ENDPOINT       = azd env get-value FOUNDRY_ENDPOINT
+$env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
+$env:AI_GATEWAY_MODEL   = azd env get-value AI_GATEWAY_MODEL
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/$KEY_NAME" `
+  --query primaryKey --output tsv
+
+"$GATEWAY  $FOUNDRY_PE  $env:AI_GATEWAY_MODEL"
+```
 
 > **Checkpoint**
-> The outputs include `gatewayUrl`, `integrationSubnetId`, and `foundryPrivateEndpointName`
-> (`pe-foundry-<private-gateway>`).
+> `azd up` ended with `SUCCESS`, and the last command printed the gateway name, the private endpoint name, and the
+> alias, for example `aigw-abc123  pe-foundry-aigw-abc123  private-chat`.
 
 <!-- /tracks -->
 
@@ -443,14 +513,13 @@ foreach ($zone in $zones) {
 }
 ```
 
-<!-- track: iac | Bicep -->
+<!-- track: iac | Bicep + azd -->
 
-### Check what the deployment created
+### Check what azd created
 
-You passed `foundryAccountId` in the previous section, so the deployment already created the private endpoint,
-the three private DNS zones, their virtual network links, and the DNS zone group. If you left `foundryAccountId`
-out, run the CLI track's commands for this section instead of redeploying, because the template also declares
-the gateway, and its private routing can't change after creation.
+`azd up` passed the lab's Foundry resource to `infra/private-network.bicep` in `foundryAccountId`, so it already
+created the private endpoint, the three private DNS zones, their virtual network links, and the DNS zone group.
+Check them with the commands in the next checkpoint.
 
 <!-- /tracks -->
 
@@ -581,46 +650,21 @@ $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-nam
 $env:AI_GATEWAY_MODEL   = $ALIAS
 ```
 
-<!-- track: iac | Bicep -->
+<!-- track: iac | Bicep + azd -->
 
-### Deploy the model template from lab 02
+### Check the model and the key
 
-The template from [Make your first model call](../02-first-model-call/README.md) publishes a Foundry deployment
-on an existing gateway: it grants the gateway's identity the **Foundry User** role, creates the provider, the
-model, and an alias, and creates a runtime API key. Run it from this lab's folder against the new gateway:
+`azd up` also deployed lab 02's template on the new gateway: the gateway's identity has the **Foundry User** role
+on the lab's Foundry resource, and the gateway has the `foundry-private` provider, the `gpt-6-luna` model, the
+`private-chat` alias, and the `private-net-lab` runtime key. You read the alias and the key into `AI_GATEWAY_MODEL`
+and `AI_GATEWAY_API_KEY` in the previous section. Check where the alias points:
 
-```bash title="Bash"
-az deployment group create -g "$RG" \
-  --template-file ../02-first-model-call/infra/main.bicep \
-  --parameters gatewayName="$GATEWAY" foundryAccountId="$FOUNDRY_ID" deploymentName="$DEPLOYMENT" \
-               providerName="$PROVIDER" aliasName="$ALIAS" apiKeyName="$KEY_NAME" \
-  --query properties.outputs
+```bash
+az aigateway model-alias show -g "$RG" --gateway-name "$GATEWAY" -n "$AI_GATEWAY_MODEL" \
+  --query "properties.backendModels[0].resourceId" -o tsv
 ```
 
-```powershell title="PowerShell"
-az deployment group create -g $RG `
-  --template-file ../02-first-model-call/infra/main.bicep `
-  --parameters gatewayName=$GATEWAY foundryAccountId=$FOUNDRY_ID deploymentName=$DEPLOYMENT `
-               providerName=$PROVIDER aliasName=$ALIAS apiKeyName=$KEY_NAME `
-  --query properties.outputs
-```
-
-### Read the alias and key
-
-Template outputs never contain the key value. Read it with `az aigateway api-key list-secrets` straight into a
-variable.
-
-```bash title="Bash"
-export AI_GATEWAY_MODEL="$ALIAS"
-AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" \
-  --query primaryKey -o tsv)" && export AI_GATEWAY_API_KEY
-```
-
-```powershell title="PowerShell"
-$env:AI_GATEWAY_MODEL   = $ALIAS
-$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n $KEY_NAME `
-  --query primaryKey -o tsv
-```
+The output ends with `/modelProviders/foundry-private/models/gpt-6-luna`.
 
 <!-- /tracks -->
 
@@ -667,19 +711,18 @@ az resource update --ids "$FOUNDRY_ID" --set properties.publicNetworkAccess=Disa
   --query properties.publicNetworkAccess -o tsv
 ```
 
-<!-- track: iac | Bicep -->
+<!-- track: iac | Bicep + azd -->
 
 ### Disable public network access on Foundry
 
-The Foundry resource lives in its own template, so change only its public access setting here instead of
-redeclaring it:
+`infra/foundry.bicep` takes the Foundry resource's public access from the `FOUNDRY_PUBLIC_NETWORK_ACCESS` azd
+environment value. Set it to `Disabled` and provision again. azd updates the Foundry resource, and the gateway keeps
+its private routing, because the template passes the same subnet:
 
 ```bash
-az resource update --ids "$FOUNDRY_ID" --set properties.publicNetworkAccess=Disabled \
-  --query properties.publicNetworkAccess -o tsv
+azd env set FOUNDRY_PUBLIC_NETWORK_ACCESS Disabled
+azd provision
 ```
-
-If you deploy Foundry with Bicep yourself, set `publicNetworkAccess: 'Disabled'` in that template instead.
 
 <!-- /tracks -->
 
@@ -767,10 +810,25 @@ anymore, but the gateway can.
 
 ## Clean up
 
-Re-enable Foundry's public access first, because the gateway from the earlier labs and other callers reach it
-over the internet. Then remove the new gateway's role assignment on Foundry and delete the lab's resource group,
-which holds the gateway, its connector gateway, the private endpoint, the private DNS zones, the virtual network,
-and the NSG.
+On the portal and Azure CLI tracks, re-enable Foundry's public access first, because the gateway from the earlier
+labs and other callers reach it over the internet. Then remove the new gateway's role assignment on Foundry and
+delete the lab's resource group, which holds the gateway, its connector gateway, the private endpoint, the private
+DNS zones, the virtual network, and the NSG.
+
+<!-- track: portal | Portal -->
+
+### Delete the lab's resources
+
+In the Azure portal, re-enable public network access on the Foundry resource, remove the new gateway's
+**Foundry User** role assignment in its **Access control (IAM)**, and delete `rg-ai-gateway-private`.
+
+If you put the lab's resources in a resource group you want to keep, delete them in this order instead: the
+gateway and its connector gateway, then the private endpoint, the private DNS zone links and zones, the virtual
+network, and the NSG.
+
+<!-- track: cli | Azure CLI -->
+
+### Delete the lab's resources
 
 ```bash title="Bash"
 az resource update --ids "$FOUNDRY_ID" --set properties.publicNetworkAccess=Enabled \
@@ -792,9 +850,6 @@ az role assignment delete --assignee $PRINCIPAL_ID --role "53ca6127-db72-4b80-b1
 az group delete -n $RG --yes
 ```
 
-In the portal, you can do the same: re-enable public network access on the Foundry resource, remove the new
-gateway's **Foundry User** role assignment in its **Access control (IAM)**, and delete `rg-ai-gateway-private`.
-
 If you put the lab's resources in a resource group you want to keep, delete them in this order instead: the
 gateway and its connector gateway, then the private endpoint, the private DNS zone links and zones, the virtual
 network, and the NSG.
@@ -809,7 +864,22 @@ az aigateway delete -g $RG -n $GATEWAY --yes
 az resource delete -g $RG -n $GATEWAY --resource-type Microsoft.Web/connectorGateways --api-version 2026-05-01-preview
 ```
 
-Keep the gateway, model, and key from the earlier labs. The next labs reuse them.
+<!-- track: iac | Bicep + azd -->
+
+### Delete everything azd created
+
+In the `ai-gateway/labs/18-private-networking` folder, delete the resource group with the gateway, the network, the
+private endpoint and DNS zones, and the lab's Foundry resource. `--purge` also purges the Foundry resource, which
+would otherwise stay soft-deleted for 48 hours and keep counting against your quota. It takes about ten minutes.
+
+```bash
+azd down --purge --force
+```
+
+<!-- /tracks -->
+
+Keep the gateway, model, and key from the earlier labs. The next labs reuse them. `azd down` doesn't touch them,
+because the Bicep + azd track created its own gateway and Foundry resource.
 
 ## Troubleshooting
 

@@ -1,54 +1,42 @@
-// Provisions an Azure AI Gateway (Microsoft.ApiManagement/aigateways) in the Consumption SKU with a
-// system-assigned managed identity, then the companion connector gateway (Microsoft.Web/connectorGateways)
-// with the same name. This follows the AI Gateway reference sample:
-// https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway/blob/main/infra/ai-gateway/main.bicep
-targetScope = 'resourceGroup'
+// Lab 01 with azd: "azd up" creates the resource group rg-<environment name>, then calls gateway.bicep to create
+// an AI gateway with a unique name and its connector gateway.
+targetScope = 'subscription'
 
-@description('Gateway name. It becomes the first label of the runtime host name, so use letters, numbers, and hyphens (max 24 characters).')
+@description('azd environment name. The resource group is rg-<environmentName>.')
 @minLength(1)
-@maxLength(24)
-param gatewayName string
+@maxLength(60)
+param environmentName string
 
-@description('Region for the gateway. During public preview, Azure AI Gateway is available in East US 2 and Sweden Central.')
+@description('Region for every resource. During the preview, AI Gateway runs in East US 2 and Sweden Central.')
 @allowed([
   'eastus2'
   'swedencentral'
 ])
-param location string = 'eastus2'
+@metadata({ azd: { type: 'location' } })
+param location string
 
-@description('Tags applied to both resources.')
-param tags object = {}
+var suffix = take(uniqueString(subscription().id, environmentName, location), 6)
+var tags = { 'azd-env-name': environmentName }
 
-@description('Optional subnet resource ID for outbound virtual network integration. It can only be set when the gateway is created.')
-param backendSubnetId string = ''
-
-#disable-next-line BCP081
-resource aiGateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' = {
-  name: gatewayName
+resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
+  name: 'rg-${environmentName}'
   location: location
   tags: tags
-  identity: {
-    type: 'SystemAssigned'
-  }
-  sku: {
-    name: 'Consumption'
-  }
-  properties: empty(backendSubnetId) ? {} : { backend: { subnet: { id: backendSubnetId } } }
 }
 
-#disable-next-line BCP081
-resource connectorGateway 'Microsoft.Web/connectorGateways@2026-05-01-preview' = {
-  name: gatewayName
-  location: location
-  tags: tags
-  properties: {}
-  dependsOn: [
-    aiGateway
-  ]
+// The lab's template: the gateway in the Consumption SKU with a system-assigned identity, then its connector gateway.
+module gateway 'gateway.bicep' = {
+  name: 'aigw-gateway'
+  scope: rg
+  params: {
+    gatewayName: 'aigw-${suffix}'
+    location: location
+    tags: tags
+  }
 }
 
-output gatewayName string = aiGateway.name
-output gatewayUrl string = 'https://${aiGateway.properties.frontend.defaultHostname}'
-output gatewayId string = aiGateway.id
-output principalId string = aiGateway.identity.principalId
-output connectorGatewayId string = connectorGateway.id
+output AZURE_RESOURCE_GROUP string = rg.name
+output AI_GATEWAY_NAME string = gateway.outputs.gatewayName
+output AI_GATEWAY_ID string = gateway.outputs.gatewayId
+output AI_GATEWAY_URL string = gateway.outputs.gatewayUrl
+output AI_GATEWAY_PRINCIPAL_ID string = gateway.outputs.principalId

@@ -1,216 +1,88 @@
-// Private routing for a new AI Gateway (Microsoft.ApiManagement/aigateways).
-// Outbound virtual network integration can only be set when the gateway is created, so this template creates:
-//   - an NSG that allows outbound TCP 443 to the Storage and AzureKeyVault service tags
-//   - a virtual network with an integration subnet (delegated to Microsoft.App/environments, dedicated to the
-//     gateway) and a private-endpoint subnet
-//   - the gateway, joined to the integration subnet, by reusing the lab 01 template as a module
-//   - optionally, a private endpoint to a Foundry resource (group ID "account") with its private DNS zones
-// Inbound private endpoints and disabling the gateway's public network access aren't available for the
-// aigateways resource type yet, so the template doesn't declare them.
+// Lab 18 with azd: "azd up" creates the resource group rg-<environment name> with a dedicated Foundry account and
+// gpt-6-luna, a virtual network, a new gateway with private routing through the network's integration subnet, a
+// private endpoint and private DNS for Foundry, and lab 02's provider, model, private-chat alias, and runtime key.
+// Set FOUNDRY_PUBLIC_NETWORK_ACCESS to Disabled and run "azd provision" to turn off Foundry's public access.
+// The key value is never an output.
+targetScope = 'subscription'
 
-@description('Name of the new gateway, 24 characters or fewer. It becomes the first label of the runtime host name.')
+@description('azd environment name. The resource group is rg-<environmentName>.')
 @minLength(1)
-@maxLength(24)
-param gatewayName string
+@maxLength(60)
+param environmentName string
 
-@description('Region for the gateway and the network. The integration subnet must be in the gateway region.')
+@description('Region for every resource. During the preview, AI Gateway runs in East US 2 and Sweden Central.')
 @allowed([
   'eastus2'
   'swedencentral'
 ])
-param location string = 'eastus2'
+@metadata({ azd: { type: 'location' } })
+param location string
 
-@description('Tags applied to the gateway and the network resources.')
-param tags object = {}
+@description('Public network access of the lab\'s Foundry account. Set it to Disabled once the private endpoint exists.')
+@allowed([
+  'Enabled'
+  'Disabled'
+])
+param foundryPublicNetworkAccess string = 'Enabled'
 
-@description('Name of the virtual network.')
-param vnetName string = 'vnet-aigw'
+var suffix = take(uniqueString(subscription().id, environmentName, location), 6)
+var tags = { 'azd-env-name': environmentName }
 
-@description('Address space of the virtual network.')
-param vnetAddressPrefix string = '10.20.0.0/16'
-
-@description('Name of the subnet dedicated to the gateway\'s outbound integration.')
-param integrationSubnetName string = 'snet-aigw-integration'
-
-@description('Prefix of the integration subnet. /27 is the minimum; /24 leaves room to scale.')
-param integrationSubnetPrefix string = '10.20.0.0/24'
-
-@description('Name of the subnet that holds private endpoints to backends.')
-param privateEndpointSubnetName string = 'snet-private-endpoints'
-
-@description('Prefix of the private-endpoint subnet.')
-param privateEndpointSubnetPrefix string = '10.20.1.0/24'
-
-@description('Name of the network security group attached to the integration subnet.')
-param nsgName string = 'nsg-aigw-integration'
-
-@description('Optional resource ID of a Foundry (AIServices) account to reach privately. Leave empty to skip.')
-param foundryAccountId string = ''
-
-@description('Name of the private endpoint to the Foundry account.')
-param foundryPrivateEndpointName string = 'pe-foundry-${gatewayName}'
-
-var includeFoundryPrivateEndpoint = !empty(foundryAccountId)
-
-// Standard private DNS zones for Foundry (AIServices) accounts.
-var foundryDnsZoneNames = [
-  'privatelink.cognitiveservices.azure.com'
-  'privatelink.openai.azure.com'
-  'privatelink.services.ai.azure.com'
-]
-
-resource nsg 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
-  name: nsgName
+resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
+  name: 'rg-${environmentName}'
   location: location
   tags: tags
-  properties: {
-    securityRules: [
-      {
-        name: 'AllowStorageOutbound'
-        properties: {
-          priority: 100
-          direction: 'Outbound'
-          access: 'Allow'
-          protocol: 'Tcp'
-          sourceAddressPrefix: 'VirtualNetwork'
-          sourcePortRange: '*'
-          destinationAddressPrefix: 'Storage'
-          destinationPortRange: '443'
-        }
-      }
-      {
-        name: 'AllowKeyVaultOutbound'
-        properties: {
-          priority: 110
-          direction: 'Outbound'
-          access: 'Allow'
-          protocol: 'Tcp'
-          sourceAddressPrefix: 'VirtualNetwork'
-          sourcePortRange: '*'
-          destinationAddressPrefix: 'AzureKeyVault'
-          destinationPortRange: '443'
-        }
-      }
-    ]
-  }
 }
 
-// Subnets are declared inline so that redeploying the template never tries to delete them.
-resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' = {
-  name: vnetName
-  location: location
-  tags: tags
-  properties: {
-    addressSpace: {
-      addressPrefixes: [ vnetAddressPrefix ]
-    }
-    subnets: [
-      {
-        name: integrationSubnetName
-        properties: {
-          addressPrefix: integrationSubnetPrefix
-          networkSecurityGroup: {
-            id: nsg.id
-          }
-          delegations: [
-            {
-              name: 'Microsoft.App.environments'
-              properties: {
-                serviceName: 'Microsoft.App/environments'
-              }
-            }
-          ]
-        }
-      }
-      {
-        name: privateEndpointSubnetName
-        properties: {
-          addressPrefix: privateEndpointSubnetPrefix
-          privateEndpointNetworkPolicies: 'Disabled'
-        }
-      }
-    ]
-  }
-}
-
-resource integrationSubnet 'Microsoft.Network/virtualNetworks/subnets@2024-05-01' existing = {
-  parent: vnet
-  name: integrationSubnetName
-}
-
-resource privateEndpointSubnet 'Microsoft.Network/virtualNetworks/subnets@2024-05-01' existing = {
-  parent: vnet
-  name: privateEndpointSubnetName
-}
-
-// The gateway, created with private routing through the integration subnet (lab 01's template).
-module gateway '../../01-provision-gateway/infra/main.bicep' = {
-  name: 'aigw-${gatewayName}'
+// A Foundry account with gpt-6-luna that only this lab uses, so you can turn off its public access.
+module foundry 'foundry.bicep' = {
+  name: 'aigw-foundry'
+  scope: rg
   params: {
-    gatewayName: gatewayName
+    accountName: 'aigw${suffix}'
     location: location
     tags: tags
-    backendSubnetId: integrationSubnet.id
+    publicNetworkAccess: foundryPublicNetworkAccess
   }
 }
 
-// Outbound: the integrated gateway resolves the Foundry account to a private IP and calls it privately.
-resource foundryDnsZones 'Microsoft.Network/privateDnsZones@2020-06-01' = [for zoneName in foundryDnsZoneNames: if (includeFoundryPrivateEndpoint) {
-  name: zoneName
-  location: 'global'
-  tags: tags
-}]
-
-resource foundryDnsZoneLinks 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = [for (zoneName, i) in foundryDnsZoneNames: if (includeFoundryPrivateEndpoint) {
-  parent: foundryDnsZones[i]
-  name: '${vnetName}-link'
-  location: 'global'
-  properties: {
-    registrationEnabled: false
-    virtualNetwork: {
-      id: vnet.id
-    }
-  }
-}]
-
-resource foundryPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' = if (includeFoundryPrivateEndpoint) {
-  name: foundryPrivateEndpointName
-  location: location
-  tags: tags
-  properties: {
-    subnet: {
-      id: privateEndpointSubnet.id
-    }
-    privateLinkServiceConnections: [
-      {
-        name: 'foundry'
-        properties: {
-          privateLinkServiceId: foundryAccountId
-          groupIds: [ 'account' ]
-        }
-      }
-    ]
+// The network, the gateway with private routing, and the Foundry private endpoint with its private DNS zones.
+module network 'private-network.bicep' = {
+  name: 'aigw-private-network'
+  scope: rg
+  params: {
+    gatewayName: 'aigw-${suffix}'
+    location: location
+    tags: tags
+    foundryAccountId: foundry.outputs.accountId
   }
 }
 
-resource foundryPrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2024-05-01' = if (includeFoundryPrivateEndpoint) {
-  parent: foundryPrivateEndpoint
-  name: 'default'
-  properties: {
-    privateDnsZoneConfigs: [for (zoneName, i) in foundryDnsZoneNames: {
-      name: replace(zoneName, '.', '-')
-      properties: {
-        privateDnsZoneId: foundryDnsZones[i].id
-      }
-    }]
+// Lab 02's template: the Foundry User role for the gateway, the provider, the model, the alias, and a runtime key.
+module publish '../../02-first-model-call/infra/publish-model.bicep' = {
+  name: 'aigw-publish-model'
+  scope: rg
+  params: {
+    gatewayName: network.outputs.gatewayName
+    foundryAccountId: foundry.outputs.accountId
+    deploymentName: foundry.outputs.deploymentName
+    providerName: 'foundry-private'
+    aliasName: 'private-chat'
+    apiKeyName: 'private-net-lab'
+    apiKeyDisplayName: 'private-net-lab'
   }
 }
 
-output vnetId string = vnet.id
-output integrationSubnetId string = integrationSubnet.id
-output privateEndpointSubnetId string = privateEndpointSubnet.id
-output gatewayName string = gateway.outputs.gatewayName
-output gatewayId string = gateway.outputs.gatewayId
-output gatewayUrl string = gateway.outputs.gatewayUrl
-output principalId string = gateway.outputs.principalId
-output foundryPrivateEndpointName string = includeFoundryPrivateEndpoint ? foundryPrivateEndpoint.name : ''
+output AZURE_RESOURCE_GROUP string = rg.name
+output AI_GATEWAY_NAME string = network.outputs.gatewayName
+output AI_GATEWAY_ID string = network.outputs.gatewayId
+output AI_GATEWAY_URL string = network.outputs.gatewayUrl
+output AI_GATEWAY_PROVIDER string = publish.outputs.providerName
+output AI_GATEWAY_BACKEND_MODEL string = publish.outputs.modelName
+output AI_GATEWAY_MODEL string = publish.outputs.aliasName
+output AI_GATEWAY_KEY_NAME string = publish.outputs.apiKeyName
+output AI_GATEWAY_SUBNET_ID string = network.outputs.integrationSubnetId
+output FOUNDRY_ACCOUNT_NAME string = foundry.outputs.accountName
+output FOUNDRY_ACCOUNT_ID string = foundry.outputs.accountId
+output FOUNDRY_ENDPOINT string = foundry.outputs.endpoint
+output FOUNDRY_PRIVATE_ENDPOINT_NAME string = network.outputs.foundryPrivateEndpointName

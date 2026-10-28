@@ -1,72 +1,72 @@
-// Publishes a rate-limited alias for an existing AI Gateway model.
-// The alias points at the same backend model as your default alias, but carries its own token limit,
-// so you can give a "batch" or "trial" audience a smaller allowance without touching the model.
+// Lab 06 with azd: "azd up" creates the resource group rg-<environment name>, the quick start's gateway, Foundry
+// model, default alias, and runtime API key, then a second alias for the same model with its own token limit.
+// The runtime API key is never an output.
+targetScope = 'subscription'
 
-@description('Name of the existing AI Gateway (Microsoft.ApiManagement/aigateways).')
-param gatewayName string
+@description('azd environment name. The resource group is rg-<environmentName>.')
+@minLength(1)
+@maxLength(60)
+param environmentName string
 
-@description('Name of the existing model provider in the gateway, for example foundry-models.')
-param providerName string
+@description('Region for every resource. During the preview, AI Gateway runs in East US 2 and Sweden Central.')
+@allowed([
+  'eastus2'
+  'swedencentral'
+])
+@metadata({ azd: { type: 'location' } })
+param location string
 
-@description('Name of the existing backend model registration under the provider.')
-param modelName string
-
-@description('Callable alias to create. Clients send this value in the request "model" field.')
-param aliasName string = '${modelName}-limited'
-
-@description('Tokens allowed per period for each caller.')
+@description('Tokens allowed per period for each caller. azd reads it from TOKEN_LIMIT.')
 @minValue(1)
 param allowedTokens int = 1000
 
-@description('Token limit window.')
+@description('Token limit window. azd reads it from TOKEN_LIMIT_PERIOD.')
 @allowed([ 'minute', 'hour', 'day' ])
 param period string = 'minute'
 
-@description('Who gets a token counter: identity (each API key or Entra principal), ipAddress (each client IP address), or both.')
+@description('Who gets a token counter. azd reads it from TOKEN_LIMIT_COUNTER_KEY.')
 @allowed([ 'identity', 'ipAddress' ])
 param counterKey array = [ 'identity' ]
 
-#disable-next-line BCP081
-resource gateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' existing = {
-  name: gatewayName
+var suffix = take(uniqueString(subscription().id, environmentName, location), 6)
+var tags = { 'azd-env-name': environmentName }
+
+resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
+  name: 'rg-${environmentName}'
+  location: location
+  tags: tags
 }
 
-#disable-next-line BCP081
-resource workspace 'Microsoft.ApiManagement/aigateways/workspaces@2025-09-01-preview' existing = {
-  parent: gateway
-  name: 'default'
-}
-
-#disable-next-line BCP081
-resource provider 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders@2025-09-01-preview' existing = {
-  parent: workspace
-  name: providerName
-}
-
-#disable-next-line BCP081
-resource model 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders/models@2025-09-01-preview' existing = {
-  parent: provider
-  name: modelName
-}
-
-#disable-next-line BCP081
-resource limitedAlias 'Microsoft.ApiManagement/aigateways/workspaces/aliases@2025-09-01-preview' = {
-  parent: workspace
-  name: aliasName
-  properties: {
-    backendModels: [
-      { resourceId: model.id }
-    ]
-    policies: [
-      {
-        type: 'tokenLimit'
-        count: allowedTokens
-        period: period
-        counterKey: counterKey
-      }
-    ]
+// The quick start's template: a gateway, a Foundry model behind the default alias, and the app-first-call key.
+module base '../../quickstart/infra/resources.bicep' = {
+  name: 'aigw-base'
+  scope: rg
+  params: {
+    location: location
+    tags: tags
+    gatewayName: 'aigw-${suffix}'
+    foundryName: 'aigw${suffix}'
   }
 }
 
-output aliasName string = limitedAlias.name
-output chatCompletionsUrl string = 'https://${gateway.properties.frontend.defaultHostname}/default/models/openai/v1/chat/completions'
+module limitedAlias 'limited-alias.bicep' = {
+  name: 'aigw-limited-alias'
+  scope: rg
+  params: {
+    gatewayName: base.outputs.gatewayName
+    providerName: base.outputs.providerName
+    modelName: base.outputs.modelName
+    allowedTokens: allowedTokens
+    period: period
+    counterKey: counterKey
+  }
+}
+
+output AZURE_RESOURCE_GROUP string = rg.name
+output AI_GATEWAY_NAME string = base.outputs.gatewayName
+output AI_GATEWAY_ID string = base.outputs.gatewayId
+output AI_GATEWAY_URL string = base.outputs.gatewayUrl
+output AI_GATEWAY_PROVIDER string = base.outputs.providerName
+output AI_GATEWAY_BACKEND_MODEL string = base.outputs.modelName
+output AI_GATEWAY_MODEL string = limitedAlias.outputs.aliasName
+output FOUNDRY_ACCOUNT_NAME string = base.outputs.foundryName

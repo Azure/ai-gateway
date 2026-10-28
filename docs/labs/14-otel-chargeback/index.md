@@ -4,7 +4,7 @@ summary: Export Microsoft Entra token claims with the gateway's logs, traces, an
 category: observability
 level: Advanced
 duration: 35
-tracks: [portal, rest]
+tracks: [portal, rest, iac]
 order: 14
 status: new
 illustration: diagrams/observability.svg
@@ -29,6 +29,13 @@ Application Insights already collects.
 ![AI Gateway exports metrics, logs, and traces with caller attributes](../assets/diagrams/observability.svg "Token claims ride along with the telemetry the gateway already exports, so every log, root trace, and token metric can name its caller.")
 
 ## Before you begin
+
+> [!TIP]
+> On the **Bicep + azd** track, `azd up` creates its own gateway, model, key, Application Insights, and role
+> assignment, so you can skip this section. You need only [Azure Cloud Shell](https://shell.azure.com), or the Azure
+> Developer CLI (`azd`), the Azure CLI, and Git on your machine, and permission to create role assignments, for
+> example **Owner** on the subscription. The later sections also use Python 3.10 or later, and `curl` and `jq` or
+> PowerShell 7, which Cloud Shell has.
 
 - Complete [Monitor usage, cost, and traces](../13-monitoring/README.md) with **Configure telemetry**, so the
   gateway exports all three signals to Application Insights with an OpenTelemetry exporter.
@@ -141,15 +148,146 @@ az rest --method get --url "$WS/telemetryExporters?$API" `
   --query "value[].{name:name, kind:properties.kind, claims:properties.telemetry.attributes}"
 ```
 
-Expected output: one exporter of kind `openTelemetry`, usually named `appinsights`, whose claims list `tid`, `oid`,
+Expected output: one exporter of kind `OpenTelemetry`, usually named `appinsights`, whose claims list `tid`, `oid`,
 `appid`, and `azp`, each with its `signals`. A kind of `applicationInsights` is the legacy exporter. Reconfigure
 monitoring as in [Monitor usage, cost, and traces](../13-monitoring/README.md) first.
 
 ### Change it in the portal
 
-The write shape for claim attributes isn't documented for automation yet, so make the change in the portal: open
-**Monitoring** › **Settings** › **Logging** › **Token claim attributes** and select **Metrics** for `appid` and
-`azp`. Then run the `GET` again. Both claims now list `metrics` in their `signals`.
+Make the change in the portal: open **Monitoring** › **Settings** › **Logging** › **Token claim attributes** and
+select **Metrics** for `appid` and `azp`. To automate it, declare the claims in the exporter's
+`telemetry.attributes` list, as the **Bicep + azd** track does. Then run the `GET` again. Both claims now list
+`metrics` in their `signals`.
+
+<!-- track: iac | Bicep + azd -->
+
+**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
+the Azure CLI with the `aigateway` extension, and Git on your machine, signed in with `azd auth login` and `az login`.
+This track doesn't use your gateway from the earlier labs: `azd up` creates a new one, so it works on its own.
+
+### Choose what to declare
+
+The templates reuse lab 13's and lab 11's. Lab 13's
+[monitoring.bicep](../13-monitoring/infra/monitoring.bicep) creates the Application Insights destination with OTLP
+ingestion turned on, and its [otel-exporter.bicep](../13-monitoring/infra/otel-exporter.bicep) creates the gateway's
+OpenTelemetry exporter. The claim attributes are part of that exporter, in its `telemetry.attributes` list. Each
+entry names a claim in `source` (`kind` is `claims`, `value` is the claim name, such as `tid`) and lists the signals
+that carry it in `signals`: `logs`, `traces`, and `metrics`.
+
+`infra/main.bicep` passes the recommended preset and adds `metrics` for `appid` and `azp`. It also calls lab 11's
+[role-assignment.bicep](../11-entra-rbac/infra/role-assignment.bicep) to grant you **AI Gateway Models User** on
+the gateway, for the Entra calls in the next section. As in lab 13, `azure.yaml` grants the gateway's managed
+identity **Monitoring Metrics Publisher** on the Data Collection Rule in a `postprovision` hook, because the rule's
+managed resource group blocks deployments.
+
+### Clone the lab
+
+The lab is a small azd project in the
+[`labs/14-otel-chargeback`](https://github.com/Azure/ai-gateway/tree/main/labs/14-otel-chargeback) folder of the
+GitHub repo. Clone the repo and move into that folder. If you cloned it for an earlier lab, move into
+`ai-gateway/labs/14-otel-chargeback` instead. The next sections run the lab's scripts from this folder.
+
+```bash title="Bash"
+git clone https://github.com/Azure/ai-gateway.git
+cd ai-gateway/labs/14-otel-chargeback
+```
+
+```powershell title="PowerShell"
+git clone https://github.com/Azure/ai-gateway.git
+Set-Location ai-gateway/labs/14-otel-chargeback
+```
+
+### Review the templates
+
+`infra/main.bicep` creates the resource group `rg-<environment name>` and calls the quick start's
+[resources.bicep](../quickstart/infra/resources.bicep) for the gateway, the Foundry model, its default alias, and the
+`app-first-call` key. Then it calls lab 13's templates with the claims to export, and lab 11's role assignment for
+the identity that runs azd. `azd` passes your object ID in `AZURE_PRINCIPAL_ID`:
+
+<!-- include: infra/main.bicep -->
+
+`azure.yaml` holds the `postprovision` hook that grants the role on the Data Collection Rule:
+
+<!-- include: azure.yaml -->
+
+### Deploy with azd up
+
+Create an azd environment named `aigw-lab14` in your current subscription, then provision everything. It takes
+about four minutes.
+
+```bash title="Bash"
+azd env new aigw-lab14 --location eastus2 --subscription "$(az account show --query id --output tsv)"
+azd up
+```
+
+```powershell title="PowerShell"
+azd env new aigw-lab14 --location eastus2 --subscription (az account show --query id --output tsv)
+azd up
+```
+
+For Sweden Central, use `--location swedencentral`.
+
+### Read the outputs and the key
+
+Set the variables that the next sections use from azd's environment values, and read the key from the gateway, so
+that it never shows on screen. The last command lists the exporter's claims.
+
+```bash title="Bash"
+export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
+export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
+export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
+export API="api-version=2025-09-01-preview"
+export GATEWAY_ID="$(azd env get-value AI_GATEWAY_ID)"
+export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
+export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
+export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" \
+  --query primaryKey --output tsv)"
+APPI_ID="$(azd env get-value APP_INSIGHTS_ID)"
+LAW_ID="$(azd env get-value LOG_ANALYTICS_WORKSPACE_ID)"
+az rest --method get --url "$WS/telemetryExporters?$API" \
+  --query "value[].{name:name, kind:properties.kind, claims:properties.telemetry.attributes}"
+```
+
+```powershell title="PowerShell"
+$RG                     = azd env get-value AZURE_RESOURCE_GROUP
+$GATEWAY                = azd env get-value AI_GATEWAY_NAME
+$env:AI_GATEWAY_MODEL   = azd env get-value AI_GATEWAY_MODEL
+$API                    = "api-version=2025-09-01-preview"
+$GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
+$WS                     = "https://management.azure.com$GATEWAY_ID/workspaces/default"
+$env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" `
+  --query primaryKey --output tsv
+$APPI_ID                = azd env get-value APP_INSIGHTS_ID
+$LAW_ID                 = azd env get-value LOG_ANALYTICS_WORKSPACE_ID
+az rest --method get --url "$WS/telemetryExporters?$API" `
+  --query "value[].{name:name, kind:properties.kind, claims:properties.telemetry.attributes}"
+```
+
+Expected output: `azd up` ended with `SUCCESS`, and the list shows one exporter, `appinsights`, of kind
+`OpenTelemetry`, whose claims list `tid`, `oid`, `appid`, and `azp`, each with `logs`, `traces`, and `metrics` in
+its `signals`.
+
+### Change the claims
+
+Each `azd provision` applies the claims in `infra/main.bicep` again. To go back to the recommended preset, without
+metrics for the client app, set `CLIENT_APP_METRICS` to `false` and provision. Then run the `GET` again: `appid` and
+`azp` list only `logs` and `traces`. If you try it now, set it back to `true` and provision again before you continue,
+so that the PromQL section can split metrics by client app.
+
+```bash title="Bash"
+azd env set CLIENT_APP_METRICS false
+azd provision
+```
+
+```powershell title="PowerShell"
+azd env set CLIENT_APP_METRICS false
+azd provision
+```
+
+To export a custom claim, such as `cost_center`, add an entry to the `claimAttributes` list in `infra/main.bicep`
+and run `azd provision`. Check that your callers' tokens carry it first, as the next section shows. For the chargeback
+report, follow the **REST API** track: it uses the variables you set here.
 
 <!-- /tracks -->
 
@@ -449,10 +587,39 @@ rm -f query.json usage.json prices.json chargeback.csv
 Remove-Item query.json, usage.json, prices.json, chargeback.csv -ErrorAction SilentlyContinue
 ```
 
+<!-- track: iac | Bicep + azd -->
+
+### Delete the exported files
+
+In the `ai-gateway/labs/14-otel-chargeback` folder, delete the files the report created:
+
+```bash title="Bash"
+rm -f query.json usage.json prices.json chargeback.csv
+```
+
+```powershell title="PowerShell"
+Remove-Item query.json, usage.json, prices.json, chargeback.csv -ErrorAction SilentlyContinue
+```
+
+### Delete everything azd created
+
+In the same folder, delete the resource group with the gateway, the Foundry account, the Application Insights
+component, the Log Analytics workspace, and your role assignment on the gateway. Azure deletes the component's
+managed resource group with it. `--purge` also purges the Foundry account, which would otherwise stay soft-deleted
+for 48 hours and keep counting against your quota. It takes about ten minutes.
+
+```bash
+azd down --purge --force
+```
+
+To keep this gateway for other labs instead, skip `azd down` and restore the preset:
+`azd env set CLIENT_APP_METRICS false`, then `azd provision`.
+
 <!-- /tracks -->
 
 Keep monitoring on if you continue: the agent labs use it to show where agent calls went. Otherwise, follow the
-clean-up steps in [Monitor usage, cost, and traces](../13-monitoring/README.md).
+clean-up steps in [Monitor usage, cost, and traces](../13-monitoring/README.md). `azd down` doesn't touch the
+gateway and monitoring from the earlier labs, because the Bicep + azd track created its own.
 
 ## Troubleshooting
 

@@ -4,15 +4,15 @@ summary: Publish only approved MCP tools with name patterns, block risky tools, 
 category: tools
 level: Intermediate
 duration: 20
-tracks: [portal, cli]
+tracks: [portal, cli, iac]
 order: 5
 illustration: diagrams/mcp-federation.svg
 tags: [MCP, tools, allow list, blocked tools, glob patterns, requestRateLimit, "429", Retry-After]
 objectives:
-  - Choose between allowing all tools, exact tools, and name patterns for an MCP server
+  - Choose between allowing all tools, exact tools, and name patterns for an MCP server, in the portal or with Bicep and azd
   - Block specific tools with patterns that take precedence over the allow list
   - Take a whole MCP server offline without deleting it
-  - Add a request rate limit to an MCP server in the portal or with the Azure CLI, and trigger a 429
+  - Add a request rate limit to an MCP server in the portal, with the Azure CLI, or with Bicep and azd, and trigger a 429
 prereqs:
   - 04-federate-mcp-tools
 ---
@@ -29,6 +29,12 @@ this lab you publish only the approved tools, block one explicitly, and give eac
 <!-- widget: tool-patterns {"tools":["learn_microsoft_docs_search","learn_microsoft_code_sample_search","learn_microsoft_docs_fetch","docs_microsoft_docs_search","docs_microsoft_code_sample_search","docs_microsoft_docs_fetch"],"allow":["*_search"],"block":["*code_sample*"]} -->
 
 ## Before you begin
+
+> [!TIP]
+> On the **Bicep + azd** track, `azd up` creates its own gateway, the `learn` MCP server with its tool controls and
+> request rate limit, and a key, so you can skip this section. You need only
+> [Azure Cloud Shell](https://shell.azure.com), or the Azure Developer CLI (`azd`), the Azure CLI, and Git on your
+> machine.
 
 - Complete [Federate MCP tools behind one endpoint](../04-federate-mcp-tools/README.md). You need the `learn`
   MCP server with its `learn` and `docs` backends, and a runtime API key from **Access** › **Keys**.
@@ -74,16 +80,17 @@ both search tools and `*code_sample*` to block the code sample tool. Both patter
 include the namespace prefix, such as `learn_`, so they cover every backend of the server.
 
 > [!NOTE]
-> Tool availability, blocked tools, and server access are configured in the portal. There's no documented CLI
-> or REST shape for them yet, so this lab doesn't show one. The request rate limit has both a portal and an Azure
-> CLI track.
+> The `aigateway` extension doesn't set tool availability, blocked tools, or server access yet, so the Azure CLI
+> track covers only the request rate limit. Configure the rest in the portal, or declare them with the
+> **Bicep + azd** track: they're the MCP server's `allowList`, `blocked`, and `accessState` properties.
 
 ## Publish only approved tools
 
-These steps edit the `learn` server in the portal. Make sure the patterns cover every tool that your agents
-legitimately need before you save. Tools that don't match are no longer listed or callable.
+Pick one track. Both publish the same catalog on the `learn` server: the tools that match `*_search`, with
+`*code_sample*` blocked. Make sure the patterns cover every tool that your agents legitimately need before you
+save. Tools that don't match are no longer listed or callable.
 
-<!-- steps -->
+<!-- track: portal | Portal -->
 
 ### Open the Tools step
 
@@ -108,6 +115,111 @@ matches tools in the discovered catalog.
 ### Save the server
 
 Select **Save**.
+
+<!-- track: iac | Bicep + azd -->
+
+**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
+the Azure CLI with the `aigateway` extension, and Git on your machine, signed in with `azd auth login` and `az login`.
+This track doesn't use your gateway or `learn` server from lab 04: `azd up` creates a new gateway with its own
+`learn` server, so it works on its own.
+
+### Clone the lab
+
+The lab is a small azd project in the
+[`labs/05-mcp-tool-controls`](https://github.com/Azure/ai-gateway/tree/main/labs/05-mcp-tool-controls) folder of
+the GitHub repo. Clone the repo and move into that folder. If you cloned it for an earlier lab, move into
+`ai-gateway/labs/05-mcp-tool-controls` instead.
+
+```bash title="Bash"
+git clone https://github.com/Azure/ai-gateway.git
+cd ai-gateway/labs/05-mcp-tool-controls
+```
+
+```powershell title="PowerShell"
+git clone https://github.com/Azure/ai-gateway.git
+Set-Location ai-gateway/labs/05-mcp-tool-controls
+```
+
+### Review the templates
+
+`infra/main.bicep` creates the resource group `rg-<environment name>` and calls lab 01's
+[gateway.bicep](../01-provision-gateway/infra/gateway.bicep) for a gateway with no model. Then it calls
+`infra/controlled-tool-server.bicep` with the tool controls, which azd fills from environment values:
+
+| Parameter | azd environment value | Default |
+|---|---|---|
+| `allowedTools` | `MCP_ALLOWED_TOOLS` | `["*_search"]` |
+| `blockedTools` | `MCP_BLOCKED_TOOLS` | `["*code_sample*"]` |
+| `serverAccess` | `MCP_SERVER_ACCESS` | `active` |
+| `callsPerPeriod` | `REQUEST_RATE_LIMIT` | `5` |
+| `periodSeconds` | `REQUEST_RATE_LIMIT_PERIOD` | `30` |
+| `counterKey` | `REQUEST_RATE_LIMIT_COUNTER_KEY` | `["identity"]` |
+
+<!-- include: infra/main.bicep -->
+
+`infra/controlled-tool-server.bicep` declares the `learn` server of lab 04, with its `learn` and `docs` backends,
+plus the tool controls: `allowList` is **Tool availability** (`["*"]` is **Allow all tools**), `blocked` is
+**Blocked tools**, and `accessState` is **MCP server access**. Its `policies` array holds the request rate limit
+of [Rate-limit the MCP server](#rate-limit-the-mcp-server). It also creates the `app-first-call` key.
+
+<!-- include: infra/controlled-tool-server.bicep -->
+
+> [!WARNING]
+> A Bicep deployment sends a `PUT`, which replaces the whole MCP server, including backends, tool rules, and
+> policies that you added in the portal. Keep the template as the only source of truth for this server, and change
+> it with `azd provision`.
+
+### Deploy with azd up
+
+Create an azd environment named `aigw-lab05` in your current subscription, then provision everything. It takes
+about three minutes.
+
+```bash title="Bash"
+azd env new aigw-lab05 --location eastus2 --subscription "$(az account show --query id --output tsv)"
+azd up
+```
+
+```powershell title="PowerShell"
+azd env new aigw-lab05 --location eastus2 --subscription (az account show --query id --output tsv)
+azd up
+```
+
+For Sweden Central, use `--location swedencentral`.
+
+### Read the outputs and the key
+
+Set the variables that the next sections and **Verify** use from azd's environment values, and read the key from
+the gateway, so that it never shows on screen.
+
+```bash title="Bash"
+export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
+export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
+export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
+export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$(azd env get-value AI_GATEWAY_ID)/apiKeys/app-first-call" \
+  --query primaryKey --output tsv)"
+az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn --query "properties.{allowList:allowList,blocked:blocked}"
+```
+
+```powershell title="PowerShell"
+$RG                     = azd env get-value AZURE_RESOURCE_GROUP
+$GATEWAY                = azd env get-value AI_GATEWAY_NAME
+$env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
+$GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" `
+  --query primaryKey --output tsv
+az aigateway mcp show -g $RG --gateway-name $GATEWAY -n learn --query "properties.{allowList:allowList,blocked:blocked}"
+```
+
+> **Checkpoint**
+> `azd up` ended with `SUCCESS`, and the last command printed `"allowList": ["*_search"]` and
+> `"blocked": ["*code_sample*"]`.
+
+The server already has the request rate limit, 5 calls per 30 seconds for each key, so wait 30 seconds between
+script runs.
+
+<!-- /tracks -->
+
+<!-- steps -->
 
 ### Check the catalog
 
@@ -138,7 +250,7 @@ visible. The call to `learn_microsoft_docs_search` returns Microsoft Learn resul
 Sometimes you need to stop all tool traffic at once, for example while you investigate a misbehaving backend.
 Blocking the server keeps its backends, tool rules, and policies, so you can turn it back on in one step.
 
-<!-- steps -->
+<!-- track: portal | Portal -->
 
 ### Block the server
 
@@ -155,19 +267,65 @@ select **Save**.
 ./infra/list-tools.ps1 -Server learn
 ```
 
-The script stops at `initialize` with an HTTP error from the gateway. No backend is called.
+The script stops at `initialize`. The gateway answers with HTTP `200` and a JSON-RPC error,
+`Access to MCP server 'learn' is blocked.`, with the code `AccessBlockedByGateway`. No backend is called.
 
 ### Turn the server back on
 
 Select **Edit** again, set **MCP server access** to **Active**, and select **Save**. Run the script again to
 confirm that the four tools are back.
 
-<!-- /steps -->
+<!-- track: iac | Bicep + azd -->
+
+### Block the server
+
+Set `MCP_SERVER_ACCESS` to `blocked` and provision again. Only the MCP server changes.
+
+```bash title="Bash"
+azd env set MCP_SERVER_ACCESS blocked
+azd provision
+```
+
+```powershell title="PowerShell"
+azd env set MCP_SERVER_ACCESS blocked
+azd provision
+```
+
+### Confirm that clients can't connect
+
+```bash title="Bash"
+./infra/list-tools.sh learn
+```
+
+```powershell title="PowerShell"
+./infra/list-tools.ps1 -Server learn
+```
+
+The script stops at `initialize`. The gateway answers with HTTP `200` and a JSON-RPC error,
+`Access to MCP server 'learn' is blocked.`, with the code `AccessBlockedByGateway`. No backend is called.
+
+### Turn the server back on
+
+```bash title="Bash"
+azd env set MCP_SERVER_ACCESS active
+azd provision
+./infra/list-tools.sh learn
+```
+
+```powershell title="PowerShell"
+azd env set MCP_SERVER_ACCESS active
+azd provision
+./infra/list-tools.ps1 -Server learn
+```
+
+The four tools are back.
+
+<!-- /tracks -->
 
 ## Rate-limit the MCP server
 
 A request rate limit counts calls instead of tokens. That suits tools, where one agent in a loop can send
-hundreds of calls a minute. Pick one track. Both produce the same policy on the `learn` server: **5 calls per
+hundreds of calls a minute. Pick one track. Each produces the same policy on the `learn` server: **5 calls per
 30 seconds for each caller identity**. The limit is deliberately low so you can trigger it quickly.
 
 <!-- widget: request-rate {"calls":5,"window":30} -->
@@ -259,6 +417,39 @@ shared counter.
 >   "type": "requestRateLimit"
 > }
 > ```
+
+<!-- track: iac | Bicep + azd -->
+
+### Check the policy
+
+`azd up` already added the request rate limit: the template's `policies` array holds one `requestRateLimit` entry
+with `callsPerPeriod`, `periodSeconds`, and `counterKey`. The command is the same in Bash and PowerShell.
+
+```bash
+az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn --query properties.policies
+```
+
+> **Checkpoint**
+> The command prints one policy with `"type": "requestRateLimit"`, `"callsPerPeriod": 5`, `"periodSeconds": 30`,
+> `"counterKey": ["identity"]`, and `"scope": "resource"`.
+
+### Change the limit
+
+To count calls per client IP address instead of per key, set `REQUEST_RATE_LIMIT_COUNTER_KEY` to a JSON array and
+provision again. `REQUEST_RATE_LIMIT` and `REQUEST_RATE_LIMIT_PERIOD` work the same way, and
+`REQUEST_RATE_LIMIT` `0` removes the policy.
+
+```bash title="Bash"
+azd env set REQUEST_RATE_LIMIT_COUNTER_KEY '["ipAddress"]'
+azd provision
+```
+
+```powershell title="PowerShell"
+azd env set REQUEST_RATE_LIMIT_COUNTER_KEY '["ipAddress"]'
+azd provision
+```
+
+Use `'["identity","ipAddress"]'` for both. Set it back to `'["identity"]'` before **Verify**.
 
 <!-- /tracks -->
 
@@ -393,20 +584,44 @@ Remove-Item policies.json
 Then restore the catalog in the portal: open **MCP servers** › `learn` › **Edit** › **Tools**, select
 **Allow all tools**, remove the `*code_sample*` blocked pattern, and select **Save**.
 
+<!-- track: iac | Bicep + azd -->
+
+### Delete everything azd created
+
+In the `ai-gateway/labs/05-mcp-tool-controls` folder, delete the resource group with the gateway, the `learn` MCP
+server, and the key. `--purge` also purges soft-deleted resources, and `--force` skips the confirmation. It takes
+about ten minutes.
+
+```bash
+azd down --purge --force
+```
+
+To keep this gateway for other labs instead, skip `azd down`. Open the catalog and remove the limit:
+
+```bash
+azd env set MCP_ALLOWED_TOOLS '["*"]'
+azd env set MCP_BLOCKED_TOOLS '[]'
+azd env set REQUEST_RATE_LIMIT 0
+azd provision
+```
+
 <!-- /tracks -->
 
-Keep the gateway, the `learn` MCP server, and your key. The next labs reuse them.
+Keep the gateway, the `learn` MCP server, and your key from lab 04. The next labs reuse them. `azd down` doesn't
+touch them, because the Bicep + azd track created its own gateway.
 
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | A tool you blocked still appears in `tools/list` | Expected. Blocked tools remain visible, but the gateway blocks their execution | Call the tool to confirm that it's blocked. To hide a tool, leave it out of the allow list instead. |
-| `tools/list` returns no tools | The allow list matches nothing, or the server access is **Blocked** | Check the patterns against the exact tool names, and set **MCP server access** to **Active**. |
+| `tools/list` returns no tools | The allow list matches nothing | Check the patterns against the exact tool names. |
+| `initialize` returns `AccessBlockedByGateway` | The server access is **Blocked** | Set **MCP server access** to **Active**, or run `azd env set MCP_SERVER_ACCESS active` and `azd provision`. |
 | An allowed tool is blocked | A blocked pattern also matches it. Blocked patterns take precedence | Make the blocked pattern narrower, for example `*code_sample*` instead of `*sample*`. |
 | `429` on the first request of a run | The previous step used up the window, or a **Gateway** scope rate limit also applies | Wait for `Retry-After`, and review **Policies** for every limit that covers the MCP server. |
 | Never `429` | The policy is on another asset, it was saved moments ago, or the burst spans two windows | Check the policy's scope, wait a minute after you save it, and run a longer burst, for example `./infra/trigger-request-rate.sh learn 12`. |
 | Other policies vanished after `mcp update` | `--policies` replaces the whole `policies` array | Always read the current array, merge, then update, as shown in the Azure CLI track. |
+| Tool rules or policies set in the portal vanished after `azd provision` | A Bicep deployment sends a `PUT`, which replaces the whole MCP server | Change the azd environment values and run `azd provision` instead of editing the server in the portal. |
 
 ## Next steps
 

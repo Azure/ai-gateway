@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+# Lab 14: "azd up" creates the quick start's gateway, model, and runtime API key, lab 13's Application Insights
+# destination and OpenTelemetry exporter with the token claims to export, and lab 11's role for your Entra calls.
+# The lab clones the repo's main branch from GitHub and runs azd up in this folder.
+name: aigw-lab14
+metadata:
+  template: aigw-lab14@1.0.0
+infra:
+  provider: bicep
+  path: infra
+hooks:
+  # Bicep can't deploy into the data collection rule's managed resource group, so azd grants the gateway's identity
+  # Monitoring Metrics Publisher on the rule with the Azure CLI after every provision. Running it again is harmless.
+  postprovision:
+    posix:
+      shell: sh
+      run: >-
+        az role assignment create --assignee-object-id "$AI_GATEWAY_PRINCIPAL_ID"
+        --assignee-principal-type ServicePrincipal --role "Monitoring Metrics Publisher"
+        --scope "$DATA_COLLECTION_RULE_ID" --output none
+    windows:
+      shell: pwsh
+      run: >-
+        az role assignment create --assignee-object-id $env:AI_GATEWAY_PRINCIPAL_ID
+        --assignee-principal-type ServicePrincipal --role "Monitoring Metrics Publisher"
+        --scope $env:DATA_COLLECTION_RULE_ID --output none

@@ -173,3 +173,12 @@ output gatewayId string = gateway.id
 output gatewayUrl string = 'https://${gateway.properties.frontend.defaultHostname}'
 output aliasName string = alias.name
 output foundryName string = foundry.name
+
+// For the labs that build on this template: they call it as a module, then add their own resources.
+output gatewayPrincipalId string = gateway.identity.principalId
+output providerName string = provider.name
+output modelName string = model.name
+output modelId string = model.id
+output foundryId string = foundry.id
+output foundryEndpoint string = foundry.properties.endpoint
+output apiKeyName string = apiKey.name

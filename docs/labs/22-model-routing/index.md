@@ -31,6 +31,11 @@ apps never change the model name they send.
 
 ## Before you begin
 
+> [!TIP]
+> On the **Bicep + azd** track, `azd up` creates its own gateway, both models, the alias, and a key, so you can skip
+> this section. You need only [Azure Cloud Shell](https://shell.azure.com), or the Azure Developer CLI (`azd`), the
+> Azure CLI, Git, and `jq` on your machine.
+
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need the
   gateway, a runtime API key, and the `gpt-6-luna` backend model. Lab 02 also gave the gateway the
   **Foundry User** role on your Foundry account, which covers the new deployment in this lab.
@@ -230,41 +235,110 @@ arguments instead.
 > **Checkpoint**
 > The output shows `gpt-6-luna  priority 0  weight 80` and `gpt-6.1-sol  priority 0  weight 20`.
 
-<!-- track: iac | Bicep -->
+<!-- track: iac | Bicep + azd -->
 
-### Review the template
+**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
+the Azure CLI with the `aigateway` extension, Git, and `jq` on your machine, signed in with `azd auth login` and
+`az login`. This track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
 
-The template registers the candidate deployment under the existing provider and publishes the alias. It only
-references `gpt-6-luna`, so the token limit that lab 02 put on that model stays. The `strategy` parameter
-switches between a weighted split and a priority preference.
+### Clone the lab
 
-<!-- include: infra/main.bicep -->
-
-On GitHub, open [infra/main.bicep](infra/main.bicep).
-
-### Deploy the weighted split
+The lab is a small azd project in the
+[`labs/22-model-routing`](https://github.com/Azure/ai-gateway/tree/main/labs/22-model-routing) folder of the GitHub
+repo. Clone the repo and move into that folder. If you cloned it for the quick start, move into
+`ai-gateway/labs/22-model-routing` instead.
 
 ```bash title="Bash"
-az deployment group create -g "$RG" --template-file infra/main.bicep \
-  --parameters gatewayName="$GATEWAY" providerName="$PROVIDER" primaryModelName="$PRIMARY" \
-               foundryAccountId="$FOUNDRY_ID" candidateDeploymentName="$CANDIDATE" \
-               candidateModelVersion="$CANDIDATE_VERSION" aliasName="$ALIAS" \
-               strategy=weighted candidateWeight=20 \
-  --query properties.outputs.routes.value
+git clone https://github.com/Azure/ai-gateway.git
+cd ai-gateway/labs/22-model-routing
 ```
 
 ```powershell title="PowerShell"
-az deployment group create -g $RG --template-file infra/main.bicep `
-  --parameters gatewayName=$GATEWAY providerName=$PROVIDER primaryModelName=$PRIMARY `
-               foundryAccountId=$FOUNDRY_ID candidateDeploymentName=$CANDIDATE `
-               candidateModelVersion=$CANDIDATE_VERSION aliasName=$ALIAS `
-               strategy=weighted candidateWeight=20 `
-  --query properties.outputs.routes.value
+git clone https://github.com/Azure/ai-gateway.git
+Set-Location ai-gateway/labs/22-model-routing
+```
+
+### Review the templates
+
+`infra/main.bicep` creates the resource group `rg-<environment name>` and calls the quick start's
+[resources.bicep](../quickstart/infra/resources.bicep) for the gateway, `gpt-6-luna`, its default alias, and the
+`app-first-call` key. Then it deploys the candidate model in the same Foundry account and publishes the `chat`
+alias:
+
+<!-- include: infra/main.bicep -->
+
+`infra/candidate-deployment.bicep` deploys `gpt-6.1-sol` next to `gpt-6-luna`. The gateway's **Foundry User** role
+on the account already covers it:
+
+<!-- include: infra/candidate-deployment.bicep -->
+
+`infra/alias-routing.bicep` registers the candidate deployment under the existing provider and publishes the alias.
+It only references `gpt-6-luna`, so that model's settings stay as they are. Its `strategy` parameter switches
+between a weighted split and a priority preference. You can also deploy it on its own to the gateway from lab 02:
+
+<!-- include: infra/alias-routing.bicep -->
+
+### Deploy with azd up
+
+Create an azd environment named `aigw-lab22` in your current subscription, then provision everything. It takes
+about five minutes.
+
+```bash title="Bash"
+azd env new aigw-lab22 --location eastus2 --subscription "$(az account show --query id --output tsv)"
+azd up
+```
+
+```powershell title="PowerShell"
+azd env new aigw-lab22 --location eastus2 --subscription (az account show --query id --output tsv)
+azd up
+```
+
+For Sweden Central, use `--location swedencentral`. The parameters come from azd environment values, with the
+defaults in `infra/main.parameters.json`: `ROUTING_STRATEGY` (`weighted`), `ROUTING_CANDIDATE_WEIGHT` (`20`),
+`CANDIDATE_MODEL` (`gpt-6.1-sol`), and `CANDIDATE_MODEL_VERSION` (`2026-09-29`).
+
+### Read the outputs and the key
+
+Set the variables that the next sections and **Verify** use from azd's environment values, read the key from the
+gateway so that it never shows on screen, then print the alias's routes.
+
+```bash title="Bash"
+export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
+export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
+export GATEWAY_ID="$(azd env get-value AI_GATEWAY_ID)"
+export PROVIDER="$(azd env get-value AI_GATEWAY_PROVIDER)"
+export PRIMARY="$(azd env get-value AI_GATEWAY_BACKEND_MODEL)"
+export CANDIDATE="$(azd env get-value AI_GATEWAY_CANDIDATE_MODEL)"
+export ALIAS="$(azd env get-value AI_GATEWAY_MODEL)"
+export MODELS="$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models"
+export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
+export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" \
+  --query primaryKey --output tsv)"
+
+az aigateway model-alias show -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" --query properties.backendModels -o json |
+  jq -r '.[] | "\(.resourceId | split("/") | last)  priority \(.priority)  weight \(.weight)"'
+```
+
+```powershell title="PowerShell"
+$RG                     = azd env get-value AZURE_RESOURCE_GROUP
+$GATEWAY                = azd env get-value AI_GATEWAY_NAME
+$GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
+$PROVIDER               = azd env get-value AI_GATEWAY_PROVIDER
+$PRIMARY                = azd env get-value AI_GATEWAY_BACKEND_MODEL
+$CANDIDATE              = azd env get-value AI_GATEWAY_CANDIDATE_MODEL
+$ALIAS                  = azd env get-value AI_GATEWAY_MODEL
+$MODELS                 = "$GATEWAY_ID/workspaces/default/modelProviders/$PROVIDER/models"
+$env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" `
+  --query primaryKey --output tsv
+
+az aigateway model-alias show -g $RG --gateway-name $GATEWAY -n $ALIAS --query properties.backendModels -o json |
+  ConvertFrom-Json | ForEach-Object { '{0}  priority {1}  weight {2}' -f ($_.resourceId -split '/')[-1], $_.priority, $_.weight }
 ```
 
 > **Checkpoint**
-> The `routes` output lists `gpt-6-luna` with `priority 0` and `weight 80`, and `gpt-6.1-sol` with `priority 0`
-> and `weight 20`.
+> `azd up` ended with `SUCCESS`, and the last command printed `gpt-6-luna  priority 0  weight 80` and
+> `gpt-6.1-sol  priority 0  weight 20`.
 
 <!-- /tracks -->
 
@@ -354,32 +428,29 @@ az aigateway model-alias update -g $RG --gateway-name $GATEWAY -n $ALIAS `
 > **Checkpoint**
 > The output shows `gpt-6-luna  priority 0  weight 1` and `gpt-6.1-sol  priority 1  weight 1`.
 
-<!-- track: iac | Bicep -->
+<!-- track: iac | Bicep + azd -->
 
-### Deploy the priority strategy
+### Provision the priority strategy
 
-Run the same template with `strategy=priority`.
+Set `ROUTING_STRATEGY` to `priority` and provision again. Only the alias changes: `gpt-6-luna` keeps priority `0`,
+and `gpt-6.1-sol` gets priority `1`.
 
 ```bash title="Bash"
-az deployment group create -g "$RG" --template-file infra/main.bicep \
-  --parameters gatewayName="$GATEWAY" providerName="$PROVIDER" primaryModelName="$PRIMARY" \
-               foundryAccountId="$FOUNDRY_ID" candidateDeploymentName="$CANDIDATE" \
-               candidateModelVersion="$CANDIDATE_VERSION" aliasName="$ALIAS" \
-               strategy=priority \
-  --query properties.outputs.routes.value
+azd env set ROUTING_STRATEGY priority
+azd provision
 ```
 
 ```powershell title="PowerShell"
-az deployment group create -g $RG --template-file infra/main.bicep `
-  --parameters gatewayName=$GATEWAY providerName=$PROVIDER primaryModelName=$PRIMARY `
-               foundryAccountId=$FOUNDRY_ID candidateDeploymentName=$CANDIDATE `
-               candidateModelVersion=$CANDIDATE_VERSION aliasName=$ALIAS `
-               strategy=priority `
-  --query properties.outputs.routes.value
+azd env set ROUTING_STRATEGY priority
+azd provision
 ```
 
+To go back to the weighted split, run `azd env set ROUTING_STRATEGY weighted` and `azd provision`. Change
+`ROUTING_CANDIDATE_WEIGHT` the same way to canary in steps.
+
 > **Checkpoint**
-> The `routes` output lists `gpt-6-luna` with `priority 0` and `gpt-6.1-sol` with `priority 1`.
+> `azd provision` ended with `SUCCESS`. **Read the alias** in **Verify** shows `gpt-6-luna  priority 0  weight 1`
+> and `gpt-6.1-sol  priority 1  weight 1`.
 
 <!-- /tracks -->
 
@@ -440,11 +511,18 @@ never change.
 Keep the gateway, the runtime key, and `gpt-6-luna` from lab 02. Later labs use them. Remove what you added in
 this lab: the alias first, then the backend model, then the Foundry deployment.
 
-In the portal, open `chat` in **Models** › **Aliases** and select **Delete**. Requests that use the alias fail
-immediately; the backend models stay in the gateway. Then delete the `gpt-6.1-sol` model, and any alias that the
-import created for it, from **Models**.
+<!-- track: portal | Portal -->
 
-From a shell:
+### Remove the alias and the candidate model
+
+Open `chat` in **Models** › **Aliases** and select **Delete**. Requests that use the alias fail immediately; the
+backend models stay in the gateway. Then delete the `gpt-6.1-sol` model, and any alias that the import created for
+it, from **Models**. Finally, delete the `gpt-6.1-sol` deployment from your Foundry account, for example with the
+last command of the CLI track.
+
+<!-- track: cli | Azure CLI -->
+
+### Remove the alias and the candidate model
 
 ```bash title="Bash"
 az aigateway model-alias delete -g "$RG" --gateway-name "$GATEWAY" -n "$ALIAS" --yes
@@ -459,6 +537,23 @@ az cognitiveservices account deployment delete -g $FOUNDRY_RG -n $FOUNDRY_ACCOUN
 ```
 
 If an alias that the portal import created still points to `gpt-6.1-sol`, delete that alias before the model.
+
+<!-- track: iac | Bicep + azd -->
+
+### Delete everything azd created
+
+In the `ai-gateway/labs/22-model-routing` folder, delete the resource group with the gateway, the Foundry account
+and its two deployments, and the `chat` alias. `--purge` also purges the Foundry account, which would otherwise stay
+soft-deleted for 48 hours and keep counting against your quota. It takes about ten minutes.
+
+```bash
+azd down --purge --force
+```
+
+<!-- /tracks -->
+
+`azd down` doesn't touch the gateway, key, and `gpt-6-luna` from lab 02, because the Bicep + azd track created its
+own gateway.
 
 ## Troubleshooting
 

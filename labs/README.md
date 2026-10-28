@@ -37,7 +37,7 @@ Every lab is one Markdown file, so you get the same steps whichever way you foll
 | 📖 | **Here on GitHub** | Reading next to the code. Each track and each Bash/PowerShell variant is a collapsible section, and included files are shown inline. |
 | 📓 | **[Jupyter notebooks](#run-the-notebooks)** | Running a lab end to end from VS Code or Jupyter with Python, the Azure CLI sign-in, and no copy and paste. |
 | 🤖 | **[Agent skill](#use-the-labs-with-a-coding-agent)** | Letting GitHub Copilot, Claude Code, or another coding agent pick the right lab, run one track step by step, verify it, and clean up. |
-| 🏗️ | **`infra/` folders** | Reusing the Bicep, scripts, and samples in your own pipelines with `az deployment` or `azd`. |
+| 🏗️ | **`infra/` folders** | Running a lab with one `azd up`, or reusing its Bicep modules, scripts, and samples in your own pipelines. |
 
 Every lab follows the same structure: a scenario, a diagram of how it works, step-by-step tasks with checkpoints,
 a **Verify** section, **Go further** ideas, clean-up, and troubleshooting. Most labs offer several tracks:
@@ -47,7 +47,7 @@ a **Verify** section, **Go further** ideas, clean-up, and troubleshooting. Most 
 | 🖥️ **Portal** | Click-by-click steps in the [AI Gateway portal](https://ai.gateway.azure.com) |
 | ⌨️ **CLI** | Azure CLI commands (`az aigateway`, plus `az rest` where the extension can't do the job yet) for Bash and PowerShell against the `Microsoft.ApiManagement/aigateways` resource |
 | 🔗 **REST** | Direct calls to the Azure Resource Manager REST API, for when you script against the API yourself |
-| 🏗️ **Bicep** | Infrastructure as code in each lab's `infra/` folder, deployed with `az deployment` or `azd` |
+| 🏗️ **Bicep + azd** | A self-contained azd template in each lab folder: clone the repo, run `azd up` to create a gateway with the lab's feature, and `azd down` to delete it |
 | 🧑‍💻 **Code** | Python, TypeScript, and .NET clients, agent frameworks, and runtime calls |
 
 ## Learning paths
@@ -88,7 +88,7 @@ Publish Foundry and third-party models behind stable aliases.
 
 | # | Lab | Level | Time | Tracks | Notebook |
 | :-: | :-- | :-- | --: | :-- | :-: |
-| 03 | [Publish models from any provider behind stable aliases](03-multi-provider-aliases/README.md) | Intermediate | 30 min | Portal · CLI |  |
+| 03 | [Publish models from any provider behind stable aliases](03-multi-provider-aliases/README.md) | Intermediate | 30 min | Portal · CLI · Bicep |  |
 | 22 | [Route an alias across models by priority and weight](22-model-routing/README.md) | Intermediate | 25 min | Portal · CLI · Bicep |  |
 | 23 | [Stream responses and count every token](23-streaming-responses/README.md) | Intermediate | 20 min | CLI · Code · Portal · Bicep | [📓](23-streaming-responses/23-streaming-responses.ipynb) |
 
@@ -99,7 +99,7 @@ Federate MCP servers, APIs, and connectors behind one endpoint.
 | # | Lab | Level | Time | Tracks | Notebook |
 | :-: | :-- | :-- | --: | :-- | :-: |
 | 04 | [Federate MCP tools behind one endpoint](04-federate-mcp-tools/README.md) | Beginner | 30 min | Portal · CLI · Bicep · Code | [📓](04-federate-mcp-tools/04-federate-mcp-tools.ipynb) |
-| 05 | [Control which tools agents can call](05-mcp-tool-controls/README.md) | Intermediate | 20 min | Portal · CLI |  |
+| 05 | [Control which tools agents can call](05-mcp-tool-controls/README.md) | Intermediate | 20 min | Portal · CLI · Bicep |  |
 
 ### Governance & cost
 
@@ -108,8 +108,8 @@ Token limits, budgets, content safety, and gateway-wide baselines.
 | # | Lab | Level | Time | Tracks | Notebook |
 | :-: | :-- | :-- | --: | :-- | :-: |
 | 06 | [Throttle tokens per caller with token limits](06-token-limits/README.md) | Beginner | 25 min | Portal · CLI · REST · Bicep | [📓](06-token-limits/06-token-limits.ipynb) |
-| 07 | [Enforce cost budgets with per-caller overrides](07-cost-budgets/README.md) | Intermediate | 30 min | Portal · REST |  |
-| 08 | [Screen prompts and responses with content safety](08-content-safety/README.md) | Beginner | 20 min | Portal · CLI · REST |  |
+| 07 | [Enforce cost budgets with per-caller overrides](07-cost-budgets/README.md) | Intermediate | 30 min | Portal · REST · Bicep |  |
+| 08 | [Screen prompts and responses with content safety](08-content-safety/README.md) | Beginner | 20 min | Portal · CLI · REST · Bicep |  |
 | 09 | [Set gateway-wide policy baselines](09-gateway-baselines/README.md) | Intermediate | 25 min | Portal · REST · Bicep |  |
 
 ### Security & identity
@@ -118,7 +118,7 @@ API keys, Microsoft Entra ID, RBAC, and backend identities.
 
 | # | Lab | Level | Time | Tracks | Notebook |
 | :-: | :-- | :-- | --: | :-- | :-: |
-| 10 | [Issue and rotate runtime API keys](10-api-keys/README.md) | Beginner | 15 min | Portal · CLI |  |
+| 10 | [Issue and rotate runtime API keys](10-api-keys/README.md) | Beginner | 15 min | Portal · CLI · Bicep |  |
 | 11 | [Go keyless with Microsoft Entra ID and RBAC](11-entra-rbac/README.md) | Intermediate | 35 min | Portal · CLI · Bicep · Code | [📓](11-entra-rbac/11-entra-rbac.ipynb) |
 | 12 | [Call backends with managed identities](12-backend-identity/README.md) | Intermediate | 20 min | Portal · CLI · Bicep |  |
 
@@ -129,7 +129,7 @@ Dashboards, traces, OpenTelemetry, and chargeback.
 | # | Lab | Level | Time | Tracks | Notebook |
 | :-: | :-- | :-- | --: | :-- | :-: |
 | 13 | [Monitor usage, cost, and traces](13-monitoring/README.md) | Beginner | 25 min | Portal · Bicep |  |
-| 14 | [Attribute tokens and cost with OpenTelemetry](14-otel-chargeback/README.md) | Advanced | 35 min | Portal · REST |  |
+| 14 | [Attribute tokens and cost with OpenTelemetry](14-otel-chargeback/README.md) | Advanced | 35 min | Portal · REST · Bicep |  |
 
 ### Agents
 
@@ -149,7 +149,7 @@ Private networking, Agent 365, threat protection, and reference architectures.
 | # | Lab | Level | Time | Tracks | Notebook |
 | :-: | :-- | :-- | --: | :-- | :-: |
 | 18 | [Lock down backend traffic with private networking](18-private-networking/README.md) | Advanced | 45 min | Portal · CLI · Bicep |  |
-| 19 | [Protect tool calls with Agent 365 threat protection](19-tool-threat-protection/README.md) | Advanced | 30 min | Portal |  |
+| 19 | [Protect tool calls with Agent 365 threat protection](19-tool-threat-protection/README.md) | Advanced | 30 min | Portal · Bicep |  |
 | 20 | [Govern MCP servers with Agent 365](20-agent-365-governance/README.md) | Intermediate | 20 min | Portal |  |
 | 21 | [Deploy an enterprise reference architecture](21-enterprise-reference/README.md) | Advanced | 60 min | Bicep |  |
 <!-- gh:end -->
@@ -157,7 +157,7 @@ Private networking, Agent 365, threat protection, and reference architectures.
 ## Run the notebooks
 
 Some labs come with a Jupyter notebook that runs the lab end to end from Python. Each notebook deploys the lab's own
-Bicep files from its `infra/` folder, the same templates as the Bicep track, then calls the gateway and checks each
+Bicep modules from its `infra/` folder, the same modules that the Bicep + azd track deploys, then calls the gateway and checks each
 result with an assertion. The setup and helpers live in one shared module, [`shared/utils.py`](shared/utils.py), so
 every cell stays short.
 

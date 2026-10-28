@@ -36,11 +36,17 @@ surfaces its tools, with the same key, so Copilot's tool calls get the same cont
 
 ## Before you begin
 
+> [!TIP]
+> On the **Bicep + azd** track, `azd up` creates its own gateway, Foundry account, `gpt-6-astra` alias, key, and
+> `learn` MCP server, and the track sets the variables, so you can skip lab 02 and the variables below. You need
+> [Azure Cloud Shell](https://shell.azure.com), or the Azure Developer CLI (`azd`), the Azure CLI, Git, and `jq` on
+> your machine, plus quota for the model, a Copilot surface, and the practice project.
+
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need a gateway
   with a Foundry provider, and permission to change it, for example **Contributor** on the resource group.
 - Quota for `gpt-6-astra` (version `2026-09-03`) in the Foundry account behind your gateway. This lab deploys it
   with 100,000 tokens per minute (TPM), because coding agents send large prompts. Model inference is billed per use.
-- For the CLI and IaC tracks: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later,
+- For the CLI track: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later,
   signed in with `az login`, the `aigateway` extension
   ([install it](../01-provision-gateway/README.md#before-you-begin)), and `jq` for the Bash snippets.
 - At least one Copilot surface. You don't need all four:
@@ -308,59 +314,117 @@ $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-nam
 > The model output shows one policy with `"type": "tokenLimit"` and `"count": 100000`, the alias output shows your
 > model's ID as `target`, and the key output shows `github-copilot` as `active`.
 
-<!-- track: iac | Bicep -->
+<!-- track: iac | Bicep + azd -->
 
-### Review the template
+**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
+the Azure CLI with the `aigateway` extension, Git, and `jq` on your machine, signed in with `azd auth login` and
+`az login`. This track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
 
-The template deploys `gpt-6-astra` in your Foundry account, then reuses lab 02's template to register it under your
-provider, publish the `gpt-6-astra` alias with the token limit, and create the `github-copilot` key.
+### Clone the lab
+
+The lab is a small azd project in the
+[`labs/24-github-copilot-byok`](https://github.com/Azure/ai-gateway/tree/main/labs/24-github-copilot-byok) folder of
+the GitHub repo. Clone the repo and move into that folder. If you cloned it for the quick start, move into
+`ai-gateway/labs/24-github-copilot-byok` instead.
+
+```bash title="Bash"
+git clone https://github.com/Azure/ai-gateway.git
+cd ai-gateway/labs/24-github-copilot-byok
+```
+
+```powershell title="PowerShell"
+git clone https://github.com/Azure/ai-gateway.git
+Set-Location ai-gateway/labs/24-github-copilot-byok
+```
+
+### Review the templates
+
+`infra/main.bicep` creates the resource group `rg-<environment name>` and calls the quick start's
+[resources.bicep](../quickstart/infra/resources.bicep) for the gateway, a Foundry account with `gpt-6-luna`, and the
+`foundry-models` provider. Then it calls `infra/copilot-model.bicep` to publish `gpt-6-astra` for Copilot, and lab
+04's [tool-server.bicep](../04-federate-mcp-tools/infra/tool-server.bicep) to publish the Microsoft Learn MCP server
+that [Publish Microsoft Learn tools for Copilot](#publish-microsoft-learn-tools-for-copilot) uses:
 
 <!-- include: infra/main.bicep -->
 
-On GitHub, open [infra/main.bicep](infra/main.bicep) and [infra/deployment.bicep](infra/deployment.bicep).
+`infra/copilot-model.bicep` deploys `gpt-6-astra` in the Foundry account with `infra/deployment.bicep`, registers it
+under the provider with a limit of 100,000 tokens per minute for each caller, publishes the `gpt-6-astra` alias, and
+creates the `github-copilot` key. It doesn't assign a role: the quick start's template already gave the gateway's
+identity the **Foundry User** role on the account, which covers the new deployment. You can also deploy it on its own
+to your gateway from lab 02.
 
-### Deploy the template
+<!-- include: infra/copilot-model.bicep -->
 
-Run the deployment from the lab folder (`labs/24-github-copilot-byok`). If the Foundry deployment fails with
-`InsufficientQuota`, add `skuName=DataZoneStandard` to the parameters.
+<!-- include: infra/deployment.bicep -->
+
+### Deploy with azd up
+
+Create an azd environment named `aigw-lab24` in your current subscription, then provision everything. It takes
+about four minutes.
 
 ```bash title="Bash"
-FOUNDRY_ID="$(az cognitiveservices account show -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --query id -o tsv)"
-
-az deployment group create -g "$RG" -n 24-github-copilot \
-  --template-file infra/main.bicep \
-  --parameters gatewayName="$GATEWAY" foundryAccountId="$FOUNDRY_ID" providerName="$PROVIDER" \
-  --query properties.outputs
+azd env new aigw-lab24 --location eastus2 --subscription "$(az account show --query id --output tsv)"
+azd up
 ```
 
 ```powershell title="PowerShell"
-$FOUNDRY_ID = az cognitiveservices account show -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT --query id -o tsv
-
-az deployment group create -g $RG -n 24-github-copilot `
-  --template-file infra/main.bicep `
-  --parameters gatewayName=$GATEWAY foundryAccountId=$FOUNDRY_ID providerName=$PROVIDER `
-  --query properties.outputs
+azd env new aigw-lab24 --location eastus2 --subscription (az account show --query id --output tsv)
+azd up
 ```
 
-The outputs show `aliasName` (`gpt-6-astra`), `apiKeyName` (`github-copilot`), and `modelEndpoint`, the base URL
-that Copilot needs.
-
-### Read the key
-
-Template outputs never contain the key value. Read it with `list-secrets` straight into a variable.
+For Sweden Central, use `--location swedencentral`. If the Foundry deployment fails with `InsufficientQuota`, deploy
+`gpt-6-astra` with the Data Zone Standard SKU instead, and provision again:
 
 ```bash title="Bash"
-AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" \
-  --query primaryKey -o tsv)" && export AI_GATEWAY_API_KEY
+azd env set BYOK_MODEL_SKU DataZoneStandard
+azd provision
 ```
 
 ```powershell title="PowerShell"
-$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n $KEY_NAME `
-  --query primaryKey -o tsv
+azd env set BYOK_MODEL_SKU DataZoneStandard
+azd provision
+```
+
+### Read the outputs and the key
+
+Set the variables that the rest of the lab uses from azd's environment values, and read the `github-copilot` key from
+the gateway, so that it never shows on screen.
+
+```bash title="Bash"
+export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
+export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
+export PROVIDER="$(azd env get-value AI_GATEWAY_PROVIDER)"
+export MODEL="$(azd env get-value AI_GATEWAY_BACKEND_MODEL)"
+export KEY_NAME="$(azd env get-value AI_GATEWAY_KEY_NAME)"
+export API="api-version=2025-09-01-preview"
+export GATEWAY_ID="$(azd env get-value AI_GATEWAY_ID)"
+export GW="https://management.azure.com$GATEWAY_ID"
+export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
+export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
+export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/$KEY_NAME" \
+  --query primaryKey --output tsv)"
+azd env get-value AI_GATEWAY_MODEL_ENDPOINT
+```
+
+```powershell title="PowerShell"
+$RG                     = azd env get-value AZURE_RESOURCE_GROUP
+$GATEWAY                = azd env get-value AI_GATEWAY_NAME
+$PROVIDER               = azd env get-value AI_GATEWAY_PROVIDER
+$MODEL                  = azd env get-value AI_GATEWAY_BACKEND_MODEL
+$KEY_NAME               = azd env get-value AI_GATEWAY_KEY_NAME
+$API                    = "api-version=2025-09-01-preview"
+$GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
+$GW                     = "https://management.azure.com$GATEWAY_ID"
+$env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
+$env:AI_GATEWAY_MODEL   = azd env get-value AI_GATEWAY_MODEL
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/$KEY_NAME" `
+  --query primaryKey --output tsv
+azd env get-value AI_GATEWAY_MODEL_ENDPOINT
 ```
 
 > **Checkpoint**
-> The deployment succeeds, and **Models** › **Aliases** in the portal lists `gpt-6-astra`.
+> `azd up` ended with `SUCCESS`, and the last command printed the base URL that Copilot needs, ending in
+> `/default/models/openai/v1`. In the portal, **Models** › **Aliases** lists `gpt-6-astra`.
 
 <!-- /tracks -->
 
@@ -620,10 +684,12 @@ Expected output (your text differs):
 I'm powered by gpt-6-astra (model ID: gpt-6-astra).
 
 Files in this folder:
+- copilot-model.bicep
 - copilot-sdk.ts
 - copilot_sdk.py
 - deployment.bicep
 - main.bicep
+- main.parameters.json
 - package.json
 - requirements.txt
 ```
@@ -771,32 +837,27 @@ with `az aigateway mcp show -g "$RG" --gateway-name "$GATEWAY" -n learn --query 
 > **Checkpoint**
 > The command prints the endpoint, ending in `/default/toolservers/learn/mcp`.
 
-<!-- track: iac | Bicep -->
+<!-- track: iac | Bicep + azd -->
 
-### Deploy the Learn server
+### Check the Learn server
 
-Reuse the template from lab 04, [`main.bicep`](../04-federate-mcp-tools/infra/main.bicep). It references your
-gateway and declares one `toolServers` resource. Run it from the lab folder (`labs/24-github-copilot-byok`).
+`azd up` already deployed it: `infra/main.bicep` calls lab 04's
+[`tool-server.bicep`](../04-federate-mcp-tools/infra/tool-server.bicep), which references your gateway and declares
+one `toolServers` resource, `learn`. Print its endpoint from the lab folder (`ai-gateway/labs/24-github-copilot-byok`):
 
 ```bash title="Bash"
-az deployment group create -g "$RG" \
-  --template-file ../04-federate-mcp-tools/infra/main.bicep \
-  --parameters gatewayName="$GATEWAY" serverName=learn namespace=learn \
-  --query properties.outputs.mcpEndpoint.value -o tsv
+azd env get-value AI_GATEWAY_MCP_URL
 ```
 
 ```powershell title="PowerShell"
-az deployment group create -g $RG `
-  --template-file ../04-federate-mcp-tools/infra/main.bicep `
-  --parameters gatewayName=$GATEWAY serverName=learn namespace=learn `
-  --query properties.outputs.mcpEndpoint.value -o tsv
+azd env get-value AI_GATEWAY_MCP_URL
 ```
 
 > [!WARNING]
-> A Bicep deployment replaces the whole MCP server, including backends and tool rules that you added in the portal.
+> `azd provision` replaces the whole MCP server, including backends and tool rules that you added in the portal.
 
 > **Checkpoint**
-> The deployment prints the endpoint, ending in `/default/toolservers/learn/mcp`.
+> The command prints the endpoint, ending in `/default/toolservers/learn/mcp`.
 
 <!-- /tracks -->
 
@@ -1224,7 +1285,7 @@ copilot -p "Say hi in three words"
 
 ## Clean up
 
-Remove the gateway from each Copilot surface you configured:
+Remove the gateway from each Copilot surface you configured, and delete the practice project:
 
 - **VS Code:** delete the **AI Gateway** group from `chatLanguageModels.json`, or remove it in the
   **Language Models** editor. Delete `.vscode/mcp.json` from `contoso-calc`.
@@ -1234,21 +1295,38 @@ Remove the gateway from each Copilot surface you configured:
 - **GitHub Copilot app:** remove the **AI Gateway** provider in **Model providers**. `copilot mcp remove` also
   removes `ai-gateway-learn` from the app. Remove `AI_GATEWAY_API_KEY` from your profile or environment if you set
   it for the app.
+- **Practice project:** run `rm -rf ~/contoso-calc` (Bash) or `Remove-Item -Recurse -Force ~/contoso-calc`
+  (PowerShell).
 
-Then delete the key. In the portal, delete `github-copilot` in **Access** › **Keys**. From a shell:
+Then delete what you created on the gateway. Pick a track.
+
+<!-- track: portal | Portal -->
+
+### Delete the key, the model, and the Learn server
+
+1. Delete `github-copilot` in **Access** › **Keys**.
+2. If you don't need `gpt-6-astra` any more, delete its alias and its backend model in **Models**, then its
+   deployment in Foundry. If you imported the model in the portal, also delete its `<foundry-account-name>/gpt-6-astra`
+   alias. Keep the gateway and the provider: the other labs reuse them.
+3. Keep the `learn` MCP server if you continue with
+   [Control which tools agents can call](../05-mcp-tool-controls/README.md), which builds on it. Otherwise, delete it
+   in **MCP servers**.
+
+<!-- track: cli | Azure CLI -->
+
+### Delete the key, the model, and the Learn server
+
+Delete the key:
 
 ```bash title="Bash"
 az aigateway api-key delete -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" --yes
-rm -rf ~/contoso-calc
 ```
 
 ```powershell title="PowerShell"
 az aigateway api-key delete -g $RG --gateway-name $GATEWAY -n $KEY_NAME --yes
-Remove-Item -Recurse -Force ~/contoso-calc
 ```
 
-If you don't need `gpt-6-astra` any more, also delete the alias, the backend model, and the Foundry deployment. In
-the portal, delete them in **Models** and in Foundry. From a shell:
+If you don't need `gpt-6-astra` any more, also delete the alias, the backend model, and the Foundry deployment:
 
 ```bash title="Bash"
 az aigateway model-alias delete -g "$RG" --gateway-name "$GATEWAY" -n "$MODEL" --yes
@@ -1262,11 +1340,8 @@ az aigateway model delete -g $RG --gateway-name $GATEWAY --provider-name $PROVID
 az cognitiveservices account deployment delete -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT --deployment-name $MODEL
 ```
 
-If you imported the model in the portal, also delete its `<foundry-account-name>/gpt-6-astra` alias. Keep the gateway
-and the provider: the other labs reuse them.
-
-Keep the `learn` MCP server if you continue with [Control which tools agents can call](../05-mcp-tool-controls/README.md),
-which builds on it. Otherwise, delete it in **MCP servers** in the portal, or from a shell:
+Keep the gateway and the provider: the other labs reuse them. Keep the `learn` MCP server if you continue with
+[Control which tools agents can call](../05-mcp-tool-controls/README.md), which builds on it. Otherwise, delete it:
 
 ```bash title="Bash"
 az aigateway mcp delete -g "$RG" --gateway-name "$GATEWAY" -n learn --yes
@@ -1275,6 +1350,24 @@ az aigateway mcp delete -g "$RG" --gateway-name "$GATEWAY" -n learn --yes
 ```powershell title="PowerShell"
 az aigateway mcp delete -g $RG --gateway-name $GATEWAY -n learn --yes
 ```
+
+<!-- track: iac | Bicep + azd -->
+
+### Delete everything azd created
+
+In the `ai-gateway/labs/24-github-copilot-byok` folder, delete the resource group with the gateway, the
+`gpt-6-astra` alias, the `github-copilot` key, the `learn` MCP server, and the Foundry account with its two
+deployments. `--purge` also purges the Foundry account, which would otherwise stay soft-deleted for 48 hours and keep
+counting against your quota. It takes about ten minutes.
+
+```bash
+azd down --purge --force
+```
+
+<!-- /tracks -->
+
+`azd down` doesn't touch the gateway, provider, and key from lab 02, because the Bicep + azd track created its own
+gateway.
 
 ## Troubleshooting
 

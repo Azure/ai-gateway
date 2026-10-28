@@ -28,7 +28,7 @@ prereqs:
 
 | ⏱️ Time | 📶 Level | 🧭 Tracks | ✅ Before you start |
 | :-- | :-- | :-- | :-- |
-| 25 min | Intermediate | Portal · REST API · Bicep | [06 · Token limits](../06-token-limits/README.md)<br>[08 · Content safety](../08-content-safety/README.md) |
+| 25 min | Intermediate | Portal · REST API · Policy as code | [06 · Token limits](../06-token-limits/README.md)<br>[08 · Content safety](../08-content-safety/README.md) |
 
 **You'll learn to**
 

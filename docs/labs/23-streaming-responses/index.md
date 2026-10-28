@@ -32,9 +32,16 @@ then prove that a token limit still counts every streamed token.
 
 ## Before you begin
 
+> [!TIP]
+> On the **Bicep + azd** track, `azd up` creates its own gateway, model, key, and the token-limited streaming alias,
+> so you can skip this section. Run that track in
+> [Put a token limit on a streaming alias](#put-a-token-limit-on-a-streaming-alias) first: it sets the variables that
+> [Stream a response](#stream-a-response) and **Verify** use. You need only [Azure Cloud Shell](https://shell.azure.com),
+> or the Azure Developer CLI (`azd`), the Azure CLI, Git, and `jq` on your machine.
+
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need a gateway, an imported
   model, a callable alias, and a runtime API key from **Access** › **Keys**.
-- For the shell steps: `curl` and `jq` for Bash, or PowerShell 7.4 or later. For the CLI and IaC tracks: the
+- For the shell steps: `curl` and `jq` for Bash, or PowerShell 7.4 or later. For the CLI track: the
   [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with `az login`,
   and the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)).
 - For the Code track: Python 3.10 or later, or Node.js 22.18 or later.
@@ -428,34 +435,97 @@ arguments instead.
 > The output shows your alias and one policy with `"type": "tokenLimit"`, `"count": 1000`, `"period": "minute"`,
 > `"counterKey": ["identity"]`, and `"scope": "resource"`.
 
-<!-- track: iac | Bicep -->
+<!-- track: iac | Bicep + azd -->
 
-### Deploy the template from lab 06
+**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
+the Azure CLI with the `aigateway` extension, Git, and `jq` on your machine, signed in with `azd auth login` and
+`az login`. This track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
 
-[Throttle tokens per caller with token limits](../06-token-limits/README.md) ships a template that publishes a
-token-limited alias for an existing model. Reuse it with the streaming alias name.
+### Clone the lab
+
+The lab is a small azd project in the
+[`labs/23-streaming-responses`](https://github.com/Azure/ai-gateway/tree/main/labs/23-streaming-responses) folder of
+the GitHub repo. Clone the repo and move into that folder. If you cloned it for the quick start, move into
+`ai-gateway/labs/23-streaming-responses` instead.
 
 ```bash title="Bash"
-az deployment group create -g "$RG" -n 23-streaming-alias \
-  --template-file ../06-token-limits/infra/main.bicep \
-  --parameters gatewayName="$GATEWAY" providerName="$PROVIDER" modelName="$MODEL" aliasName="$STREAM_ALIAS" \
-               allowedTokens=1000 period=minute counterKey="['identity']" \
-  --query properties.outputs
+git clone https://github.com/Azure/ai-gateway.git
+cd ai-gateway/labs/23-streaming-responses
 ```
 
 ```powershell title="PowerShell"
-az deployment group create -g $RG -n 23-streaming-alias `
-  --template-file ../06-token-limits/infra/main.bicep `
-  --parameters gatewayName=$GATEWAY providerName=$PROVIDER modelName=$MODEL aliasName=$STREAM_ALIAS `
-               allowedTokens=1000 period=minute counterKey="['identity']" `
-  --query properties.outputs
+git clone https://github.com/Azure/ai-gateway.git
+Set-Location ai-gateway/labs/23-streaming-responses
 ```
 
-On GitHub, open [main.bicep](../06-token-limits/infra/main.bicep).
+### Review the template
+
+`infra/main.bicep` creates the resource group `rg-<environment name>` and calls the quick start's
+[resources.bicep](../quickstart/infra/resources.bicep) for the gateway, the Foundry model, its default alias, and the
+`app-first-call` key. Then it reuses the template from
+[Throttle tokens per caller with token limits](../06-token-limits/README.md),
+[limited-alias.bicep](../06-token-limits/infra/limited-alias.bicep), which publishes a token-limited alias for an
+existing model, with the streaming alias name and the limit of 1,000 tokens per minute for each caller identity:
+
+<!-- include: infra/main.bicep -->
+
+### Deploy with azd up
+
+Create an azd environment named `aigw-lab23` in your current subscription, then provision everything. It takes
+about three minutes.
+
+```bash title="Bash"
+azd env new aigw-lab23 --location eastus2 --subscription "$(az account show --query id --output tsv)"
+azd up
+```
+
+```powershell title="PowerShell"
+azd env new aigw-lab23 --location eastus2 --subscription (az account show --query id --output tsv)
+azd up
+```
+
+For Sweden Central, use `--location swedencentral`.
+
+### Read the outputs and the key
+
+Set the variables that the rest of the lab uses from azd's environment values, and read the key from the gateway,
+so that it never shows on screen.
+
+```bash title="Bash"
+export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
+export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
+export PROVIDER="$(azd env get-value AI_GATEWAY_PROVIDER)"
+export MODEL="$(azd env get-value AI_GATEWAY_BACKEND_MODEL)"
+export STREAM_ALIAS="$(azd env get-value AI_GATEWAY_STREAM_ALIAS)"
+export GATEWAY_ID="$(azd env get-value AI_GATEWAY_ID)"
+export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
+export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
+export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" \
+  --query primaryKey --output tsv)"
+echo "$STREAM_ALIAS"
+```
+
+```powershell title="PowerShell"
+$RG                     = azd env get-value AZURE_RESOURCE_GROUP
+$GATEWAY                = azd env get-value AI_GATEWAY_NAME
+$PROVIDER               = azd env get-value AI_GATEWAY_PROVIDER
+$MODEL                  = azd env get-value AI_GATEWAY_BACKEND_MODEL
+$STREAM_ALIAS           = azd env get-value AI_GATEWAY_STREAM_ALIAS
+$GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
+$env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
+$env:AI_GATEWAY_MODEL   = azd env get-value AI_GATEWAY_MODEL
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" `
+  --query primaryKey --output tsv
+$STREAM_ALIAS
+```
+
+`AI_GATEWAY_MODEL` is the default alias, `gpt-6-luna`, which has no token limit, so the steps in
+[Stream a response](#stream-a-response) aren't throttled. **Verify** calls the streaming alias.
 
 > **Checkpoint**
-> The outputs show `aliasName` set to your streaming alias, and **Policies** in the portal lists a
-> **Token rate limit** scoped to it.
+> `azd up` ended with `SUCCESS`, and the last command printed the streaming alias, `gpt-6-luna-stream`. In the
+> portal, **Models** › **Aliases** lists it next to `gpt-6-luna`, and **Policies** lists a **Token rate limit**
+> scoped to it. If you came here from **Before you begin**, go back to [Stream a response](#stream-a-response) now.
 
 <!-- /tracks -->
 
@@ -582,7 +652,16 @@ requests appear as `429` outcomes.
 ## Clean up
 
 Delete the streaming alias. Its token limit goes with it, and the backend model and your alias from lab 02 stay.
-In the portal, open `<model-name>-stream` in **Models** › **Aliases** and select **Delete**. From a shell:
+
+<!-- track: portal | Portal -->
+
+### Delete the streaming alias
+
+Open `<model-name>-stream` in **Models** › **Aliases** and select **Delete**.
+
+<!-- track: cli | Azure CLI -->
+
+### Delete the streaming alias
 
 ```bash title="Bash"
 az aigateway model-alias delete -g "$RG" --gateway-name "$GATEWAY" -n "$STREAM_ALIAS" --yes
@@ -592,7 +671,22 @@ az aigateway model-alias delete -g "$RG" --gateway-name "$GATEWAY" -n "$STREAM_A
 az aigateway model-alias delete -g $RG --gateway-name $GATEWAY -n $STREAM_ALIAS --yes
 ```
 
-Keep the gateway, model, and key. The next labs reuse them.
+<!-- track: iac | Bicep + azd -->
+
+### Delete everything azd created
+
+In the `ai-gateway/labs/23-streaming-responses` folder, delete the resource group with the gateway, the Foundry
+account, and both aliases. `--purge` also purges the Foundry account, which would otherwise stay soft-deleted for 48
+hours and keep counting against your quota. It takes about ten minutes.
+
+```bash
+azd down --purge --force
+```
+
+<!-- /tracks -->
+
+Keep the gateway, model, and key from lab 02: the next labs reuse them. `azd down` doesn't touch them, because
+the Bicep + azd track created its own gateway.
 
 ## Troubleshooting
 

@@ -27,7 +27,7 @@ prereqs:
 
 | ⏱️ Time | 📶 Level | 🧭 Tracks | ✅ Before you start |
 | :-- | :-- | :-- | :-- |
-| 25 min | Beginner | Portal · Azure CLI · Bicep · Code · Notebook | [01 · Provision a gateway](../01-provision-gateway/README.md) |
+| 25 min | Beginner | Portal · Azure CLI · Bicep + azd · Code · Notebook | [01 · Provision a gateway](../01-provision-gateway/README.md) |
 
 **You'll learn to**
 
@@ -51,6 +51,11 @@ Foundry credential.
 
 ## Before you begin
 
+> [!TIP]
+> On the **Bicep + azd** track, `azd up` creates its own gateway, Foundry account, model, and key, so you can skip
+> this section. You need only [Azure Cloud Shell](https://shell.azure.com), or the Azure Developer CLI (`azd`), the
+> Azure CLI, and Git on your machine, plus the language runtime for the code track if you follow it.
+
 - Complete [Provision your AI Gateway](../01-provision-gateway/README.md). You need the gateway, its resource
   group, and its runtime URL.
 - A model deployment in a Microsoft Foundry (Azure AI Services) or Azure OpenAI account, for example
@@ -58,7 +63,7 @@ Foundry credential.
 - Permission to grant the gateway access to the account: **Owner**, **User Access Administrator**, or **Role
   Based Access Control Administrator** on the Foundry account. You also need to change the gateway, for example
   **Contributor** on its resource group.
-- For the CLI and IaC tracks and the **Verify** steps: the
+- For the CLI track and the **Verify** steps: the
   [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
   `az login`, the `aigateway` extension ([install it](../01-provision-gateway/README.md#before-you-begin)), and
   `jq` for the Bash snippets.
@@ -74,7 +79,7 @@ export GATEWAY="<gateway>"
 export FOUNDRY_RG="<foundry-resource-group>"      # resource group of the Foundry account
 export FOUNDRY_ACCOUNT="<foundry-account-name>"   # the account name, not a project or deployment name
 export DEPLOYMENT="gpt-6-luna"                    # the model deployment to publish
-export PROVIDER="foundry-models"                  # CLI and IaC tracks: the gateway provider to create
+export PROVIDER="foundry-models"                  # CLI track: the gateway provider to create
 
 export GATEWAY_ID="$(az aigateway show -g "$RG" -n "$GATEWAY" --query id -o tsv)"
 export AI_GATEWAY_URL="https://$(az aigateway show -g "$RG" -n "$GATEWAY" --query properties.frontend.defaultHostname -o tsv)"
@@ -89,7 +94,7 @@ $GATEWAY         = "<gateway>"
 $FOUNDRY_RG      = "<foundry-resource-group>"     # resource group of the Foundry account
 $FOUNDRY_ACCOUNT = "<foundry-account-name>"       # the account name, not a project or deployment name
 $DEPLOYMENT      = "gpt-6-luna"                   # the model deployment to publish
-$PROVIDER        = "foundry-models"               # CLI and IaC tracks: the gateway provider to create
+$PROVIDER        = "foundry-models"               # CLI track: the gateway provider to create
 
 $GATEWAY_ID = az aigateway show -g $RG -n $GATEWAY --query id -o tsv
 $env:AI_GATEWAY_URL = "https://$(az aigateway show -g $RG -n $GATEWAY --query properties.frontend.defaultHostname -o tsv)"
@@ -140,6 +145,7 @@ unchanged to Foundry. The response comes back as is, and the gateway records tok
 ## Publish the model and create a key
 
 Pick one track. Each track publishes the deployment, gives you a callable alias, and creates a runtime API key.
+The Bicep + azd track also creates its own gateway and Foundry deployment, so it doesn't need lab 01's gateway.
 
 <!-- track: portal | Portal -->
 <details open><summary><b>🖥️ Portal</b></summary> <!-- gh -->
@@ -402,21 +408,237 @@ $env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-nam
 > shows `app-first-call` as `active`, next to the built-in `master` key.
 
 </details> <!-- gh -->
-<!-- track: iac | Bicep -->
-<details><summary><b>🏗️ Bicep</b></summary> <!-- gh -->
+<!-- track: iac | Bicep + azd -->
+<details><summary><b>🏗️ Bicep + azd</b></summary> <!-- gh -->
 
-### Review the template
+**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
+the Azure CLI with the `aigateway` extension, and Git on your machine, signed in with `azd auth login` and `az login`.
+The template assigns a role, so you need **Owner** on the subscription, or **Contributor** and **Role Based Access
+Control Administrator**. This track doesn't use your gateway from lab 01: `azd up` creates a new one, so it works on
+its own.
 
-The template adds to the gateway from lab 01. It grants the gateway's identity the **Foundry User** role on the
-account (in the account's own resource group), creates a Foundry model provider that authenticates with the
-managed identity, registers the deployment as a backend model with a per-caller token limit, publishes an alias,
-and creates a runtime API key.
+### Clone the lab
+
+The lab is a small azd project in the
+[`labs/02-first-model-call`](https://github.com/Azure/ai-gateway/tree/main/labs/02-first-model-call) folder of the
+GitHub repo. Clone the repo and move into that folder. If you cloned it for the quick start or another lab, move
+into `ai-gateway/labs/02-first-model-call` instead.
+
+<details open><summary>Bash</summary> <!-- gh -->
+
+```bash title="Bash"
+git clone https://github.com/Azure/ai-gateway.git
+cd ai-gateway/labs/02-first-model-call
+```
+</details> <!-- gh -->
+
+<details><summary>PowerShell</summary> <!-- gh -->
+
+```powershell title="PowerShell"
+git clone https://github.com/Azure/ai-gateway.git
+Set-Location ai-gateway/labs/02-first-model-call
+```
+</details> <!-- gh -->
+
+### Review the templates
+
+`infra/main.bicep` creates the resource group `rg-<environment name>` and composes three templates. It calls lab
+01's [gateway.bicep](../01-provision-gateway/infra/gateway.bicep) for the gateway, `infra/foundry.bicep` for the
+Foundry account and its `gpt-6-luna` deployment, and then `infra/publish-model.bicep` to publish the deployment
+through the gateway:
 
 <!-- include: infra/main.bicep -->
 <!-- gh:begin include: generated by "npm run sync" from the metadata, do not edit -->
 📄 [`infra/main.bicep`](infra/main.bicep)
 
-<details><summary>Show all 152 lines</summary>
+<details><summary>Show all 75 lines</summary>
+
+```bicep
+// Lab 02 with azd: "azd up" creates the resource group rg-<environment name> with lab 01's gateway and this lab's
+// Foundry account and gpt-6-luna deployment, then publishes the deployment through the gateway: the Foundry User
+// role, the model provider, the backend model, the alias, and the app-first-call key.
+// The runtime API key is never an output.
+targetScope = 'subscription'
+
+@description('azd environment name. The resource group is rg-<environmentName>.')
+@minLength(1)
+@maxLength(60)
+param environmentName string
+
+@description('Region for every resource. During the preview, AI Gateway runs in East US 2 and Sweden Central.')
+@allowed([
+  'eastus2'
+  'swedencentral'
+])
+@metadata({ azd: { type: 'location' } })
+param location string
+
+@description('Tokens per minute that each caller identity can use on the model. azd reads it from TOKENS_PER_MINUTE.')
+@minValue(1)
+param tokensPerMinute int = 10000
+
+var suffix = take(uniqueString(subscription().id, environmentName, location), 6)
+var tags = { 'azd-env-name': environmentName }
+
+resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
+  name: 'rg-${environmentName}'
+  location: location
+  tags: tags
+}
+
+// Lab 01's template: the gateway with a system-assigned identity, and its connector gateway.
+module gateway '../../01-provision-gateway/infra/gateway.bicep' = {
+  name: 'aigw-gateway'
+  scope: rg
+  params: {
+    gatewayName: 'aigw-${suffix}'
+    location: location
+    tags: tags
+  }
+}
+
+// The backend: a Foundry account with a gpt-6-luna deployment.
+module foundry 'foundry.bicep' = {
+  name: 'aigw-foundry'
+  scope: rg
+  params: {
+    accountName: 'aigw${suffix}'
+    location: location
+    tags: tags
+  }
+}
+
+// The Foundry User role for the gateway, then the provider, the backend model, the alias, and the key.
+module publish 'publish-model.bicep' = {
+  name: 'aigw-publish-model'
+  scope: rg
+  params: {
+    gatewayName: gateway.outputs.gatewayName
+    foundryAccountId: foundry.outputs.accountId
+    deploymentName: foundry.outputs.deploymentName
+    tokensPerMinute: tokensPerMinute
+  }
+}
+
+output AZURE_RESOURCE_GROUP string = rg.name
+output AI_GATEWAY_NAME string = gateway.outputs.gatewayName
+output AI_GATEWAY_ID string = gateway.outputs.gatewayId
+output AI_GATEWAY_URL string = gateway.outputs.gatewayUrl
+output AI_GATEWAY_PROVIDER string = publish.outputs.providerName
+output AI_GATEWAY_BACKEND_MODEL string = publish.outputs.modelName
+output AI_GATEWAY_MODEL string = publish.outputs.aliasName
+output AI_GATEWAY_API_KEY_NAME string = publish.outputs.apiKeyName
+output FOUNDRY_ACCOUNT_NAME string = foundry.outputs.accountName
+```
+
+</details>
+<!-- gh:end -->
+
+`infra/foundry.bicep` creates an Azure AI Services account with local key authentication disabled, and a
+`gpt-6-luna` `GlobalStandard` deployment. Skip it in your own templates if you already have a deployment:
+
+<!-- include: infra/foundry.bicep -->
+<!-- gh:begin include: generated by "npm run sync" from the metadata, do not edit -->
+📄 [`infra/foundry.bicep`](infra/foundry.bicep)
+
+<details><summary>Show all 78 lines</summary>
+
+```bicep
+// Optional: creates a Microsoft Foundry (Azure AI Services) account with one gpt-6-luna deployment
+// to use as the backend for this lab. Skip it if you already have a Foundry or Azure OpenAI deployment.
+// Mirrors infra/foundry-models/main.bicep in the reference sample. Model inference is billed.
+// The lab's main.bicep calls it with azd. You can also deploy it on its own with "az deployment group create".
+targetScope = 'resourceGroup'
+
+@description('Foundry account name. It is also used as the custom subdomain, so it must be globally unique.')
+@minLength(2)
+@maxLength(64)
+param accountName string
+
+@description('Region for the Foundry account. The model and SKU must be available in this region.')
+param location string = resourceGroup().location
+
+@description('Name of the model deployment that the gateway will publish.')
+param deploymentName string = 'gpt-6-luna'
+
+@description('Model to deploy.')
+param modelName string = 'gpt-6-luna'
+
+@description('Model version to deploy.')
+param modelVersion string = '2026-09-22'
+
+@description('Deployment SKU.')
+param skuName string = 'GlobalStandard'
+
+@description('Deployment capacity in thousands of tokens per minute.')
+@minValue(1)
+param capacity int = 10
+
+@description('Tags applied to the account.')
+param tags object = {}
+
+resource account 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
+  name: accountName
+  location: location
+  tags: tags
+  kind: 'AIServices'
+  sku: {
+    name: 'S0'
+  }
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    allowProjectManagement: false
+    customSubDomainName: toLower(accountName)
+    disableLocalAuth: true
+    networkAcls: {
+      defaultAction: 'Allow'
+      virtualNetworkRules: []
+      ipRules: []
+    }
+    publicNetworkAccess: 'Enabled'
+  }
+}
+
+resource deployment 'Microsoft.CognitiveServices/accounts/deployments@2025-04-01-preview' = {
+  parent: account
+  name: deploymentName
+  sku: {
+    name: skuName
+    capacity: capacity
+  }
+  properties: {
+    model: {
+      name: modelName
+      format: 'OpenAI'
+      version: modelVersion
+    }
+  }
+}
+
+output accountId string = account.id
+output accountName string = account.name
+output endpoint string = account.properties.endpoint
+output deploymentName string = deployment.name
+output deploymentId string = deployment.id
+```
+
+</details>
+<!-- gh:end -->
+
+`infra/publish-model.bicep` adds to the gateway. It grants the gateway's identity the **Foundry User** role on the
+account (in the account's own resource group, with
+[foundry-user-role.bicep](infra/foundry-user-role.bicep)), and only then creates a Foundry model provider that
+authenticates with the managed identity. It registers the deployment as a backend model with a per-caller token
+limit, publishes an alias, and creates a runtime API key. It only references the gateway and the account, so you
+can also deploy it on its own to a gateway you already have, with `az deployment group create`:
+
+<!-- include: infra/publish-model.bicep -->
+<!-- gh:begin include: generated by "npm run sync" from the metadata, do not edit -->
+📄 [`infra/publish-model.bicep`](infra/publish-model.bicep)
+
+<details><summary>Show all 154 lines</summary>
 
 ```bicep
 // Publishes one Microsoft Foundry model deployment through an existing AI Gateway:
@@ -424,6 +646,8 @@ and creates a runtime API key.
 // provider that authenticates with that identity, registers the deployment as a backend model, publishes a
 // callable alias for it, and creates a runtime API key for the first app.
 // Mirrors the Foundry provider and model registration in infra/ai-gateway/main.bicep of the reference sample.
+// The lab's main.bicep calls it with azd, and other labs call it as a module. You can also deploy it on its own
+// to a gateway you already have with "az deployment group create".
 targetScope = 'resourceGroup'
 
 @description('Name of the existing AI Gateway (Microsoft.ApiManagement/aigateways) in this resource group.')
@@ -576,65 +800,96 @@ output foundryUserRoleAssignmentName string = foundryUserRole.outputs.roleAssign
 </details>
 <!-- gh:end -->
 
-On GitHub, open [infra/main.bicep](infra/main.bicep) and [infra/foundry-user-role.bicep](infra/foundry-user-role.bicep).
+### Deploy with azd up
 
-### Deploy the template
-
-Run the deployment from the lab folder. The alias defaults to the deployment name.
+Create an azd environment named `aigw-lab02` in your current subscription, then provision everything. It takes
+about three minutes.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-FOUNDRY_ID="$(az cognitiveservices account show -g "$FOUNDRY_RG" -n "$FOUNDRY_ACCOUNT" --query id -o tsv)"
-
-az deployment group create -g "$RG" \
-  --template-file infra/main.bicep \
-  --parameters gatewayName="$GATEWAY" foundryAccountId="$FOUNDRY_ID" \
-               deploymentName="$DEPLOYMENT" providerName="$PROVIDER" \
-  --query properties.outputs
+azd env new aigw-lab02 --location eastus2 --subscription "$(az account show --query id --output tsv)"
+azd up
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-$FOUNDRY_ID = az cognitiveservices account show -g $FOUNDRY_RG -n $FOUNDRY_ACCOUNT --query id -o tsv
-
-az deployment group create -g $RG `
-  --template-file infra/main.bicep `
-  --parameters gatewayName=$GATEWAY foundryAccountId=$FOUNDRY_ID `
-               deploymentName=$DEPLOYMENT providerName=$PROVIDER `
-  --query properties.outputs
+azd env new aigw-lab02 --location eastus2 --subscription (az account show --query id --output tsv)
+azd up
 ```
 </details> <!-- gh -->
 
-The outputs include `aliasName`, `apiKeyName`, and `modelEndpoint`.
+For Sweden Central, use `--location swedencentral`.
 
-### Read the alias and key
+### Read the outputs and the key
 
-Template outputs never contain the key value. Read it with `az aigateway api-key list-secrets` straight into a
-variable.
+Set the variables from **Before you begin**, which the next sections and **Verify** use, from azd's environment
+values. Template outputs never contain the key value, so read it from the gateway straight into a variable, where
+it never shows on screen.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
 ```bash title="Bash"
-export AI_GATEWAY_MODEL="$DEPLOYMENT"    # the aliasName output
-AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets -g "$RG" --gateway-name "$GATEWAY" -n app-first-call \
-  --query primaryKey -o tsv)" && export AI_GATEWAY_API_KEY
+export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
+export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
+export GATEWAY_ID="$(azd env get-value AI_GATEWAY_ID)"
+export FOUNDRY_RG="$RG"
+export FOUNDRY_ACCOUNT="$(azd env get-value FOUNDRY_ACCOUNT_NAME)"
+export DEPLOYMENT="$(azd env get-value AI_GATEWAY_BACKEND_MODEL)"
+export PROVIDER="$(azd env get-value AI_GATEWAY_PROVIDER)"
+export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
+export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
+export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" \
+  --query primaryKey --output tsv)"
+echo "$AI_GATEWAY_MODEL"
 ```
 </details> <!-- gh -->
 
 <details><summary>PowerShell</summary> <!-- gh -->
 
 ```powershell title="PowerShell"
-$env:AI_GATEWAY_MODEL = $DEPLOYMENT      # the aliasName output
-$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n app-first-call `
-  --query primaryKey -o tsv
+$RG                     = azd env get-value AZURE_RESOURCE_GROUP
+$GATEWAY                = azd env get-value AI_GATEWAY_NAME
+$GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
+$FOUNDRY_RG             = $RG
+$FOUNDRY_ACCOUNT        = azd env get-value FOUNDRY_ACCOUNT_NAME
+$DEPLOYMENT             = azd env get-value AI_GATEWAY_BACKEND_MODEL
+$PROVIDER               = azd env get-value AI_GATEWAY_PROVIDER
+$env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
+$env:AI_GATEWAY_MODEL   = azd env get-value AI_GATEWAY_MODEL
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" `
+  --query primaryKey --output tsv
+$env:AI_GATEWAY_MODEL
 ```
 </details> <!-- gh -->
 
 > **Checkpoint**
-> The deployment succeeds, and its outputs show `providerName`, `modelName`, and `aliasName`.
+> `azd up` ended with `SUCCESS`, and the last command printed the alias, `gpt-6-luna`. In the portal, select the
+> new gateway in the gateway switcher: **Models** lists `gpt-6-luna`.
+
+### Change the token limit
+
+The template gives each caller 10,000 tokens per minute on the model. The value comes from the
+`TOKENS_PER_MINUTE` azd environment value, with the default in `infra/main.parameters.json`. To change it, set the
+value and provision again. Only the model changes.
+
+<details open><summary>Bash</summary> <!-- gh -->
+
+```bash title="Bash"
+azd env set TOKENS_PER_MINUTE 20000
+azd provision
+```
+</details> <!-- gh -->
+
+<details><summary>PowerShell</summary> <!-- gh -->
+
+```powershell title="PowerShell"
+azd env set TOKENS_PER_MINUTE 20000
+azd provision
+```
+</details> <!-- gh -->
 
 </details> <!-- gh -->
 <!-- /tracks -->
@@ -1023,20 +1278,27 @@ aren't callable unless an alias with that name exists.
 
 - **Publish more deployments.** After you add deployments in Foundry, rerun the portal import, or repeat the
   CLI track's **Register the deployment** and **Publish an alias** steps for each new deployment.
-- **Add a per-caller token limit.** The Bicep track already sets `tokensPerMinute`. Learn how limits behave in
+- **Add a per-caller token limit.** The Bicep + azd track already sets `tokensPerMinute`, and its **Change the
+  token limit** step changes it. Learn how limits behave in
   [Throttle tokens per caller with token limits](../06-token-limits/README.md).
 - **Publish models from other providers.** Put OpenAI, Anthropic, AWS Bedrock, or Google Vertex AI models behind
   the same gateway in [Publish models from any provider behind stable aliases](../03-multi-provider-aliases/README.md).
 
 ## Clean up
 
-Keep the gateway, model, alias, and key. The next labs reuse them.
+The portal and CLI tracks of the next labs reuse the gateway, model, alias, and key, so keep them until you finish
+the labs you plan to do.
+
+<!-- track: cli | Portal and Azure CLI -->
+<details open><summary><b>⌨️ Portal and Azure CLI</b></summary> <!-- gh -->
+
+### Delete what you published
 
 When you're done with the labs, delete the key, the alias, and the provider, then remove the role assignment that
 the gateway received on the Foundry account. Delete the alias first: deleting the provider also deletes its
 models, but not the aliases that point at them. Deleting a model from the gateway doesn't delete the Foundry
-deployment. The commands use the names from the CLI and IaC tracks. If you imported in the portal, use the
-provider and alias names shown on **Models**.
+deployment. The commands use the names from the CLI track. If you imported in the portal, use the provider
+and alias names shown on **Models**.
 
 <details open><summary>Bash</summary> <!-- gh -->
 
@@ -1066,6 +1328,30 @@ az role assignment delete --assignee $PRINCIPAL_ID --role "53ca6127-db72-4b80-b1
 
 If you created the Foundry account with `infra/foundry.bicep`, delete its resource group with
 `az group delete --name "$FOUNDRY_RG"`.
+
+</details> <!-- gh -->
+<!-- track: iac | Bicep + azd -->
+<details><summary><b>🏗️ Bicep + azd</b></summary> <!-- gh -->
+
+### Delete everything azd created
+
+You don't need to keep this gateway for the Bicep + azd tracks of later labs: each of them creates its own. If you
+continue with the portal or CLI track of [lab 03](../03-multi-provider-aliases/README.md), you can keep it instead:
+it has what that lab needs, the `gpt-6-luna` alias and the `app-first-call` key, in the resource group
+`rg-aigw-lab02`.
+
+Otherwise, in the `ai-gateway/labs/02-first-model-call` folder, delete the resource group with the gateway and the
+Foundry account. `--purge` also purges the Foundry account, which would otherwise stay soft-deleted for 48 hours
+and keep counting against your quota. It takes up to fifteen minutes.
+
+```bash
+azd down --purge --force
+```
+
+`azd down` doesn't touch the gateway from lab 01, because this track created its own.
+
+</details> <!-- gh -->
+<!-- /tracks -->
 
 ## Troubleshooting
 

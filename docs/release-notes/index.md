@@ -23,6 +23,20 @@ model version, and manage MCP servers that use the 2026-07-28 MCP specification.
 
 #### Labs changes
 
+- **October 27.** Every Bicep + azd track is now a self-contained azd template, like the quick start's: clone the
+  repo, run `azd up` in the lab's folder to create a new gateway with everything the lab needs, change its settings
+  with `azd env set` and `azd provision`, and remove it all with `azd down --purge --force`
+  ([lab 06](06-token-limits/README.md#clone-the-lab) shows the pattern). Labs [01](01-provision-gateway/README.md),
+  [02](02-first-model-call/README.md), [04](04-federate-mcp-tools/README.md), [06](06-token-limits/README.md),
+  [11](11-entra-rbac/README.md), [12](12-backend-identity/README.md), [13](13-monitoring/README.md),
+  [18](18-private-networking/README.md), [22](22-model-routing/README.md), [23](23-streaming-responses/README.md),
+  and [24](24-github-copilot-byok/README.md) move to it, and labs [03](03-multi-provider-aliases/README.md),
+  [05](05-mcp-tool-controls/README.md), [07](07-cost-budgets/README.md), [08](08-content-safety/README.md),
+  [10](10-api-keys/README.md), [14](14-otel-chargeback/README.md), and [19](19-tool-threat-protection/README.md) gain a
+  Bicep + azd track. The reusable modules have descriptive names, such as lab 01's `gateway.bicep`, lab 02's
+  `publish-model.bicep`, lab 04's `tool-server.bicep`, and lab 06's `limited-alias.bicep`, so other labs can
+  compose them. Lab 05 now shows that a blocked MCP server answers `200` with the JSON-RPC error
+  `AccessBlockedByGateway`.
 - **October 27.** The Azure CLI tracks need `aigateway` extension 1.0.0b14 or later, which
   [lab 01](01-provision-gateway/README.md#before-you-begin) installs. They now register models with
   `az aigateway model create`, set and remove token limits and content safety with `az aigateway model policy`

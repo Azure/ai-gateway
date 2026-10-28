@@ -11,7 +11,7 @@ tags: [tokenLimit, TPM, quota, "429", Retry-After, noisy neighbor]
 objectives:
   - Explain how a token limit counts tokens per caller and per time window
   - Add a token rate limit to a model in the portal, with the Azure CLI, or with the REST API
-  - Publish a separately limited alias with Bicep, without touching existing clients
+  - Publish a separately limited alias with Bicep and azd, without touching existing clients
   - Trigger a 429 response, read Retry-After, and find the throttled calls in Monitoring
 prereqs:
   - 02-first-model-call
@@ -30,9 +30,14 @@ you give each caller its own token allowance at the gateway, so a noisy neighbor
 
 ## Before you begin
 
+> [!TIP]
+> On the **Bicep + azd** track, `azd up` creates its own gateway, model, and key, so you can skip this section. You
+> need only [Azure Cloud Shell](https://shell.azure.com), or the Azure Developer CLI (`azd`), the Azure CLI, and Git
+> on your machine.
+
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need a gateway, an imported
   model, a callable alias, and a runtime API key from **Access** › **Keys**.
-- For the CLI, REST, and IaC tracks: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)
+- For the CLI and REST tracks: the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)
   2.75 or later, signed in with `az login`, the `aigateway` extension
   ([install it](../01-provision-gateway/README.md#before-you-begin)), and `jq` for the Bash snippets.
 - Permission to change the gateway, for example **Contributor** on the resource group.
@@ -213,7 +218,11 @@ Remove-Item patch.json
 > Running the `GET` again returns your other policies unchanged plus one `tokenLimit` entry with
 > `"counterKey": ["identity"]` and `"scope": "resource"`.
 
-<!-- track: iac | Bicep -->
+<!-- track: iac | Bicep + azd -->
+
+**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
+the Azure CLI with the `aigateway` extension, and Git on your machine, signed in with `azd auth login` and `az login`.
+This track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
 
 ### Choose what to declare
 
@@ -225,40 +234,105 @@ keep calling the original alias. Callers that you move to the new alias get the 
 This is also a common production pattern: one backend model, several aliases, and a different limit for each
 audience (for example `gpt-chat` for interactive apps and `gpt-batch` for offline jobs).
 
-### Review the template
+### Clone the lab
 
-<!-- include: infra/main.bicep -->
-
-On GitHub, open [infra/main.bicep](infra/main.bicep).
-
-### Deploy it
+The lab is a small azd project in the
+[`labs/06-token-limits`](https://github.com/Azure/ai-gateway/tree/main/labs/06-token-limits) folder of the GitHub
+repo. Clone the repo and move into that folder. If you cloned it for the quick start, move into
+`ai-gateway/labs/06-token-limits` instead.
 
 ```bash title="Bash"
-az deployment group create -g "$RG" \
-  --template-file infra/main.bicep \
-  --parameters gatewayName="$GATEWAY" providerName="$PROVIDER" modelName="$MODEL" \
-               allowedTokens=1000 period=minute counterKey="['identity']" \
-  --query properties.outputs
-
-export AI_GATEWAY_MODEL="$MODEL-limited"
+git clone https://github.com/Azure/ai-gateway.git
+cd ai-gateway/labs/06-token-limits
 ```
 
 ```powershell title="PowerShell"
-az deployment group create -g $RG `
-  --template-file infra/main.bicep `
-  --parameters gatewayName=$GATEWAY providerName=$PROVIDER modelName=$MODEL `
-               allowedTokens=1000 period=minute counterKey="['identity']" `
-  --query properties.outputs
-
-$env:AI_GATEWAY_MODEL = "$MODEL-limited"
+git clone https://github.com/Azure/ai-gateway.git
+Set-Location ai-gateway/labs/06-token-limits
 ```
 
-`counterKey` is an array parameter. Pass `"['ipAddress']"` to count per client IP address, or
-`"['identity','ipAddress']"` for both. The single quotes inside the value survive both Bash and PowerShell.
+### Review the templates
+
+`infra/main.bicep` creates the resource group `rg-<environment name>` and calls the quick start's
+[resources.bicep](../quickstart/infra/resources.bicep) for the gateway, the Foundry model, its default alias, and the
+`app-first-call` key. Then it calls `infra/limited-alias.bicep` with the token limit:
+
+<!-- include: infra/main.bicep -->
+
+`infra/limited-alias.bicep` adds the alias. It only references the gateway, the provider, and the model, so you can
+also deploy it on its own to a gateway you already have, with `az deployment group create`:
+
+<!-- include: infra/limited-alias.bicep -->
+
+### Deploy with azd up
+
+Create an azd environment named `aigw-lab06` in your current subscription, then provision everything. It takes
+about three minutes.
+
+```bash title="Bash"
+azd env new aigw-lab06 --location eastus2 --subscription "$(az account show --query id --output tsv)"
+azd up
+```
+
+```powershell title="PowerShell"
+azd env new aigw-lab06 --location eastus2 --subscription (az account show --query id --output tsv)
+azd up
+```
+
+For Sweden Central, use `--location swedencentral`.
+
+### Read the outputs and the key
+
+Set the variables that **Verify** uses from azd's environment values, and read the key from the gateway, so that it
+never shows on screen.
+
+```bash title="Bash"
+export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
+export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
+export PROVIDER="$(azd env get-value AI_GATEWAY_PROVIDER)"
+export MODEL="$(azd env get-value AI_GATEWAY_BACKEND_MODEL)"
+export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
+export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
+export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$(azd env get-value AI_GATEWAY_ID)/apiKeys/app-first-call" \
+  --query primaryKey --output tsv)"
+echo "$AI_GATEWAY_MODEL"
+```
+
+```powershell title="PowerShell"
+$RG                     = azd env get-value AZURE_RESOURCE_GROUP
+$GATEWAY                = azd env get-value AI_GATEWAY_NAME
+$PROVIDER               = azd env get-value AI_GATEWAY_PROVIDER
+$MODEL                  = azd env get-value AI_GATEWAY_BACKEND_MODEL
+$env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
+$env:AI_GATEWAY_MODEL   = azd env get-value AI_GATEWAY_MODEL
+$GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-first-call" `
+  --query primaryKey --output tsv
+$env:AI_GATEWAY_MODEL
+```
 
 > **Checkpoint**
-> In the portal, **Models** shows the `<model-name>-limited` alias, and **Policies** lists a
-> **Token rate limit** scoped to it.
+> `azd up` ended with `SUCCESS`, and the last command printed the limited alias, `gpt-6-luna-limited`. In the
+> portal, **Models** shows it next to `gpt-6-luna`, and **Policies** lists a **Token rate limit** scoped to it.
+
+### Change the limit
+
+The parameters come from azd environment values, with the defaults in `infra/main.parameters.json`. To count tokens
+per client IP address instead of per key, set `TOKEN_LIMIT_COUNTER_KEY` to a JSON array and provision again. Only
+the alias changes. `TOKEN_LIMIT` and `TOKEN_LIMIT_PERIOD` work the same way.
+
+```bash title="Bash"
+azd env set TOKEN_LIMIT_COUNTER_KEY '["ipAddress"]'
+azd provision
+```
+
+```powershell title="PowerShell"
+azd env set TOKEN_LIMIT_COUNTER_KEY '["ipAddress"]'
+azd provision
+```
+
+Use `'["identity","ipAddress"]'` for both. Set it back to `'["identity"]'` before **Verify**, which proves the
+counter is per key.
 
 <!-- /tracks -->
 
@@ -392,23 +466,25 @@ POLICIES="$(az rest --method get --url "$URL" | jq -c '[(.properties.policies //
 az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLICIES}}"
 ```
 
-<!-- track: iac | Bicep -->
+<!-- track: iac | Bicep + azd -->
 
-### Delete the limited alias
+### Delete everything azd created
 
-```bash title="Bash"
-az aigateway model-alias delete -g "$RG" --gateway-name "$GATEWAY" -n "$MODEL-limited" --yes
+In the `ai-gateway/labs/06-token-limits` folder, delete the resource group with the gateway, the Foundry account, and
+the limited alias. `--purge` also purges the Foundry account, which would otherwise stay soft-deleted for 48 hours
+and keep counting against your quota. It takes about ten minutes.
+
+```bash
+azd down --purge --force
 ```
 
-```powershell title="PowerShell"
-az aigateway model-alias delete -g $RG --gateway-name $GATEWAY -n "$MODEL-limited" --yes
-```
-
-Or select the alias in **Models** and delete it in the portal. The backend model and its original alias stay.
+To keep this gateway for other labs instead, skip `azd down` and raise the limit to a production value:
+`azd env set TOKEN_LIMIT 100000`, then `azd provision`.
 
 <!-- /tracks -->
 
-Keep the gateway, model, and key. The next labs reuse them.
+Keep the gateway, model, and key from lab 02: the next labs reuse them. `azd down` doesn't touch them, because
+the Bicep + azd track created its own gateway.
 
 ## Troubleshooting
 

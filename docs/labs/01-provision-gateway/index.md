@@ -1,6 +1,6 @@
 ---
 title: Provision your AI Gateway
-summary: Create the shared AI Gateway that your apps and agents will call, from the AI Gateway portal, the Azure CLI, or Bicep, then take a guided tour of the portal.
+summary: Create the shared AI Gateway that your apps and agents will call, from the AI Gateway portal, the Azure CLI, or Bicep and azd, then take a guided tour of the portal.
 category: foundations
 level: Beginner
 duration: 15
@@ -9,7 +9,7 @@ order: 1
 illustration: diagrams/provisioning.svg
 tags: [provisioning, aigateways, az aigateway, Bicep, managed identity, regions]
 objectives:
-  - Create an AI Gateway in East US 2 or Sweden Central from the portal, the Azure CLI, or Bicep
+  - Create an AI Gateway in East US 2 or Sweden Central from the portal, the Azure CLI, or Bicep and azd
   - Find the gateway's runtime URL and its system-assigned managed identity
   - Confirm that the runtime endpoint answers over HTTPS
   - Navigate the AI Gateway portal and know which area manages what
@@ -29,13 +29,19 @@ way around the portal so you're ready for the rest of the labs.
 
 ## Before you begin
 
+> [!TIP]
+> On the **Bicep + azd** track, `azd up` creates the resource group and the gateway and names them for you, so you
+> can skip the variables at the end of this section. You need [Azure Cloud Shell](https://shell.azure.com), or the
+> Azure Developer CLI (`azd`), the Azure CLI, and Git on your machine, plus the `aigateway` extension below for the
+> **Verify** steps.
+
 - An Azure subscription with access to the AI Gateway preview. The AI Gateway tier is free during public
   preview. Connected services, such as Foundry inference and Application Insights, are billed normally.
 - Permission to create the gateway, for example **Contributor** on the resource group, or on the subscription
   if you create a new resource group. Creating a gateway needs write access to both API Management and
   connector gateways.
 - For the portal track: a browser and your Azure account.
-- For the CLI and IaC tracks and the **Verify** steps: the
+- For the CLI track and the **Verify** steps: the
   [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
   `az login`, the [`aigateway` extension](https://github.com/Azure/ai-gateway/tree/main/cli), and `jq` for the Bash snippets.
 - Recommended reading: [How AI Gateway works](../00-how-ai-gateway-works/README.md).
@@ -115,7 +121,8 @@ provider credentials.
 ## Create the gateway
 
 Pick one track. Each track produces the same result: a gateway named `<gateway>` in `<resource-group>`, with a
-system-assigned managed identity.
+system-assigned managed identity. The Bicep + azd track picks the names for you: `aigw-` plus six unique characters,
+in `rg-aigw-lab01`.
 
 <!-- track: portal | Portal -->
 
@@ -229,11 +236,32 @@ az aigateway show -g $RG -n $GATEWAY `
 > The table shows `Succeeded`, a `Host` like `<gateway>.eastus2-01.ai.gateway.azure.com`, and a `PrincipalId`
 > GUID.
 
-<!-- track: iac | Bicep -->
+<!-- track: iac | Bicep + azd -->
+
+**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
+the Azure CLI with the `aigateway` extension, and Git on your machine, signed in with `azd auth login` and `az login`.
+`azd up` creates the resource group and the gateway, so you don't need the variables from **Before you begin**.
+
+### Clone the lab
+
+The lab is a small azd project in the
+[`labs/01-provision-gateway`](https://github.com/Azure/ai-gateway/tree/main/labs/01-provision-gateway) folder of
+the GitHub repo. Clone the repo and move into that folder. If you cloned it for the quick start, move into
+`ai-gateway/labs/01-provision-gateway` instead.
+
+```bash title="Bash"
+git clone https://github.com/Azure/ai-gateway.git
+cd ai-gateway/labs/01-provision-gateway
+```
+
+```powershell title="PowerShell"
+git clone https://github.com/Azure/ai-gateway.git
+Set-Location ai-gateway/labs/01-provision-gateway
+```
 
 ### Review the template
 
-The template follows the AI Gateway [reference sample](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway/blob/main/infra/ai-gateway/main.bicep). It creates the AI gateway
+`infra/gateway.bicep` declares the gateway. It follows the AI Gateway [reference sample](https://github.com/Azure-Samples/simple-foundry-hosted-agent-python-aigateway/blob/main/infra/ai-gateway/main.bicep). It creates the AI gateway
 (`Microsoft.ApiManagement/aigateways`) in the `Consumption` SKU with a system-assigned identity, then a
 `Microsoft.Web/connectorGateways` resource with the same name. There's no capacity or publisher to set. Keep both
 resources together in your own templates, and set `sku`: without it, the gateway is created in the `Premium` SKU.
@@ -245,54 +273,63 @@ resources together in your own templates, and set `sku`: without it, the gateway
 | `tags` | Optional. Tags applied to both resources |
 | `backendSubnetId` | Optional. A subnet for outbound virtual network integration, which can only be set at creation. See [Lab 18](../18-private-networking/README.md) |
 
+<!-- include: infra/gateway.bicep -->
+
+`infra/main.bicep` is the template that azd deploys. It creates the resource group `rg-<environment name>`, then
+calls `infra/gateway.bicep` with the name `aigw-` plus six characters that are unique to your subscription,
+environment, and region. Its outputs become azd environment values:
+
 <!-- include: infra/main.bicep -->
 
-On GitHub, open [infra/main.bicep](infra/main.bicep).
-
-### Create a resource group
-
-```bash
-az group create --name "$RG" --location "$LOCATION"
-```
-
-### Deploy the template
-
-Run the deployment from the lab folder. The template defaults `location` to `eastus2`, so pass your region
-explicitly.
-
-```bash title="Bash"
-az deployment group create -g "$RG" \
-  --template-file infra/main.bicep \
-  --parameters gatewayName="$GATEWAY" location="$LOCATION" \
-  --query properties.outputs
-```
-
-```powershell title="PowerShell"
-az deployment group create -g $RG `
-  --template-file infra/main.bicep `
-  --parameters gatewayName=$GATEWAY location=$LOCATION `
-  --query properties.outputs
-```
-
-Expected output (trimmed):
-
-```json
-{
-  "connectorGatewayId": { "type": "String", "value": "/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.Web/connectorGateways/<gateway>" },
-  "gatewayId":   { "type": "String", "value": "/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.ApiManagement/aigateways/<gateway>" },
-  "gatewayName": { "type": "String", "value": "<gateway>" },
-  "gatewayUrl":  { "type": "String", "value": "https://<gateway>.eastus2-01.ai.gateway.azure.com" },
-  "principalId": { "type": "String", "value": "00000000-0000-0000-0000-000000000000" }
-}
-```
+Later labs reuse `infra/gateway.bicep` as a module. You can also deploy it on its own to a resource group you
+already have, with `az deployment group create`, as **Go further** shows.
 
 > [!TIP]
 > Bicep has no type definitions yet for `Microsoft.ApiManagement/aigateways` and `Microsoft.Web/connectorGateways`.
 > As in the reference sample, each `#disable-next-line BCP081` line silences the warning about it. Without these
 > lines, the build shows `BCP081` warnings, which don't block the deployment.
 
+### Deploy with azd up
+
+Create an azd environment named `aigw-lab01` in your current subscription, then provision the resource group and
+the gateway. It takes about three minutes.
+
+```bash title="Bash"
+azd env new aigw-lab01 --location eastus2 --subscription "$(az account show --query id --output tsv)"
+azd up
+```
+
+```powershell title="PowerShell"
+azd env new aigw-lab01 --location eastus2 --subscription (az account show --query id --output tsv)
+azd up
+```
+
+For Sweden Central, use `--location swedencentral`.
+
+### Read the outputs
+
+Set the variables that **Verify** and **Go further** use from azd's environment values, then print the runtime URL
+and the gateway's principal ID.
+
+```bash title="Bash"
+export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
+export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
+export LOCATION="$(azd env get-value AZURE_LOCATION)"
+azd env get-value AI_GATEWAY_URL
+azd env get-value AI_GATEWAY_PRINCIPAL_ID
+```
+
+```powershell title="PowerShell"
+$RG       = azd env get-value AZURE_RESOURCE_GROUP
+$GATEWAY  = azd env get-value AI_GATEWAY_NAME
+$LOCATION = azd env get-value AZURE_LOCATION
+azd env get-value AI_GATEWAY_URL
+azd env get-value AI_GATEWAY_PRINCIPAL_ID
+```
+
 > **Checkpoint**
-> The deployment succeeds and the outputs show `gatewayUrl` and `principalId`.
+> `azd up` ended with `SUCCESS`. The commands print a runtime URL like
+> `https://aigw-<suffix>.eastus2-01.ai.gateway.azure.com` and a principal ID GUID.
 
 <!-- /tracks -->
 
@@ -325,14 +362,14 @@ A `Could not resolve host` error means the gateway isn't ready yet. Wait a minut
 
 ### Find the gateway on Home
 
-Open the [AI Gateway portal](https://ai.gateway.azure.com). If you created the gateway with the CLI or Bicep,
-select it in the gateway switcher in the top bar. **Home** shows the setup guide for your new gateway.
+Open the [AI Gateway portal](https://ai.gateway.azure.com). If you created the gateway with the CLI or with Bicep
+and azd, select it in the gateway switcher in the top bar. **Home** shows the setup guide for your new gateway.
 
 ### Check the managed identity
 
 Select **Managed identities**. On the **Configure identities** tab, the system-assigned identity is enabled.
-Its principal ID matches `principalId` from the CLI or Bicep output. In later labs you grant this identity
-access to Foundry so that the gateway can call your models without keys.
+Its principal ID matches `principalId` from the CLI output, or `AI_GATEWAY_PRINCIPAL_ID` from azd. In later labs
+you grant this identity access to Foundry so that the gateway can call your models without keys.
 
 ![The Managed identities page with the system-assigned identity enabled](../assets/screens/managed-identities.png "Managed identities › Configure identities shows the system-assigned identity with its principal ID and tenant ID. You can add user-assigned identities here too.")
 
@@ -367,13 +404,15 @@ to any page.
 
 ## Go further
 
-- **One gateway per environment.** Repeat the IaC track with a different `gatewayName` for dev, test, and
-  production, and keep the template in source control next to your app.
+- **One gateway per environment.** Run `azd env new <name>` and `azd up` once for each of dev, test, and
+  production: every azd environment gets its own resource group and gateway. Keep the template in source control
+  next to your app.
 - **Tag for ownership and chargeback.** The template's `tags` parameter applies the same tags to the gateway
-  and its connector gateway, so set them when you create each environment's gateway:
+  and its connector gateway, so set them when you create each environment's gateway. To add them to the gateway
+  you have, deploy `infra/gateway.bicep` on its own from the lab folder:
 
   ```bash
-  az deployment group create -g "$RG" --template-file infra/main.bicep \
+  az deployment group create -g "$RG" --template-file infra/gateway.bicep \
     --parameters gatewayName="$GATEWAY" location="$LOCATION" \
                  tags='{"workload":"ai-gateway-labs","owner":"platform-team","costCenter":"1234"}'
   ```
@@ -383,8 +422,12 @@ to any page.
 
 ## Clean up
 
-The gateway is free during preview, and every later lab reuses it. **Keep it** until you finish the labs you
-plan to do.
+The gateway is free during preview. The portal and CLI tracks of every later lab reuse it, so **keep it** until you
+finish the labs you plan to do.
+
+<!-- track: cli | Portal and Azure CLI -->
+
+### Delete the resource group
 
 When you're done with all the labs, delete the resource group. That removes the gateway, its connector gateway,
 and everything else in the group. The command asks for confirmation.
@@ -396,6 +439,8 @@ az group delete --name "$RG"
 ```powershell title="PowerShell"
 az group delete --name $RG
 ```
+
+### Delete only the gateway
 
 To keep the resource group, delete the AI gateway first and then its connector gateway. Deleting the gateway
 also deletes everything you published on it.
@@ -410,6 +455,24 @@ az aigateway delete -g $RG -n $GATEWAY --yes
 az resource delete -g $RG -n $GATEWAY --resource-type Microsoft.Web/connectorGateways --api-version 2026-05-01-preview
 ```
 
+<!-- track: iac | Bicep + azd -->
+
+### Delete everything azd created
+
+You don't need to keep this gateway for the Bicep + azd tracks of later labs: each of them creates its own gateway.
+If you continue with the portal or CLI track of [lab 02](../02-first-model-call/README.md), you can keep it and use
+its names instead: the resource group is `rg-aigw-lab01`, and `azd env get-value AI_GATEWAY_NAME` prints the gateway
+name.
+
+Otherwise, in the `ai-gateway/labs/01-provision-gateway` folder, delete the resource group with the gateway and its
+connector gateway. It takes up to ten minutes.
+
+```bash
+azd down --purge --force
+```
+
+<!-- /tracks -->
+
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
@@ -418,7 +481,7 @@ az resource delete -g $RG -n $GATEWAY --resource-type Microsoft.Web/connectorGat
 | The deployment fails because the region isn't supported | `$LOCATION` or the template's `location` is outside the preview regions | Use `eastus2` or `swedencentral`. The template accepts only these two values and defaults to `eastus2`. |
 | The name is rejected | Gateway names are globally unique and limited to 24 characters: letters, digits, and hyphens, starting with a letter | Pick another name that follows the rules. |
 | `AIGatewaySubscriptionGatewayLimitExceeded`: `…has reached the maximum of 5 AI Gateway resources allowed in this region.` | The subscription already has five gateways in `$LOCATION` | Delete a gateway you no longer need, or create this one in the other preview region. |
-| `InvalidSkuName`: `Supported AI Gateway SKU names are 'Premium' and 'Consumption'.` | Your template sets another `sku.name`, such as `AIGateway` from older samples | Set `sku: { name: 'Consumption' }`, as [`infra/main.bicep`](infra/main.bicep) does. |
+| `InvalidSkuName`: `Supported AI Gateway SKU names are 'Premium' and 'Consumption'.` | Your template sets another `sku.name`, such as `AIGateway` from older samples | Set `sku: { name: 'Consumption' }`, as [`infra/gateway.bicep`](infra/gateway.bicep) does. |
 | `MissingSubscriptionRegistration` | A resource provider isn't registered in the subscription | Run `az provider register -n Microsoft.ApiManagement --wait` and `az provider register -n Microsoft.Web --wait`, or ask your subscription administrator. |
 | `Could not resolve host` when you call the URL | Provisioning or DNS isn't finished | Run `az aigateway wait -g "$RG" -n "$GATEWAY" --created` and retry. |
 | `'aigateway' is misspelled or not recognized by the system` | The `aigateway` extension isn't installed | Run the installer from [Before you begin](#before-you-begin), then `az aigateway version`. |

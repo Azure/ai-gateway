@@ -4,7 +4,7 @@ summary: Give every app, agent, and user a dollar budget per hour, day, or month
 category: governance
 level: Intermediate
 duration: 30
-tracks: [portal, rest]
+tracks: [portal, rest, iac]
 order: 7
 illustration: diagrams/policy-scopes.svg
 tags: [costLimit, budget, FinOps, LlmCostQuotaExceeded, "403", overrides, Entra ID, chargeback]
@@ -12,6 +12,7 @@ objectives:
   - Explain how a cost limit estimates spend and counts it per caller in fixed calendar windows
   - Add a daily cost limit to a model in the portal or with the REST API
   - Give specific API keys and Microsoft Entra identities their own budget with overrides
+  - Declare a budgeted alias, its API keys, and their overrides with Bicep and azd
   - Trigger a 403 LlmCostQuotaExceeded response, find the remaining budget header, and review estimated spend in Monitoring
 prereqs:
   - 06-token-limits
@@ -32,6 +33,11 @@ called.
 <!-- widget: budget {"amount":5,"period":"day"} -->
 
 ## Before you begin
+
+> [!TIP]
+> On the **Bicep + azd** track, `azd up` creates its own gateway, model, and keys, so you can skip this section. You
+> need only [Azure Cloud Shell](https://shell.azure.com), or the Azure Developer CLI (`azd`), the Azure CLI, and Git
+> on your machine.
 
 - Complete [Throttle tokens per caller with token limits](../06-token-limits/README.md). This lab reuses the
   **Policies** › **Add policy** wizard and the idea of per-caller counters.
@@ -88,15 +94,16 @@ $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 After each model response, the gateway **estimates its cost** from the tokens the provider reported and the
 model's public pricing, broken down by token category. A cost limit adds that estimate to the caller's
 counter for the current renewal period. Before it forwards the next request, the gateway checks the counter.
-Once spend reaches the budget, the gateway answers `403` with the error code `LlmCostQuotaExceeded` and never
-calls the backend. Responses also carry a header with the remaining budget.
+Once spend reaches the budget, the gateway answers `403` (`LlmCostQuotaExceeded` in the product docs) with the
+message `LLM cost quota is exceeded` and never calls the backend. Responses also carry headers with the cost of the
+call and the remaining budget.
 
 | Setting | Portal label | JSON field | Values |
 |---|---|---|---|
 | Budget | **Budget amount** | `amount` | US dollars, for example `5` |
 | Window | **Renewal period** | `period` | `hour`, `day`, `week`, `month`, `year` (**Hourly** … **Yearly**) |
 | Who gets a counter | **Counter dimensions** (shown as **Budget counted by**) | `counterKey` | An array: `["identity"]` (the API key, or the Entra tenant ID + object ID) or `["ipAddress"]` |
-| Exceptions | **Overrides** | Portal only | A different amount for an API key or Entra identity |
+| Exceptions | **Overrides** | `overrides` | A different `amount` for an API key (`apiKeyResourceId`) or Entra identity (`claims`) |
 | Policy identity | Not shown | `id` | Stable ID. Editing the amount keeps accumulated spend. |
 
 Renewal periods are **fixed calendar windows**, not rolling windows: a **Daily** budget starts fresh at the
@@ -112,8 +119,10 @@ that model, or at **Gateway** scope to track **one budget per caller across all 
 
 ## Add a cost limit to the model
 
-Pick one track. Both produce the same default budget on your model: **$5 per day for each caller identity**.
-Overrides for specific callers are configured in the portal, so the REST track ends there too.
+Pick one track. Each one produces the same default budget: **$5 per day for each caller identity**. The portal and
+REST tracks put it on your model. The Bicep + azd track creates a new gateway and puts it on a new alias of the model.
+The portal and Bicep + azd tracks also add the overrides for specific callers. The REST track points to the portal
+for them.
 
 <!-- track: portal | Portal -->
 
@@ -258,6 +267,127 @@ above keeps those overrides when you change the amount later.
 > Running the `GET` again returns your other policies unchanged plus one `costLimit` entry with its `id`,
 > `"amount": 5.0`, `"period": "day"`, `"counterKey": ["identity"]`, and `"scope": "resource"`.
 
+<!-- track: iac | Bicep + azd -->
+
+**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
+the Azure CLI with the `aigateway` extension, and Git on your machine, signed in with `azd auth login` and `az login`.
+This track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
+
+### Choose what to declare
+
+A Bicep deployment sends a `PUT`, which replaces the whole resource. Redeclaring a model you imported in the
+portal risks dropping settings you didn't copy. Instead, this template **adds a new alias**,
+`<model-name>-budget`, that targets the same backend model and carries the cost limit. Existing clients keep
+calling the original alias. Callers that you move to the new alias get the budget.
+
+The template also declares what the portal track picks by hand: the `app-dev` and `support-bot` runtime keys,
+and two entries in the policy's `overrides` array. Overrides are evaluated in order, and the first match wins.
+
+| Override | Matches | Budget |
+|---|---|---|
+| API key | `apiKeyResourceId`: the resource ID of the `support-bot` key | $50 per day |
+| Microsoft Entra identity | `claims`: your tenant ID (`tid`) and object ID (`oid`) | $20 per day |
+
+azd fills in the object ID of the account you signed in with. The policy `id` is a GUID that the template derives
+from the gateway and the alias name, so it stays the same on every deployment, and a new amount keeps the spend
+accumulated so far.
+
+### Clone the lab
+
+The lab is a small azd project in the
+[`labs/07-cost-budgets`](https://github.com/Azure/ai-gateway/tree/main/labs/07-cost-budgets) folder of the GitHub
+repo. Clone the repo and move into that folder. If you cloned it for the quick start, move into
+`ai-gateway/labs/07-cost-budgets` instead.
+
+```bash title="Bash"
+git clone https://github.com/Azure/ai-gateway.git
+cd ai-gateway/labs/07-cost-budgets
+```
+
+```powershell title="PowerShell"
+git clone https://github.com/Azure/ai-gateway.git
+Set-Location ai-gateway/labs/07-cost-budgets
+```
+
+### Review the templates
+
+`infra/main.bicep` creates the resource group `rg-<environment name>` and calls the quick start's
+[resources.bicep](../quickstart/infra/resources.bicep) for the gateway, the Foundry model, its default alias, and the
+`app-first-call` key. Then it calls `infra/budget-alias.bicep` with the budget and the overrides:
+
+<!-- include: infra/main.bicep -->
+
+`infra/budget-alias.bicep` adds the two keys and the alias. It only references the gateway, the provider, and the
+model, so you can also deploy it on its own to a gateway you already have, with `az deployment group create`:
+
+<!-- include: infra/budget-alias.bicep -->
+
+### Deploy with azd up
+
+Create an azd environment named `aigw-lab07` in your current subscription, then provision everything. It takes
+about three minutes.
+
+```bash title="Bash"
+azd env new aigw-lab07 --location eastus2 --subscription "$(az account show --query id --output tsv)"
+azd up
+```
+
+```powershell title="PowerShell"
+azd env new aigw-lab07 --location eastus2 --subscription (az account show --query id --output tsv)
+azd up
+```
+
+For Sweden Central, use `--location swedencentral`.
+
+### Read the outputs and the key
+
+Set the variables that **Verify** and **Go further** use from azd's environment values, and read the `app-dev` key
+from the gateway, so that it never shows on screen.
+
+```bash title="Bash"
+export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
+export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
+export PROVIDER="$(azd env get-value AI_GATEWAY_PROVIDER)"
+export MODEL="$(azd env get-value AI_GATEWAY_BACKEND_MODEL)"
+export API="api-version=2025-09-01-preview"
+export GATEWAY_ID="$(azd env get-value AI_GATEWAY_ID)"
+export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
+export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
+export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
+export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-dev" \
+  --query primaryKey --output tsv)"
+echo "$AI_GATEWAY_MODEL"
+```
+
+```powershell title="PowerShell"
+$RG                     = azd env get-value AZURE_RESOURCE_GROUP
+$GATEWAY                = azd env get-value AI_GATEWAY_NAME
+$PROVIDER               = azd env get-value AI_GATEWAY_PROVIDER
+$MODEL                  = azd env get-value AI_GATEWAY_BACKEND_MODEL
+$API                    = "api-version=2025-09-01-preview"
+$GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
+$WS                     = "https://management.azure.com$GATEWAY_ID/workspaces/default"
+$env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
+$env:AI_GATEWAY_MODEL   = azd env get-value AI_GATEWAY_MODEL
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-dev" `
+  --query primaryKey --output tsv
+$env:AI_GATEWAY_MODEL
+```
+
+> **Checkpoint**
+> `azd up` ended with `SUCCESS`, and the last command printed the budgeted alias, `gpt-6-luna-budget`.
+> `az rest --url "$WS/aliases/$AI_GATEWAY_MODEL?$API" --query properties.policies` returns one `costLimit` entry
+> with `"amount": 5.0`, `"period": "day"`, `"counterKey": ["identity"]`, and two `overrides`: `"amount": 50.0`
+> with the `apiKeyResourceId` of `support-bot`, and `"amount": 20.0` with your `oid` and `tid` claims.
+
+### Change the budget
+
+The parameters come from azd environment values, with the defaults in `infra/main.parameters.json`:
+`COST_LIMIT_AMOUNT` for the default budget, `COST_LIMIT_PERIOD` (`hour`, `day`, `week`, `month`, or `year`),
+`COST_LIMIT_OVERRIDE_AMOUNT` for `support-bot`, and `COST_LIMIT_ENTRA_AMOUNT` for your identity. Change one with
+`azd env set` and run `azd provision`: only the alias changes, and it keeps the policy `id`. **Verify** lowers
+`COST_LIMIT_AMOUNT` this way.
+
 <!-- /tracks -->
 
 ## Verify
@@ -276,6 +406,18 @@ If your model is an inexpensive mini or nano model, use `0.001` so a handful of 
 editing keeps accumulated spend, the very first request might already be blocked if `app-dev` spent more than
 the new budget earlier today.
 
+On the Bicep + azd track, a call to `gpt-6-luna` costs about $0.0001, so set the budget to `0.001`:
+
+```bash title="Bash"
+azd env set COST_LIMIT_AMOUNT 0.001
+azd provision
+```
+
+```powershell title="PowerShell"
+azd env set COST_LIMIT_AMOUNT 0.001
+azd provision
+```
+
 ### Run the requests
 
 From the lab folder, run the script for your shell. It prints the status, the error code, the tokens used, and
@@ -292,19 +434,23 @@ any response header whose name mentions budget, cost, or remaining.
 On GitHub, open [trigger-cost-limit.sh](infra/trigger-cost-limit.sh) or
 [trigger-cost-limit.ps1](infra/trigger-cost-limit.ps1).
 
-Expected output (your token counts, the number of successful calls, and the header values will differ):
+Example output with a $0.001 budget on the alias from the Bicep + azd track (your token counts, the number of
+successful calls, and the header values will differ):
 
 ```text
 Request  Status  Error code               Tokens used  Budget headers
-1        200     -                        220          …
-2        200     -                        225          …
-3        200     -                        218          …
-4        403     LlmCostQuotaExceeded     -            …
-5        403     LlmCostQuotaExceeded     -            …
+1        200     -                        223          …; x-alias-cost-per-day-remaining=…; x-alias-cost-per-day-consumed=0.000101900
+2        200     -                        221          …; x-alias-cost-per-day-remaining=…; x-alias-cost-per-day-consumed=0.000100900
+…
+9        200     -                        …            …; x-alias-cost-per-day-remaining=0.000000000; …
+10       403     -                        -            x-alias-cost-per-day-retry-after=1837
 ```
 
-How many calls succeed depends on the model's price. A call or two more than you expect is the small overshoot
-described in [How it works](#how-it-works).
+`x-alias-cost-per-day-consumed` is the estimated cost of the call, and `x-alias-cost-per-day-remaining` is what's
+left of the budget. On a cost limit attached to the model, the headers start with `x-cost-` instead. A blocked
+call has no error code in its body, so the script prints `-`, and `…-retry-after` gives the seconds until the caller
+can try again. How many calls succeed depends on the model's price. A call or two more than you expect is the
+small overshoot described in [How it works](#how-it-works).
 
 ### Inspect one blocked response
 
@@ -316,16 +462,33 @@ curl -i "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions" \
   -d "{\"model\":\"$AI_GATEWAY_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
 ```
 
-The status line is `HTTP/1.1 403`, and the body contains `LlmCostQuotaExceeded`. Scan the headers for the one
-that reports the remaining budget, and compare it with a successful response from a key that still has budget.
+The status line is `HTTP/2 403`, and the body is
+`{ "statusCode": 403, "message": "LLM cost quota is exceeded. Try again in 30 minutes and 36 seconds." }`, with your
+own wait time. Scan the headers for the ones that report the cost and the remaining budget, and compare them with a
+successful response from a key that still has budget.
 Unlike a token limit, which frees up as the window rolls, the caller stays blocked until the next calendar
 renewal period starts or you raise the budget.
 
 ### Prove the override and the per-caller counters
 
 Set `AI_GATEWAY_API_KEY` to the `support-bot` key in a new terminal (repeat the variable block) and run the
-script again. Every request succeeds, because that key has its own counter and a $50 override. If you added an
-Entra override, call the gateway with that identity's token as shown in
+script again. Every request succeeds, because that key has its own counter and a $50 override. On the Bicep + azd
+track, read that key from the gateway instead:
+
+```bash title="Bash"
+export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/support-bot" \
+  --query primaryKey --output tsv)"
+./infra/trigger-cost-limit.sh "$AI_GATEWAY_MODEL" 10
+```
+
+```powershell title="PowerShell"
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/support-bot" `
+  --query primaryKey --output tsv
+./infra/trigger-cost-limit.ps1 -Model $env:AI_GATEWAY_MODEL -Requests 10
+```
+
+If you added an Entra override (the Bicep + azd track adds one for you), call the gateway with that identity's
+token as shown in
 [Go keyless with Microsoft Entra ID and RBAC](../11-entra-rbac/README.md): it gets its own counter too, keyed
 by tenant ID and object ID.
 
@@ -339,8 +502,8 @@ the spend the gateway estimated, and the dashboard attributes it to individual A
 <!-- /steps -->
 
 > **Checkpoint**
-> `app-dev` got `200` responses until its estimated spend reached the budget, then `403`
-> `LlmCostQuotaExceeded`. `support-bot` wasn't affected, and the backend received no calls from `app-dev` while
+> `app-dev` got `200` responses until its estimated spend reached the budget, then `403` with
+> `LLM cost quota is exceeded`. `support-bot` wasn't affected, and the backend received no calls from `app-dev` while
 > it was blocked.
 
 ## Go further
@@ -381,16 +544,32 @@ az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLIC
 
 To keep the policy instead, run the merge again with a production budget, for example `BUDGET=100`.
 
+<!-- track: iac | Bicep + azd -->
+
+### Delete everything azd created
+
+In the `ai-gateway/labs/07-cost-budgets` folder, delete the resource group with the gateway, the Foundry account, the
+keys, and the budgeted alias. `--purge` also purges the Foundry account, which would otherwise stay soft-deleted for
+48 hours and keep counting against your quota. It takes about ten minutes.
+
+```bash
+azd down --purge --force
+```
+
+To keep this gateway for other labs instead, skip `azd down` and raise the budget to a production value:
+`azd env set COST_LIMIT_AMOUNT 100`, then `azd provision`.
+
 <!-- /tracks -->
 
-Keep the gateway, model, and keys. The next labs reuse them.
+Keep the gateway, model, and keys from earlier labs: the next labs reuse them. `azd down` doesn't touch them,
+because the Bicep + azd track created its own gateway.
 
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Every request returns `200`, never `403` | The cost limit is on a different model than the alias you call, your key has an override, or the model is so cheap that the calls haven't reached the budget | Check **Applies to** on the policy details page, use a key without an override, and lower the budget to `0.001` or send more requests. |
-| `403` `LlmCostQuotaExceeded` on the first request | The key already spent more than the new amount in this period (spend is kept when you edit), or a **Gateway** scope cost limit is exhausted | Review every **Cost limit** in **Policies**. Raise the amount, or wait for the next renewal period. |
+| `403` with `LLM cost quota is exceeded` on the first request | The key already spent more than the new amount in this period (spend is kept when you edit), or a **Gateway** scope cost limit is exhausted | Review every **Cost limit** in **Policies**. Raise the amount, or wait for the next renewal period. |
 | An Entra override doesn't apply | An earlier override matched first, the caller used an API key, or you entered a service principal's application ID | Remove the earlier override and add them again in the order you want. Call with an Entra token. Use the service principal's **object ID**. |
 | **Caller IP address** can't be selected in **Counter dimensions** | The policy has overrides | Remove all overrides, or keep **Caller identity**. |
 | `429` instead of `403` | A **Token rate limit** or **Request rate limit** blocked the call, or the backend ran out of capacity | See [Throttle tokens per caller with token limits](../06-token-limits/README.md). |

@@ -4,7 +4,7 @@ summary: Give every app, agent, and user a dollar budget per hour, day, or month
 category: governance
 level: Intermediate
 duration: 30
-tracks: [portal, rest]
+tracks: [portal, rest, iac]
 order: 7
 illustration: diagrams/policy-scopes.svg
 tags: [costLimit, budget, FinOps, LlmCostQuotaExceeded, "403", overrides, Entra ID, chargeback]
@@ -12,6 +12,7 @@ objectives:
   - Explain how a cost limit estimates spend and counts it per caller in fixed calendar windows
   - Add a daily cost limit to a model in the portal or with the REST API
   - Give specific API keys and Microsoft Entra identities their own budget with overrides
+  - Declare a budgeted alias, its API keys, and their overrides with Bicep and azd
   - Trigger a 403 LlmCostQuotaExceeded response, find the remaining budget header, and review estimated spend in Monitoring
 prereqs:
   - 06-token-limits
@@ -28,13 +29,14 @@ prereqs:
 
 | ⏱️ Time | 📶 Level | 🧭 Tracks | ✅ Before you start |
 | :-- | :-- | :-- | :-- |
-| 30 min | Intermediate | Portal · REST API | [06 · Token limits](../06-token-limits/README.md)<br>[10 · Runtime API keys](../10-api-keys/README.md) |
+| 30 min | Intermediate | Portal · REST API · Bicep + azd | [06 · Token limits](../06-token-limits/README.md)<br>[10 · Runtime API keys](../10-api-keys/README.md) |
 
 **You'll learn to**
 
 - Explain how a cost limit estimates spend and counts it per caller in fixed calendar windows
 - Add a daily cost limit to a model in the portal or with the REST API
 - Give specific API keys and Microsoft Entra identities their own budget with overrides
+- Declare a budgeted alias, its API keys, and their overrides with Bicep and azd
 - Trigger a 403 LlmCostQuotaExceeded response, find the remaining budget header, and review estimated spend in Monitoring
 
 **Follow along:** 🌐 [Interactive version](https://azure.github.io/ai-gateway/labs/07-cost-budgets/) with your own values filled in · 📁 [Lab files](infra/)
@@ -57,6 +59,11 @@ called.
 <!-- gh:end -->
 
 ## Before you begin
+
+> [!TIP]
+> On the **Bicep + azd** track, `azd up` creates its own gateway, model, and keys, so you can skip this section. You
+> need only [Azure Cloud Shell](https://shell.azure.com), or the Azure Developer CLI (`azd`), the Azure CLI, and Git
+> on your machine.
 
 - Complete [Throttle tokens per caller with token limits](../06-token-limits/README.md). This lab reuses the
   **Policies** › **Add policy** wizard and the idea of per-caller counters.
@@ -119,15 +126,16 @@ $env:AI_GATEWAY_API_KEY = Read-Host "AI Gateway API key" -MaskInput
 After each model response, the gateway **estimates its cost** from the tokens the provider reported and the
 model's public pricing, broken down by token category. A cost limit adds that estimate to the caller's
 counter for the current renewal period. Before it forwards the next request, the gateway checks the counter.
-Once spend reaches the budget, the gateway answers `403` with the error code `LlmCostQuotaExceeded` and never
-calls the backend. Responses also carry a header with the remaining budget.
+Once spend reaches the budget, the gateway answers `403` (`LlmCostQuotaExceeded` in the product docs) with the
+message `LLM cost quota is exceeded` and never calls the backend. Responses also carry headers with the cost of the
+call and the remaining budget.
 
 | Setting | Portal label | JSON field | Values |
 |---|---|---|---|
 | Budget | **Budget amount** | `amount` | US dollars, for example `5` |
 | Window | **Renewal period** | `period` | `hour`, `day`, `week`, `month`, `year` (**Hourly** … **Yearly**) |
 | Who gets a counter | **Counter dimensions** (shown as **Budget counted by**) | `counterKey` | An array: `["identity"]` (the API key, or the Entra tenant ID + object ID) or `["ipAddress"]` |
-| Exceptions | **Overrides** | Portal only | A different amount for an API key or Entra identity |
+| Exceptions | **Overrides** | `overrides` | A different `amount` for an API key (`apiKeyResourceId`) or Entra identity (`claims`) |
 | Policy identity | Not shown | `id` | Stable ID. Editing the amount keeps accumulated spend. |
 
 Renewal periods are **fixed calendar windows**, not rolling windows: a **Daily** budget starts fresh at the
@@ -146,8 +154,10 @@ that model, or at **Gateway** scope to track **one budget per caller across all 
 
 ## Add a cost limit to the model
 
-Pick one track. Both produce the same default budget on your model: **$5 per day for each caller identity**.
-Overrides for specific callers are configured in the portal, so the REST track ends there too.
+Pick one track. Each one produces the same default budget: **$5 per day for each caller identity**. The portal and
+REST tracks put it on your model. The Bicep + azd track creates a new gateway and puts it on a new alias of the model.
+The portal and Bicep + azd tracks also add the overrides for specific callers. The REST track points to the portal
+for them.
 
 <!-- track: portal | Portal -->
 <details open><summary><b>🖥️ Portal</b></summary> <!-- gh -->
@@ -302,6 +312,374 @@ above keeps those overrides when you change the amount later.
 > `"amount": 5.0`, `"period": "day"`, `"counterKey": ["identity"]`, and `"scope": "resource"`.
 
 </details> <!-- gh -->
+<!-- track: iac | Bicep + azd -->
+<details><summary><b>🏗️ Bicep + azd</b></summary> <!-- gh -->
+
+**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
+the Azure CLI with the `aigateway` extension, and Git on your machine, signed in with `azd auth login` and `az login`.
+This track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
+
+### Choose what to declare
+
+A Bicep deployment sends a `PUT`, which replaces the whole resource. Redeclaring a model you imported in the
+portal risks dropping settings you didn't copy. Instead, this template **adds a new alias**,
+`<model-name>-budget`, that targets the same backend model and carries the cost limit. Existing clients keep
+calling the original alias. Callers that you move to the new alias get the budget.
+
+The template also declares what the portal track picks by hand: the `app-dev` and `support-bot` runtime keys,
+and two entries in the policy's `overrides` array. Overrides are evaluated in order, and the first match wins.
+
+| Override | Matches | Budget |
+|---|---|---|
+| API key | `apiKeyResourceId`: the resource ID of the `support-bot` key | $50 per day |
+| Microsoft Entra identity | `claims`: your tenant ID (`tid`) and object ID (`oid`) | $20 per day |
+
+azd fills in the object ID of the account you signed in with. The policy `id` is a GUID that the template derives
+from the gateway and the alias name, so it stays the same on every deployment, and a new amount keeps the spend
+accumulated so far.
+
+### Clone the lab
+
+The lab is a small azd project in the
+[`labs/07-cost-budgets`](https://github.com/Azure/ai-gateway/tree/main/labs/07-cost-budgets) folder of the GitHub
+repo. Clone the repo and move into that folder. If you cloned it for the quick start, move into
+`ai-gateway/labs/07-cost-budgets` instead.
+
+<details open><summary>Bash</summary> <!-- gh -->
+
+```bash title="Bash"
+git clone https://github.com/Azure/ai-gateway.git
+cd ai-gateway/labs/07-cost-budgets
+```
+</details> <!-- gh -->
+
+<details><summary>PowerShell</summary> <!-- gh -->
+
+```powershell title="PowerShell"
+git clone https://github.com/Azure/ai-gateway.git
+Set-Location ai-gateway/labs/07-cost-budgets
+```
+</details> <!-- gh -->
+
+### Review the templates
+
+`infra/main.bicep` creates the resource group `rg-<environment name>` and calls the quick start's
+[resources.bicep](../quickstart/infra/resources.bicep) for the gateway, the Foundry model, its default alias, and the
+`app-first-call` key. Then it calls `infra/budget-alias.bicep` with the budget and the overrides:
+
+<!-- include: infra/main.bicep -->
+<!-- gh:begin include: generated by "npm run sync" from the metadata, do not edit -->
+📄 [`infra/main.bicep`](infra/main.bicep)
+
+<details><summary>Show all 78 lines</summary>
+
+```bicep
+// Lab 07 with azd: "azd up" creates the resource group rg-<environment name>, the quick start's gateway, Foundry
+// model, default alias, and runtime API key, then the app-dev and support-bot keys and a second alias for the same
+// model with a cost limit and per-caller overrides. Runtime API key values are never outputs.
+targetScope = 'subscription'
+
+@description('azd environment name. The resource group is rg-<environmentName>.')
+@minLength(1)
+@maxLength(60)
+param environmentName string
+
+@description('Region for every resource. During the preview, AI Gateway runs in East US 2 and Sweden Central.')
+@allowed([
+  'eastus2'
+  'swedencentral'
+])
+@metadata({ azd: { type: 'location' } })
+param location string
+
+@description('Default budget for each caller, in US dollars. azd reads it from COST_LIMIT_AMOUNT.')
+param budgetAmount string = '5'
+
+@description('Renewal period. azd reads it from COST_LIMIT_PERIOD.')
+@allowed([ 'hour', 'day', 'week', 'month', 'year' ])
+param period string = 'day'
+
+@description('Budget for the support-bot key, in US dollars. azd reads it from COST_LIMIT_OVERRIDE_AMOUNT.')
+param overrideAmount string = '50'
+
+@description('Object ID of the Microsoft Entra identity that gets its own budget. azd sets AZURE_PRINCIPAL_ID to yours.')
+param entraObjectId string = ''
+
+@description('Budget for that Microsoft Entra identity, in US dollars. azd reads it from COST_LIMIT_ENTRA_AMOUNT.')
+param entraAmount string = '20'
+
+var suffix = take(uniqueString(subscription().id, environmentName, location), 6)
+var tags = { 'azd-env-name': environmentName }
+
+resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
+  name: 'rg-${environmentName}'
+  location: location
+  tags: tags
+}
+
+// The quick start's template: a gateway, a Foundry model behind the default alias, and the app-first-call key.
+module base '../../quickstart/infra/resources.bicep' = {
+  name: 'aigw-base'
+  scope: rg
+  params: {
+    location: location
+    tags: tags
+    gatewayName: 'aigw-${suffix}'
+    foundryName: 'aigw${suffix}'
+  }
+}
+
+module budgetAlias 'budget-alias.bicep' = {
+  name: 'aigw-budget-alias'
+  scope: rg
+  params: {
+    gatewayName: base.outputs.gatewayName
+    providerName: base.outputs.providerName
+    modelName: base.outputs.modelName
+    budgetAmount: budgetAmount
+    period: period
+    overrideAmount: overrideAmount
+    entraObjectId: entraObjectId
+    entraAmount: entraAmount
+  }
+}
+
+output AZURE_RESOURCE_GROUP string = rg.name
+output AI_GATEWAY_NAME string = base.outputs.gatewayName
+output AI_GATEWAY_ID string = base.outputs.gatewayId
+output AI_GATEWAY_URL string = base.outputs.gatewayUrl
+output AI_GATEWAY_PROVIDER string = base.outputs.providerName
+output AI_GATEWAY_BACKEND_MODEL string = base.outputs.modelName
+output AI_GATEWAY_MODEL string = budgetAlias.outputs.aliasName
+output FOUNDRY_ACCOUNT_NAME string = base.outputs.foundryName
+```
+
+</details>
+<!-- gh:end -->
+
+`infra/budget-alias.bicep` adds the two keys and the alias. It only references the gateway, the provider, and the
+model, so you can also deploy it on its own to a gateway you already have, with `az deployment group create`:
+
+<!-- include: infra/budget-alias.bicep -->
+<!-- gh:begin include: generated by "npm run sync" from the metadata, do not edit -->
+📄 [`infra/budget-alias.bicep`](infra/budget-alias.bicep)
+
+<details><summary>Show all 129 lines</summary>
+
+```bicep
+// Publishes an alias with a cost limit for an existing AI Gateway model, creates the app-dev and support-bot runtime
+// API keys, and gives support-bot, and optionally one Microsoft Entra identity, a budget of its own with overrides.
+// main.bicep calls it after the quick start's template, and you can also deploy it on its own to a gateway you
+// already have. The alias points at the same backend model as your default alias, so only callers that send the
+// new alias name are budgeted. Key values are never outputs.
+
+@description('Name of the existing AI Gateway (Microsoft.ApiManagement/aigateways).')
+param gatewayName string
+
+@description('Name of the existing model provider in the gateway, for example foundry-models.')
+param providerName string
+
+@description('Name of the existing backend model registration under the provider.')
+param modelName string
+
+@description('Callable alias to create. Clients send this value in the request "model" field.')
+param aliasName string = '${modelName}-budget'
+
+@description('Default budget for each caller, in US dollars. A string, so that it can hold decimals such as 0.01.')
+param budgetAmount string = '5'
+
+@description('Renewal period. Budgets renew in fixed calendar windows.')
+@allowed([ 'hour', 'day', 'week', 'month', 'year' ])
+param period string = 'day'
+
+@description('Runtime API key that gets the default budget. The template creates it if it doesn\'t exist.')
+param defaultKeyName string = 'app-dev'
+
+@description('Runtime API key that gets its own budget. The template creates it if it doesn\'t exist.')
+param overrideKeyName string = 'support-bot'
+
+@description('Budget for the override key, in US dollars.')
+param overrideAmount string = '50'
+
+@description('Optional object ID of a Microsoft Entra user or service principal that gets its own budget. Empty adds no Entra override.')
+param entraObjectId string = ''
+
+@description('Budget for the Microsoft Entra identity, in US dollars.')
+param entraAmount string = '20'
+
+#disable-next-line BCP081
+resource gateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' existing = {
+  name: gatewayName
+}
+
+#disable-next-line BCP081
+resource workspace 'Microsoft.ApiManagement/aigateways/workspaces@2025-09-01-preview' existing = {
+  parent: gateway
+  name: 'default'
+}
+
+#disable-next-line BCP081
+resource provider 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders@2025-09-01-preview' existing = {
+  parent: workspace
+  name: providerName
+}
+
+#disable-next-line BCP081
+resource model 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders/models@2025-09-01-preview' existing = {
+  parent: provider
+  name: modelName
+}
+
+// Each key is a separate caller identity, so each one gets its own budget counter.
+#disable-next-line BCP081
+resource defaultKey 'Microsoft.ApiManagement/aigateways/apiKeys@2025-09-01-preview' = {
+  parent: gateway
+  name: defaultKeyName
+  properties: {
+    displayName: defaultKeyName
+  }
+}
+
+#disable-next-line BCP081
+resource overrideKey 'Microsoft.ApiManagement/aigateways/apiKeys@2025-09-01-preview' = {
+  parent: gateway
+  name: overrideKeyName
+  properties: {
+    displayName: overrideKeyName
+  }
+}
+
+// Overrides are evaluated in order, and the first match wins. An API key override matches the key's resource ID.
+// An Entra override matches validated token claims: here the tenant ID and the object ID of one identity.
+var keyOverrides = [
+  {
+    apiKeyResourceId: overrideKey.id
+    amount: json(overrideAmount)
+  }
+]
+var entraOverrides = empty(entraObjectId) ? [] : [
+  {
+    claims: {
+      tid: tenant().tenantId
+      oid: entraObjectId
+    }
+    amount: json(entraAmount)
+  }
+]
+
+#disable-next-line BCP081
+resource budgetAlias 'Microsoft.ApiManagement/aigateways/workspaces/aliases@2025-09-01-preview' = {
+  parent: workspace
+  name: aliasName
+  dependsOn: [ defaultKey ]
+  properties: {
+    aliasName: aliasName
+    backendModels: [
+      { resourceId: model.id }
+    ]
+    policies: [
+      {
+        type: 'costLimit'
+        // A stable ID: changing the amount on a later deployment keeps the spend accumulated so far.
+        id: guid(gateway.id, aliasName, 'costLimit')
+        amount: json(budgetAmount)
+        period: period
+        // Overrides need per-caller counters, so the template always counts by caller identity.
+        counterKey: [ 'identity' ]
+        overrides: concat(keyOverrides, entraOverrides)
+      }
+    ]
+  }
+}
+
+output aliasName string = budgetAlias.name
+output defaultKeyName string = defaultKey.name
+output overrideKeyName string = overrideKey.name
+output chatCompletionsUrl string = 'https://${gateway.properties.frontend.defaultHostname}/default/models/openai/v1/chat/completions'
+```
+
+</details>
+<!-- gh:end -->
+
+### Deploy with azd up
+
+Create an azd environment named `aigw-lab07` in your current subscription, then provision everything. It takes
+about three minutes.
+
+<details open><summary>Bash</summary> <!-- gh -->
+
+```bash title="Bash"
+azd env new aigw-lab07 --location eastus2 --subscription "$(az account show --query id --output tsv)"
+azd up
+```
+</details> <!-- gh -->
+
+<details><summary>PowerShell</summary> <!-- gh -->
+
+```powershell title="PowerShell"
+azd env new aigw-lab07 --location eastus2 --subscription (az account show --query id --output tsv)
+azd up
+```
+</details> <!-- gh -->
+
+For Sweden Central, use `--location swedencentral`.
+
+### Read the outputs and the key
+
+Set the variables that **Verify** and **Go further** use from azd's environment values, and read the `app-dev` key
+from the gateway, so that it never shows on screen.
+
+<details open><summary>Bash</summary> <!-- gh -->
+
+```bash title="Bash"
+export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
+export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
+export PROVIDER="$(azd env get-value AI_GATEWAY_PROVIDER)"
+export MODEL="$(azd env get-value AI_GATEWAY_BACKEND_MODEL)"
+export API="api-version=2025-09-01-preview"
+export GATEWAY_ID="$(azd env get-value AI_GATEWAY_ID)"
+export WS="https://management.azure.com$GATEWAY_ID/workspaces/default"
+export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
+export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
+export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-dev" \
+  --query primaryKey --output tsv)"
+echo "$AI_GATEWAY_MODEL"
+```
+</details> <!-- gh -->
+
+<details><summary>PowerShell</summary> <!-- gh -->
+
+```powershell title="PowerShell"
+$RG                     = azd env get-value AZURE_RESOURCE_GROUP
+$GATEWAY                = azd env get-value AI_GATEWAY_NAME
+$PROVIDER               = azd env get-value AI_GATEWAY_PROVIDER
+$MODEL                  = azd env get-value AI_GATEWAY_BACKEND_MODEL
+$API                    = "api-version=2025-09-01-preview"
+$GATEWAY_ID             = azd env get-value AI_GATEWAY_ID
+$WS                     = "https://management.azure.com$GATEWAY_ID/workspaces/default"
+$env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
+$env:AI_GATEWAY_MODEL   = azd env get-value AI_GATEWAY_MODEL
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/app-dev" `
+  --query primaryKey --output tsv
+$env:AI_GATEWAY_MODEL
+```
+</details> <!-- gh -->
+
+> **Checkpoint**
+> `azd up` ended with `SUCCESS`, and the last command printed the budgeted alias, `gpt-6-luna-budget`.
+> `az rest --url "$WS/aliases/$AI_GATEWAY_MODEL?$API" --query properties.policies` returns one `costLimit` entry
+> with `"amount": 5.0`, `"period": "day"`, `"counterKey": ["identity"]`, and two `overrides`: `"amount": 50.0`
+> with the `apiKeyResourceId` of `support-bot`, and `"amount": 20.0` with your `oid` and `tid` claims.
+
+### Change the budget
+
+The parameters come from azd environment values, with the defaults in `infra/main.parameters.json`:
+`COST_LIMIT_AMOUNT` for the default budget, `COST_LIMIT_PERIOD` (`hour`, `day`, `week`, `month`, or `year`),
+`COST_LIMIT_OVERRIDE_AMOUNT` for `support-bot`, and `COST_LIMIT_ENTRA_AMOUNT` for your identity. Change one with
+`azd env set` and run `azd provision`: only the alias changes, and it keeps the policy `id`. **Verify** lowers
+`COST_LIMIT_AMOUNT` this way.
+
+</details> <!-- gh -->
 <!-- /tracks -->
 
 ## Verify
@@ -319,6 +697,24 @@ REST track, run the merge again with `BUDGET=0.01` (PowerShell: `$BUDGET = 0.01`
 If your model is an inexpensive mini or nano model, use `0.001` so a handful of calls is enough. Because
 editing keeps accumulated spend, the very first request might already be blocked if `app-dev` spent more than
 the new budget earlier today.
+
+On the Bicep + azd track, a call to `gpt-6-luna` costs about $0.0001, so set the budget to `0.001`:
+
+<details open><summary>Bash</summary> <!-- gh -->
+
+```bash title="Bash"
+azd env set COST_LIMIT_AMOUNT 0.001
+azd provision
+```
+</details> <!-- gh -->
+
+<details><summary>PowerShell</summary> <!-- gh -->
+
+```powershell title="PowerShell"
+azd env set COST_LIMIT_AMOUNT 0.001
+azd provision
+```
+</details> <!-- gh -->
 
 ### Run the requests
 
@@ -342,19 +738,23 @@ any response header whose name mentions budget, cost, or remaining.
 On GitHub, open [trigger-cost-limit.sh](infra/trigger-cost-limit.sh) or
 [trigger-cost-limit.ps1](infra/trigger-cost-limit.ps1).
 
-Expected output (your token counts, the number of successful calls, and the header values will differ):
+Example output with a $0.001 budget on the alias from the Bicep + azd track (your token counts, the number of
+successful calls, and the header values will differ):
 
 ```text
 Request  Status  Error code               Tokens used  Budget headers
-1        200     -                        220          …
-2        200     -                        225          …
-3        200     -                        218          …
-4        403     LlmCostQuotaExceeded     -            …
-5        403     LlmCostQuotaExceeded     -            …
+1        200     -                        223          …; x-alias-cost-per-day-remaining=…; x-alias-cost-per-day-consumed=0.000101900
+2        200     -                        221          …; x-alias-cost-per-day-remaining=…; x-alias-cost-per-day-consumed=0.000100900
+…
+9        200     -                        …            …; x-alias-cost-per-day-remaining=0.000000000; …
+10       403     -                        -            x-alias-cost-per-day-retry-after=1837
 ```
 
-How many calls succeed depends on the model's price. A call or two more than you expect is the small overshoot
-described in [How it works](#how-it-works).
+`x-alias-cost-per-day-consumed` is the estimated cost of the call, and `x-alias-cost-per-day-remaining` is what's
+left of the budget. On a cost limit attached to the model, the headers start with `x-cost-` instead. A blocked
+call has no error code in its body, so the script prints `-`, and `…-retry-after` gives the seconds until the caller
+can try again. How many calls succeed depends on the model's price. A call or two more than you expect is the
+small overshoot described in [How it works](#how-it-works).
 
 ### Inspect one blocked response
 
@@ -366,16 +766,39 @@ curl -i "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions" \
   -d "{\"model\":\"$AI_GATEWAY_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
 ```
 
-The status line is `HTTP/1.1 403`, and the body contains `LlmCostQuotaExceeded`. Scan the headers for the one
-that reports the remaining budget, and compare it with a successful response from a key that still has budget.
+The status line is `HTTP/2 403`, and the body is
+`{ "statusCode": 403, "message": "LLM cost quota is exceeded. Try again in 30 minutes and 36 seconds." }`, with your
+own wait time. Scan the headers for the ones that report the cost and the remaining budget, and compare them with a
+successful response from a key that still has budget.
 Unlike a token limit, which frees up as the window rolls, the caller stays blocked until the next calendar
 renewal period starts or you raise the budget.
 
 ### Prove the override and the per-caller counters
 
 Set `AI_GATEWAY_API_KEY` to the `support-bot` key in a new terminal (repeat the variable block) and run the
-script again. Every request succeeds, because that key has its own counter and a $50 override. If you added an
-Entra override, call the gateway with that identity's token as shown in
+script again. Every request succeeds, because that key has its own counter and a $50 override. On the Bicep + azd
+track, read that key from the gateway instead:
+
+<details open><summary>Bash</summary> <!-- gh -->
+
+```bash title="Bash"
+export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/support-bot" \
+  --query primaryKey --output tsv)"
+./infra/trigger-cost-limit.sh "$AI_GATEWAY_MODEL" 10
+```
+</details> <!-- gh -->
+
+<details><summary>PowerShell</summary> <!-- gh -->
+
+```powershell title="PowerShell"
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$GATEWAY_ID/apiKeys/support-bot" `
+  --query primaryKey --output tsv
+./infra/trigger-cost-limit.ps1 -Model $env:AI_GATEWAY_MODEL -Requests 10
+```
+</details> <!-- gh -->
+
+If you added an Entra override (the Bicep + azd track adds one for you), call the gateway with that identity's
+token as shown in
 [Go keyless with Microsoft Entra ID and RBAC](../11-entra-rbac/README.md): it gets its own counter too, keyed
 by tenant ID and object ID.
 
@@ -389,8 +812,8 @@ the spend the gateway estimated, and the dashboard attributes it to individual A
 <!-- /steps -->
 
 > **Checkpoint**
-> `app-dev` got `200` responses until its estimated spend reached the budget, then `403`
-> `LlmCostQuotaExceeded`. `support-bot` wasn't affected, and the backend received no calls from `app-dev` while
+> `app-dev` got `200` responses until its estimated spend reached the budget, then `403` with
+> `LLM cost quota is exceeded`. `support-bot` wasn't affected, and the backend received no calls from `app-dev` while
 > it was blocked.
 
 ## Go further
@@ -435,16 +858,34 @@ az rest --method patch --url "$URL" --body "{\"properties\":{\"policies\":$POLIC
 To keep the policy instead, run the merge again with a production budget, for example `BUDGET=100`.
 
 </details> <!-- gh -->
+<!-- track: iac | Bicep + azd -->
+<details><summary><b>🏗️ Bicep + azd</b></summary> <!-- gh -->
+
+### Delete everything azd created
+
+In the `ai-gateway/labs/07-cost-budgets` folder, delete the resource group with the gateway, the Foundry account, the
+keys, and the budgeted alias. `--purge` also purges the Foundry account, which would otherwise stay soft-deleted for
+48 hours and keep counting against your quota. It takes about ten minutes.
+
+```bash
+azd down --purge --force
+```
+
+To keep this gateway for other labs instead, skip `azd down` and raise the budget to a production value:
+`azd env set COST_LIMIT_AMOUNT 100`, then `azd provision`.
+
+</details> <!-- gh -->
 <!-- /tracks -->
 
-Keep the gateway, model, and keys. The next labs reuse them.
+Keep the gateway, model, and keys from earlier labs: the next labs reuse them. `azd down` doesn't touch them,
+because the Bicep + azd track created its own gateway.
 
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Every request returns `200`, never `403` | The cost limit is on a different model than the alias you call, your key has an override, or the model is so cheap that the calls haven't reached the budget | Check **Applies to** on the policy details page, use a key without an override, and lower the budget to `0.001` or send more requests. |
-| `403` `LlmCostQuotaExceeded` on the first request | The key already spent more than the new amount in this period (spend is kept when you edit), or a **Gateway** scope cost limit is exhausted | Review every **Cost limit** in **Policies**. Raise the amount, or wait for the next renewal period. |
+| `403` with `LLM cost quota is exceeded` on the first request | The key already spent more than the new amount in this period (spend is kept when you edit), or a **Gateway** scope cost limit is exhausted | Review every **Cost limit** in **Policies**. Raise the amount, or wait for the next renewal period. |
 | An Entra override doesn't apply | An earlier override matched first, the caller used an API key, or you entered a service principal's application ID | Remove the earlier override and add them again in the order you want. Call with an Entra token. Use the service principal's **object ID**. |
 | **Caller IP address** can't be selected in **Counter dimensions** | The policy has overrides | Remove all overrides, or keep **Caller identity**. |
 | `429` instead of `403` | A **Token rate limit** or **Request rate limit** blocked the call, or the backend ran out of capacity | See [Throttle tokens per caller with token limits](../06-token-limits/README.md). |

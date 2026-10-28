@@ -1,152 +1,75 @@
-// Publishes one Microsoft Foundry model deployment through an existing AI Gateway:
-// grants the gateway's managed identity the Foundry User role on the account, creates a Foundry model
-// provider that authenticates with that identity, registers the deployment as a backend model, publishes a
-// callable alias for it, and creates a runtime API key for the first app.
-// Mirrors the Foundry provider and model registration in infra/ai-gateway/main.bicep of the reference sample.
-targetScope = 'resourceGroup'
+// Lab 02 with azd: "azd up" creates the resource group rg-<environment name> with lab 01's gateway and this lab's
+// Foundry account and gpt-6-luna deployment, then publishes the deployment through the gateway: the Foundry User
+// role, the model provider, the backend model, the alias, and the app-first-call key.
+// The runtime API key is never an output.
+targetScope = 'subscription'
 
-@description('Name of the existing AI Gateway (Microsoft.ApiManagement/aigateways) in this resource group.')
-param gatewayName string
+@description('azd environment name. The resource group is rg-<environmentName>.')
+@minLength(1)
+@maxLength(60)
+param environmentName string
 
-@description('Resource ID of the Foundry (Azure AI Services) or Azure OpenAI account. It can be in another resource group or subscription.')
-param foundryAccountId string
+@description('Region for every resource. During the preview, AI Gateway runs in East US 2 and Sweden Central.')
+@allowed([
+  'eastus2'
+  'swedencentral'
+])
+@metadata({ azd: { type: 'location' } })
+param location string
 
-@description('Name of the model deployment in that account, for example gpt-6-luna.')
-param deploymentName string
-
-@description('Version of the deployed model, for example 2026-09-22. Optional.')
-param modelVersion string = ''
-
-@description('Name of the model provider to create in the gateway.')
-param providerName string = 'foundry-models'
-
-@description('Callable alias that clients send in the request "model" field.')
-param aliasName string = deploymentName
-
-@description('Name of the runtime API key to create for the first app.')
-param apiKeyName string = 'app-first-call'
-
-@description('Display name of the runtime API key.')
-param apiKeyDisplayName string = 'First call app key'
-
-@description('Tokens per minute that each caller identity can use on this model.')
+@description('Tokens per minute that each caller identity can use on the model. azd reads it from TOKENS_PER_MINUTE.')
 @minValue(1)
 param tokensPerMinute int = 10000
 
-var foundryAccountName = last(split(foundryAccountId, '/'))
-var foundrySubscriptionId = split(foundryAccountId, '/')[2]
-var foundryResourceGroup = split(foundryAccountId, '/')[4]
-var deploymentId = '${foundryAccountId}/deployments/${deploymentName}'
+var suffix = take(uniqueString(subscription().id, environmentName, location), 6)
+var tags = { 'azd-env-name': environmentName }
 
-#disable-next-line BCP081
-resource aiGateway 'Microsoft.ApiManagement/aigateways@2025-09-01-preview' existing = {
-  name: gatewayName
+resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
+  name: 'rg-${environmentName}'
+  location: location
+  tags: tags
 }
 
-#disable-next-line BCP081
-resource defaultWorkspace 'Microsoft.ApiManagement/aigateways/workspaces@2025-09-01-preview' existing = {
-  parent: aiGateway
-  name: 'default'
-}
-
-resource foundryAccount 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' existing = {
-  scope: resourceGroup(foundrySubscriptionId, foundryResourceGroup)
-  name: foundryAccountName
-}
-
-var foundryEndpoint = foundryAccount.properties.endpoint
-var normalizedFoundryEndpoint = endsWith(foundryEndpoint, '/') ? foundryEndpoint : '${foundryEndpoint}/'
-
-module foundryUserRole './foundry-user-role.bicep' = {
-  name: take('foundry-user-${uniqueString(aiGateway.id, foundryAccountId)}', 64)
-  scope: resourceGroup(foundrySubscriptionId, foundryResourceGroup)
+// Lab 01's template: the gateway with a system-assigned identity, and its connector gateway.
+module gateway '../../01-provision-gateway/infra/gateway.bicep' = {
+  name: 'aigw-gateway'
+  scope: rg
   params: {
-    foundryAccountName: foundryAccountName
-    gatewayPrincipalId: aiGateway.identity.principalId
-    gatewayResourceId: aiGateway.id
+    gatewayName: 'aigw-${suffix}'
+    location: location
+    tags: tags
   }
 }
 
-#disable-next-line BCP081
-resource foundryProvider 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders@2025-09-01-preview' = {
-  parent: defaultWorkspace
-  name: providerName
-  dependsOn: [
-    foundryUserRole
-  ]
-  properties: {
-    kind: 'Foundry'
-    displayName: 'Foundry models'
-    description: 'Managed-identity Foundry provider created by the first-model-call lab.'
-    foundry: {
-      endpoint: normalizedFoundryEndpoint
-      resourceIds: [
-        foundryAccountId
-      ]
-      authentication: {
-        kind: 'ManagedIdentity'
-        managedIdentity: {
-          resource: 'https://cognitiveservices.azure.com/'
-        }
-      }
-    }
+// The backend: a Foundry account with a gpt-6-luna deployment.
+module foundry 'foundry.bicep' = {
+  name: 'aigw-foundry'
+  scope: rg
+  params: {
+    accountName: 'aigw${suffix}'
+    location: location
+    tags: tags
   }
 }
 
-#disable-next-line BCP081
-resource model 'Microsoft.ApiManagement/aigateways/workspaces/modelProviders/models@2025-09-01-preview' = {
-  parent: foundryProvider
-  name: deploymentName
-  properties: {
-    displayName: deploymentName
-    description: 'Foundry deployment ${deploymentName} published through AI Gateway.'
-    apiFormat: 'OpenAIChatCompletions'
-    supportedEndpoints: [
-      '/openai/v1/chat/completions'
-      '/openai/v1/responses'
-    ]
-    deployment: {
-      resourceId: deploymentId
-      modelName: deploymentName
-      modelVersion: empty(modelVersion) ? null : modelVersion
-    }
-    policies: [
-      {
-        type: 'tokenLimit'
-        period: 'minute'
-        count: tokensPerMinute
-        counterKey: [
-          'identity'
-        ]
-      }
-    ]
+// The Foundry User role for the gateway, then the provider, the backend model, the alias, and the key.
+module publish 'publish-model.bicep' = {
+  name: 'aigw-publish-model'
+  scope: rg
+  params: {
+    gatewayName: gateway.outputs.gatewayName
+    foundryAccountId: foundry.outputs.accountId
+    deploymentName: foundry.outputs.deploymentName
+    tokensPerMinute: tokensPerMinute
   }
 }
 
-#disable-next-line BCP081
-resource alias 'Microsoft.ApiManagement/aigateways/workspaces/aliases@2025-09-01-preview' = {
-  parent: defaultWorkspace
-  name: aliasName
-  properties: {
-    backendModels: [
-      { resourceId: model.id }
-    ]
-  }
-}
-
-#disable-next-line BCP081
-resource runtimeApiKey 'Microsoft.ApiManagement/aigateways/apiKeys@2025-09-01-preview' = {
-  parent: aiGateway
-  name: apiKeyName
-  properties: {
-    displayName: apiKeyDisplayName
-  }
-}
-
-output providerName string = foundryProvider.name
-output modelName string = model.name
-output aliasName string = alias.name
-output apiKeyName string = runtimeApiKey.name
-output gatewayUrl string = 'https://${aiGateway.properties.frontend.defaultHostname}'
-output modelEndpoint string = 'https://${aiGateway.properties.frontend.defaultHostname}/default/models/openai/v1'
-output foundryUserRoleAssignmentName string = foundryUserRole.outputs.roleAssignmentName
+output AZURE_RESOURCE_GROUP string = rg.name
+output AI_GATEWAY_NAME string = gateway.outputs.gatewayName
+output AI_GATEWAY_ID string = gateway.outputs.gatewayId
+output AI_GATEWAY_URL string = gateway.outputs.gatewayUrl
+output AI_GATEWAY_PROVIDER string = publish.outputs.providerName
+output AI_GATEWAY_BACKEND_MODEL string = publish.outputs.modelName
+output AI_GATEWAY_MODEL string = publish.outputs.aliasName
+output AI_GATEWAY_API_KEY_NAME string = publish.outputs.apiKeyName
+output FOUNDRY_ACCOUNT_NAME string = foundry.outputs.accountName

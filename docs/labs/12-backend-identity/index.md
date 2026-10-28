@@ -31,6 +31,14 @@ provider to it without changing a single client.
 
 ## Before you begin
 
+> [!TIP]
+> On the **Bicep + azd** track, `azd up` creates its own gateway, model, and key, so you can skip this section. You
+> need only [Azure Cloud Shell](https://shell.azure.com), or the Azure Developer CLI (`azd`), the Azure CLI, and Git
+> on your machine, and permission to create role assignments, for example **Owner** on the subscription. To check the
+> system-assigned identity first, run the track in
+> [Create a user-assigned identity and give it access](#create-a-user-assigned-identity-and-give-it-access) up to
+> **Read the outputs and the key**, which sets the variables, then come back.
+
 - Complete [Publish a Foundry model and make your first call](../02-first-model-call/README.md). You need a
   gateway with a Foundry model provider that uses a managed identity, a model alias, and a runtime API key.
 - The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) 2.75 or later, signed in with
@@ -268,61 +276,123 @@ Grant the role on the Foundry account itself, the resource that the provider cal
 > `az role assignment list --assignee "$IDENTITY_PRINCIPAL_ID" --scope "$FOUNDRY_ID" --query "[].roleDefinitionName" -o tsv`
 > prints `Foundry User`.
 
-<!-- track: iac | Bicep -->
+<!-- track: iac | Bicep + azd -->
 
-### Review the template
+**What you need:** [Azure Cloud Shell](https://shell.azure.com), in Bash or PowerShell, or [azd](https://aka.ms/azd-install),
+the Azure CLI with the `aigateway` extension, and Git on your machine, signed in with `azd auth login` and `az login`.
+This track doesn't use your gateway from lab 02: `azd up` creates a new one, so it works on its own.
 
-[infra/main.bicep](infra/main.bicep) creates the user-assigned identity and calls
-[infra/foundry-user-role.bicep](infra/foundry-user-role.bicep) in the Foundry account's resource group to grant
-it **Foundry User**. The account can be in another resource group or subscription.
+### Choose what to declare
+
+The templates declare the identity, its **Foundry User** role on the Foundry account, and the gateway's identities.
+A deployment that declares the gateway sets its whole identity block, and the gateway keeps only the identities that
+the block lists. That's why the other tracks attach the identity with `az aigateway identity assign`, which keeps the
+identities the gateway already has. Here azd owns the gateway, so a template can list both the system-assigned
+identity and yours.
+
+The Foundry provider keeps the system-assigned identity for now. You point it at your identity in the next section,
+which gives the role assignment time to take effect.
+
+### Clone the lab
+
+The lab is a small azd project in the
+[`labs/12-backend-identity`](https://github.com/Azure/ai-gateway/tree/main/labs/12-backend-identity) folder of the
+GitHub repo. Clone the repo and move into that folder. If you cloned it for an earlier lab, move into
+`ai-gateway/labs/12-backend-identity` instead.
+
+```bash title="Bash"
+git clone https://github.com/Azure/ai-gateway.git
+cd ai-gateway/labs/12-backend-identity
+```
+
+```powershell title="PowerShell"
+git clone https://github.com/Azure/ai-gateway.git
+Set-Location ai-gateway/labs/12-backend-identity
+```
+
+### Review the templates
+
+`infra/main.bicep` creates the resource group `rg-<environment name>` and calls the quick start's
+[resources.bicep](../quickstart/infra/resources.bicep) for the gateway, the Foundry model, its default alias, and the
+`app-first-call` key. That provider calls Foundry with the gateway's system-assigned identity. Then `main.bicep` calls
+the lab's templates for your identity:
 
 <!-- include: infra/main.bicep -->
 
+`infra/backend-identity.bicep` creates the user-assigned identity and calls `infra/foundry-user-role.bicep` in the
+Foundry account's resource group to grant it **Foundry User**. The account can be in another resource group or
+subscription, so you can also deploy this template on its own with `az deployment group create`, passing
+`identityName` and `foundryAccountId`:
+
+<!-- include: infra/backend-identity.bicep -->
+
 <!-- include: infra/foundry-user-role.bicep -->
 
-### Deploy the template
+`infra/gateway-identity.bicep` deploys the gateway again with both identities. Every `azd provision` deploys the
+quick start's gateway with only its system-assigned identity first, then attaches yours again here:
+
+<!-- include: infra/gateway-identity.bicep -->
+
+### Deploy with azd up
+
+Create an azd environment named `aigw-lab12` in your current subscription, then provision everything. It takes
+about five minutes.
 
 ```bash title="Bash"
-az deployment group create -g "$RG" \
-  --template-file infra/main.bicep \
-  --parameters identityName="$IDENTITY" foundryAccountId="$FOUNDRY_ID" \
-  --query properties.outputs -o json
-
-export IDENTITY_ID="$(az identity show -g "$RG" -n "$IDENTITY" --query id -o tsv)"
-export IDENTITY_CLIENT_ID="$(az identity show -g "$RG" -n "$IDENTITY" --query clientId -o tsv)"
-export IDENTITY_PRINCIPAL_ID="$(az identity show -g "$RG" -n "$IDENTITY" --query principalId -o tsv)"
+azd env new aigw-lab12 --location eastus2 --subscription "$(az account show --query id --output tsv)"
+azd up
 ```
 
 ```powershell title="PowerShell"
-az deployment group create -g $RG `
-  --template-file infra/main.bicep `
-  --parameters identityName=$IDENTITY foundryAccountId=$FOUNDRY_ID `
-  --query properties.outputs -o json
-
-$IDENTITY_ID           = az identity show -g $RG -n $IDENTITY --query id -o tsv
-$IDENTITY_CLIENT_ID    = az identity show -g $RG -n $IDENTITY --query clientId -o tsv
-$IDENTITY_PRINCIPAL_ID = az identity show -g $RG -n $IDENTITY --query principalId -o tsv
+azd env new aigw-lab12 --location eastus2 --subscription (az account show --query id --output tsv)
+azd up
 ```
 
-The outputs show `identityId`, `clientId`, `principalId`, and the role assignment name.
+For Sweden Central, use `--location swedencentral`.
 
-### Attach the identity to the gateway
+### Read the outputs and the key
 
-The template doesn't declare the gateway: an identity block in Bicep redeploys the whole gateway resource. Attach
-the identity with the CLI instead. `identity assign` keeps the identities the gateway already has, including the
-system-assigned one, and returns when the gateway is ready again.
+Set the variables that the next sections, **Verify**, and **Clean up** use from azd's environment values, and read
+the key from the gateway, so that it never shows on screen. The last command lists the user-assigned identities
+attached to the gateway.
 
 ```bash title="Bash"
-az aigateway identity assign -g "$RG" -n "$GATEWAY" --user-assigned "$IDENTITY_ID" -o none
+export RG="$(azd env get-value AZURE_RESOURCE_GROUP)"
+export GATEWAY="$(azd env get-value AI_GATEWAY_NAME)"
+export PROVIDER="$(azd env get-value AI_GATEWAY_PROVIDER)"
+export IDENTITY="$(azd env get-value IDENTITY_NAME)"
+export FOUNDRY_ID="$(azd env get-value FOUNDRY_ID)"
+export AI_GATEWAY_URL="$(azd env get-value AI_GATEWAY_URL)"
+export AI_GATEWAY_MODEL="$(azd env get-value AI_GATEWAY_MODEL)"
+export IDENTITY_ID="$(azd env get-value IDENTITY_ID)"
+export IDENTITY_CLIENT_ID="$(azd env get-value IDENTITY_CLIENT_ID)"
+export IDENTITY_PRINCIPAL_ID="$(azd env get-value IDENTITY_PRINCIPAL_ID)"
+export AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets --ids "$(azd env get-value AI_GATEWAY_ID)/apiKeys/app-first-call" \
+  --query primaryKey --output tsv)"
+az aigateway identity show -g "$RG" -n "$GATEWAY" --query userAssignedIdentities -o json
 ```
 
 ```powershell title="PowerShell"
-az aigateway identity assign -g $RG -n $GATEWAY --user-assigned $IDENTITY_ID -o none
+$RG                     = azd env get-value AZURE_RESOURCE_GROUP
+$GATEWAY                = azd env get-value AI_GATEWAY_NAME
+$PROVIDER               = azd env get-value AI_GATEWAY_PROVIDER
+$IDENTITY               = azd env get-value IDENTITY_NAME
+$FOUNDRY_ID             = azd env get-value FOUNDRY_ID
+$env:AI_GATEWAY_URL     = azd env get-value AI_GATEWAY_URL
+$env:AI_GATEWAY_MODEL   = azd env get-value AI_GATEWAY_MODEL
+$IDENTITY_ID            = azd env get-value IDENTITY_ID
+$IDENTITY_CLIENT_ID     = azd env get-value IDENTITY_CLIENT_ID
+$IDENTITY_PRINCIPAL_ID  = azd env get-value IDENTITY_PRINCIPAL_ID
+$env:AI_GATEWAY_API_KEY = az aigateway api-key list-secrets --ids "$(azd env get-value AI_GATEWAY_ID)/apiKeys/app-first-call" `
+  --query primaryKey --output tsv
+az aigateway identity show -g $RG -n $GATEWAY --query userAssignedIdentities -o json
 ```
 
 > **Checkpoint**
-> The deployment succeeds, and
-> `az aigateway identity show -g "$RG" -n "$GATEWAY" --query userAssignedIdentities -o json` lists your identity.
+> `azd up` ended with `SUCCESS`, and the list shows your identity, keyed by its resource ID, with its `clientId` and
+> `principalId`.
+> `az role assignment list --assignee "$IDENTITY_PRINCIPAL_ID" --scope "$FOUNDRY_ID" --query "[].roleDefinitionName" -o tsv`
+> prints `Foundry User`.
 
 <!-- /tracks -->
 
@@ -391,15 +461,13 @@ az aigateway model-provider update -g $RG --gateway-name $GATEWAY -n $PROVIDER -
 Remove-Item foundry.json
 ```
 
-<!-- track: iac | Bicep -->
+<!-- track: iac | Bicep + azd -->
 
 ### Redeploy the provider with the identity
 
-[infra/provider.bicep](infra/provider.bicep) redeploys the provider that lab 02's Bicep track creates, with the
-same endpoint and account, and adds `clientId` to its managed identity settings. A deployment replaces the
-provider's properties, so pass the display name and description you want to keep. Models and aliases are
-separate resources and aren't touched. If you created the provider in the portal or with
-the CLI, use the **Azure CLI** track's commands instead, which change only the authentication.
+When `useUserAssignedIdentity` is `true`, `infra/main.bicep` calls [infra/provider.bicep](infra/provider.bicep). It
+redeploys the quick start's provider with the same endpoint and account, and adds `clientId` to its managed identity
+settings:
 
 ```bicep
 authentication: {
@@ -411,23 +479,35 @@ authentication: {
 }
 ```
 
+A deployment replaces the provider's properties, so the template sets all of them, including the display name and
+description. Models and aliases are separate resources and aren't touched. You can also deploy
+`infra/provider.bicep` on its own to a gateway that lab 02's Bicep track created, with `az deployment group create`,
+passing `gatewayName`, `providerName`, `foundryAccountId`, and `identityClientId`. If you created the provider in
+the portal or with the CLI, use the **Azure CLI** track's commands instead, which change only the authentication.
+
 <!-- include: infra/provider.bicep -->
 
+azd reads the parameter from `USE_USER_ASSIGNED_IDENTITY`. Set it, provision again, and read the provider's
+authentication settings:
+
 ```bash title="Bash"
-az deployment group create -g "$RG" \
-  --template-file infra/provider.bicep \
-  --parameters gatewayName="$GATEWAY" providerName="$PROVIDER" foundryAccountId="$FOUNDRY_ID" \
-               identityClientId="$IDENTITY_CLIENT_ID" \
-  --query properties.outputs -o json
+azd env set USE_USER_ASSIGNED_IDENTITY true
+azd provision
+az aigateway model-provider show -g "$RG" --gateway-name "$GATEWAY" -n "$PROVIDER" \
+  --query properties.foundry.authentication -o json
 ```
 
 ```powershell title="PowerShell"
-az deployment group create -g $RG `
-  --template-file infra/provider.bicep `
-  --parameters gatewayName=$GATEWAY providerName=$PROVIDER foundryAccountId=$FOUNDRY_ID `
-               identityClientId=$IDENTITY_CLIENT_ID `
-  --query properties.outputs -o json
+azd env set USE_USER_ASSIGNED_IDENTITY true
+azd provision
+az aigateway model-provider show -g $RG --gateway-name $GATEWAY -n $PROVIDER `
+  --query properties.foundry.authentication -o json
 ```
+
+Each `azd provision` deploys the quick start's gateway and provider first, with the system-assigned identity, then
+attaches your identity and points the provider at it again. In between, model calls can fail for a few seconds with
+`500`, so don't provision again while the gateway serves real traffic. To switch back, set
+`USE_USER_ASSIGNED_IDENTITY` to `false` and run `azd provision`.
 
 <!-- /tracks -->
 
@@ -510,10 +590,12 @@ uses the user-assigned identity.
 
 ## Clean up
 
+Pick the track you followed.
+
+<!-- track: cli | Portal and Azure CLI -->
+
 Keep the system-assigned identity and its **Foundry User** role. Later labs use them. Remove the user-assigned
 identity in this order, so the provider never points at an identity it can't use.
-
-<!-- steps -->
 
 ### Switch the provider back to the system-assigned identity
 
@@ -539,8 +621,6 @@ Remove-Item foundry.json
 ```
 
 The output no longer shows `clientId`.
-
-If you used the Bicep track, redeploy `infra/provider.bicep` without `identityClientId` instead.
 
 ### Detach the identity from the gateway
 
@@ -574,11 +654,26 @@ az identity delete -g $RG -n $IDENTITY
 
 Delete the role assignment first. Deleting the identity alone leaves an orphaned assignment on the account.
 
-<!-- /steps -->
-
 > **Checkpoint**
 > The model call from **Verify** still returns `200`, and **View access** shows the provider under
 > **System-assigned** again.
+
+<!-- track: iac | Bicep + azd -->
+
+### Delete everything azd created
+
+In the `ai-gateway/labs/12-backend-identity` folder, delete the resource group with the gateway, the Foundry account,
+and the identity with its role assignment. `--purge` also purges the Foundry account, which would otherwise stay
+soft-deleted for 48 hours and keep counting against your quota. It takes about ten minutes.
+
+```bash
+azd down --purge --force
+```
+
+<!-- /tracks -->
+
+`azd down` doesn't touch your gateway from lab 02 or its system-assigned identity, because the Bicep + azd track
+created its own gateway.
 
 ## Troubleshooting
 
