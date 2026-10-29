@@ -53,31 +53,6 @@ az aigateway --help
 `version` reports `extensionName: aigateway`, `extensionVersion: 1.0.0b15`,
 and `apiVersion: 2025-09-01-preview`. Neither command needs an Azure login.
 
-### Release and installer maintenance
-
-The installers pin the public GitHub Release asset
-[`aigateway-1.0.0b15-py3-none-any.whl`](https://github.com/Azure/ai-gateway/releases/download/cli-v1.0.0b15/aigateway-1.0.0b15-py3-none-any.whl)
-and SHA-256
-`8d059b7c5e006631ba843f3c4f6e41840d89c71312b13217796da16125a04a6d`.
-Customers do not need access to the build system.
-
-The AKA links are commit-pinned. Merging an installer update does **not** change
-the scripts served by those links: the link owner must repin both links to the
-merged commit after confirming the release asset is publicly downloadable.
-
-Installer regression tests require Python 3, Bash, and PowerShell (`pwsh`):
-
-```bash
-python3 -m unittest discover -s cli/tests -v
-CLI_TEST_REAL_AZ=1 python3 -m unittest discover -s cli/tests -v
-```
-
-The second command also requires Azure CLI and exercises clean installation,
-upgrade from b6, and same-version replacement in temporary `AZURE_CONFIG_DIR`
-and `AZURE_EXTENSION_DIR` directories. Tests download the approved wheels by
-default; set `CLI_TEST_WHEEL` and `CLI_TEST_OLD_WHEEL` to local copies to avoid
-those downloads. Both copies must match the pinned SHA-256 values.
-
 ## Quickstart
 
 Create a gateway, then register the public
