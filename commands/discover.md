@@ -16,7 +16,8 @@ Follow the discovery workflow defined in the bundled skill
 1. Determine the target gateway from `$ARGUMENTS` if provided. Discovery goes through the
    ARM control plane, so you need the gateway's **ARM `gatewayResourceId`** — a runtime host
    alone is not enough to list assets. If only a host is given, resolve the id
-   (`az resource list --name <name>`) or ask the user. If the target is missing or
+   (`az aigateway show --query id -o tsv` with `az configure --defaults group=<rg> aigateway=<name>`,
+   or `az resource list --name <name>`) or ask the user. If the target is missing or
    ambiguous, ask before making any call. The gateway is a `Microsoft.ApiManagement/service`
    or `Microsoft.ApiManagement/aigateways` resource; both work identically.
 2. List the **models** in the gateway workspace and read each model's

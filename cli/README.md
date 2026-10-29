@@ -53,31 +53,6 @@ az aigateway --help
 `version` reports `extensionName: aigateway`, `extensionVersion: 1.0.0b15`,
 and `apiVersion: 2025-09-01-preview`. Neither command needs an Azure login.
 
-### Release and installer maintenance
-
-The installers pin the public GitHub Release asset
-[`aigateway-1.0.0b15-py3-none-any.whl`](https://github.com/Azure/ai-gateway/releases/download/cli-v1.0.0b15/aigateway-1.0.0b15-py3-none-any.whl)
-and SHA-256
-`8d059b7c5e006631ba843f3c4f6e41840d89c71312b13217796da16125a04a6d`.
-Customers do not need access to the build system.
-
-The AKA links are commit-pinned. Merging an installer update does **not** change
-the scripts served by those links: the link owner must repin both links to the
-merged commit after confirming the release asset is publicly downloadable.
-
-Installer regression tests require Python 3, Bash, and PowerShell (`pwsh`):
-
-```bash
-python3 -m unittest discover -s cli/tests -v
-CLI_TEST_REAL_AZ=1 python3 -m unittest discover -s cli/tests -v
-```
-
-The second command also requires Azure CLI and exercises clean installation,
-upgrade from b6, and same-version replacement in temporary `AZURE_CONFIG_DIR`
-and `AZURE_EXTENSION_DIR` directories. Tests download the approved wheels by
-default; set `CLI_TEST_WHEEL` and `CLI_TEST_OLD_WHEEL` to local copies to avoid
-those downloads. Both copies must match the pinned SHA-256 values.
-
 ## Quickstart
 
 Create a gateway, then register the public
@@ -113,15 +88,19 @@ RG="rg-aigateway-quickstart"
 GATEWAY="<globally-unique-gateway-name>"
 LOCATION="<supported-region>"
 
-az group create --name "$RG" --location "$LOCATION"
-az aigateway create --resource-group "$RG" --name "$GATEWAY" --location "$LOCATION"
-az aigateway show --resource-group "$RG" --name "$GATEWAY" --output table
+az configure --defaults group="$RG" aigateway="$GATEWAY" location="$LOCATION"
+
+az group create --name "$RG"
+az aigateway create --name "$GATEWAY"
+az aigateway show --name "$GATEWAY" --output table
 ```
 
-Creation waits for provisioning to finish. The gateway is an Azure AI Gateway
-resource (`Microsoft.ApiManagement/aigateways`); the CLI selects the
-`Consumption` SKU by default (or pass `--sku Consumption|Premium` on `create`
-and `update`).
+Setting `az configure --defaults` saves repeating `--resource-group "$RG"`,
+`--gateway-name "$GATEWAY"`, and `--location "$LOCATION"` on the commands below;
+explicit flags on any command override the configured defaults. Creation waits
+for provisioning to finish. The gateway is an Azure AI Gateway resource
+(`Microsoft.ApiManagement/aigateways`); the CLI selects the `Consumption` SKU by
+default (or pass `--sku Consumption|Premium` on `create` and `update`).
 
 ### 2. Register an MCP server
 
@@ -129,16 +108,16 @@ The Learn endpoint does not require backend authentication. This command adds a
 registration to your gateway; it does not deploy a new MCP server.
 
 ```bash
-az aigateway mcp create \
-  --resource-group "$RG" --gateway-name "$GATEWAY" --name learn \
+az aigateway mcp create --name learn \
   --endpoints '[{"kind":"mcp","namespace":"learn","mcp":{"transport":"streamableHttp","url":"https://learn.microsoft.com/api/mcp"}}]'
 
-az aigateway mcp list --resource-group "$RG" --gateway-name "$GATEWAY" --output table
-az aigateway mcp show --resource-group "$RG" --gateway-name "$GATEWAY" --name learn
+az aigateway mcp list --output table
+az aigateway mcp show --name learn
 ```
 
-Notice that `--name` now identifies the **MCP registration**; `--gateway-name`
-identifies its parent gateway. The output shows the registered server and its
+Notice that `--name` identifies the **MCP registration**, while the parent
+gateway and resource group come from `az configure --defaults` (or explicit
+`-g "$RG" --gateway-name "$GATEWAY"`). The output shows the registered server and its
 configuration, not a tool invocation. Use the
 [coding-agent plugin](../README.md#coding-agent-plugin) to build an application
 that consumes the gateway, or explore more commands in the
@@ -170,11 +149,10 @@ FOUNDRY_RESOURCE_ID="$(az cognitiveservices account show \
   --query id --output tsv)"
 
 az aigateway model-provider create \
-  -g "$RG" --gateway-name "$GATEWAY" --name "$PROVIDER" \
+  --name "$PROVIDER" \
   --foundry-resource-id "$FOUNDRY_RESOURCE_ID"
 
 az aigateway model list \
-  -g "$RG" --gateway-name "$GATEWAY" \
   --model-provider "$PROVIDER" --output table
 ```
 
@@ -192,12 +170,12 @@ example values to suit your application.
 MODEL="<imported-model-name>"
 
 az aigateway model policy set \
-  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --provider-name "$PROVIDER" -n "$MODEL" \
   --token-limit 10000 --token-period minute --token-counter-key Identity \
   --content-safety Medium
 
 az aigateway model policy list \
-  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL"
+  --provider-name "$PROVIDER" -n "$MODEL"
 ```
 
 These policies apply only to this gateway model registration, not every model
@@ -215,22 +193,22 @@ key; if there are several, list them with `az aigateway api-key list`, set
 `KEY_NAME` to your chosen name, and continue from `list-secrets`.
 Model calls can incur inference charges.
 
-**Bash / curl** -- reuse the variables from the earlier steps:
+**Bash / curl** -- reuse the variables and defaults from the earlier steps:
 
 ```bash
-AI_GATEWAY_URL="$(az aigateway show -g "$RG" -n "$GATEWAY" \
+AI_GATEWAY_URL="$(az aigateway show -n "$GATEWAY" \
   --query properties.gatewayUrl -o tsv)"
-KEY_NAME="$(az aigateway api-key list -g "$RG" --gateway-name "$GATEWAY" \
+KEY_NAME="$(az aigateway api-key list \
   --query "[?properties.state=='active'].name" -o tsv)" || exit 1
 if [ -z "$KEY_NAME" ] || [[ "$KEY_NAME" == *$'\n'* ]]; then
   echo "Select exactly one active API key name before continuing." >&2
   exit 1
 fi
 AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets \
-  -g "$RG" --gateway-name "$GATEWAY" -n "$KEY_NAME" --query primaryKey -o tsv)" || exit 1
+  -n "$KEY_NAME" --query primaryKey -o tsv)" || exit 1
 : "${AI_GATEWAY_API_KEY:?No key value returned; check your key-read permissions.}"
 RUNTIME_MODEL="$(az aigateway model show \
-  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --provider-name "$PROVIDER" -n "$MODEL" \
   --query properties.deployment.modelName -o tsv)"
 
 curl -fsS "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions" \
@@ -241,7 +219,7 @@ EOF
 unset AI_GATEWAY_API_KEY
 ```
 
-**PowerShell / `irm`** -- set the same resource names in this shell:
+**PowerShell / `irm`** -- set the same resource names and defaults in this shell:
 
 ```powershell
 $RG = "rg-aigateway-quickstart"
@@ -249,13 +227,15 @@ $GATEWAY = "<your-gateway-name>"
 $PROVIDER = "foundry-models"
 $MODEL = "<imported-model-name>"
 
-$AI_GATEWAY_URL = az aigateway show -g $RG -n $GATEWAY --query properties.gatewayUrl -o tsv
-$KEY_NAMES = @(az aigateway api-key list -g $RG --gateway-name $GATEWAY --query "[?properties.state=='active'].name" -o tsv)
+az configure --defaults group=$RG aigateway=$GATEWAY
+
+$AI_GATEWAY_URL = az aigateway show -n $GATEWAY --query properties.gatewayUrl -o tsv
+$KEY_NAMES = @(az aigateway api-key list --query "[?properties.state=='active'].name" -o tsv)
 if ($LASTEXITCODE -ne 0 -or $KEY_NAMES.Count -ne 1) { throw "Select exactly one active API key name before continuing." }
 $KEY_NAME = $KEY_NAMES[0]
-$AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -g $RG --gateway-name $GATEWAY -n $KEY_NAME --query primaryKey -o tsv
+$AI_GATEWAY_API_KEY = az aigateway api-key list-secrets -n $KEY_NAME --query primaryKey -o tsv
 if ($LASTEXITCODE -ne 0 -or !$AI_GATEWAY_API_KEY) { throw "Unable to read the API key; stop before calling the gateway." }
-$RUNTIME_MODEL = az aigateway model show -g $RG --gateway-name $GATEWAY --provider-name $PROVIDER -n $MODEL --query properties.deployment.modelName -o tsv
+$RUNTIME_MODEL = az aigateway model show --provider-name $PROVIDER -n $MODEL --query properties.deployment.modelName -o tsv
 $body = @{
   model = $RUNTIME_MODEL
   messages = @(@{ role = "user"; content = "Describe the AI Gateway SKU of Azure API Management in one sentence." })
@@ -288,8 +268,9 @@ deleted. If you followed the model path, also review the account-scoped role
 assignment created for the gateway identity and remove it when no longer needed.
 
 ```bash
-az aigateway delete --resource-group "$RG" --name "$GATEWAY"
+az aigateway delete --name "$GATEWAY"
 az group delete --name "$RG"
+az configure --defaults group='' aigateway='' location=''
 ```
 
 ## Uninstall
