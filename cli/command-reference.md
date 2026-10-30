@@ -1,6 +1,6 @@
 # AI Gateway CLI command reference
 
-This guide covers the public command groups in **aigateway 1.0.0b15**; use your
+This guide covers the public command groups in **aigateway 1.0.0b18**; use your
 installed CLI's `--help` for the full option list and examples for each command.
 
 New to the CLI? Start with the [installation and quickstart](README.md).
@@ -46,10 +46,12 @@ commands; each group and command accepts `--help`.
 | `model-provider` | `create`, `show`, `list`, `update`, `delete`, `sync` | Register and synchronize model providers, including importing existing Foundry deployments. |
 | `model` | `create`, `show` (`get`), `list`, `update`, `delete` | Register and manage individual models. |
 | `model-alias` | `create`, `show`, `list`, `update`, `delete` | Manage callable model aliases with priority and weight routing across registered backend models. |
-| `model policy` | `set`, `set-token-limit`, `set-content-safety`, `list`, `remove` | Configure token limits and content safety on a model. |
+| `model policy` | `set`, `set-token-limit`, `set-content-safety`, `set-cost-limit`, `list`, `remove` | Configure token limits, content safety, and cost limits on a model. |
+| `policy` | `set`, `set-token-limit`, `set-content-safety`, `set-cost-limit`, `show` (`list`), `remove` | Configure gateway-wide default policies across the default workspace. |
+| `telemetry-exporter` | `create`, `show`, `list`, `update`, `delete`, `wait` | Manage Application Insights telemetry exporters on a gateway. |
 | `mcp` | `create`, `show`, `list`, `update`, `delete`, `authorize` | Register MCP servers and start OAuth authorization where configured. |
 | `mcp source` | `add`, `list`, `remove` | Manage individual backend sources on an MCP registration. |
-| `api-key` | `create`, `show`, `list`, `delete`, `list-secrets`, `regenerate` | Manage gateway-wide client API keys. |
+| `api-key` | `create`, `show`, `list`, `update`, `delete`, `list-secrets`, `regenerate` | Manage gateway-wide client API keys. |
 | `identity` | `assign`, `show`, `remove`, `wait` | Manage identities assigned to a gateway. |
 | `network` | `show`, `update`, `wait` | Configure public access and outbound virtual network integration. |
 | `network private-endpoint-connection` | `list`, `show`, `approve`, `reject`, `delete`, `wait` | Manage gateway-side private endpoint connections. |
@@ -205,6 +207,16 @@ severity for hate, self-harm, sexual, and violence. Category overrides such as
 `--hate-severity` and `--violence-severity` require `--content-safety` in the same
 command. Choose thresholds for your application's needs rather than treating
 these example settings as a universal recommendation.
+
+**Cost limit:** set a spending limit per period (`hour`, `day`, `week`, or `month`) across `All` requests, `Identity`, or `IPAddress`:
+
+```bash
+az aigateway model policy set-cost-limit \
+  -g "$RG" --gateway-name "$GATEWAY" --provider-name "$PROVIDER" -n "$MODEL" \
+  --cost-limit 25.0 --cost-period day --cost-counter-key Identity
+```
+
+To apply default token, content-safety, or cost limits at the gateway level across all models in the default workspace, use `az aigateway policy set`, `set-token-limit`, `set-content-safety`, `set-cost-limit`, `show`, or `remove`.
 
 Inspect the resulting configuration, or remove one or all policies:
 
