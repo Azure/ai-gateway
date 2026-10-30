@@ -4,7 +4,7 @@ Create an AI Gateway, register model providers and MCP servers, and manage
 policies, keys, identities, and networking from your terminal with `az aigateway`.
 
 > **Public preview**: commands and behavior may change before general availability.
-> Current extension release: **1.0.0b18**.
+> Current extension release: **1.0.0b20**.
 
 [Install](#install) | [Quickstart](#quickstart) | [Command reference](command-reference.md) | [AI Gateway documentation](https://aka.ms/aigateway/docs)
 
@@ -50,33 +50,8 @@ az aigateway version
 az aigateway --help
 ```
 
-`version` reports `extensionName: aigateway`, `extensionVersion: 1.0.0b18`,
+`version` reports `extensionName: aigateway`, `extensionVersion: 1.0.0b20`,
 and `apiVersion: 2025-09-01-preview`. Neither command needs an Azure login.
-
-### Release and installer maintenance
-
-The installers pin the public GitHub Release asset
-[`aigateway-1.0.0b18-py3-none-any.whl`](https://github.com/Azure/ai-gateway/releases/download/cli-v1.0.0b18/aigateway-1.0.0b18-py3-none-any.whl)
-and SHA-256
-`6905918904aa821e0f26098f8fee99082fc73a771f253a33ea58f83e6d47a961`.
-Customers do not need access to the build system.
-
-The AKA links are commit-pinned. Merging an installer update does **not** change
-the scripts served by those links: the link owner must repin both links to the
-merged commit after confirming the release asset is publicly downloadable.
-
-Installer regression tests require Python 3, Bash, and PowerShell (`pwsh`):
-
-```bash
-python3 -m unittest discover -s cli/tests -v
-CLI_TEST_REAL_AZ=1 python3 -m unittest discover -s cli/tests -v
-```
-
-The second command also requires Azure CLI and exercises clean installation,
-upgrade from b6, and same-version replacement in temporary `AZURE_CONFIG_DIR`
-and `AZURE_EXTENSION_DIR` directories. Tests download the approved wheels by
-default; set `CLI_TEST_WHEEL` and `CLI_TEST_OLD_WHEEL` to local copies to avoid
-those downloads. Both copies must match the pinned SHA-256 values.
 
 ## Quickstart
 
@@ -120,7 +95,7 @@ az aigateway show --resource-group "$RG" --name "$GATEWAY" --output table
 
 Creation waits for provisioning to finish. The gateway is an Azure AI Gateway
 resource (`Microsoft.ApiManagement/aigateways`); the CLI selects the
-`Consumption` SKU by default (or pass `--sku Consumption|Premium` on `create`
+`Premium` SKU by default (or pass `--sku Consumption|Premium` on `create`
 and `update`).
 
 ### 2. Register an MCP server
