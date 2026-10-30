@@ -31,12 +31,12 @@ Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 $ExtensionName = 'aigateway'
 $ExpectedApiVersion = '2025-09-01-preview'
-$PublicWheelUrl = 'https://github.com/Azure/ai-gateway/releases/download/cli-v1.0.0b18/aigateway-1.0.0b18-py3-none-any.whl'
-$ExpectedSha256 = '6905918904aa821e0f26098f8fee99082fc73a771f253a33ea58f83e6d47a961'
+$PublicWheelUrl = 'https://github.com/Azure/ai-gateway/releases/download/cli-v1.0.0b20/aigateway-1.0.0b20-py3-none-any.whl'
+$ExpectedSha256 = '5ead91ed79836cc14162ef5354e38bcfc1d2a468560f2fb5560cbe9b98c5a9f4'
 
 if ($Help) {
     Write-Host 'Usage: install.ps1 [-Uninstall] [-Help]'
-    Write-Host 'Installs the pinned public aigateway 1.0.0b18 wheel; no source overrides.'
+    Write-Host 'Installs the pinned public aigateway 1.0.0b20 wheel; no source overrides.'
     return
 }
 

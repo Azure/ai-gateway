@@ -1,6 +1,6 @@
 # AI Gateway CLI command reference
 
-This guide covers the public command groups in **aigateway 1.0.0b18**; use your
+This guide covers the public command groups in **aigateway 1.0.0b20**; use your
 installed CLI's `--help` for the full option list and examples for each command.
 
 New to the CLI? Start with the [installation and quickstart](README.md).
@@ -129,7 +129,7 @@ command's help.
 
 Create a gateway in an existing resource group (all three arguments below are
 required). Use a globally unique name for `GATEWAY`; `--sku` defaults to
-`Consumption` (`Consumption` or `Premium` are supported on `create` and `update`):
+`Premium` (`Consumption` or `Premium` are supported on `create` and `update`):
 
 ```bash
 az aigateway create \
