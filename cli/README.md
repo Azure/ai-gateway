@@ -145,27 +145,23 @@ az aigateway model-provider create \
 az aigateway model list --provider-name foundry-prod | az aigateway model-alias create
 ```
 
-### 4. Set model policies
+### 4. Set gateway policies
 
-Apply a token limit and content safety to the first imported model. The example
-allows **10,000 tokens per minute per identity** and sets content safety
-severity to **Medium** for hate, self-harm, sexual, and violence categories.
+Apply a gateway-wide token limit and content-safety baseline across models in
+the default workspace. The example allows **10,000 tokens per minute per
+identity** and sets content safety severity to **Medium** for hate, self-harm,
+sexual, and violence categories.
 
 ```bash
-MODEL="$(az aigateway model list --provider-name foundry-prod --query "[0].name" -o tsv)"
-
-az aigateway model policy set \
-  --provider-name foundry-prod --name "$MODEL" \
+az aigateway policy set \
   --token-limit 10000 --token-period minute --token-counter-key Identity \
   --content-safety Medium
 
-az aigateway model policy list \
-  --provider-name foundry-prod --name "$MODEL"
+az aigateway policy list
 ```
 
-These policies apply only to this gateway model registration, not every model
-in the provider or calls made directly to the backend. See
-[common model policies](command-reference.md#common-model-policies) to change
+You can also set policies on individual models with `az aigateway model policy set`.
+See [common model policies](command-reference.md#common-model-policies) to change
 one policy at a time.
 
 ### 5. Test the gateway
