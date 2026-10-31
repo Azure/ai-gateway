@@ -190,15 +190,8 @@ MODEL="$(az aigateway model-alias list --query "[0].properties.aliasName" -o tsv
 curl -sS "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -H "api-key: $AI_GATEWAY_API_KEY" \
-  -d "{
-    \"model\": \"$MODEL\",
-    \"messages\": [
-      {
-        \"role\": \"user\",
-        \"content\": \"Write a one-sentence status update.\"
-      }
-    ]
-  }" | jq -r '.choices[0].message.content'
+  -d '{"model":"'"$MODEL"'","messages":[{"role":"user","content":"Write a one-sentence status update."}]}' \
+  | jq -r '.choices[0].message.content'
 unset AI_GATEWAY_API_KEY
 ```
 
