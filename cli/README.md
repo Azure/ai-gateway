@@ -130,12 +130,12 @@ account, and publish a callable model alias for each imported deployment.
 
 ```bash
 # List Foundry accounts in your subscription
-az resource list -g "" --resource-type Microsoft.CognitiveServices/accounts \
+az resource list --resource-group= --resource-type Microsoft.CognitiveServices/accounts \
   --query "[?kind=='AIServices'].{Name:name, ResourceGroup:resourceGroup, Location:location}" -o table
 
 # Set your Foundry account name, import its models, and publish default aliases
 FOUNDRY_ACCOUNT="<foundry-account-name>"
-FOUNDRY_RESOURCE_ID="$(az resource list -g "" \
+FOUNDRY_RESOURCE_ID="$(az resource list --resource-group= \
   --resource-type Microsoft.CognitiveServices/accounts \
   --name "$FOUNDRY_ACCOUNT" --query "[0].id" -o tsv)"
 
@@ -185,7 +185,8 @@ if ! AI_GATEWAY_API_KEY="$(az aigateway api-key list-secrets -n "$KEY_NAME" --qu
   exit 1
 fi
 test -n "$AI_GATEWAY_API_KEY" || { echo "No API key secret was returned." >&2; exit 1; }
-MODEL="$(az aigateway model-alias list --query "[0].properties.aliasName" -o tsv)"
+MODEL="$(az aigateway model-alias list --query "[?contains(properties.supportedEndpoints, '/openai/v1/chat/completions')] | [0].properties.aliasName" -o tsv)"
+test -n "$MODEL" || { echo "No chat completions model alias was found." >&2; exit 1; }
 
 curl -sS "${AI_GATEWAY_URL%/}/default/models/openai/v1/chat/completions" \
   -H "Content-Type: application/json" \
@@ -207,7 +208,10 @@ $ApiKey = az aigateway api-key list-secrets -n $KeyName --query primaryKey -o ts
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($ApiKey)) {
   throw "Failed to retrieve the API key secret."
 }
-$Model = az aigateway model-alias list --query "[0].properties.aliasName" -o tsv
+$Model = az aigateway model-alias list --query "[?contains(properties.supportedEndpoints, '/openai/v1/chat/completions')] | [0].properties.aliasName" -o tsv
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($Model)) {
+  throw "No chat completions model alias was found."
+}
 
 $headers = @{ "api-key" = $ApiKey }
 $body = @{
